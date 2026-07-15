@@ -34,9 +34,19 @@ services:
       - |
         cat <<'EOF' > /etc/caddy/Caddyfile
         expertly.network {
+          tls {
+            issuer acme {
+              disable_tlsalpn_challenge
+            }
+          }
           reverse_proxy frontend:3000
         }
         api.expertly.network {
+          tls {
+            issuer acme {
+              disable_tlsalpn_challenge
+            }
+          }
           reverse_proxy backend:4000
         }
         EOF
