@@ -1,0 +1,50 @@
+services:
+  backend:
+    image: ghcr.io/expertly-network/expertly-backend:latest
+    container_name: expertly-backend
+    restart: unless-stopped
+    environment:
+      - PORT=${BACKEND_PORT:-4000}
+    expose:
+      - "4000"
+
+  frontend:
+    image: ghcr.io/expertly-network/expertly-frontend:latest
+    container_name: expertly-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - PORT=${FRONTEND_PORT:-3000}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    container_name: expertly-caddy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        cat <<'EOF' > /etc/caddy/Caddyfile
+        expertly.network {
+          reverse_proxy frontend:3000
+        }
+        api.expertly.network {
+          reverse_proxy backend:4000
+        }
+        EOF
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
