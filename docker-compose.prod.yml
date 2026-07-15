@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/expertly-network/expertly-backend:latest
+    image: ghcr.io/cibi-m/expertly-backend:latest
     container_name: expertly-backend
     restart: unless-stopped
     environment:
@@ -9,7 +9,7 @@ services:
       - "4000"
 
   frontend:
-    image: ghcr.io/expertly-network/expertly-frontend:latest
+    image: ghcr.io/cibi-m/expertly-frontend:latest
     container_name: expertly-frontend
     restart: unless-stopped
     depends_on:

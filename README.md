@@ -106,16 +106,21 @@ Quick reference for every release:
 1. Push your commit to `main` on `expertly-network/expertly-website`.
 2. Build both production images:
    ```bash
-   docker build -t ghcr.io/expertly-network/expertly-backend:latest ./backend
-   docker build -t ghcr.io/expertly-network/expertly-frontend:latest \
+   docker build -t ghcr.io/cibi-m/expertly-backend:latest ./backend
+   docker build -t ghcr.io/cibi-m/expertly-frontend:latest \
      --build-arg NEXT_PUBLIC_API_URL=https://api.expertly.network \
      ./frontend
    ```
 3. Push both images to GHCR:
    ```bash
-   docker push ghcr.io/expertly-network/expertly-backend:latest
-   docker push ghcr.io/expertly-network/expertly-frontend:latest
+   docker push ghcr.io/cibi-m/expertly-backend:latest
+   docker push ghcr.io/cibi-m/expertly-frontend:latest
    ```
+
+   (Images are published under the `cibi-m` personal namespace, not
+   `expertly-network` — creating a brand-new package under an org's GHCR
+   namespace requires org-member-level rights, which this account doesn't
+   have as a repo-only collaborator.)
 4. Deploy/redeploy `docker-compose.prod.yml` to the VPS (via the
    `hostinger-vps` MCP tool's `VPS_createNewProjectV1`, or manually through
    hPanel) — this pulls the freshly-pushed images and restarts containers.
