@@ -101,30 +101,56 @@ If you change `NEXT_PUBLIC_API_URL` in the root `.env`, re-run with
 Full step-by-step explanation (for newcomers to this flow): see
 [docs/deployment-guide-hostinger.md](docs/deployment-guide-hostinger.md).
 
-Quick reference for every release:
+The app is live at `https://expertly.network` (frontend) and
+`https://api.expertly.network` (backend). DNS and HTTPS certificates are
+already set up and do **not** need to be touched again for routine code
+changes — only the steps below.
 
-1. Push your commit to `main` on `expertly-network/expertly-website`.
-2. Build both production images:
+Every release, in order:
+
+1. Commit and push to `main` on `expertly-network/expertly-website`.
+   (Needs a token with `Contents: write` on this repo — a fine-grained GitHub
+   token scoped to "Public repositories" only cannot push here; use a
+   classic PAT with the `repo` scope.)
+
+2. Build both production images **explicitly for `linux/amd64`** (the VPS's
+   architecture — omitting `--platform` on an Apple Silicon Mac silently
+   produces an `arm64` image that won't run on the server):
    ```bash
-   docker build -t ghcr.io/cibi-m/expertly-backend:latest ./backend
-   docker build -t ghcr.io/cibi-m/expertly-frontend:latest \
+   docker build --platform linux/amd64 -t ghcr.io/cibi-m/expertly-backend:latest ./backend
+   docker build --platform linux/amd64 -t ghcr.io/cibi-m/expertly-frontend:latest \
      --build-arg NEXT_PUBLIC_API_URL=https://api.expertly.network \
      ./frontend
    ```
-3. Push both images to GHCR:
+
+3. Push both images to GHCR (needs a token with `write:packages`):
    ```bash
    docker push ghcr.io/cibi-m/expertly-backend:latest
    docker push ghcr.io/cibi-m/expertly-frontend:latest
    ```
+   (Published under the `cibi-m` personal namespace, not `expertly-network`
+   — creating a new package under an org's GHCR namespace needs org-member
+   rights this account doesn't have as a repo-only collaborator. Both
+   packages are public, so the VPS needs no registry login to pull them.)
 
-   (Images are published under the `cibi-m` personal namespace, not
-   `expertly-network` — creating a brand-new package under an org's GHCR
-   namespace requires org-member-level rights, which this account doesn't
-   have as a repo-only collaborator.)
-4. Deploy/redeploy `docker-compose.prod.yml` to the VPS (via the
-   `hostinger-vps` MCP tool's `VPS_createNewProjectV1`, or manually through
-   hPanel) — this pulls the freshly-pushed images and restarts containers.
-5. Verify `https://expertly.network` and `https://api.expertly.network/health`.
+4. SSH into the VPS and redeploy:
+   ```bash
+   cd /root/expertly-website
+   curl -o docker-compose.prod.yml https://raw.githubusercontent.com/expertly-network/expertly-website/main/docker-compose.prod.yml
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+   This re-pulls the freshly-pushed `:latest` images and recreates whichever
+   container(s) changed. (Hostinger's own Docker/Projects deploy feature is
+   **not** used — it requires a special "Ubuntu with Docker" OS template
+   this VPS isn't running; plain `docker compose` over SSH is the real
+   mechanism.)
+
+5. Verify:
+   ```bash
+   curl https://expertly.network
+   curl https://api.expertly.network/health
+   curl https://api.expertly.network/hello
+   ```
 
 This is a fully manual flow by design — no CI/CD automation exists yet.
 
