@@ -1,23 +1,19 @@
-# Expertly — Full-Stack Test Scaffold
+# Expertly
 
-A minimal Next.js frontend + NestJS backend, each independently dockerized, to
-verify the deployment path to Hostinger (build image → run container) end to
-end. The frontend fetches a live response from the backend on page load,
-proving the two services can actually reach each other — not just that both
-containers boot.
-
-See [docs/superpowers/specs/2026-07-14-fullstack-test-scaffold-design.md](docs/superpowers/specs/2026-07-14-fullstack-test-scaffold-design.md)
-for the full design rationale.
+A Next.js frontend + NestJS backend, each independently dockerized, backed by Supabase Auth.
+See [`CLAUDE.md`](CLAUDE.md) for the full architecture and [`docs/auth.md`](docs/auth.md) for how
+authentication/authorization work.
 
 ## Structure
 
 ```
 expertly-website/
 ├── frontend/   Next.js (App Router, TypeScript, Tailwind CSS)
-└── backend/    NestJS (TypeScript)
+├── backend/    NestJS (TypeScript)
+└── design/     git submodule — UI mockups (expertly-network/expertly-portal-design)
 ```
 
-Each directory is fully independent — its own `package.json`, its own
+Each of `frontend/`/`backend/` is fully independent — its own `package.json`, its own
 `Dockerfile` — matching how they'll be deployed as two separate containers.
 
 ## Prerequisites
@@ -25,6 +21,16 @@ Each directory is fully independent — its own `package.json`, its own
 - Node.js 20+
 - [pnpm](https://pnpm.io/) (`corepack enable` or `npm i -g pnpm`)
 - Docker (only needed for the Docker steps below)
+
+## Getting the code
+
+`design/` is a git submodule, not pulled in by a plain `git clone`:
+
+```bash
+git clone --recurse-submodules https://github.com/expertly-network/expertly-website.git
+# or, if already cloned without that flag:
+git submodule update --init
+```
 
 ## Local development
 
@@ -97,9 +103,6 @@ If you change `NEXT_PUBLIC_API_URL` in the root `.env`, re-run with
 `--build` since it's baked into the frontend at image build time.
 
 ## Deploying to Hostinger
-
-Full step-by-step explanation (for newcomers to this flow): see
-[docs/deployment-guide-hostinger.md](docs/deployment-guide-hostinger.md).
 
 The app is live at `https://expertly.network` (frontend) and
 `https://api.expertly.network` (backend). DNS and HTTPS certificates are
