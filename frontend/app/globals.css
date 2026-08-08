@@ -1,3 +1,36 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Expertly design tokens — default "Neon Mint" palette, ported from the design
+   repo's static_html/assets/theme.css. Keeping these as CSS custom properties
+   (rather than hardcoding hex values into tailwind.config.ts) keeps re-syncing
+   against the design repo a values-only diff. */
+:root {
+  --bg: #ffffff;
+  --bg-alt: #f2fbf7;
+  --bg-card: #ffffff;
+
+  --ink: #0b0b0c;
+  --ink-2: #1e1e20;
+  --ink-3: #5c5c61;
+  --ink-4: #9a9aa0;
+
+  --line: #ececee;
+  --line-2: #dbdbde;
+
+  --accent: #00a582;
+  --accent-2: #00c99e;
+  --neon: #8bfcd8;
+  --ok: #0e9e6e;
+  --nav-green: #0b3a2d;
+}
+
+/* Base body typography — from theme.css's html/body rule. Everything else
+   (headings, labels, captions) is defined as a named Tailwind fontSize in
+   tailwind.config.ts, not here — see docs/design-system.md. */
+body {
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
