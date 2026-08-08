@@ -43,25 +43,39 @@ then commit the new pointer in `expertly-website`) when the design changes.
 - **Frontend (`frontend/`, Next.js)** implements the pages in `design/static_html/`, gates routes
   by role via middleware, and calls the NestJS API + `supabase-js`.
 
-## Database schema & REST API — derive as you build, don't invent upfront
+## Database schema & REST API — a fixed contract, derived once per feature
 
-There is currently no standing ERD/API spec beyond the `profiles` table above. Rather than write
-one large speculative document, derive each table/endpoint from `design/static_html/` at the point
-a feature actually needs it — read every relevant page/script for that feature the way the old ERD
-doc's own methodology described ("read every page/script, infer the real data model"), including
-calling out where the prototype cuts corners (array-index mutation instead of stable ids, etc.)
-rather than reproducing those shortcuts. Write the result into `docs/database-erd.md` /
-`docs/rest-api.md` in **this** repo (create them on first use) and keep them current as each
-feature lands, so the next feature builds on a real, accumulated spec instead of starting cold.
+There is currently no standing ERD/API spec beyond the `profiles` table above. The backend API is
+a **fixed contract**: frontend adapts to it, not the other way around. A UI/visual change should
+never require a backend change; only a genuinely new data requirement does, and that's a deliberate
+decision, not something that happens silently mid-frontend-work.
+
+This means backend and frontend for a new feature area are built in **separate sessions**, in
+order:
+
+1. **Backend session.** Read every relevant page/script in `design/static_html/` for that feature
+   thoroughly — once, comprehensively — the way the old ERD doc's own methodology described ("read
+   every page/script, infer the real data model"), including calling out where the prototype cuts
+   corners (array-index mutation instead of stable ids, etc.) rather than reproducing those
+   shortcuts. Derive the full schema and REST contract from that, write them into
+   `docs/database-erd.md` / `docs/rest-api.md` in **this** repo (create on first use), implement
+   and verify the backend (curl/REST client — no frontend needed to verify a contract). Base path
+   `/v1`; additive changes (new optional field, new endpoint) don't need a version bump, anything
+   actually breaking an existing shape goes to `/v2` rather than silently changing `/v1`.
+2. **Frontend session**, separate, implements pages against that now-fixed contract. If it turns
+   out the UI genuinely needs data the API doesn't provide, that's flagged back explicitly — "the
+   contract needs to extend, here's why" — not patched in ad hoc from within the frontend session.
 
 ## When implementing a feature
 
-1. Check `design/static_html/<page>.html` (+ its assets) for the UI to build.
-2. Check whether `docs/database-erd.md` / `docs/rest-api.md` (this repo, not the design submodule)
-   already cover the table(s)/endpoint(s) this feature needs. If not, derive them from the design
-   now and add them — see above.
+1. Backend: check `design/static_html/<page>.html` (+ assets) for every field/operation the
+   feature needs, derive the full schema + REST contract (§ above), implement, verify without a
+   frontend.
+2. Frontend (separate session): check `docs/database-erd.md` / `docs/rest-api.md` for the already-
+   implemented contract and `design/static_html/<page>.html` for the UI — implement against the
+   contract as given, don't modify it.
 3. Flag anything the prototype leaves ambiguous (conflicting copy, no stated access rule, etc.)
-   rather than guessing.
+   rather than guessing, in whichever session hits it.
 4. Need a new table/schema change? Two migration folders, split by whether the SQL touches
    Supabase's `auth.*` schema (`auth.users`, `auth.uid()`, Auth Hooks) — **`supabase/migrations/`**
    if yes, **`db/migrations/`** if no (plain Postgres, portable). Full test for which one in either
