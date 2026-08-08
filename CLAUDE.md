@@ -61,10 +61,14 @@ order:
    `docs/database-erd.md` / `docs/rest-api.md` in **this** repo (create on first use), implement
    and verify the backend (curl/REST client — no frontend needed to verify a contract). Base path
    `/v1`; additive changes (new optional field, new endpoint) don't need a version bump, anything
-   actually breaking an existing shape goes to `/v2` rather than silently changing `/v1`.
-2. **Frontend session**, separate, implements pages against that now-fixed contract. If it turns
-   out the UI genuinely needs data the API doesn't provide, that's flagged back explicitly — "the
-   contract needs to extend, here's why" — not patched in ad hoc from within the frontend session.
+   actually breaking an existing shape goes to `/v2` rather than silently changing `/v1`. **Also**
+   write the request/response interfaces into `shared-types/<resource>.ts` (see its `README.md`) —
+   this makes the contract compiler-enforced, not just documentation someone has to read carefully.
+2. **Frontend session**, separate, implements pages against that now-fixed contract, importing
+   types from `shared-types/` (`import type` only — see that folder's `README.md` for why) instead
+   of redefining its own copy. If it turns out the UI genuinely needs data the API doesn't provide,
+   that's flagged back explicitly — "the contract needs to extend, here's why" — not patched in ad
+   hoc from within the frontend session.
 
 ## When implementing a feature
 
