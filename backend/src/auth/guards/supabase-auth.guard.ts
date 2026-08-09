@@ -12,9 +12,10 @@ import { verifySupabaseToken } from '../verify-token';
  * Applied globally (see app.module.ts's APP_GUARD provider). Every route
  * requires a valid Supabase bearer token unless marked @Public().
  *
- * Verifies the token's signature locally via SUPABASE_JWT_SECRET — no network
- * call to Supabase Auth, no DB query. Role/name come straight off the token's
- * claims (see verify-token.ts for exactly what's in there and why).
+ * Verifies the token's signature against the project's JWKS (public keys,
+ * fetched once and cached) — no network call to Supabase Auth, no DB query.
+ * Role/name come straight off the token's claims (see verify-token.ts for
+ * exactly what's in there, and why this isn't a shared-secret HS256 check).
  *
  * This trades a small amount of staleness (a role/name change takes up to
  * ~1hr, until the token next refreshes, to take effect here) for removing a
@@ -25,7 +26,7 @@ import { verifySupabaseToken } from '../verify-token';
 export class SupabaseAuthGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -38,13 +39,8 @@ export class SupabaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing bearer token.');
     }
 
-    const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error('Missing SUPABASE_JWT_SECRET env var.');
-    }
-
     try {
-      request.user = verifySupabaseToken(token, jwtSecret);
+      request.user = await verifySupabaseToken(token);
     } catch {
       throw new UnauthorizedException('Invalid or expired session.');
     }

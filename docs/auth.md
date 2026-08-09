@@ -52,9 +52,12 @@ endpoints per `rest-api.md`). Key pieces, so later page-by-page work doesn't red
   `custom_access_token_hook`** under Authentication → Hooks → "Customize Access Token (JWT)
   Claims" — **this one is depended on now** (see below), not optional.
 - **Role/session reads are claim-based, not DB-based**: `frontend/lib/auth/session-claims.ts`'s
-  `getSessionUser()` reads the session cookie and verifies the JWT's signature locally
-  (`SUPABASE_JWT_SECRET`, `lib/auth/verify-token.ts`) — no network call, no DB query — taking
-  `role` off the `app_role` claim and name off Supabase's built-in `user_metadata` claim. This is
+  `getSessionUser()` reads the session cookie and verifies the JWT's signature against the
+  project's JWKS (`lib/auth/verify-token.ts`, `jose`'s `createRemoteJWKSet` — public keys fetched
+  once and cached, not a shared secret; see that file's comments for why a shared-secret HS256
+  check doesn't work here — this project signs tokens with ES256) — no network call per request,
+  no DB query — taking `role` off the `app_role` claim and name off Supabase's built-in
+  `user_metadata` claim. This is
   what nav rendering (`TopNav`), `/login`'s already-signed-in redirect, and `/dashboard` all use.
   Missing/unrecognized `app_role` (hook not yet registered, or a token minted before it was)
   safely defaults to `client` — fails closed. `lib/auth/profile.ts`'s `getCurrentProfile()` is the
@@ -92,8 +95,9 @@ endpoints per `rest-api.md`). Key pieces, so later page-by-page work doesn't red
 - **`SupabaseAuthGuard`** (`guards/supabase-auth.guard.ts`) is registered **globally** via
   `APP_GUARD` in `auth.module.ts` — every route requires a valid `Authorization: Bearer
   <supabase_access_token>` header unless decorated `@Public()`. It verifies the token's signature
-  **locally** (`SUPABASE_JWT_SECRET`, HS256, `verify-token.ts`) — no network call to Supabase
-  Auth, no DB query — and reads `role` off the `app_role` claim (set by the Custom Access Token
+  against the project's JWKS (`verify-token.ts`, `jose`'s `createRemoteJWKSet`, cached — not a
+  shared secret) — no network call to Supabase Auth, no DB query — and reads `role` off the
+  `app_role` claim (set by the Custom Access Token
   Hook — **must be registered in the dashboard**, see "Auth implementation" above) and name off
   `user_metadata`, attaching the result as `request.user`. Missing/unrecognized `app_role` defaults
   to `client` (fails closed).
@@ -110,7 +114,15 @@ endpoints per `rest-api.md`). Key pieces, so later page-by-page work doesn't red
 - **`RolesGuard`** (`guards/roles.guard.ts`) is also global, but only acts on routes carrying
   `@Roles('member' | 'admin')` metadata; runs after `SupabaseAuthGuard` (registration order in
   `auth.module.ts` matters) so `request.user.role` is already populated. Roles are ranked
-  (`types/auth.types.ts`'s `ROLE_RANK`) so `admin` satisfies an `@Roles('member')` check.
+  (`types/auth.types.ts`'s `ROLE_RANK`) so `admin` satisfies an `@Roles('member')` check —
+  **`@Roles()` always means "this role or higher," never "exactly this role."** For an endpoint
+  that must reject even higher-ranked roles (e.g. `POST /v1/applications` — a `member`/`admin`
+  re-applying makes no sense and must be `403`, not silently allowed), don't reach for `@Roles()`;
+  do an explicit `user.role !== 'x'` check in the service instead. Real example:
+  `backend/src/applications/applications.service.ts`'s `create()`. Note the ordering consequence:
+  that check runs inside the controller method, which only executes after `ValidationPipe` accepts
+  the request body — so a wrong-role caller sending a malformed body gets `400`, not `403`. Both
+  correctly reject the request; don't rely on `403` specifically from a body that's also invalid.
 - **`@Public()`**, **`@Roles(...)`**, **`@CurrentUser()`** decorators in `auth/decorators/` — use
   these on every new controller. No route should manually re-check bearer tokens.
 - **🔒 Owner** scoping (e.g. "can only edit your own profile") has no generic guard — it's a
@@ -119,6 +131,7 @@ endpoints per `rest-api.md`). Key pieces, so later page-by-page work doesn't red
 - `backend/src/auth/auth.controller.ts` has three smoke-test routes proving each level:
   `GET /me` (🔑 Auth), `GET /member/ping` (👤 Member), `GET /admin/ping` (🛡️ Admin). Replace/extend
   with real endpoints as rest-api.md's actual routes get built; keep the guard/decorator pattern.
-- Needs `SUPABASE_URL` / `SUPABASE_JWT_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`
-  (the JWT secret and service role key are backend-only — never expose either to the frontend).
-  The app fails fast on boot if any are missing, by design.
+- Needs `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env` (the service role key is
+  backend-only — never expose it to the frontend). No separate JWT secret needed — verification
+  uses the project's public JWKS, derived from `SUPABASE_URL` alone. The app fails fast on boot if
+  `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are missing (via `SupabaseService`'s constructor).

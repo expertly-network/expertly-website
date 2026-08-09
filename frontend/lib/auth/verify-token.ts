@@ -1,7 +1,23 @@
-import jwt from 'jsonwebtoken';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { Profile, Role } from '@/lib/auth/types';
 
 const VALID_ROLES: Role[] = ['client', 'member', 'admin'];
+
+// createRemoteJWKSet caches the fetched public keys in-process (handles
+// rotation internally) — still a "no network call per request" design, just
+// verifying against the project's real public key material instead of a
+// shared secret. See the comment on verifySupabaseToken for why this
+// replaced a jsonwebtoken/HS256 approach.
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+function getJwks() {
+  if (!jwks) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL env var.');
+    jwks = createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`));
+  }
+  return jwks;
+}
 
 interface SupabaseJwtPayload {
   sub: string;
@@ -14,29 +30,34 @@ interface SupabaseJwtPayload {
 }
 
 /**
- * Verifies a Supabase access token's signature locally (HS256, the project's
- * JWT secret) — no round-trip to Supabase Auth. Mirrors
- * backend/src/auth/verify-token.ts; see CLAUDE.md for the full rationale
- * (fast path everywhere, DB re-check reserved for sensitive backend actions).
+ * Verifies a Supabase access token's signature against the project's JWKS
+ * (public keys, fetched once and cached — no round-trip to Supabase Auth).
+ * Mirrors backend/src/auth/verify-token.ts; see CLAUDE.md for the full
+ * rationale (fast path everywhere, DB re-check reserved for sensitive
+ * backend actions).
+ *
+ * Originally implemented against a shared HS256 secret — discovered wrong
+ * the first time this was tested against a real project: Supabase's modern
+ * default is asymmetric signing (this project uses ES256), which a
+ * shared-secret check can never verify. JWKS verification works with
+ * whatever algorithm the project actually uses.
  *
  * `app_role` is only present once the Custom Access Token Hook is registered
  * in the Supabase dashboard; missing/unrecognized claims safely default to
  * 'client' — the lowest-privilege role (fails closed, not open).
  */
-export function verifySupabaseToken(token: string, jwtSecret: string): Profile {
-  const payload = jwt.verify(token, jwtSecret, {
-    algorithms: ['HS256'],
-    audience: 'authenticated',
-  }) as SupabaseJwtPayload;
+export async function verifySupabaseToken(token: string): Promise<Profile> {
+  const { payload } = await jwtVerify(token, getJwks(), { audience: 'authenticated' });
+  const claims = payload as unknown as SupabaseJwtPayload;
 
-  const claimedRole = payload.app_role;
+  const claimedRole = claims.app_role;
   const role: Role = VALID_ROLES.includes(claimedRole as Role) ? (claimedRole as Role) : 'client';
 
   return {
-    id: payload.sub,
-    email: payload.email,
+    id: claims.sub,
+    email: claims.email,
     role,
-    first_name: payload.user_metadata?.first_name ?? '',
-    last_name: payload.user_metadata?.last_name ?? '',
+    first_name: claims.user_metadata?.first_name ?? '',
+    last_name: claims.user_metadata?.last_name ?? '',
   };
 }

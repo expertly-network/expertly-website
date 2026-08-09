@@ -22,13 +22,8 @@ export const getSessionUser = cache(async (): Promise<Profile | null> => {
   } = await supabase.auth.getSession();
   if (!session) return null;
 
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-  if (!jwtSecret) {
-    throw new Error('Missing SUPABASE_JWT_SECRET env var.');
-  }
-
   try {
-    return verifySupabaseToken(session.access_token, jwtSecret);
+    return await verifySupabaseToken(session.access_token);
   } catch {
     return null;
   }

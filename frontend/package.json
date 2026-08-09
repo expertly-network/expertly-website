@@ -11,13 +11,12 @@
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.2",
     "geist": "^1.7.2",
-    "jsonwebtoken": "^9.0.3",
+    "jose": "^6.2.8",
     "next": "14.2.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.17.10",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
