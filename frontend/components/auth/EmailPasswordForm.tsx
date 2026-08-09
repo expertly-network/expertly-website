@@ -51,20 +51,27 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <ErrorBanner message={error} />
 
+      {/* Not `required` — this single form/button handles both sign-in and
+          sign-up (continueWithEmail tries sign-in first, falls back to
+          sign-up), and name fields are irrelevant to a plain sign-in. Native
+          HTML5 validation can't know which case applies ahead of time, so
+          marking these required silently blocked every sign-in attempt where
+          a returning user (correctly) left them blank — no visible error,
+          just a form that refused to submit. Missing names on an actual
+          signup are harmless: profiles.first_name/last_name fall back to ''
+          via the DB trigger, same as any OAuth provider that omits them. */}
       <div className="grid grid-cols-2 gap-4">
         <FormField
           label="First name"
           name="firstName"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
-          required
         />
         <FormField
           label="Last name"
           name="lastName"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          required
         />
       </div>
 
