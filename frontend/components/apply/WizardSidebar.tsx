@@ -1,0 +1,63 @@
+const STEPS = [
+  { num: 1, label: 'LinkedIn Import' },
+  { num: 2, label: 'Your Identity' },
+  { num: 3, label: 'Background' },
+  { num: 4, label: 'Services & Rates' },
+  { num: 5, label: 'Review & Submit' },
+];
+
+export function WizardSidebar({
+  currentStep,
+  onStepClick,
+}: {
+  currentStep: number;
+  onStepClick: (step: number) => void;
+}) {
+  return (
+    <aside className="flex flex-col border-r border-line px-8 py-12 max-[900px]:border-b max-[900px]:border-r-0 max-[900px]:px-5 max-[900px]:py-8">
+      <span className="text-eyebrow text-ink-3">Membership application</span>
+      <h1 className="mt-4 text-headline">
+        Let&apos;s build your <em className="font-normal not-italic text-accent">profile.</em>
+      </h1>
+      <p className="mt-4 text-sm leading-relaxed text-ink-3">
+        Complete the questions below. Once approved, this information will display on your public
+        directory listing.
+      </p>
+
+      <div className="mt-9 flex flex-col gap-1">
+        {STEPS.map((step) => {
+          const isActive = step.num === currentStep;
+          const isDone = step.num < currentStep;
+          return (
+            <button
+              key={step.num}
+              type="button"
+              onClick={() => isDone && onStepClick(step.num)}
+              disabled={!isDone}
+              className={`flex items-center gap-3.5 rounded-[10px] px-3.5 py-3 text-sm transition-colors ${
+                isActive
+                  ? 'bg-bg-alt font-medium text-ink'
+                  : isDone
+                    ? 'cursor-pointer text-ok hover:bg-bg-alt'
+                    : 'cursor-default text-ink-3'
+              }`}
+            >
+              <span
+                className={`flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border text-xs ${
+                  isActive
+                    ? 'border-ink bg-ink text-bg'
+                    : isDone
+                      ? 'border-ok bg-ok text-white'
+                      : 'border-line bg-bg'
+                }`}
+              >
+                {isDone ? '✓' : step.num}
+              </span>
+              {step.label}
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}

@@ -14,7 +14,7 @@ export function BackendConnectivityCheck() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/hello`)
+    fetch(`${API_URL}/v1/hello`)
       .then((res) => {
         if (!res.ok) throw new Error(`Backend responded with ${res.status}`);
         return res.json();
