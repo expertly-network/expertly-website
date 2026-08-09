@@ -5,7 +5,8 @@ or implement a Supabase Auth Hook) — they only run against a Supabase project,
 
 For everything else — this app's own tables that don't touch Supabase's auth schema — see
 [`../../db/migrations/`](../../db/migrations/), including the exact test for which folder a new
-migration belongs in.
+migration belongs in (and a documented refinement: a table's *later* alterations stay in whichever
+folder it was originally created in, even if a given alteration itself doesn't touch `auth.*`).
 
 Applied manually (Supabase SQL Editor, or `supabase db push` if you adopt the Supabase CLI — this
 folder's name/location already matches its expected convention) in filename order.

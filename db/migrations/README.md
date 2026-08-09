@@ -24,6 +24,17 @@ Hook signature anywhere in its SQL?
   an ordinary FK to a table *we* own, not a Supabase-specific construct. `profiles` itself being
   Supabase-coupled doesn't make everything that references it coupled too.
 
+**One refinement, learned from a real case:** this test is for where a table's migration *history*
+starts, not a mechanical re-check on every later change to it. If a table already lives in
+`supabase/migrations/` (because it was created there, possibly just bundled into the same logical
+change as something that genuinely needed `auth.*`), a later migration that only alters *that*
+table stays in the same folder — don't fragment one table's schema history across both folders just
+because the alteration itself happens not to reference `auth.*`. Example:
+`supabase/migrations/0003_practice_area_categories.sql` alters `practice_areas` (created in
+`0002_membership_applications.sql`) and touches no `auth.*` at all, but stays in
+`supabase/migrations/` rather than starting a new, confusingly-numbered `db/migrations/0001` for a
+table that already exists elsewhere.
+
 ## Applying
 
 No tooling wired up yet (no ORM, no migration runner) — same manual-apply convention as

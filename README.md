@@ -151,15 +151,18 @@ Every release, in order:
 5. Verify:
    ```bash
    curl https://expertly.network
-   curl https://api.expertly.network/health
-   curl https://api.expertly.network/hello
+   curl https://api.expertly.network/v1/health
+   curl https://api.expertly.network/v1/hello
    ```
 
 This is a fully manual flow by design — no CI/CD automation exists yet.
 
 ## API Endpoints (backend)
 
-| Method | Path      | Response                                |
-|--------|-----------|------------------------------------------|
-| GET    | `/health` | `{ status: "ok", uptime: <seconds> }`    |
-| GET    | `/hello`  | `{ message: string, timestamp: string }` |
+All routes are under a `/v1` prefix. See [`docs/rest-api.md`](docs/rest-api.md) for the full,
+current contract.
+
+| Method | Path         | Response                                |
+|--------|--------------|-------------------------------------------|
+| GET    | `/v1/health` | `{ status: "ok", uptime: <seconds> }`    |
+| GET    | `/v1/hello`  | `{ message: string, timestamp: string }` |
