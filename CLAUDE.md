@@ -4,8 +4,9 @@ Expertly is a membership platform connecting clients with vetted expert members 
 peer-to-peer connect, articles, events, perks/templates/learnings, tiered membership & billing).
 Three roles: `client` (public signup), `member` (vetted expert, application-gated), `admin`.
 
-This repo (`expertly-website`) is the **implementation**: `frontend/` (Next.js App Router,
-TypeScript, Tailwind) + `backend/` (NestJS). See root `README.md` for local dev / Docker / deploy.
+This repo (`expertly-website`) is the **implementation**: `apps/frontend/` (Next.js App Router,
+TypeScript, Tailwind) + `apps/backend/` (NestJS). See root `README.md` for local dev / Docker /
+deploy.
 
 ## Design source of truth
 
@@ -29,19 +30,24 @@ then commit the new pointer in `expertly-website`) when the design changes.
 - **Auth: Supabase Auth (hybrid).** Supabase/GoTrue owns `auth.users`, credentials, sessions,
   OAuth. This repo owns exactly one extension table, `public.profiles` (role, name, avatar) — this
   part is already implemented (`supabase/migrations/0001_profiles_and_auth.sql`,
-  `backend/src/auth/`), not something to re-derive. No custom `/auth/*` endpoints — the frontend
-  calls `supabase-js` directly.
+  `apps/backend/src/auth/`), not something to re-derive. No custom `/auth/*` endpoints — the
+  frontend calls `supabase-js` directly.
 - **Role claim:** `app_role` is set via a Custom Access Token Hook / `profiles` lookup, never
   client-writable. Both frontend and backend verify the Supabase JWT locally (no per-request
   network/DB call) and read `app_role` off it for the common case, re-checking `profiles.role`
   fresh from the DB only for 🛡️ Admin routes and other destructive actions. **See
   [`docs/auth.md`](docs/auth.md) for the full flow, file map, and manual Supabase-dashboard
   steps** — read it before touching any auth-related code.
-- **Backend (`backend/`, NestJS)** is a REST API layer in front of Postgres — the primary
+- **Backend (`apps/backend/`, NestJS)** is a REST API layer in front of Postgres — the primary
   interface; Supabase's auto-generated PostgREST API is not exposed directly, and RLS is
   defense-in-depth rather than the main authorization mechanism.
-- **Frontend (`frontend/`, Next.js)** implements the pages in `design/static_html/`, gates routes
-  by role via middleware, and calls the NestJS API + `supabase-js`.
+- **Frontend (`apps/frontend/`, Next.js)** implements the pages in `design/static_html/`, gates
+  routes by role via middleware, and calls the NestJS API + `supabase-js`.
+- **Tooling: pnpm workspace + Turborepo.** `apps/backend/`, `apps/frontend/`,
+  `packages/shared-types/` are workspace members under one root `pnpm-lock.yaml` — install once at
+  the repo root (`pnpm install`), not per folder. `pnpm dev` / `pnpm build` / `pnpm typecheck` run
+  Turbo across all three; use `pnpm --filter ./apps/backend <script>` / `pnpm --filter
+  ./apps/frontend <script>` to target just one.
 
 ## Database schema & REST API — a fixed contract, derived once per feature
 
@@ -62,13 +68,14 @@ order:
    and verify the backend (curl/REST client — no frontend needed to verify a contract). Base path
    `/v1`; additive changes (new optional field, new endpoint) don't need a version bump, anything
    actually breaking an existing shape goes to `/v2` rather than silently changing `/v1`. **Also**
-   write the request/response interfaces into `shared-types/<resource>.ts` (see its `README.md`) —
-   this makes the contract compiler-enforced, not just documentation someone has to read carefully.
+   write the request/response interfaces into `packages/shared-types/<resource>.ts` (see its
+   `README.md`) — this makes the contract compiler-enforced, not just documentation someone has to
+   read carefully.
 2. **Frontend session**, separate, implements pages against that now-fixed contract, importing
-   types from `shared-types/` (`import type` only — see that folder's `README.md` for why) instead
-   of redefining its own copy. If it turns out the UI genuinely needs data the API doesn't provide,
-   that's flagged back explicitly — "the contract needs to extend, here's why" — not patched in ad
-   hoc from within the frontend session.
+   types from `packages/shared-types/` (`import type` only — see that folder's `README.md` for
+   why) instead of redefining its own copy. If it turns out the UI genuinely needs data the API
+   doesn't provide, that's flagged back explicitly — "the contract needs to extend, here's why" —
+   not patched in ad hoc from within the frontend session.
 
 ## When implementing a feature
 
@@ -80,7 +87,5 @@ order:
    contract as given, don't modify it.
 3. Flag anything the prototype leaves ambiguous (conflicting copy, no stated access rule, etc.)
    rather than guessing, in whichever session hits it.
-4. Need a new table/schema change? Two migration folders, split by whether the SQL touches
-   Supabase's `auth.*` schema (`auth.users`, `auth.uid()`, Auth Hooks) — **`supabase/migrations/`**
-   if yes, **`db/migrations/`** if no (plain Postgres, portable). Full test for which one in either
-   folder's `README.md`.
+4. Need a new table/schema change? It goes in **`supabase/migrations/`** — see that folder's
+   `README.md` for the numbering/apply convention.

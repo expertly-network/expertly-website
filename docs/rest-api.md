@@ -15,9 +15,9 @@ version bump; anything that changes an existing shape goes to `/v2`.
 
 ## Membership applications
 
-Backing `backend/src/applications/`, `backend/src/practice-areas/`. Schema:
-`docs/database-erd.md`. Shared types: `shared-types/membership-application.ts`,
-`shared-types/practice-area.ts`.
+Backing `apps/backend/src/applications/`, `apps/backend/src/practice-areas/`. Schema:
+`docs/database-erd.md`. Shared types: `packages/shared-types/membership-application.ts`,
+`packages/shared-types/practice-area.ts`.
 
 ### 🌐 `GET /v1/practice-areas`
 
@@ -41,8 +41,8 @@ controller method (and this role check) ever runs, so a malformed body from a no
 surfaces as `400` first, not `403`. Not a security issue — both outcomes correctly reject the
 request — just don't rely on `403` from a wrong-role request that also happens to be malformed.
 
-**Request:** `CreateApplicationRequest` (see `shared-types/membership-application.ts` for the
-full shape). Notably:
+**Request:** `CreateApplicationRequest` (see `packages/shared-types/membership-application.ts` for
+the full shape). Notably:
 - `servicePreferences[].practiceAreaId` is validated against a live `practice_areas` query before
   insert — the DB has no FK to catch an invalid id (a deliberate trade-off, see
   `docs/database-erd.md`), so this endpoint is the only thing enforcing it. Do not bypass this
@@ -51,11 +51,11 @@ full shape). Notably:
   `status`, `applicantId` are **never accepted from the client** — sending them is rejected
   outright (`forbidNonWhitelisted`), confirmed by test. All computed server-side:
   - `selectedTier`: `yearsOfExperience > 12 → seasoned_professional`, else `budding_entrepreneur`
-    (`backend/src/applications/constants/pricing.ts`).
+    (`apps/backend/src/applications/constants/pricing.ts`).
   - `listPriceCents`: flat `$499/year` or `$49/month` regardless of tier — confirmed against
     `design/static_html/membership.html`, which shows no tier-based pricing.
   - `couponCode` (optional, free text) is checked against a small hardcoded map
-    (`backend/src/applications/constants/coupons.ts`) — no `coupons` table exists (see
+    (`apps/backend/src/applications/constants/coupons.ts`) — no `coupons` table exists (see
     `docs/database-erd.md`). An unrecognized code is rejected with `400`, not silently ignored.
   - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`. `paid` is
     reserved for whenever a real payment gateway is integrated — unreachable today.

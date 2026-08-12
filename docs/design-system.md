@@ -12,10 +12,10 @@ be), then use it — don't reach for an arbitrary `text-[17px]` or `#00A582` inl
 
 | What | Source of truth | Consumed via |
 |---|---|---|
-| Colors | CSS custom properties in `frontend/app/globals.css` | Tailwind utilities (`bg-accent`, `text-ink-3`, …) via `tailwind.config.ts` |
-| Fonts | `frontend/app/layout.tsx` (loads Geist + Archivo, exposes as CSS vars) | `font-sans` (Geist, default body) / `font-mono` (Archivo, labels) |
-| Type scale (size/line-height/letter-spacing/weight) | `frontend/tailwind.config.ts` → `theme.extend.fontSize` | `text-heading`, `text-eyebrow`, etc. — see table below |
-| Radii | `frontend/tailwind.config.ts` → `theme.extend.borderRadius` | `rounded-input` (10px), `rounded-card` (20px); everything else uses Tailwind's defaults (see below) |
+| Colors | CSS custom properties in `apps/frontend/app/globals.css` | Tailwind utilities (`bg-accent`, `text-ink-3`, …) via `tailwind.config.ts` |
+| Fonts | `apps/frontend/app/layout.tsx` (loads Geist + Archivo, exposes as CSS vars) | `font-sans` (Geist, default body) / `font-mono` (Archivo, labels) |
+| Type scale (size/line-height/letter-spacing/weight) | `apps/frontend/tailwind.config.ts` → `theme.extend.fontSize` | `text-heading`, `text-eyebrow`, etc. — see table below |
+| Radii | `apps/frontend/tailwind.config.ts` → `theme.extend.borderRadius` | `rounded-input` (10px), `rounded-card` (20px); everything else uses Tailwind's defaults (see below) |
 
 Colors are CSS variables (not hardcoded into `tailwind.config.ts`) specifically so re-syncing
 against the design repo, or swapping a value at runtime, is a one-line diff in `globals.css`.
@@ -108,7 +108,7 @@ Tailwind's own default scale, which already lines up with the design's values: `
 
 ## Changing something
 
-- **A color, anywhere it's used** → edit the CSS variable in `frontend/app/globals.css`.
+- **A color, anywhere it's used** → edit the CSS variable in `apps/frontend/app/globals.css`.
 - **A type size/weight/spacing, anywhere it's used** → edit the entry in `tailwind.config.ts`'s
   `fontSize`.
 - **Adding a genuinely new, recurring size or color** → add it to the relevant table above *and*

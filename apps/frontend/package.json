@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -17,6 +18,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@expertly/shared-types": "workspace:*",
     "@types/node": "^20.17.10",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",

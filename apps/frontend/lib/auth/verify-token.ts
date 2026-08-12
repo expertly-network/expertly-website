@@ -32,7 +32,7 @@ interface SupabaseJwtPayload {
 /**
  * Verifies a Supabase access token's signature against the project's JWKS
  * (public keys, fetched once and cached — no round-trip to Supabase Auth).
- * Mirrors backend/src/auth/verify-token.ts; see CLAUDE.md for the full
+ * Mirrors apps/backend/src/auth/verify-token.ts; see CLAUDE.md for the full
  * rationale (fast path everywhere, DB re-check reserved for sensitive
  * backend actions).
  *

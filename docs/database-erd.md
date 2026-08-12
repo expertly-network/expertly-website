@@ -129,10 +129,6 @@ a genuinely region-specific practice area is added later.
   logic, not a DB-backed lookup — simplest thing that works for "show a code, zero the amount," no
   admin UI exists to manage a real coupons table yet anyway. Revisit if/when coupons need to be
   admin-manageable.
-- **This migration lives in `supabase/migrations/`, not `db/migrations/`** — its RLS policies use
-  `auth.uid()`, which per `db/migrations/README.md`'s own test makes it Supabase-coupled, even
-  though every FK just targets `profiles.id` (a table we own). Consistent with that folder split's
-  documented rule.
 - **`country` is free text**, matching the design's fixed-but-not-database-backed option list —
   not normalized into its own table for this feature; revisit if a future feature needs to query/
   filter by country as a first-class entity.

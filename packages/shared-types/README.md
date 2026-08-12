@@ -16,7 +16,7 @@ at compile time by TypeScript itself — no runtime `require`/`import` is ever e
 works identically on both sides regardless of their different bundlers. A regular `import` (not
 `import type`) of something from here would silently break the backend build (NestJS's `tsc` step
 does not rewrite path aliases in emitted JS — confirmed the hard way earlier in this project; see
-git history around `frontend/tsconfig.json`'s own `@/*` alias for the same issue). If you need a
+git history around `apps/frontend/tsconfig.json`'s own `@/*` alias for the same issue). If you need a
 runtime value shared between apps (a constant, an enum with real values), it does not belong here —
 duplicate it deliberately on each side, or raise it as a separate discussion.
 
@@ -26,5 +26,5 @@ One file per resource, named after it (e.g. `member.ts`, `consultation-request.t
 exporting the DTOs for that resource's endpoints (e.g. `MemberDto`, `MemberListResponse`,
 `CreateMemberRequest`). Re-exported from `index.ts`.
 
-Currently empty — no feature has defined a contract yet. The first backend session to finalize one
-(per `CLAUDE.md`'s backend/frontend split) adds the first file here.
+A backend session finalizing a new endpoint's contract (per `CLAUDE.md`'s backend/frontend split)
+adds the corresponding file here.
