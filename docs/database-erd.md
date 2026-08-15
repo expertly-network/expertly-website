@@ -5,21 +5,14 @@ convention — not a speculative upfront spec. Grows as each feature's backend s
 
 ## Identity & Auth
 
-See `supabase/migrations/0001_profiles_and_auth.sql` and [`docs/auth.md`](auth.md) — `profiles`
+See `supabase/migrations/0001_initial_schema.sql` and [`docs/auth.md`](auth.md) — `profiles`
 table, `role` enum (`client`/`member`/`admin`), Supabase Auth integration.
 
-**Bug fix, `supabase/migrations/0004_fix_oauth_name_backfill.sql`**: `handle_new_user()` only read
-`raw_user_meta_data`'s `first_name`/`last_name` keys — correct for our own `signUp()` call, but
-LinkedIn OAuth users never have those keys; Supabase's LinkedIn OIDC integration populates
-`given_name`/`family_name` instead (the real OIDC claim names). Every actual LinkedIn signup got
-silently empty name fields. Only discovered once a real LinkedIn-signed-up user existed to check
-against when applying these migrations to a live project — the original migration's own testing
-only used hand-crafted metadata containing `first_name`/`last_name`, which never exercised this
-path. Fixed to `coalesce()` both key pairs; verified against both shapes (plus a bare `{}` case)
-before being applied to the real project, where the one pre-existing affected user was also
-backfilled.
+`handle_new_user()` reads both our own `signUp()` metadata keys (`first_name`/`last_name`) and the
+OIDC standard claim names LinkedIn's integration actually populates (`given_name`/`family_name`),
+so both signup paths populate real names instead of silently leaving LinkedIn signups blank.
 
-## Membership applications (`supabase/migrations/0002_membership_applications.sql`)
+## Membership applications (`supabase/migrations/0001_initial_schema.sql`)
 
 **Source:** `design/static_html/apply.html` and `onboarding_form.html` (two UI iterations of the
 identical 5-step wizard — LinkedIn Import → Identity → Background → Services & Rates → Review &
@@ -98,8 +91,8 @@ the frontend's dropdown options) has something to check against.
 
 ### `practice_areas`
 
-`id`, `name` (unique), `is_active`, `category` (added in
-`supabase/migrations/0003_practice_area_categories.sql`). Seeded with the 12 real practice areas
+`id`, `name` (unique), `is_active`, `category` (`supabase/migrations/0001_initial_schema.sql`).
+Seeded with the 12 real practice areas
 from `design/static_html/assets/members.js`'s `EXPERTLY_PRACTICE_AREAS` (M&A Tax, Transfer
 Pricing, Corporate Law, Capital Markets, IP & Technology, Banking & Finance, Dispute Resolution,
 Private Equity, Antitrust, Restructuring, Indirect Tax, Compliance). Will also back the future
@@ -138,6 +131,79 @@ a genuinely region-specific practice area is added later.
   `rate_max > rate_min` check constraint correctly rejects invalid data, and every
   `jsonb_typeof(...) = 'array'` check correctly rejects malformed (non-array) JSON on every JSONB
   column, including `service_preferences`.
+
+## Articles (`supabase/migrations/0001_initial_schema.sql`)
+
+**Source:** `design/static_html/articles.html` (browse grid + write flow), `article.html` (detail
+page), `admin-dashboard.html`'s article panels, and `assets/admin-data.js`/`article-engagement.js`
+— read in full, not spot-checked, per this doc's own methodology.
+
+**Flow:** a signed-in `member` (or `admin`) writes an article; it's `published` immediately — no
+editorial review queue this iteration (the prototype's `pending → published/rejected` admin
+approval workflow was explicitly considered and deferred, not overlooked). Owner or admin can
+later flip `status` back to `draft` (self-service unpublish) via `PATCH`.
+
+### `articles`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `author_id` | uuid FK → `profiles.id` | |
+| `status` | enum `draft`\|`published` | default `draft`; `POST` always creates `published` |
+| `title` | text | |
+| `body` | text | full article content |
+| `excerpt` | text | **always server-derived** from `body` (truncated to ~200 chars on a word boundary) — never accepted from the client |
+| `read_time_minutes` | smallint | **always server-derived** from `body`'s word count (`words / 200`, min 1) |
+| `cover_image_url` | text | |
+| `practice_area_ids` | uuid[], default `{}` | see below — not a join table, same trade-off as `service_preferences` |
+| `country` | text NOT NULL | |
+| `state` | text | optional |
+| `created_at`, `updated_at` | timestamptz | |
+
+**`practice_area_ids` is a native array, not a join table** — the write form's practice-area picker
+is genuinely multi-select against the same 12-item taxonomy already in `practice_areas` (the
+browse grid's single `category` string is a *display* convenience in the prototype, joining
+multiple selections with commas — not the real relationship, so the real schema doesn't reproduce
+it). Same load-bearing trade-off as `membership_applications.service_preferences`: no FK (arrays
+can't reference a table), so **every write path must validate each id against a live,
+`is_active`-filtered `practice_areas` query before insert/update** — there is no CASCADE/RESTRICT
+safety net. Unlike the write path, *reading* an article's practice areas back deliberately does
+**not** filter by `is_active` — an already-published article should keep showing the real name of
+a practice area even if it's since been deactivated.
+
+### Design decisions — divergences from the static prototype
+
+These are deliberate product decisions made explicitly with the person who commissioned this
+feature, not derived from (and in one case directly contradicting) what the static HTML shows:
+
+- **Reading a single article's full body requires being signed in** (any of the 3 roles) — checked
+  `article.html`'s JS directly and confirmed it actually renders full content unconditionally,
+  regardless of session state, in the prototype. The real backend gates `GET /v1/articles/:id`
+  behind auth anyway; the browse grid (`GET /v1/articles`, list-only, no body) stays public,
+  matching the prototype.
+- **No editorial review queue.** The prototype models `pending`/`rejected` states with an admin
+  moderation table; this session intentionally ships plain ownership-scoped CRUD instead
+  (`draft`/`published` only, no queue) — same kind of explicit deferral as membership applications'
+  admin-review endpoint (see above).
+- **Body content, `country`, and `state` are actually persisted.** The prototype's own
+  member-submission flow silently drops all three after the preview screen (a bug in the static
+  build, not a design choice) — confirmed by reading its `pendingSubmission` object shape directly.
+- **Mutations are keyed by the article's UUID**, not array index (the prototype mutates
+  `expertly_my_submissions` by raw array position).
+- **`author_id` is a real FK, checked against the authenticated session on every read/write.** The
+  prototype hardcodes "current user" to the first seed member for its "My Articles" view — there is
+  no real ownership check anywhere in the static build to derive one from.
+
+### Not built yet (explicitly deferred)
+
+- Admin moderation/review queue (`pending`/`rejected` states, approve/reject actions) — see above.
+- Tags — suggested in the write-flow UI, never actually persisted in the prototype.
+- AI-generated summary bullet points — a static per-category lookup table in the prototype, not
+  real per-article data.
+- View/like/comment counters — anonymous, `localStorage`-based in the prototype, unrelated to any
+  account; a plausible separate future feature, not part of this CRUD-with-ownership contract.
+- Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
+  over the full published set).
 
 ## Target `member_profiles` shape (design reference only — not migrated yet)
 
