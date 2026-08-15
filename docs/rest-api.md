@@ -78,7 +78,7 @@ never accepts an id param, so there's no cross-user access surface.
 
 **Response `200`:** `ApplicationDto`. **`404`** if the caller has no application.
 
-## Not built yet (explicitly deferred)
+## Membership applications — not built yet (explicitly deferred)
 
 - Admin review (`PATCH /v1/applications/:id` approve/reject) — `reviewed_by`/`reviewed_at`/
   `rejection_reason` columns exist on `membership_applications` for this, but no endpoint writes
@@ -87,3 +87,87 @@ never accepts an id param, so there's no cross-user access surface.
   on the admin review endpoint above.
 - Member directory (`GET /v1/members`, `GET /v1/members/:id`) — separate future backend session.
 - Real payment gateway integration — `payment_status='paid'` is modeled but unreachable.
+
+## Articles
+
+Backing `apps/backend/src/articles/`. Schema: `docs/database-erd.md`. Shared types:
+`packages/shared-types/article.ts`.
+
+### 🌐 `GET /v1/articles`
+
+The browse grid — published articles only, list shape (no `body`).
+
+**Response `200`:** `ArticleListItemDto[]`, newest first.
+
+### 🔒 `GET /v1/articles/mine`
+
+The caller's own articles, any status (`draft` included). Empty array if none — not a `404`, since
+this is a list endpoint, unlike `GET /v1/applications/me`.
+
+**Response `200`:** `ArticleListItemDto[]`, newest first.
+
+### 🔑 `GET /v1/articles/:id`
+
+Full article detail, including `body`. Requires being signed in (any role) — **a deliberate product
+decision, not something the static prototype itself enforces**; see
+`docs/database-erd.md`'s "Design decisions" note for the full reasoning.
+
+If the article's `status` is `draft`, only its own author or an `admin` can read it — everyone else
+gets **`404`, not `403`**, so a non-owner can't distinguish "doesn't exist" from "exists but isn't
+published yet."
+
+**Response `200`:** `ArticleDto`. **Errors:** `401` no/invalid token · `404` not found, or a draft
+the caller can't see.
+
+### `member` `POST /v1/articles`
+
+Creates and immediately publishes an article. `@Roles('member')` — `admin` passes too via
+`RolesGuard`'s ranked model (admin rank ≥ member rank); `client` is rejected. Unlike
+`POST /v1/applications`, this doesn't need an exact-role check — "member or admin" fits the ranked
+model directly.
+
+**Request:** `CreateArticleRequest` (see `packages/shared-types/article.ts`). Notably:
+- `authorId` is never accepted from the client — always the caller's own id.
+- `status` is never accepted — always created as `published`.
+- `excerpt`, `readTimeMinutes` are never accepted — always server-derived from `body`.
+- `body` must be 800–2000 words (from the design's own "Write it yourself" validation copy),
+  checked in `ArticlesService`, not expressible as a class-validator decorator for a single field.
+- `practiceAreaIds` validated against a live, `is_active`-filtered `practice_areas` query before
+  insert — same load-bearing check as applications' `servicePreferences`; see
+  `docs/database-erd.md`.
+
+**Response `201`:** `ArticleDto`. **Errors:** `401` no/invalid token · `403` client account · `400`
+validation failure (malformed body, word count out of range, invalid/inactive practice area id).
+
+### 🔒 `PATCH /v1/articles/:id`
+
+Partial update. `@Roles('member')` rejects `client` at the guard layer; a finer-grained check in
+`ArticlesService` then requires the caller be the article's own author **or** `admin` — anyone else
+gets `403`. Owner or admin may also change `status` between `draft`/`published` here (self-service
+unpublish/republish) — there's no separate moderation endpoint, since this session doesn't build an
+admin review queue (see `docs/database-erd.md`).
+
+**Request:** `UpdateArticleRequest` — all fields optional; only provided fields change. `body`,
+`practiceAreaIds` re-validated the same way as `POST` if present; `excerpt`/`readTimeMinutes`
+re-derived if `body` changes.
+
+**Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not the owner and not admin · `404` not
+found · `400` validation failure.
+
+### 🔒 `DELETE /v1/articles/:id`
+
+Same owner-or-admin check as `PATCH`.
+
+**Response `204`.** **Errors:** `401` · `403` not the owner and not admin · `404` not found.
+
+## Articles — not built yet (explicitly deferred)
+
+- Admin moderation/review queue (`pending`/`rejected` states, approve/reject actions) — the
+  prototype models this; this session ships plain ownership-scoped CRUD instead. See
+  `docs/database-erd.md`.
+- Tags, AI-generated summary bullet points, view/like/comment counters — none of these are real
+  per-article data in the prototype (tags are suggested-but-never-saved, summary points are a
+  static per-category lookup, engagement is anonymous `localStorage` state) — out of scope for a
+  CRUD-with-ownership contract.
+- `category`/`country` query-param filtering on `GET /v1/articles` — the prototype filters
+  client-side over the full published set; not built server-side yet.
