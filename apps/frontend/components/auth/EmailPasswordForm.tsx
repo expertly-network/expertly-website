@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { FormField } from '@/components/auth/FormField';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { continueWithEmail } from '@/lib/auth/continue-with-email';
 
@@ -61,13 +62,13 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
           signup are harmless: profiles.first_name/last_name fall back to ''
           via the DB trigger, same as any OAuth provider that omits them. */}
       <div className="grid grid-cols-2 gap-4">
-        <FormField
+        <Input
           label="First name"
           name="firstName"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
         />
-        <FormField
+        <Input
           label="Last name"
           name="lastName"
           value={lastName}
@@ -75,7 +76,7 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
         />
       </div>
 
-      <FormField
+      <Input
         label="Work email"
         name="email"
         type="email"
@@ -85,7 +86,7 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
         required
       />
 
-      <FormField
+      <Input
         label="Password"
         labelRight={
           <a href="/forgot-password" className="text-xs font-medium text-accent">
@@ -101,14 +102,10 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
         required
       />
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="mt-1 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[10px] bg-ink text-sm font-medium text-bg transition-colors hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <Button type="submit" disabled={submitting} fullWidth className="mt-1">
         {submitting ? 'Please wait…' : 'Continue'}
         {!submitting && <span aria-hidden="true">→</span>}
-      </button>
+      </Button>
     </form>
   );
 }

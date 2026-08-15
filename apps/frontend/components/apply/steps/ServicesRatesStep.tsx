@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { FormField } from '@/components/auth/FormField';
-import { SelectField } from '@/components/apply/SelectField';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { StepActions } from '@/components/apply/StepActions';
 import type { WizardFormState } from '@/components/apply/types';
 import type { PracticeAreaCategory, PracticeAreaDto } from '@shared/practice-area';
@@ -81,7 +81,7 @@ export function ServicesRatesStep({
         </div>
 
         <div className="flex flex-col gap-4">
-          <SelectField
+          <Select
             label="1st Preference"
             value={preferenceFor(1)}
             onChange={(e) => setPreference(1, e.target.value)}
@@ -93,10 +93,10 @@ export function ServicesRatesStep({
                 {a.name}
               </option>
             ))}
-          </SelectField>
+          </Select>
 
           <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-            <SelectField
+            <Select
               label="2nd Preference"
               value={preferenceFor(2)}
               onChange={(e) => setPreference(2, e.target.value)}
@@ -107,8 +107,8 @@ export function ServicesRatesStep({
                   {a.name}
                 </option>
               ))}
-            </SelectField>
-            <SelectField
+            </Select>
+            <Select
               label="3rd Preference"
               value={preferenceFor(3)}
               onChange={(e) => setPreference(3, e.target.value)}
@@ -119,7 +119,7 @@ export function ServicesRatesStep({
                   {a.name}
                 </option>
               ))}
-            </SelectField>
+            </Select>
           </div>
         </div>
       </div>
@@ -132,7 +132,7 @@ export function ServicesRatesStep({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-        <FormField
+        <Input
           label="Min (USD / hour)"
           type="number"
           min={0}
@@ -140,7 +140,7 @@ export function ServicesRatesStep({
           value={form.rateMinDollars}
           onChange={(e) => update({ rateMinDollars: e.target.value })}
         />
-        <FormField
+        <Input
           label="Max (USD / hour)"
           type="number"
           min={0}

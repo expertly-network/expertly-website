@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { UserMenu } from '@/components/nav/UserMenu';
 import { Logo } from '@/components/Logo';
+import { Button } from '@/components/ui/Button';
 
 // Role-aware nav shell. Nav links to other site sections (Members, Articles,
 // Events…) are intentionally left out until those pages ship — this iteration
@@ -18,12 +18,9 @@ export async function TopNav() {
         {profile ? (
           <UserMenu profile={profile} />
         ) : (
-          <Link
-            href="/login"
-            className="flex min-h-[44px] items-center rounded-[10px] bg-ink px-5 text-sm font-medium text-bg transition-colors hover:bg-ink-2"
-          >
+          <Button href="/login" size="sm">
             Log in
-          </Link>
+          </Button>
         )}
       </div>
     </header>

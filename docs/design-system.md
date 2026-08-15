@@ -106,11 +106,46 @@ Tailwind's own default scale, which already lines up with the design's values: `
 (buttons, chips), `rounded-xl` = 12px (small cards), `rounded-2xl` = 16px (tables), `rounded-3xl` =
 24px (large feature cards), `rounded-full` (pills, avatars, tabs).
 
+## Components
+
+`apps/frontend/components/ui/` — shared primitives built on the tokens above. **Check here
+before writing new markup for a button, card, badge, or labeled form field** — these were
+extracted specifically because the same inline Tailwind classes had already been copy-pasted
+across several pages (button styling alone was duplicated near-verbatim in the nav, the login
+form, and the application wizard before this existed).
+
+| Component | Use for | Notes |
+|---|---|---|
+| `Button` | Any clickable action | `variant`: `primary` (bg-ink, default), `secondary` (outline), `ghost` — matches the color-combination rules above exactly. `size`: `md` (48px, default) / `sm` (44px, nav contexts). Pass `href` to render as a `next/link` styled identically to a `<button>` — use this instead of hand-styling a `<Link>`. |
+| `Input` | A single labeled text/email/password field | Wraps a native `<input>`; `label` and optional `labelRight` (e.g. a "Forgot?" link) are required props. |
+| `Select` | A labeled `<select>` | Same label pattern as `Input`; pass `<option>`s as children. |
+| `Textarea` | A labeled multi-line field | Same label pattern, plus an optional `hint` line below it. |
+| `Card` | A bordered surface/panel | `rounded-card border border-line bg-bg-card`; `padding="lg"` (default, collapses on mobile) or `"md"`. |
+| `Badge` | A pill/chip/tag | `variant`: `neutral` (bg-bg-alt), `emphasis` (bg-ink), `brand` (accent-tinted) — the same three chip treatments documented above. |
+
+**The rule, same as for tokens:** if a page needs a button/card/badge/field, use these — don't
+write the Tailwind classes inline again. If the shape you need doesn't fit any variant here,
+that's a signal to add a variant to the component (and this table), not to reach for one-off
+classes.
+
+Exception: `components/auth/SsoButton.tsx` keeps its own hand-rolled markup rather than composing
+`Button` — its border/background/hover treatment doesn't match any of the three variants above,
+and forcing it into `secondary` would have changed its actual rendered appearance. If a real
+"outline with a bg-bg-alt hover" variant shows up in more than this one place, add it as a fourth
+`Button` variant instead of leaving a second one-off.
+
+Not every existing page has been migrated to these yet — they were extracted from (and
+retrofitted into) the pages that already existed when this was written. Treat migrating a
+still-inline pattern to `components/ui/` as part of the normal cost of touching that page, not
+a separate cleanup task to schedule later.
+
 ## Changing something
 
 - **A color, anywhere it's used** → edit the CSS variable in `apps/frontend/app/globals.css`.
 - **A type size/weight/spacing, anywhere it's used** → edit the entry in `tailwind.config.ts`'s
   `fontSize`.
+- **A button/card/badge/field style, anywhere it's used** → edit the component in
+  `apps/frontend/components/ui/`, not the individual page.
 - **Adding a genuinely new, recurring size or color** → add it to the relevant table above *and*
   to the config/CSS file in the same change, so this doc never drifts from what the code actually
   has.

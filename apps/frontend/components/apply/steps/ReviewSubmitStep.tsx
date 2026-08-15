@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FormField } from '@/components/auth/FormField';
+import { Input } from '@/components/ui/Input';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
 import { REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
@@ -155,7 +155,7 @@ export function ReviewSubmitStep({
         </div>
 
         <div className="mt-5">
-          <FormField
+          <Input
             label="Coupon code"
             labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
             placeholder="Enter a code"

@@ -1,11 +1,11 @@
 import type { ReactNode, SelectHTMLAttributes } from 'react';
 
-interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
   children: ReactNode;
 }
 
-export function SelectField({ label, id, children, ...selectProps }: SelectFieldProps) {
+export function Select({ label, id, children, ...selectProps }: SelectProps) {
   const fieldId = id ?? selectProps.name;
 
   return (

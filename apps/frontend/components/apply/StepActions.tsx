@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/Button';
+
 export function StepActions({
   onBack,
   onNext,
@@ -14,25 +16,16 @@ export function StepActions({
   return (
     <div className="mt-9 flex items-center justify-between border-t border-line pt-6">
       {!backHidden ? (
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex min-h-[48px] items-center rounded-input border border-line-2 px-6 text-sm font-medium text-ink transition-colors hover:border-ink"
-        >
+        <Button variant="secondary" onClick={onBack}>
           ← Back
-        </button>
+        </Button>
       ) : (
         <span />
       )}
       {onNext && (
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={nextDisabled}
-          className="flex min-h-[48px] items-center gap-2 rounded-input bg-ink px-6 text-sm font-medium text-bg transition-colors hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button onClick={onNext} disabled={nextDisabled}>
           {nextLabel} <span aria-hidden="true">→</span>
-        </button>
+        </Button>
       )}
     </div>
   );

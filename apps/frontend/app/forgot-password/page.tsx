@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { FormField } from '@/components/auth/FormField';
+import { Input } from '@/components/ui/Input';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { createClient } from '@/lib/supabase/client';
 import { mapAuthError } from '@/lib/auth/errors';
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <ErrorBanner message={error} />
-            <FormField
+            <Input
               label="Work email"
               name="email"
               type="email"

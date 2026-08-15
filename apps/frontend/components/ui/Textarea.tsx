@@ -1,11 +1,11 @@
 import type { ReactNode, TextareaHTMLAttributes } from 'react';
 
-interface TextareaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
   hint?: ReactNode;
 }
 
-export function TextareaField({ label, hint, id, ...textareaProps }: TextareaFieldProps) {
+export function Textarea({ label, hint, id, ...textareaProps }: TextareaProps) {
   const fieldId = id ?? textareaProps.name;
 
   return (

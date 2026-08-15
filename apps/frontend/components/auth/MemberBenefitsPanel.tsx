@@ -1,3 +1,5 @@
+import { Badge } from '@/components/ui/Badge';
+
 const BENEFITS = [
   {
     title: 'Verified Credentials',
@@ -32,9 +34,7 @@ export function MemberBenefitsPanel() {
   return (
     <div className="mt-7 border-t border-line pt-6">
       <div className="mb-5">
-        <span className="inline-block rounded-full bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold tracking-[0.04em] text-accent">
-          Verified Expert Network
-        </span>
+        <Badge variant="brand">Verified Expert Network</Badge>
       </div>
       <ul className="flex flex-col gap-4">
         {BENEFITS.map((benefit) => (

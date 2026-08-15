@@ -1,6 +1,6 @@
 'use client';
 
-import { FormField } from '@/components/auth/FormField';
+import { Input } from '@/components/ui/Input';
 import { StepActions } from '@/components/apply/StepActions';
 import type { WizardFormState } from '@/components/apply/types';
 
@@ -29,7 +29,7 @@ export function LinkedInImportStep({
       </p>
 
       <div className="mt-7 flex flex-col gap-5 rounded-2xl border border-line bg-bg-alt p-6">
-        <FormField
+        <Input
           label="LinkedIn profile URL"
           name="linkedinUrl"
           type="url"

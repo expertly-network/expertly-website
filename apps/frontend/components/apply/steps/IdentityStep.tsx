@@ -1,8 +1,8 @@
 'use client';
 
-import { FormField } from '@/components/auth/FormField';
-import { SelectField } from '@/components/apply/SelectField';
-import { TextareaField } from '@/components/apply/TextareaField';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
 import { COUNTRIES, PHONE_CODES, REGIONS, type WizardFormState } from '@/components/apply/types';
 
@@ -36,7 +36,7 @@ export function IdentityStep({
 
       <div className="mt-7 flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <FormField
+          <Input
             label="First name"
             name="firstName"
             placeholder="Jane"
@@ -44,7 +44,7 @@ export function IdentityStep({
             onChange={(e) => update({ firstName: e.target.value })}
             required
           />
-          <FormField
+          <Input
             label="Last name"
             name="lastName"
             placeholder="Smith"
@@ -55,7 +55,7 @@ export function IdentityStep({
         </div>
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <FormField
+          <Input
             label="Contact email"
             name="contactEmail"
             type="email"
@@ -90,7 +90,7 @@ export function IdentityStep({
         </div>
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <SelectField
+          <Select
             label="Region"
             value={form.region}
             onChange={(e) => update({ region: e.target.value as WizardFormState['region'] })}
@@ -102,8 +102,8 @@ export function IdentityStep({
                 {r.label}
               </option>
             ))}
-          </SelectField>
-          <SelectField
+          </Select>
+          <Select
             label="Country"
             value={form.country}
             onChange={(e) => update({ country: e.target.value })}
@@ -113,11 +113,11 @@ export function IdentityStep({
             {COUNTRIES.map((c) => (
               <option key={c}>{c}</option>
             ))}
-          </SelectField>
+          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <FormField
+          <Input
             label="State / Province"
             labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
             name="state"
@@ -125,7 +125,7 @@ export function IdentityStep({
             value={form.state}
             onChange={(e) => update({ state: e.target.value })}
           />
-          <FormField
+          <Input
             label="City"
             labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
             name="city"
@@ -135,7 +135,7 @@ export function IdentityStep({
           />
         </div>
 
-        <FormField
+        <Input
           label="LinkedIn URL"
           name="linkedinUrl"
           type="url"
@@ -145,7 +145,7 @@ export function IdentityStep({
           required
         />
 
-        <TextareaField
+        <Textarea
           label="Professional bio"
           rows={4}
           maxLength={500}

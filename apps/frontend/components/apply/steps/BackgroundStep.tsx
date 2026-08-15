@@ -1,7 +1,7 @@
 'use client';
 
-import { FormField } from '@/components/auth/FormField';
-import { SelectField } from '@/components/apply/SelectField';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { StepActions } from '@/components/apply/StepActions';
 import {
   EMPTY_EDUCATION,
@@ -49,7 +49,7 @@ export function BackgroundStep({
       <p className="mt-2 text-sm text-ink-3">Work history, qualifications, and overall seniority.</p>
 
       <div className="mt-7 max-w-[220px]">
-        <FormField
+        <Input
           label="Overall years of experience"
           name="yearsOfExperience"
           type="number"
@@ -84,13 +84,13 @@ export function BackgroundStep({
             </div>
 
             <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <FormField
+              <Input
                 label="Job title"
                 placeholder="Partner"
                 value={work.title}
                 onChange={(e) => updateWork(i, { title: e.target.value })}
               />
-              <FormField
+              <Input
                 label="Company"
                 placeholder="Firm name"
                 value={work.company}
@@ -99,13 +99,13 @@ export function BackgroundStep({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <FormField
+              <Input
                 label="City"
                 placeholder="e.g. London"
                 value={work.city ?? ''}
                 onChange={(e) => updateWork(i, { city: e.target.value })}
               />
-              <SelectField
+              <Select
                 label="Firm size"
                 value={work.firmSize ?? ''}
                 onChange={(e) => updateWork(i, { firmSize: e.target.value as typeof work.firmSize })}
@@ -116,11 +116,11 @@ export function BackgroundStep({
                     {s.label}
                   </option>
                 ))}
-              </SelectField>
+              </Select>
             </div>
 
             <div className="mt-4">
-              <FormField
+              <Input
                 label="Company website"
                 labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
                 type="url"
@@ -241,13 +241,13 @@ export function BackgroundStep({
             </div>
 
             <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <FormField
+              <Input
                 label="Institution"
                 placeholder="University name"
                 value={edu.institution}
                 onChange={(e) => updateEdu(i, { institution: e.target.value })}
               />
-              <FormField
+              <Input
                 label="Degree"
                 placeholder="LLB, MBA…"
                 value={edu.degree}
@@ -256,7 +256,7 @@ export function BackgroundStep({
             </div>
 
             <div className="mt-4">
-              <FormField
+              <Input
                 label="Field of study"
                 placeholder="e.g. Corporate Law"
                 value={edu.fieldOfStudy ?? ''}
@@ -265,7 +265,7 @@ export function BackgroundStep({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <FormField
+              <Input
                 label="Start year"
                 type="number"
                 min={1950}
@@ -274,7 +274,7 @@ export function BackgroundStep({
                 value={edu.startYear ?? ''}
                 onChange={(e) => updateEdu(i, { startYear: Number(e.target.value) || undefined })}
               />
-              <FormField
+              <Input
                 label="End year"
                 type="number"
                 min={1950}

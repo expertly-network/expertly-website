@@ -1,11 +1,11 @@
 import type { InputHTMLAttributes, ReactNode } from 'react';
 
-interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   labelRight?: ReactNode;
 }
 
-export function FormField({ label, labelRight, id, ...inputProps }: FormFieldProps) {
+export function Input({ label, labelRight, id, ...inputProps }: InputProps) {
   const fieldId = id ?? inputProps.name;
 
   return (

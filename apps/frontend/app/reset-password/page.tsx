@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { FormField } from '@/components/auth/FormField';
+import { Input } from '@/components/ui/Input';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { createClient } from '@/lib/supabase/client';
 import { mapAuthError } from '@/lib/auth/errors';
@@ -44,7 +44,7 @@ export default function ResetPasswordPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <ErrorBanner message={error} />
-          <FormField
+          <Input
             label="New password"
             name="password"
             type="password"

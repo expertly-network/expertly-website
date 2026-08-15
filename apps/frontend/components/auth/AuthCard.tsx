@@ -6,6 +6,7 @@ import { EmailPasswordForm } from '@/components/auth/EmailPasswordForm';
 import { SsoButton } from '@/components/auth/SsoButton';
 import { MemberBenefitsPanel } from '@/components/auth/MemberBenefitsPanel';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
+import { Card } from '@/components/ui/Card';
 import { signInWithLinkedIn } from '@/lib/auth/linkedin';
 
 const COPY: Record<AuthMode, { title: string; sub: string; foot: string }> = {
@@ -48,7 +49,7 @@ export function AuthCard({
     <>
       <AuthTabs mode={mode} onChange={setMode} />
 
-      <div className="rounded-card border border-line bg-bg-card p-10 max-[640px]:px-6 max-[640px]:py-7">
+      <Card>
         <h1 className="text-heading text-ink">{copy.title}</h1>
         <p className="mb-7 mt-2.5 text-[15px] text-ink-3">{copy.sub}</p>
 
@@ -71,7 +72,7 @@ export function AuthCard({
         {mode === 'member' && <MemberBenefitsPanel />}
 
         <p className="mt-5 text-center text-[13px] text-ink-3">{copy.foot}</p>
-      </div>
+      </Card>
     </>
   );
 }
