@@ -31,6 +31,7 @@ const config: Config = {
         },
         neon: 'var(--neon)',
         ok: 'var(--ok)',
+        error: 'var(--error)',
         'nav-green': 'var(--nav-green)',
       },
 

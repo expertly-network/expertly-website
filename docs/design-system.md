@@ -41,13 +41,14 @@ because this is a Tailwind-utility-first codebase — that's "standard practice"
 | `ink` | `#0B0B0C` | Primary text; **primary button background** (not `accent`) |
 | `ink-2` | `#1E1E20` | Secondary-emphasis text, hover states on dark buttons |
 | `ink-3` | `#5C5C61` | Muted text — subtitles, captions, labels, placeholders |
-| `ink-4` | `#9A9AA0` | Faintest text — rarely used, near-disabled |
+| `ink-4` | `#9A9AA0` | Decorative-only — icon fills, disabled-state text, index numbers. **2.80:1 on `bg`, fails WCAG AA for text (needs 4.5:1) — never use for real body/caption/meta content a user is meant to read.** Use `ink-3` (6.65:1, passes) for anything with actual information in it, even a caption. |
 | `line` | `#ECECEE` | Default border/divider |
 | `line-2` | `#DBDBDE` | Stronger border — outline buttons, icon containers |
 | `accent` | `#00A582` | Interactive/brand accent — links, focus rings, "Forgot?", badges. **Not** the primary button color |
 | `accent-2` | `#00C99E` | Lighter accent — logo dot, secondary highlights |
 | `neon` | `#8BFCD8` | Decorative only (gradient fills, avatar-fallback backgrounds) — never for text/borders |
 | `ok` | `#0E9E6E` | Success / verified state |
+| `error` | `#DC2626` | Error / destructive state — form validation messages, delete confirmations, required-field indicators, admin reject actions. 4.83:1 on `bg`, passes AA. This was missing until now; the design repo's prototype hardcoded two different reds (`#e53935` and `#dc2626`) for the same meaning across different pages — `#dc2626` is the one carried forward since it's the one that actually passes contrast. |
 | `nav-green` | `#0B3A2D` | Nav & footer brand chrome — a distinct dark green, not `ink` |
 
 The design repo has two more full palettes (`navy`/`sage`, a `data-theme` switcher in the
@@ -68,6 +69,7 @@ values-only addition to the same CSS-variable pattern.
 - **Dark surfaces** (`AuthRightPanel`, nav/footer `nav-green` chrome): white / `white/NN` opacity
   variants only — never the `ink` family, it has no contrast there.
 - **Success/verified indicator**: `text-ok`.
+- **Error/destructive indicator**: `text-error` — validation messages, required-field markers, destructive-action confirmations. Never a raw hex.
 
 ## Typography scale
 
