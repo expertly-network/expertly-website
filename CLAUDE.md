@@ -89,3 +89,76 @@ order:
    rather than guessing, in whichever session hits it.
 4. Need a new table/schema change? It goes in **`supabase/migrations/`** — see that folder's
    `README.md` for the numbering/apply convention.
+
+
+## Non-Negotiable Rules
+
+### Architecture
+```
+✅ TypeScript strict mode everywhere — no 'any', no exceptions
+✅ NestJS backend uses Fastify adapter (not Express)
+✅ All API responses go through ResponseInterceptor (envelope + camelCase)
+✅ Frontend uses Next.js App Router with Server and Client Components
+✅ All frontend API calls go through apiClient (never raw fetch)
+✅ All database access from backend uses Supabase service role client
+✅ Frontend never uses service role key — only anon key
+```
+
+### Database
+```
+✅ Never SELECT * from any table that has an embedding column
+   (members, articles, events) — always list columns explicitly
+✅ RLS is enabled on all tables — backend bypasses via service role key
+✅ All mutations go through NestJS — never direct Supabase from frontend
+✅ Slugs are always generated server-side — never client-side
+✅ Vector columns are vector(768) — Google gemini-embedding-001 with
+   outputDimensionality: 768 via v1beta REST API (NOT @google/generative-ai SDK,
+   which uses v1beta but doesn't support text-embedding-004)
+```
+
+### Security
+```
+✅ SUPABASE_SERVICE_ROLE_KEY never in frontend code or .env.local
+✅ No credentials hardcoded — all from process.env
+✅ File uploads: always validate MIME type using file-type (magic bytes)
+✅ Article HTML: always sanitise with sanitize-html before storing
+✅ AI generation: always apply prompt injection prevention
+   (see TDD Section 19 for exact rules)
+```
+
+### Error handling
+```
+✅ Every async function has explicit try/catch or throws typed exceptions
+✅ Use NestJS HTTP exceptions with error codes, not generic Error
+✅ Frontend reads error.code for specific user-facing messages
+✅ Never use console.log — use NestJS Logger
+```
+
+---
+
+## Code Quality Bar
+
+Every piece of code must meet this standard before being considered done:
+
+**Backend:**
+- Controller has correct decorators (guards, roles, public)
+- Service separates business logic from controller
+- DTO has validation decorators matching the spec
+- Cache invalidated after every mutation
+- ISR revalidated after every mutation that affects a public page
+- Email sent where TDD specifies (check Section 17)
+- Error codes match the spec
+
+**Frontend:**
+- Server Components used for data fetching
+- Client Components used for interactivity only
+- Mobile-first responsive (check at 375px and 1440px)
+- Loading states shown (skeleton or spinner)
+- Error states handled (not just happy path)
+- Empty states handled (list with no items)
+- Uses shadcn/ui base components
+- Tailwind only — no custom CSS files
+- Matches brand colors
+
+**Design standard:** Linear, Vercel, Stripe — premium, clean,
+generous whitespace. If it looks like a generic template, it is not done.
