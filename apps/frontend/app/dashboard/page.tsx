@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { TopNav } from '@/components/nav/TopNav';
+import { SiteShell } from '@/components/layout/SiteShell';
 
 // Defense in depth alongside middleware.ts's redirect — this page also checks
 // directly so it stays correct even if a future refactor changes the middleware
@@ -12,8 +12,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen">
-      <TopNav />
+    <SiteShell>
       <div className="mx-auto max-w-[1360px] px-6 py-12">
         <h1 className="text-2xl font-semibold text-ink">
           Welcome, {profile.first_name || profile.email}.
@@ -39,6 +38,6 @@ export default async function DashboardPage() {
           </p>
         )}
       </div>
-    </main>
+    </SiteShell>
   );
 }
