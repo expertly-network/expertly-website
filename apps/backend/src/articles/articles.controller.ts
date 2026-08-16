@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -15,8 +15,8 @@ export class ArticlesController {
   // 🌐 Public — the browse grid, published articles only, no body content.
   @Public()
   @Get()
-  list(): Promise<ArticleListItemDto[]> {
-    return this.service.listPublished();
+  list(@Query('authorId') authorId?: string): Promise<ArticleListItemDto[]> {
+    return this.service.listPublished(authorId);
   }
 
   // 🔒 Owner — the caller's own articles regardless of status. Must be

@@ -12,6 +12,7 @@ version bump; anything that changes an existing shape goes to `/v2`.
 | 🔑 Auth | Any authenticated role |
 | 🔒 Owner | Auth, scoped to the caller's own resource |
 | _role_ | Auth, restricted to exactly that role (see note below) |
+| 🛡️ _permission_ | `admin`, further restricted to an admin sub-tier that has that permission — see "Admin sub-tier permissions" under Member Directory & Profiles |
 
 ## Membership applications
 
@@ -97,6 +98,12 @@ Backing `apps/backend/src/articles/`. Schema: `docs/database-erd.md`. Shared typ
 
 The browse grid — published articles only, list shape (no `body`).
 
+**Query params:** `authorId` (optional) — added by the Member Directory & Profiles session so a
+member's profile page can list their own published articles via this endpoint rather than an
+embedded/duplicated array (the prototype embeds a copy of the author's articles directly on the
+profile object — not reproduced). ⚠️ Documented but unverified end-to-end: the `articles` table
+does not exist on the live database as of this writing — see `docs/database-erd.md`'s drift note.
+
 **Response `200`:** `ArticleListItemDto[]`, newest first.
 
 ### 🔒 `GET /v1/articles/mine`
@@ -171,3 +178,134 @@ Same owner-or-admin check as `PATCH`.
   CRUD-with-ownership contract.
 - `category`/`country` query-param filtering on `GET /v1/articles` — the prototype filters
   client-side over the full published set; not built server-side yet.
+
+## Member directory & profiles
+
+Backing `apps/backend/src/members/`. Schema: `docs/database-erd.md`. Shared types:
+`packages/shared-types/member.ts`.
+
+**Admin sub-tier permissions** — ported as real, server-checked authorization from
+`assets/admin-data.js`'s existing client-side model (see `docs/database-erd.md` for the full
+correction to `roadmap.md`'s scoping). Three roles (`super_admin`, `content_manager`, `reviewer`),
+each mapped to a fixed permission list in `apps/backend/src/auth/constants/admin-permissions.ts` —
+a backend constant, not a DB table, same "simplest thing that works, no admin UI to manage it yet"
+call already made for coupons. A route tagged 🛡️ _permission_ below requires `role='admin'` **and**
+that the caller's `admin_role` (fresh-read from `profiles`, never trusted from the JWT — same
+posture `RolesGuard` already uses for the plain `admin` role) maps to a role carrying that
+permission. A plain `admin` with no `admin_role` set is treated as `super_admin` (has every
+permission) — this only matters for accounts created before this session; every admin created going
+forward should get an explicit `admin_role`.
+
+### 🌐 `GET /v1/members`
+
+The directory list — published/active members only.
+
+**Query params:** `q` (search across name/practice/location/firm/title), `practiceAreaId`
+(repeatable), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
+(`featured`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
+`pageSize=8`, matching the prototype's infinite-scroll page size).
+
+**Response `200`:** `MemberListItemDto[]` — id, name, initials, headline, firmName, region,
+country, city, practiceAreas (`{id, name}[]`, from `member_services`), isVerified, memberTier,
+yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl. Tenure/rate display strings
+(`"18y"`, `"$420/hr"`) are **not** returned — format them client-side from the numeric fields.
+
+### 🔒 `GET /v1/members/:id`
+
+Full profile — all `member_profiles` columns, all 8 child arrays, `memberServices`. **Requires
+sign-in** (any authenticated role) — a deliberate product decision, not something the static
+prototype itself consistently enforces; see `docs/database-erd.md`'s "Design decisions" note.
+
+A member's own published articles are **not** embedded here — fetch
+`GET /v1/articles?authorId=:id` separately (see that endpoint's note above). `memberServices`
+resolves practice area names the same way `ArticlePracticeArea` does.
+
+**Response `200`:** `MemberDto`. **Errors:** `401` no/invalid token · `404` not found, not
+`status='active'`, or the caller isn't its owner (same "don't leak existence" posture as a draft
+article — a deactivated profile that isn't the caller's own returns `404`, not `403`).
+
+### 🔒 `POST /v1/members/:id/uploads`
+
+Requests a signed upload URL for a proof file or a key-client logo — Supabase Storage bucket
+(`member-proofs`), member uploads directly to the returned URL, this endpoint never sees file
+bytes. `@Roles('member')`, owner-only (`:id` must equal the caller's id).
+
+**Request:** `{ fileName: string, contentType: string }`. **Response `201`:** `{ uploadUrl: string,
+path: string }` — `path` is what gets sent back as `proofFileUrl`/`logoUrl` in a subsequent edit
+submission, not the raw `uploadUrl`.
+
+### 🔒 `PATCH /v1/members/:id/edits`
+
+Submit a self-edit proposal for one section. `@Roles('member')`, owner-only (service-layer check,
+same pattern as `PATCH /v1/articles/:id`'s owner-or-admin check but stricter — no admin bypass
+here, since this is a submission, not a direct write). Creates a `pending` `member_profile_edits`
+row; **never touches the live profile** — that only happens on admin approval (see below).
+
+**Request:** `CreateMemberEditRequest` — `{ section, payload, proofFileUrl?, proofLink? }`. Shape of
+`payload` depends on `section` (see `packages/shared-types/member.ts` for the per-section
+discriminated union) and matches the section's actual base-data shape — **not** the prototype's
+flattened single-string-per-item shortcut (see `docs/database-erd.md`).
+
+**Response `201`:** `MemberProfileEditDto`. **Errors:** `401` · `403` not this member · `400`
+validation failure (payload shape doesn't match `section`).
+
+### 🔒 `GET /v1/members/:id/edits`
+
+Owner's own edit requests, any status, newest first — drives the "pending verification" badge.
+Owner-only, same posture as `GET /v1/articles/mine`.
+
+**Response `200`:** `MemberProfileEditDto[]`.
+
+### 🛡️ `manageMembers` `GET /v1/admin/members`
+
+All members, including `deactivated`, unfiltered by the public directory's `status='active'`
+constraint.
+
+**Response `200`:** `MemberListItemDto[]` plus `status`, `applicationId`,
+`membershipStartedAt`, `renewalPaymentStatus`, `renewalDueState` (computed
+`active`\|`due-soon`\|`overdue` from `member_renewal_policy` — see `docs/database-erd.md`).
+
+### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id`
+
+Admin override of `status`, `membershipStartedAt`, `renewalPaymentStatus`. Does not touch anything
+the self-edit flow governs (headline, bio, child tables, etc.) — that's `member-edits` below, kept
+separate so "admin corrects a lifecycle fact" and "member requests a content change" stay distinct
+audit trails.
+
+**Response `200`:** the updated admin member record (same shape as one row of `GET
+/v1/admin/members`).
+
+### 🛡️ `manageMembers` `GET /v1/admin/member-edits`
+
+All pending (default) or any-status edit requests across every member, newest first. Query param
+`status` (optional, defaults to `pending`).
+
+**Response `200`:** `MemberProfileEditDto[]`, each including the member's name/id for display.
+
+### 🛡️ `manageMembers` `PATCH /v1/admin/member-edits/:id`
+
+Approve or reject one edit request. `{ status: 'verified' | 'rejected', reviewNote?: string }`. On
+`verified`: for the array-shaped sections, replaces that member's child-table rows for the section
+wholesale with `payload`'s items; for `headline_bio`/`contact`, overwrites the corresponding
+`member_profiles` columns directly. Sets `reviewedBy`/`reviewedAt` to the caller/now either way.
+
+**Response `200`:** `MemberProfileEditDto`. **Errors:** `409` if the edit is no longer `pending`
+(already reviewed).
+
+### 🛡️ `manageMembers` `GET` / `PATCH /v1/admin/renewal-policy`
+
+The single sitewide renewal policy row. `PATCH` body: `{ periodMonths?, reminderDays? }`.
+
+**Response `200`:** `{ periodMonths: number, reminderDays: number, updatedAt: string }`.
+
+## Member directory & profiles — not built yet (explicitly deferred)
+
+- Promoting an approved `membership_applications` row into a real `member_profiles` row — blocked
+  on the applications admin-review endpoint, itself still deferred (see that section above).
+- The "Referrals"/gamified-goal dashboard widget — confirmed zero backing logic anywhere in the
+  prototype; explicitly dropped, not a shortcut.
+- "Schedule a Call" — confirmed frontend-preview-only in the prototype's own code, no backend
+  wiring intended.
+- Full-text/fuzzy search on `q` — this session's `GET /v1/members` does a straightforward
+  `ilike`-style match; a real search index is a separate future concern if the member count grows
+  large enough to need one.

@@ -74,12 +74,17 @@ export class ArticlesService {
     return toDto(row, practiceAreaNames, authorNames);
   }
 
-  async listPublished(): Promise<ArticleListItemDto[]> {
-    const { data, error } = await this.supabase.db
+  // authorId added for the Member Directory & Profiles session — a member's profile page lists
+  // their own published articles via this filter instead of an embedded/duplicated array.
+  async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
+    let query = this.supabase.db
       .from('articles')
       .select(ARTICLE_COLUMNS)
-      .eq('status', 'published')
-      .order('created_at', { ascending: false });
+      .eq('status', 'published');
+
+    if (authorId) query = query.eq('author_id', authorId);
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw new InternalServerErrorException('Failed to load articles.');
     return this.toListDtos((data ?? []) as ArticleRow[]);
