@@ -133,24 +133,25 @@ Every release, in order:
    on the server). Run these from the **repo root** — the build context is the whole workspace, not
    the individual service folder:
    ```bash
-   docker build --platform linux/amd64 -t ghcr.io/cibi-m/expertly-backend:latest \
+   docker build --platform linux/amd64 -t ghcr.io/expertly-network/expertly-backend:latest \
      -f apps/backend/Dockerfile .
-   docker build --platform linux/amd64 -t ghcr.io/cibi-m/expertly-frontend:latest \
+   docker build --platform linux/amd64 -t ghcr.io/expertly-network/expertly-frontend:latest \
      --build-arg NEXT_PUBLIC_API_URL=https://api.expertly.network \
      --build-arg NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
      --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key \
      -f apps/frontend/Dockerfile .
    ```
 
-3. Push both images to GHCR (needs a token with `write:packages`):
+3. Push both images to GHCR (needs `docker login ghcr.io` with a token that has
+   `write:packages`):
    ```bash
-   docker push ghcr.io/cibi-m/expertly-backend:latest
-   docker push ghcr.io/cibi-m/expertly-frontend:latest
+   docker push ghcr.io/expertly-network/expertly-backend:latest
+   docker push ghcr.io/expertly-network/expertly-frontend:latest
    ```
-   (Published under the `cibi-m` personal namespace, not `expertly-network`
-   — creating a new package under an org's GHCR namespace needs org-member
-   rights this account doesn't have as a repo-only collaborator. Both
-   packages are public, so the VPS needs no registry login to pull them.)
+   (Published under the `expertly-network` org GHCR namespace — mark each package public in its
+   GHCR settings after the first push. This same build-and-push also runs automatically in CI on
+   every push to `main`, authenticated with the workflow's own `GITHUB_TOKEN`; see
+   `.github/workflows/ci.yml`.)
 
 4. SSH into the VPS and redeploy:
    ```bash

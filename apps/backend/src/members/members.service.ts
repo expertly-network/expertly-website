@@ -125,11 +125,11 @@ export class MembersService {
   }
 
   async findOne(id: string, user: AuthenticatedUser): Promise<MemberDto> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: row, error } = (await this.supabase.db
       .from('member_profiles')
       .select(MEMBER_PROFILE_COLUMNS)
       .eq('id', id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .maybeSingle()) as any;
 
     if (error) throw new InternalServerErrorException('Failed to load member profile.');
@@ -238,12 +238,12 @@ export class MembersService {
     if (dto.membershipStartedAt !== undefined) patch.membership_started_at = dto.membershipStartedAt;
     if (dto.renewalPaymentStatus !== undefined) patch.renewal_payment_status = dto.renewalPaymentStatus;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updated, error } = (await this.supabase.db
       .from('member_profiles')
       .update(patch)
       .eq('id', id)
       .select(MEMBER_PROFILE_COLUMNS + ', status')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .maybeSingle()) as any;
 
     if (error) throw new InternalServerErrorException('Failed to update member.');
