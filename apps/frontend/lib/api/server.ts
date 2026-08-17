@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { ApiError } from '@/lib/api/client';
+import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
 import type { ApplicationDto } from '@shared/membership-application';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 /**
  * Server Component variant of getMyApplication — used for the /apply page's
@@ -18,7 +17,7 @@ export async function getMyApplicationServer(): Promise<ApplicationDto | null> {
   } = await supabase.auth.getSession();
   if (!session) return null;
 
-  const res = await fetch(`${API_URL}/v1/applications/me`, {
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/applications/me`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
     cache: 'no-store',
   });

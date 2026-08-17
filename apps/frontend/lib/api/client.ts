@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { getApiBaseUrlClient } from '@/lib/api/base-url.client';
 
 export class ApiError extends Error {
   constructor(
@@ -24,7 +23,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     data: { session },
   } = await supabase.auth.getSession();
 
-  const res = await fetch(`${API_URL}/v1${path}`, {
+  const res = await fetch(`${getApiBaseUrlClient()}/v1${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
