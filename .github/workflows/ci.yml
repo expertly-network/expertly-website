@@ -100,3 +100,12 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+      # Coolify deploys prebuilt GHCR images (not a git-triggered build), so the
+      # only way to auto-deploy on push is to hit its per-app deploy webhook
+      # directly once the new :latest image has been pushed above.
+      - name: Trigger Coolify redeploy
+        run: |
+          curl --fail-with-body -X POST \
+            "http://91.108.104.17:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_DEPLOY_UUID }},${{ secrets.COOLIFY_FRONTEND_DEPLOY_UUID }}&force=false" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}"
