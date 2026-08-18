@@ -3,7 +3,7 @@
 # Build context is the repo root (pnpm workspace), not this folder:
 #   docker build -f apps/backend/Dockerfile .
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN pnpm --filter=expertly-backend run build
 RUN pnpm --filter=expertly-backend deploy --prod /app/deploy
 
 # --- runtime: plain node, no pnpm/corepack needed ---
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/deploy ./
