@@ -8,6 +8,18 @@ This repo (`expertly-website`) is the **implementation**: `apps/frontend/` (Next
 TypeScript, Tailwind) + `apps/backend/` (NestJS). See root `README.md` for local dev / Docker /
 deploy.
 
+## The three documents you must know
+
+| File | What it contains | When to read it |
+|---|---|---|
+| `CLAUDE.md` (this file) | How to work in this codebase — architecture decisions, non-negotiable rules, session protocol | Every session, fully |
+| `docs/master-tdd.md` | The map: what's built vs. schema-only vs. roadmap vs. beyond-roadmap, a routing table into the detail docs, build order | The relevant rows for today's task |
+| `docs/user-stories.md` | What users need to accomplish, acceptance criteria per feature | The relevant stories for today's task |
+
+`docs/master-tdd.md` doesn't duplicate detail — it routes you to `docs/database-erd.md`,
+`docs/rest-api.md`, `docs/auth.md`, `docs/design-system.md`, and `docs/roadmap.md` for the actual
+specs. Read master-tdd.md's Section 9 routing table first, then only the docs it points to.
+
 ## Design source of truth
 
 The UI design lives in **`design/`** — a git submodule pointing at
@@ -51,8 +63,10 @@ then commit the new pointer in `expertly-website`) when the design changes.
 
 ## Database schema & REST API — a fixed contract, derived once per feature
 
-There is currently no standing ERD/API spec beyond the `profiles` table above. The backend API is
-a **fixed contract**: frontend adapts to it, not the other way around. A UI/visual change should
+`docs/database-erd.md` and `docs/rest-api.md` already exist and cover what's built so far (auth's
+`profiles` table, practice areas, membership applications, articles, member directory & profiles —
+see `docs/master-tdd.md` Section 3/6 for the current built-vs-planned map). The backend API is a
+**fixed contract**: frontend adapts to it, not the other way around. A UI/visual change should
 never require a backend change; only a genuinely new data requirement does, and that's a deliberate
 decision, not something that happens silently mid-frontend-work.
 
@@ -90,6 +104,35 @@ order:
 4. Need a new table/schema change? It goes in **`supabase/migrations/`** — see that folder's
    `README.md` for the numbering/apply convention.
 
+## Session protocol
+
+### Step 1 — Identify what you're building
+The user tells you the module/feature for this session. Look it up in `docs/master-tdd.md`
+Section 9's routing table.
+
+### Step 2 — Load only what's relevant
+Don't read every doc in full every session — load the specific docs and user stories the routing
+table points to for today's task.
+
+### Step 3 — Confirm before writing code
+After reading, state: what you're building (one sentence), the files you'll create/modify, any
+dependencies that must exist first, and your implementation plan. Wait for confirmation before
+writing code — this repo's own brainstorming/planning conventions (see any `superpowers` skills
+available to you) apply on top of this, not instead of it.
+
+### Step 4 — Validate against user stories
+Before marking a feature done, check every acceptance criterion in the relevant
+`docs/user-stories.md` section. If a criterion isn't met, fix it before declaring the feature done.
+For 📋 Roadmap / 🔭 Beyond-roadmap stories, the criteria are a draft — validate the design against
+the actual `design/static_html/*.html` page first (per the methodology above), update the story if
+it was wrong, then implement against the corrected version.
+
+### When you're unsure
+1. Check `docs/master-tdd.md`'s routing table, then the doc(s) it points to.
+2. Check `docs/user-stories.md`'s acceptance criteria for expected behavior.
+3. If still unclear, ask one specific question before proceeding. Don't invent business rules or
+   assume a shape that isn't documented anywhere.
+
 
 ## Non-Negotiable Rules
 
@@ -106,15 +149,17 @@ order:
 
 ### Database
 ```
-✅ Never SELECT * from any table that has an embedding column
-   (members, articles, events) — always list columns explicitly
 ✅ RLS is enabled on all tables — backend bypasses via service role key
 ✅ All mutations go through NestJS — never direct Supabase from frontend
 ✅ Slugs are always generated server-side — never client-side
-✅ Vector columns are vector(768) — Google gemini-embedding-001 with
-   outputDimensionality: 768 via v1beta REST API (NOT @google/generative-ai SDK,
-   which uses v1beta but doesn't support text-embedding-004)
 ```
+
+**Not yet applicable:** no table has a vector/embedding column today — semantic/AI search is
+explicitly not scoped (see `docs/master-tdd.md` Section 8.3). Don't add `vector(...)` columns or
+call an embedding API speculatively. If that decision is ever made, the rule to reinstate is:
+never `SELECT *` from a table that gains an embedding column, and use Google's `gemini-embedding-001`
+(`outputDimensionality: 768`) via the v1beta REST API directly — not the `@google/generative-ai`
+SDK, which doesn't support that model.
 
 ### Security
 ```
@@ -122,9 +167,12 @@ order:
 ✅ No credentials hardcoded — all from process.env
 ✅ File uploads: always validate MIME type using file-type (magic bytes)
 ✅ Article HTML: always sanitise with sanitize-html before storing
-✅ AI generation: always apply prompt injection prevention
-   (see TDD Section 19 for exact rules)
 ```
+
+**Not yet applicable:** AI-assisted article generation is explicitly deferred (nothing calls an LLM
+today) — see `docs/rest-api.md`'s "not built yet" section. When it's built, apply prompt-injection
+prevention on any user-supplied text fed to the model; there's no exact rule set yet because
+there's no implementation to write one against.
 
 ### Error handling
 ```
@@ -144,9 +192,6 @@ Every piece of code must meet this standard before being considered done:
 - Controller has correct decorators (guards, roles, public)
 - Service separates business logic from controller
 - DTO has validation decorators matching the spec
-- Cache invalidated after every mutation
-- ISR revalidated after every mutation that affects a public page
-- Email sent where TDD specifies (check Section 17)
 - Error codes match the spec
 
 **Frontend:**
@@ -156,9 +201,37 @@ Every piece of code must meet this standard before being considered done:
 - Loading states shown (skeleton or spinner)
 - Error states handled (not just happy path)
 - Empty states handled (list with no items)
-- Uses shadcn/ui base components
+- Uses `components/ui/*` base components (Button, Card, Input, Select, Textarea, Badge) — see
+  `docs/design-system.md` before hand-rolling a new one
 - Tailwind only — no custom CSS files
-- Matches brand colors
+- Matches the design tokens in `docs/design-system.md` — no hardcoded hex values
+
+**Not yet applicable:** there's no caching layer or ISR-revalidation endpoint built yet (no Redis,
+no `/revalidate` route) and no email sending — don't add "invalidate cache" / "revalidate ISR" /
+"send email" steps to a mutation until that infrastructure actually exists; note the gap instead
+if a feature seems to need one of these.
 
 **Design standard:** Linear, Vercel, Stripe — premium, clean,
 generous whitespace. If it looks like a generic template, it is not done.
+
+---
+
+## Build order
+
+Full detail and rationale: `docs/master-tdd.md` Section 10. Summary — already built: auth, practice
+areas, membership applications, articles, member directory & profiles. Next, in order:
+consultations → perks/templates/learnings → events → Peer Connect (its own dedicated scoping
+session) → beyond-roadmap (notifications, admin/ops overview dashboard, search, renewal billing).
+
+## Session closing checklist
+
+At the end of any session touching backend or frontend:
+```
+□ List every file created or modified
+□ State whether the relevant docs/user-stories.md acceptance criteria are met
+□ Note any TODOs or explicitly deferred scope — name it, don't leave it silent
+□ Confirm docs/rest-api.md / docs/database-erd.md / packages/shared-types/ were updated
+  if the contract changed
+□ Confirm no hardcoded credentials or keys
+□ Confirm pnpm typecheck passes
+```
