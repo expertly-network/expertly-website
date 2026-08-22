@@ -1,0 +1,16 @@
+{
+  "name": "expertly-website",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.9"
+  },
+  "engines": { "node": ">=22.0.0" },
+  "packageManager": "pnpm@9.15.0"
+}
