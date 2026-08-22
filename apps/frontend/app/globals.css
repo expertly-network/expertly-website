@@ -1,3 +1,127 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Expertly design tokens — default "Neon Mint" palette, ported from the design
+   repo's static_html/assets/theme.css. Keeping these as CSS custom properties
+   (rather than hardcoding hex values into tailwind.config.ts) keeps re-syncing
+   against the design repo a values-only diff. */
+:root {
+  --bg: #ffffff;
+  --bg-alt: #f2fbf7;
+  --bg-card: #ffffff;
+
+  --ink: #0b0b0c;
+  --ink-2: #1e1e20;
+  --ink-3: #5c5c61;
+  --ink-4: #9a9aa0;
+
+  --line: #ececee;
+  --line-2: #dbdbde;
+
+  --accent: #00a582;
+  --accent-2: #00c99e;
+  --neon: #8bfcd8;
+  --ok: #0e9e6e;
+  --error: #dc2626;
+  --nav-green: #0b3a2d;
+}
+
+/* Base body typography — from theme.css's html/body rule. Everything else
+   (headings, labels, captions) is defined as a named Tailwind fontSize in
+   tailwind.config.ts, not here — see docs/design-system.md. */
+body {
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+/* Stellar Orbit hero keyframes — ported from design/static_html/assets/styles.css (the
+   "STELLAR ORBIT HERO" block, ~line 8927). Global keyframes, not a Tailwind token, since
+   they're single-purpose and only used by components/home/StellarOrbitHero.tsx. */
+@keyframes hs-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes hs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes hs-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes hs-spin-cw {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes hs-spin-ccw {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes hs-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-orbit-ring,
+  .hs-orbit-ring * {
+    animation: none !important;
+  }
+}
+
+/* Infinite horizontal marquee — used by the Featured Members / Practice Areas / Firms
+   sections (ported from home.js's initFeaturedMembers/initPracticeAreas/initFirmsBand,
+   which duplicate each row's content and slide it -50% in a loop). */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  animation-name: marquee-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.marquee-row-reverse .marquee-track {
+  animation-direction: reverse;
+}
+/* Fades cards out at the left/right edges instead of clipping them mid-card — the marquee
+   scrolls horizontally, so the mask fades left/right, not top/bottom. */
+.marquee-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none !important;
+  }
+}
