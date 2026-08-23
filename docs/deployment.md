@@ -24,6 +24,24 @@ The app runs on a Hostinger VPS (`91.108.104.17`, DNS name `shreyansmaloo.site`)
 Both apps are **Docker Image**-type Coolify resources (Coolify pulls a prebuilt tag, it does not
 build from source) — this matters for the auto-deploy design below.
 
+## Healthcheck paths (manual Coolify dashboard step)
+
+Each app's **Healthcheck** settings (left sidebar of its Coolify page) must point at a route that
+returns 200 independent of whatever page content happens to exist at a given commit — not `/`.
+`/` broke this exact assumption once already: mid-way through a history rewrite, a commit had no
+homepage route yet, `/` correctly 404'd, Coolify's healthcheck treated the new container as
+unhealthy, and it auto-rolled-back to the old container on every deploy — CI reported the deploy
+trigger as successful the whole time, masking the real problem.
+
+| App | Healthcheck path | Notes |
+|---|---|---|
+| `expertly-backend` | `/v1/health` | `AppController.getHealth()` — note the `/v1` global prefix; `/health` alone 404s |
+| `expertly-frontend` | `/api/health` | `app/api/health/route.ts` — deliberately independent of `app/page.tsx` and every other route |
+
+This is a one-time setting in each app's Coolify **Healthcheck** page — not something CI or this
+repo's code can set. Verify it's configured this way (not `/`) whenever debugging a "deploy
+succeeded but the site looks stale" symptom.
+
 ## One environment, two domain sets (for now), one image each
 
 There is a single Coolify environment, named **`dev`**, inside the `Expertly` project. There is no
