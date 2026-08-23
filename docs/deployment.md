@@ -76,12 +76,17 @@ new image or a new Coolify app.
    exist for apps Coolify builds from a repo checkout. Instead this step `curl`s Coolify's generic
    API deploy endpoint directly:
    ```bash
-   curl -X POST "http://91.108.104.17:8000/api/v1/deploy?uuid=<backend-uuid>,<frontend-uuid>&force=false" \
+   curl -X POST "http://91.108.104.17:8000/api/v1/deploy?uuid=<backend-uuid>,<frontend-uuid>&force=true" \
      -H "Authorization: Bearer <token>"
    ```
    `uuid` accepts a **comma-separated list** — one call redeploys both apps. Note it's `POST`, not
    `GET` (the API used to be `GET`; Coolify returns a `405` with a "this endpoint has changed to a
    POST request" body if you use the old verb — easy to hit if copying older Coolify docs/examples).
+
+   **Use `force=true`, not `force=false`.** Both images are pushed to the same `:latest` tag, and
+   `force=false` was observed to let this step return success while Coolify silently skipped the
+   actual re-pull/restart — the CI step showed green but the running container kept serving a
+   build from well before that push. `force=true` always re-pulls and restarts.
 
    Each app's deploy-webhook URL/UUID is on its **Settings → Webhooks** page ("Deploy webhook"
    section, distinct from the "Manual Git webhooks" section below it).

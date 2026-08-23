@@ -104,8 +104,14 @@ jobs:
       # Coolify deploys prebuilt GHCR images (not a git-triggered build), so the
       # only way to auto-deploy on push is to hit its per-app deploy webhook
       # directly once the new :latest image has been pushed above.
+      #
+      # force=true (not false): both old and new images share the same :latest
+      # tag, and force=false let Coolify's deploy trigger return success while
+      # silently skipping the actual re-pull/restart (observed: CI reported
+      # this step green, but the running container kept serving a build from
+      # well before that push). force=true makes it always re-pull and restart.
       - name: Trigger Coolify redeploy
         run: |
           curl --fail-with-body -X POST \
-            "http://91.108.104.17:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_DEPLOY_UUID }},${{ secrets.COOLIFY_FRONTEND_DEPLOY_UUID }}&force=false" \
+            "http://91.108.104.17:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_DEPLOY_UUID }},${{ secrets.COOLIFY_FRONTEND_DEPLOY_UUID }}&force=true" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}"
