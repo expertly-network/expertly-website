@@ -4,7 +4,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'reac
 // The 3 button treatments docs/design-system.md documents under "Color combination
 // rules" — codified here so every call site gets them from one place instead of
 // re-typing the class string (this consolidates what was previously duplicated,
-// near-verbatim, across TopNav, EmailPasswordForm, and StepActions).
+// near-verbatim, across TopNav, the auth forms, and StepActions).
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 export type ButtonSize = 'md' | 'sm';
 

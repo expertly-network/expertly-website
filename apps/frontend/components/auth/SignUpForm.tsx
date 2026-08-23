@@ -5,26 +5,46 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
-import { continueWithEmail } from '@/lib/auth/continue-with-email';
+import { signUpWithEmail } from '@/lib/auth/continue-with-email';
 
-export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
+export function SignUpForm({
+  returnTo,
+  onSwitchToSignIn,
+}: {
+  returnTo: string;
+  onSwitchToSignIn: () => void;
+}) {
   const router = useRouter();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [city, setCity] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
-    setCheckEmail(null);
 
-    const result = await continueWithEmail({ email, password, firstName, lastName });
+    // Retype-password match is a UI-only check — Supabase has no concept of a
+    // confirm-password field, so this never reaches the network on mismatch.
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await signUpWithEmail({
+      firstName,
+      lastName,
+      email,
+      password,
+      city: city.trim() || undefined,
+    });
 
     if (result.status === 'signed_in') {
       router.push(returnTo);
@@ -52,27 +72,20 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <ErrorBanner message={error} />
 
-      {/* Not `required` — this single form/button handles both sign-in and
-          sign-up (continueWithEmail tries sign-in first, falls back to
-          sign-up), and name fields are irrelevant to a plain sign-in. Native
-          HTML5 validation can't know which case applies ahead of time, so
-          marking these required silently blocked every sign-in attempt where
-          a returning user (correctly) left them blank — no visible error,
-          just a form that refused to submit. Missing names on an actual
-          signup are harmless: profiles.first_name/last_name fall back to ''
-          via the DB trigger, same as any OAuth provider that omits them. */}
       <div className="grid grid-cols-2 gap-4">
         <Input
           label="First name"
           name="firstName"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
+          required
         />
         <Input
           label="Last name"
           name="lastName"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
+          required
         />
       </div>
 
@@ -87,12 +100,15 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
       />
 
       <Input
+        label="City (optional)"
+        name="city"
+        placeholder="e.g. London"
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+      />
+
+      <Input
         label="Password"
-        labelRight={
-          <a href="/forgot-password" className="text-xs font-medium text-accent">
-            Forgot?
-          </a>
-        }
         name="password"
         type="password"
         placeholder="••••••••"
@@ -102,10 +118,32 @@ export function EmailPasswordForm({ returnTo }: { returnTo: string }) {
         required
       />
 
+      <Input
+        label="Retype password"
+        name="confirmPassword"
+        type="password"
+        placeholder="••••••••"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        minLength={8}
+        required
+      />
+
       <Button type="submit" disabled={submitting} fullWidth className="mt-1">
-        {submitting ? 'Please wait…' : 'Continue'}
+        {submitting ? 'Please wait…' : 'Sign up'}
         {!submitting && <span aria-hidden="true">→</span>}
       </Button>
+
+      <p className="text-center text-[13px] text-ink-3">
+        Already have an account?{' '}
+        <button
+          type="button"
+          onClick={onSwitchToSignIn}
+          className="font-medium text-accent hover:underline"
+        >
+          Sign in
+        </button>
+      </p>
     </form>
   );
 }

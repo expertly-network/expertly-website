@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const returnTo = searchParams.get('returnTo') ?? '/';
+  const intent = searchParams.get('intent');
 
   // Self-hosted behind Traefik: request.url reflects the Next.js server's own
   // bind address (0.0.0.0:3000), not the public host, so the origin must be
@@ -22,10 +23,30 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+
     if (!error) {
+      // Member-tab LinkedIn flow: LinkedIn only verifies identity, it doesn't
+      // make someone a member — membership is application-gated. Send an
+      // already-activated member to their dashboard, and everyone else (brand
+      // new signup, or an existing client who hasn't applied yet) to the
+      // membership application instead of `returnTo`.
+      if (intent === 'member') {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        const { data: profile } = user
+          ? await supabase.from('profiles').select('role').eq('id', user.id).single()
+          : { data: null };
+
+        const destination = profile?.role === 'member' ? '/dashboard' : '/apply';
+        return NextResponse.redirect(`${origin}${destination}`);
+      }
+
       return NextResponse.redirect(`${origin}${returnTo}`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth_failed`);
+  const failureMode = intent === 'member' ? '&mode=member' : '';
+  return NextResponse.redirect(`${origin}/login?error=oauth_failed${failureMode}`);
 }
