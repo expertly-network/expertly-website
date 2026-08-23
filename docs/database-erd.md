@@ -5,14 +5,33 @@ convention — not a speculative upfront spec. Grows as each feature's backend s
 
 ## Identity & Auth
 
-See `supabase/migrations/0001_initial_schema.sql` and [`docs/auth.md`](auth.md) — `profiles`
+See `supabase/migrations/0001_extensions.sql`–`0004_tables.sql` and [`docs/auth.md`](auth.md) — `profiles`
 table, `role` enum (`client`/`member`/`admin`), Supabase Auth integration.
 
-`handle_new_user()` reads both our own `signUp()` metadata keys (`first_name`/`last_name`) and the
-OIDC standard claim names LinkedIn's integration actually populates (`given_name`/`family_name`),
-so both signup paths populate real names instead of silently leaving LinkedIn signups blank.
+`handle_new_user()` (`0003_functions.sql`) is an `after insert on auth.users` trigger — every
+signup, whichever role it eventually becomes, gets a matching `profiles` row in the same
+transaction as the `auth.users` insert. It reads both our own `signUp()` metadata keys
+(`first_name`/`last_name`) and the OIDC standard claim names LinkedIn's/Google's integration
+actually populate (`given_name`/`family_name`), so every signup path populates real names instead
+of silently leaving OAuth signups blank. It fills:
 
-## Membership applications (`supabase/migrations/0001_initial_schema.sql`)
+- `role`, `status` — left at their column defaults (`'client'`, `'active'`). Every signup starts
+  as `client` regardless of path; `role` only ever becomes `'member'` via a separately, manually
+  approved `membership_applications` row (see below) — never self-service, never set here.
+- `email`, `first_name`, `last_name` — from Supabase Auth's own signup metadata, as above.
+- `auth_provider` — read from Supabase's `raw_app_meta_data->>'provider'`, matched against the
+  known enum values via a `case` (not a raw `::auth_provider` cast) so an unrecognized value from
+  Supabase can never raise an invalid-enum exception and roll back the signup — falls back to
+  `'email'`.
+- `last_login_at` — set to signup time. There's no separate login-event tracking built yet, so
+  this is the first truthful value for it.
+- `consent` — a hardcoded `{"termsVersion": "1.0", "privacyVersion": "1.0", "acceptedAt": ...}`
+  snapshot, same pattern as `membership_applications.terms_version_agreed`/
+  `privacy_version_agreed` — there's no real consent-versioning system yet, so `"1.0"`/`"1.0"` is
+  the confirmed current value, not a placeholder. Revisit this function the day those documents
+  change or a real versioning scheme is built.
+
+## Membership applications (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 
 **Source:** `design/static_html/apply.html` and `onboarding_form.html` (two UI iterations of the
 identical 5-step wizard — LinkedIn Import → Identity → Background → Services & Rates → Review &
@@ -91,7 +110,7 @@ the frontend's dropdown options) has something to check against.
 
 ### `practice_areas`
 
-`id`, `name` (unique), `is_active`, `category` (`supabase/migrations/0001_initial_schema.sql`).
+`id`, `name` (unique), `is_active`, `category` (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`).
 Seeded with the 12 real practice areas
 from `design/static_html/assets/members.js`'s `EXPERTLY_PRACTICE_AREAS` (M&A Tax, Transfer
 Pricing, Corporate Law, Capital Markets, IP & Technology, Banking & Finance, Dispute Resolution,
@@ -132,7 +151,7 @@ a genuinely region-specific practice area is added later.
   `jsonb_typeof(...) = 'array'` check correctly rejects malformed (non-array) JSON on every JSONB
   column, including `service_preferences`.
 
-## Articles (`supabase/migrations/0001_initial_schema.sql`)
+## Articles (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 
 **Source:** `design/static_html/articles.html` (browse grid + write flow), `article.html` (detail
 page), `admin-dashboard.html`'s article panels, and `assets/admin-data.js`/`article-engagement.js`
@@ -205,29 +224,32 @@ feature, not derived from (and in one case directly contradicting) what the stat
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
 
-## ⚠️ Live database vs. `0001_initial_schema.sql` — a pre-existing drift, not this session's doing
+## ⚠️ Resolved: live database vs. migration file drift
 
-Confirmed directly against the project's real Supabase instance (`psql "$DATABASE_URL"`) while
-building the section below: **the live database does not match the `0001_initial_schema.sql` file
-currently checked into git.** Live has exactly three tables — `profiles`, `practice_areas`,
-`membership_applications` — matching an *older* shape than what's in git (`profiles` is missing
-`auth_provider`/`timezone`/`consent`/`deletion_reason`; there is no `articles`, `events`,
-`consultation_requests`, or `peer_connect_*` table at all; the practice-area taxonomy is a single
-`practice_areas` table, not the git file's `services`/`categories` pair). The git file was
-rewritten ("squashed... the DB is rebuilt from scratch from this one file") to a new target shape
-that was, as far as this session could determine, never actually applied to this live instance.
+A prior session found that the live database didn't match the `0001_initial_schema.sql` file (a
+single file at the time) checked into git — live had only `profiles`/`practice_areas`/
+`membership_applications` plus the member-directory tables (then in a separate `0002` file), was
+missing `profiles.auth_provider`/`timezone`/`consent`/`deletion_reason`, and had no `articles`/
+`events`/`consultation_requests`/`peer_connect_*` tables at all, even though git's `0001` defined
+them.
 
-**This means the `articles` backend module (and the `authorId` filter documented in
-`docs/rest-api.md`) cannot currently be exercised against real data** — the table it queries
-doesn't exist live. Not something this session fixes (it's a database-ownership decision, not a
-schema-derivation one — whether to reset this instance and apply `0001` fresh, or write incremental
-migrations forward from what's actually live and treat the checked-in `0001` as stale) — flagging it
-here since it blocks trusting `0001_initial_schema.sql` as ground truth going forward.
+**Resolved that session**, while the migration was already being rewritten to fold the member
+directory's child tables into JSONB (see below): `0001` and `0002` were consolidated using
+`practice_areas` as ground truth (confirmed via every backend module's actual queries — `services`/
+`categories` never existed live and is not reintroduced), and the live instance was brought in sync
+via an additive reconciliation (new columns/tables only — `profiles` and `membership_applications`
+rows were untouched, `ADD COLUMN`/`CREATE TABLE`, only the 8 empty member child tables were
+dropped). `articles`/`events`/`consultation_requests`/`peer_connect_*` now exist live, so the
+`articles` backend module can be exercised against real data.
 
-**Consequence for this section:** the migration below (`0002_member_directory_and_profiles.sql`) is
-written against what's actually live — it references `public.practice_areas`, not `services`.
+**Since then**, the schema was further split into the four dependency-ordered files described in
+`supabase/migrations/README.md` (`0001_extensions.sql`, `0002_enums.sql`, `0003_functions.sql`,
+`0004_tables.sql`), and `handle_new_user()` (in `0003_functions.sql`) was extended to also set
+`auth_provider` (read from Supabase's `raw_app_meta_data`), `last_login_at`, and `consent` on
+signup — previously only `email`/`first_name`/`last_name`/`role` were set. These four files are
+trustworthy ground truth.
 
-## Member directory & profiles (`supabase/migrations/0002_member_directory_and_profiles.sql`)
+## Member directory & profiles (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 
 **Source:** `design/static_html/members.html` (directory/search), `member-profile.html` (3099
 lines — profile detail, self-edit, consultation-request entry point), `dashboard.html`/
@@ -254,13 +276,20 @@ full for this session:
 
 ### `member_profiles`
 
-Extends `profiles` 1:1 for `role='member'` — `id` **is** the profile id, not a separate owned
-resource with its own `owner_user_id` (unlike `articles.author_id`, where the article's own id and
-its author's id are genuinely different things).
+Extends `profiles` 1:1 for `role='member'`. **Revisited this session**: an earlier version of this
+table used `id` itself as the FK to `profiles.id` (no separate `profile_id` column) — `id` *was*
+the profile id. That's now split: `id` is `member_profiles`' own generated surrogate PK (nothing
+else references it), and `profile_id` is a separate, unique-constrained FK to `profiles.id` — the
+column every "member_id" elsewhere in this schema (`member_services`, `member_profile_edits`,
+`consultation_requests`, `peer_connect_*`) actually points at, and what `MemberDto.id` in the API
+response is. This keeps every ownership check (`assertOwner` in `members.service.ts`, RLS
+policies) comparing against `auth.uid()` exactly as before — only queries against
+`member_profiles` itself changed from `.eq('id', ...)` to `.eq('profile_id', ...)`.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | uuid PK, FK → `profiles.id` | |
+| `id` | uuid PK, own generated value | internal surrogate key — not exposed in the API, nothing else references it |
+| `profile_id` | uuid, unique, FK → `profiles.id` | the "real" identity — this is `MemberDto.id`, and what every other table's `member_id` column references |
 | `headline`, `bio` | text | |
 | `firm_name` | text, nullable | **Null, not the prototype's literal `'Independent'` string** — render that label at the UI layer. Baking display text into data was a deliberate thing *not* to reproduce. |
 | `firm_website` | text, nullable | |
@@ -298,23 +327,39 @@ elsewhere in this schema) — the directory's own search filters by practice are
 write-once/read-as-a-whole tables don't have. Composite PK `(member_id, practice_area_id)`, real FK
 (this table *can* have one, unlike the JSONB-array columns, since it's a real join table).
 
-### 8 child tables
+### 8 jsonb sections on `member_profiles`
 
-All real tables with stable `uuid` ids and a `member_id` FK — unlike `membership_applications`'
-JSONB-array fields, these are individually editable via the self-edit moderation flow below and (for
-`member_credentials`/`member_testimonials`) carry a per-item verification flag, so JSONB's
-"write-once snapshot" justification doesn't apply here.
+**Revisited this session** — an earlier version of this doc argued these needed to be real child
+tables (individually editable via the self-edit moderation flow, plus a per-item verification flag
+on two of them), and that reasoning is stale. Looking at the actual write pattern: the self-edit
+flow (`member_profile_edits` below) always replaces a **whole section** at once — never a single
+item — so a `jsonb` array column matches that "one UPDATE" semantics better than delete+insert
+across a child table. The one cited reason for tables that didn't hold up was "a future employer
+search" — speculative, nothing currently needs it, and CLAUDE.md's own principle is not to design
+for hypothetical future requirements. `member_services` (below) stays a real join table — that one
+has a *today* need (real FK to `practice_areas`, filtered on directly by the directory's
+practice-area search) that these sections don't share.
 
-| Table | Columns | Notes |
+Each is `jsonb not null default '[]'`, checked `jsonb_typeof(...) = 'array'`, stored as an array of
+objects already shaped like the API's camelCase response type (`MemberWorkExperience[]`, etc., in
+`packages/shared-types/member.ts`) — no snake_case/camelCase mapping needed on read. Each item's
+`id` is assigned by the application layer (`randomUUID()` in `members.service.ts`), since there's
+no DB-generated id the way a real table's `uuid` PK would provide.
+
+| Column | Item shape | Notes |
 |---|---|---|
-| `member_work_experiences` | `title`, `company`, `start_year`, `end_year`, `is_current`, `description` | |
-| `member_educations` | `degree`, `institution`, `field`, `end_year` | |
-| `member_engagements` | `title`, `organization`, `year`, `url` | |
-| `member_qualifications` | `name`, `year` | **confirmed distinct from `member_credentials`** — no issuing body, no verification flag |
-| `member_credentials` | `name`, `issuing_body`, `year`, `is_verified` | per-item, admin-verifiable |
-| `member_testimonials` | `quote`, `client_name`, `client_title`, `client_company`, `service_name`, `occurred_on` (date), `is_verified` | `occurred_on` is a real `date`, not the prototype's free-text `"March 2026"` — format at render time. No `rating`/star field — confirmed absent from every seeded testimonial; don't confuse with the unrelated Peer Connect post-meeting rating. |
-| `member_awards` | `title`, `issuing_body`, `year`, `description` | |
-| `member_key_clients` | `name`, `logo_url` | reconciles the two logo sources noted above into one column |
+| `work_experiences` | `title`, `company`, `startYear`, `endYear`, `isCurrent`, `description` | |
+| `educations` | `degree`, `institution`, `field`, `endYear` | |
+| `engagements` | `title`, `organization`, `year`, `url` | |
+| `qualifications` | `name`, `year` | **confirmed distinct from `credentials`** — no issuing body, no verification flag |
+| `credentials` | `name`, `issuingBody`, `year`, `isVerified` | per-item verification flag lives inside the jsonb object — no per-item admin query/index need today, only ever read back as part of the whole profile |
+| `testimonials` | `quote`, `clientName`, `clientTitle`, `clientCompany`, `serviceName`, `occurredOn` (ISO date string), `isVerified` | `occurredOn` is a real date, not the prototype's free-text `"March 2026"` — format at render time. No `rating`/star field — confirmed absent from every seeded testimonial; don't confuse with the unrelated Peer Connect post-meeting rating. |
+| `awards` | `title`, `issuingBody`, `year`, `description` | |
+| `keyClients` (`key_clients` column) | `name`, `logoUrl` | reconciles the two logo sources noted above into one field |
+
+`qualifications` and `credentials` have no self-edit or admin-write endpoint yet (not in
+`MemberEditSection`, not in `UpdateAdminMemberDto`) — that gap predates this change and carries
+forward unchanged, just as unused `jsonb` columns instead of unused tables.
 
 ### `member_profile_edits` — the self-edit moderation queue
 
@@ -343,10 +388,11 @@ embedded directly inside each element of the `payload` array — which is why `p
 rather than becoming more structured columns.
 
 On approval, `payload` becomes the live value for that member+section: for the array-shaped
-sections, the corresponding child table rows for that member are fully replaced; for
-`headline_bio`/`contact`, the matching `member_profiles` columns are overwritten directly. This is
-a deliberate whole-section-request workflow (the admin UI approves/rejects one edit request at a
-time, not per item) — keep it as-is, it's not a prototype shortcut.
+sections, the matching `jsonb` column on `member_profiles` is overwritten wholesale (a single
+`UPDATE`, each item assigned a fresh application-generated `id`); for `headline_bio`/`contact`, the
+matching `member_profiles` columns are overwritten directly. This is a deliberate whole-section-
+request workflow (the admin UI approves/rejects one edit request at a time, not per item) — keep it
+as-is, it's not a prototype shortcut.
 
 **A real shortcut, flagged rather than reproduced:** the prototype's self-edit UI collapses every
 array item down to one free-text line on save (`parseRowText`, `member-profile.html:2345-2355` —
@@ -381,8 +427,8 @@ due-state from this plus each member's own `membership_started_at`.
 ### Not built yet (explicitly deferred)
 
 - File/proof upload itself — this migration adds the columns to receive a Supabase Storage path
-  (`proof_file_url`, per-item `proofFile`-shaped fields inside `payload`, `member_key_clients.
-  logo_url`), but the signed-upload-URL endpoint and the Storage bucket configuration are the
+  (`proof_file_url`, per-item `proofFile`-shaped fields inside `payload`, each `key_clients` item's
+  `logoUrl`), but the signed-upload-URL endpoint and the Storage bucket configuration are the
   `apps/backend/src/members/` module's job, not the migration's — see `docs/rest-api.md`.
 - The admin approve/reject write path for `member_profile_edits` (replace-child-rows-on-approval
   logic) — schema is ready; confirm against `docs/rest-api.md` whether the endpoint landed in the

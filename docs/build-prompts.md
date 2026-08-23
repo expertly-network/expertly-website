@@ -30,7 +30,7 @@ a browser screenshot/description, a passing typecheck), not just assert it passe
 - Membership applications — backend + frontend (`docs/rest-api.md`, `apps/frontend/app/apply/`)
 - Articles — **backend only**, no frontend yet (see session 2 below)
 - Services/categories taxonomy (`docs/database-erd.md`)
-- Peer Connect — **schema only** (`supabase/migrations/0001_initial_schema.sql`), no API/frontend
+- Peer Connect — **schema only** (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`), no API/frontend
   yet (see sessions 12-13)
 - Shared frontend design system: `docs/design-system.md`, `apps/frontend/components/ui/`
 
@@ -158,7 +158,7 @@ context you need):
    session — but make that a deliberate, stated scoping decision, not a silent omission.
 
 Write the schema into a new supabase/migrations/000N_member_profiles.sql (don't touch
-0001_initial_schema.sql — that one's done). Update docs/database-erd.md and docs/rest-api.md with
+supabase/migrations/0001_extensions.sql–0004_tables.sql — that one's done). Update docs/database-erd.md and docs/rest-api.md with
 the finalized contract. Write packages/shared-types/member.ts. Implement and verify standalone via
 curl/REST client, no frontend needed.
 
@@ -217,7 +217,7 @@ is a consultation request client→member only, or also member→member (peer-to
 if genuinely ambiguous from the design, state the decision you made and why.
 
 requester_id/member_id should reference profiles(id) (see the consultation_requests table already
-in supabase/migrations/0001_initial_schema.sql — it exists but wasn't wired to a controller/service
+in supabase/migrations/0001_extensions.sql–0004_tables.sql — it exists but wasn't wired to a controller/service
 yet; you may need to adjust its columns once you've confirmed the real field shape against the
 design, don't assume the existing table is already exactly right).
 
@@ -321,7 +321,7 @@ public-suggestion → pending → admin-approve-and-publish flow, plus admin can
 add-and-publish, bypassing the queue — one unified table/status model, not the prototype's
 two-disconnected-pools version (same pattern articles avoided for its own moderation queue).
 
-A `public.events` table already exists in supabase/migrations/0001_initial_schema.sql but was
+A `public.events` table already exists in supabase/migrations/0001_extensions.sql–0004_tables.sql but was
 built speculatively before this session did the real design read — verify its columns
 (event_type, event_format, status enum, country-as-text, etc.) against what you actually find in
 events.html and correct it via a new migration if it doesn't match. Don't assume it's already
@@ -334,7 +334,7 @@ Implement, update docs/rest-api.md + shared-types/event.ts, verify standalone vi
 
 Acceptance criteria:
 - [ ] events table columns verified/corrected against the actual design (not assumed from the
-      speculative version already in 0001_initial_schema.sql)
+      speculative version already in supabase/migrations/0001_extensions.sql–0004_tables.sql)
 - [ ] Public suggestion → pending → admin approve/reject/publish flow implemented as one unified
       model, not two disconnected pools
 - [ ] Admin direct add-and-publish (bypassing the queue) also works
@@ -366,7 +366,7 @@ Acceptance criteria:
 
 ```
 The schema already exists (peer_connect_matches, peer_connect_member_preferences in
-supabase/migrations/0001_initial_schema.sql, designed and reviewed across several earlier
+supabase/migrations/0001_extensions.sql–0004_tables.sql, designed and reviewed across several earlier
 sessions) — this session builds the NestJS controller/service layer on top of it, not new tables.
 
 Read design/static_html/peer-connect.html in full — it's dense (5 lifecycle phases: Set

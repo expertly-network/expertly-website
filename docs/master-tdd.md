@@ -59,8 +59,9 @@ is the compiler-enforced contract between the two.
 
 ## Section 3 — Database schema
 
-Source of truth: `docs/database-erd.md`. Current migrations: `supabase/migrations/0001_initial_schema.sql`,
-`supabase/migrations/0002_member_directory_and_profiles.sql`.
+Source of truth: `docs/database-erd.md`. Current schema: `supabase/migrations/0001_extensions.sql`
+through `0004_tables.sql` — pre-production four-file convention, see
+`supabase/migrations/README.md`.
 
 | Table | Status | Backend module |
 |---|---|---|
