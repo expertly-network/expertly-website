@@ -31,6 +31,14 @@ then commit the new pointer in `expertly-website`) when the design changes.
 - **`design/static_html/*.html` + `design/static_html/assets/`** — pixel-level prototype of every
   page. When building a frontend route, check the matching `.html` file first for exact
   layout/copy/interaction before designing from scratch.
+- **The design repo is desktop-only — it was built as a visual/feature mockup, not a responsive
+  reference.** Do not assume a mobile layout by copying the prototype's behavior; there usually
+  isn't one to copy. Every page/component built in `apps/frontend/` must be independently made
+  responsive (mobile-first, checked at 375px and 1440px minimum — see Code Quality Bar) as part of
+  building it, not as a follow-up pass. Reference `docs/design-system.md` for how existing
+  components (e.g. `AuthRightPanel`, `login/page.tsx`) already handle this — hide/restructure
+  desktop-only elements below a breakpoint rather than shrinking them, and cap card/content widths
+  with `max-w-[...]` + `w-full` so they scale down instead of overflowing.
 - **That's all it contains.** The design repo is UI-only by deliberate choice — no backend/schema
   docs belong there. It used to also hold a `database-erd.md`/`rest-api.md` pair; those were
   removed at the source (they'd gone stale relative to the actual prototype) and won't come back.
@@ -197,7 +205,10 @@ Every piece of code must meet this standard before being considered done:
 **Frontend:**
 - Server Components used for data fetching
 - Client Components used for interactivity only
-- Mobile-first responsive (check at 375px and 1440px)
+- **Mobile-first responsive at 375px and 1440px — non-negotiable, not a nice-to-have.** The design
+  prototype has no mobile layout to reference (see "Design source of truth" above), so this is
+  work you do, not work you copy. A page/component isn't done until both widths have been
+  actually checked, not just "should probably work."
 - Loading states shown (skeleton or spinner)
 - Error states handled (not just happy path)
 - Empty states handled (list with no items)

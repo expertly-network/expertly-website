@@ -2,7 +2,10 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { createClient } from '@/lib/supabase/client';
 import { mapAuthError } from '@/lib/auth/errors';
@@ -13,14 +16,22 @@ import { mapAuthError } from '@/lib/auth/errors';
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
 
+    // Retype-password match is a UI-only check — Supabase has no concept of a
+    // confirm-password field, so this never reaches the network on mismatch.
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+
+    setSubmitting(true);
     const supabase = createClient();
     const { error: updateError } = await supabase.auth.updateUser({ password });
 
@@ -35,9 +46,9 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">
-      <div className="w-full max-w-[440px] rounded-[20px] border border-line bg-bg-card p-10 max-[640px]:p-6">
-        <h1 className="text-[32px] font-medium leading-[1.1] text-ink">Choose a new password.</h1>
+    <AuthLayout>
+      <Card>
+        <h1 className="text-heading text-ink">Choose a new password.</h1>
         <p className="mb-7 mt-2.5 text-[15px] text-ink-3">
           Enter a new password for your Expertly account.
         </p>
@@ -54,15 +65,21 @@ export default function ResetPasswordPage() {
             minLength={8}
             required
           />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="mt-1 flex min-h-[48px] w-full items-center justify-center rounded-[10px] bg-ink text-sm font-medium text-bg transition-colors hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Input
+            label="Retype new password"
+            name="confirmPassword"
+            type="password"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            minLength={8}
+            required
+          />
+          <Button type="submit" disabled={submitting} fullWidth className="mt-1">
             {submitting ? 'Saving…' : 'Save new password'}
-          </button>
+          </Button>
         </form>
-      </div>
-    </main>
+      </Card>
+    </AuthLayout>
   );
 }

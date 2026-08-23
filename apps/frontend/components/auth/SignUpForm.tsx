@@ -72,7 +72,11 @@ export function SignUpForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <ErrorBanner message={error} />
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Stacks to 1 column below 640px (this page's own mobile boundary,
+          see login/page.tsx) — most phones are 375-430px wide, so a lower
+          threshold like 400px still hit the 2-up grid on real devices and
+          squeezed each field to ~150px. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           label="First name"
           name="firstName"
