@@ -23,10 +23,15 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     data: { session },
   } = await supabase.auth.getSession();
 
+  // A FormData body must NOT get an explicit Content-Type — fetch sets
+  // multipart/form-data with the correct boundary itself only when the header
+  // is left unset. Any other body (or none) uses JSON as before.
+  const isFormData = options.body instanceof FormData;
+
   const res = await fetch(`${getApiBaseUrlClient()}/v1${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       ...options.headers,
     },

@@ -2,16 +2,18 @@ import type { ReactNode, TextareaHTMLAttributes } from 'react';
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
+  labelRight?: ReactNode;
   hint?: ReactNode;
 }
 
-export function Textarea({ label, hint, id, ...textareaProps }: TextareaProps) {
+export function Textarea({ label, labelRight, hint, id, ...textareaProps }: TextareaProps) {
   const fieldId = id ?? textareaProps.name;
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-xs font-medium text-ink-2">
-        {label}
+      <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
+        <span>{label}</span>
+        {labelRight}
       </label>
       <textarea
         id={fieldId}

@@ -30,64 +30,142 @@ later, the member directory's filter).
 (`onboarding_form.html`'s service-preference step) — see `docs/database-erd.md`'s `practice_areas`
 section for the full mapping.
 
-### _client_ `POST /v1/applications`
+The wizard persists to the backend as the applicant moves through it — there is no
+frontend-only-until-submit state anymore (see `docs/superpowers/specs/2026-08-23-member-application-form-design.md`
+for the full design rationale). A `membership_applications` row starts as `status: 'draft'` on the
+first save and is mutated in place across multiple calls until it transitions to `submitted`; from
+then on it's treated as an immutable snapshot again, same as before this change.
 
-Submits a membership application in one request — the wizard's multi-step UI is frontend-only
-state; nothing is persisted until this call. **Restricted to exactly `role='client'`** — not
-expressed via `@Roles()`, since that decorator's ranked model (`admin` satisfies a `member` check)
-is wrong here; enforced as an explicit check in `ApplicationsService.create()` instead. A `member`
-or `admin` token reaches this far (passes the auth guard, passes body validation) and then gets a
-`403`, not a `401`/`400` — a deliberate ordering: NestJS validates the request body before the
-controller method (and this role check) ever runs, so a malformed body from a non-client caller
-surfaces as `400` first, not `403`. Not a security issue — both outcomes correctly reject the
-request — just don't rely on `403` from a wrong-role request that also happens to be malformed.
+### _client_ `POST /v1/applications/me`
 
-**Request:** `CreateApplicationRequest` (see `packages/shared-types/membership-application.ts` for
-the full shape). Notably:
-- `servicePreferences[].practiceAreaId` is validated against a live `practice_areas` query before
-  insert — the DB has no FK to catch an invalid id (a deliberate trade-off, see
-  `docs/database-erd.md`), so this endpoint is the only thing enforcing it. Do not bypass this
-  check in any future code path that writes to this table.
+Single write endpoint — **upsert**, not a pure-REST create. **Restricted to exactly
+`role='client'`** — not expressed via `@Roles()`, since that decorator's ranked model (`admin`
+satisfies a `member` check) is wrong here; enforced as an explicit check in
+`ApplicationsService.saveOrSubmit()` instead. A `member`/`admin` token reaches this far (passes
+the auth guard, passes body validation) and then gets a `403`, not a `401`/`400` — a deliberate
+ordering: NestJS validates the request body before the controller method (and this role check)
+ever runs, so a malformed body from a non-client caller surfaces as `400` first, not `403`.
+
+**Behavior:**
+- No application yet, or the caller's most recent one is `rejected` → creates a **new** `draft`
+  row from whatever fields are sent (any subset — every field is optional). A `rejected` row is
+  never reused/mutated — it stays as an untouched historical record, and re-applying starts a
+  fresh row, matching `app/apply/page.tsx`'s pre-existing redirect gate (which only blocks
+  `submitted`/`under_review`/`approved`, deliberately not `rejected`).
+- An existing `draft` row → merges the sent fields into it (untouched fields keep their previous
+  value; this is a merge, not a replace).
+- An existing `submitted`/`under_review`/`approved` row → `409` — can't start a new application
+  while one is pending or already succeeded. (`approved` is blocked here for defense-in-depth;
+  in practice it's already unreachable, since an approved applicant's role has flipped to
+  `member` and this endpoint requires `role: 'client'`.)
+- `status: 'submitted'` in the body → after merging, the **merged row** (not just this call's
+  body) must satisfy every requirement the old one-shot `POST /v1/applications` used to enforce
+  (all identity/background/services/rates fields present, `workExperiences`/`educations`/
+  `servicePreferences` non-empty, `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
+  terms/privacy versions present) — missing/invalid fields are named in the `400` response body,
+  not just a generic rejection. On success: computes `selectedTier`, `listPriceCents`,
+  `discountAmountCents`, `amountDueCents`, `paymentStatus` exactly as the old endpoint did (see
+  below), and transitions the row to `submitted`.
+- Omitted/`'draft'` `status` → just saves progress, stays `draft`.
+
+**Trade-off, deliberate:** this creates on first call and updates on repeat calls under one POST
+URL — not strict REST idempotency. Accepted for a singleton-per-user resource; see the spec doc
+for the discussion.
+
+**Request:** `UpdateApplicationRequest` (see `packages/shared-types/membership-application.ts`) —
+every field optional, plus `status?: 'draft' | 'submitted'` and `currentStep?: number` (which
+wizard step to resume on, pure UX convenience, not validated).
+- `servicePreferences[].practiceAreaId` is validated against a live, `is_active` `practice_areas`
+  query whenever a call actually includes `servicePreferences` — the DB has no FK to catch an
+  invalid id (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field
+  (a previously-valid, now-deactivated selection isn't retroactively rejected mid-draft).
 - `selectedTier`, `listPriceCents`, `discountAmountCents`, `amountDueCents`, `paymentStatus`,
-  `status`, `applicantId` are **never accepted from the client** — sending them is rejected
-  outright (`forbidNonWhitelisted`), confirmed by test. All computed server-side:
-  - `selectedTier`: `yearsOfExperience > 12 → seasoned_professional`, else `budding_entrepreneur`
-    (`apps/backend/src/applications/constants/pricing.ts`).
-  - `listPriceCents`: flat `$499/year` or `$49/month` regardless of tier — confirmed against
-    `design/static_html/membership.html`, which shows no tier-based pricing.
-  - `couponCode` (optional, free text) is checked against a small hardcoded map
-    (`apps/backend/src/applications/constants/coupons.ts`) — no `coupons` table exists (see
-    `docs/database-erd.md`). An unrecognized code is rejected with `400`, not silently ignored.
-  - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`. `paid` is
-    reserved for whenever a real payment gateway is integrated — unreachable today.
-- Rejects with `409` if the caller already has a `submitted` or `under_review` application.
-- Rejects with `400` if `rateMaxCents <= rateMinCents` (checked in the service — class-validator
-  doesn't do cross-field checks cleanly for one call site; the DB also enforces this via a CHECK
-  constraint as a second line of defense).
+  `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
+  from the client** — computed server-side exactly as before:
+  - `selectedTier`: `yearsOfExperience > 12 → seasoned_professional`, else `budding_entrepreneur`.
+  - `listPriceCents`: flat `$499/year` or `$49/month` regardless of tier.
+  - `couponCode` (optional, free text) checked against a small hardcoded map — an unrecognized
+    code is rejected with `400` at submit time, not silently ignored.
+  - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`.
 
-**Response `201`:** `ApplicationDto` — the full stored record, including resolved
-`servicePreferences[].practiceAreaName`.
+**Response `200`:** `ApplicationDto` — the full current record (draft or submitted), including
+resolved `servicePreferences[].practiceAreaName`, a freshly-signed `photoUrl` (private Storage
+path, not a public URL — see the uploads endpoint below), and `documents[]`.
 
-**Errors:** `401` no/invalid token · `403` not a client account · `409` application already in
-progress · `400` validation failure (malformed body, invalid practice area id, invalid coupon,
-`rateMax <= rateMin`).
+**Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
+already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
+invalid coupon, `rateMax <= rateMin`, or — only when `status: 'submitted'` — incomplete required
+fields, named in the message).
 
 ### 🔒 `GET /v1/applications/me`
 
-The caller's own most recent application. Always owner-scoped by the authenticated user's id —
-never accepts an id param, so there's no cross-user access surface.
+The caller's own most recent application (draft or otherwise). Always owner-scoped by the
+authenticated user's id — never accepts an id param, so there's no cross-user access surface.
 
-**Response `200`:** `ApplicationDto`. **`404`** if the caller has no application.
+**Response `200`:** `ApplicationDto`. **`404`** if the caller has no application at all yet.
+
+### 🔒 `POST /v1/applications/me/linkedin-import`
+
+Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever profile data the
+configured `LinkedInImportProvider` can produce for the given URL and returns it directly; the
+frontend merges the result into its wizard state and saves it through `POST /v1/applications/me`
+like any manually-entered edit, so there's exactly one write path regardless of how the data
+originated. Backed today by `MockLinkedInImportProvider` — deterministic (derives a plausible
+name from the URL slug), deliberately omits `country`/`city`/`yearsOfExperience` so the
+"applicant fills what couldn't be imported" UX is real. The real n8n-backed provider is a future
+swap of the `LinkedInImportProvider` DI binding in `applications.module.ts` — no controller, DTO,
+or frontend change required when it lands.
+
+**Request:** `LinkedInImportRequest` — `{ linkedinUrl: string }`.
+**Response `200`:** `LinkedInImportResponse` — every field optional; absent fields mean "couldn't
+be extracted."
+
+### 🔒 `POST /v1/applications/me/uploads`
+
+`multipart/form-data`, fields `kind` (`'photo' | 'document'`) and `file`. Proxies the upload
+through the backend rather than issuing a signed upload URL (unlike
+`POST /v1/members/:id/uploads`) — a signed-URL flow never puts the file's bytes through the API,
+so magic-byte MIME validation (root `CLAUDE.md`'s non-negotiable file-upload rule) would be
+structurally impossible there. Bytes are sniffed with `file-type` against an allow-list
+(`photo`: JPEG/PNG, 5MB max; `document`: JPEG/PNG/PDF, 15MB max) before being written to the
+private `application-assets` Storage bucket at a deterministic path
+(`members/application/{applicantId}/profile-photo.<ext>`, overwriting on re-upload; or
+`document-{n}.<ext>`, appended). Only allowed while the caller has a `draft` application.
+
+**Response `200`:** `ApplicationDto` — the updated record, `photoUrl`/`documents[].url` freshly
+signed. **Errors:** `400` no draft to attach to, oversized file, or a MIME mismatch (including a
+renamed file whose magic bytes don't match its extension/declared content-type).
+
+## Membership applications — admin
+
+### 🛡️ `manageApplications` `PATCH /v1/admin/applications/:id`
+
+Approve or reject a `submitted`/`under_review` application. No admin UI consumes this route —
+backend-only, curl-verified (see the spec doc §7: no admin-review page exists anywhere in the
+design prototype to build one against; a real screen is deferred to its own future "Admin:
+applications" session, same as `master-tdd.md`'s routing table already scoped it).
+
+**Request:** `AdminApplicationReviewRequest` — `{ status: 'approved' | 'rejected', rejectionReason?:
+string }` (`rejectionReason` required when rejecting).
+
+**On approve:** provisions a `member_profiles` row (1:1 field mapping from the application row)
+and one `member_services` row per `servicePreferences` entry, then flips `profiles.role` to
+`'member'`, then marks the application `approved` — in that order, so a mid-sequence failure
+leaves the application `submitted` (still reviewable) rather than silently `approved` with no
+member actually provisioned. Not a true DB transaction — supabase-js has no multi-statement
+transaction API from a service-role client.
+
+**On reject:** stamps `reviewed_by`/`reviewed_at`/`rejection_reason` only.
+
+**Errors:** `401`/`403` per the 🛡️ badge · `404` no such application · `409` application isn't
+`submitted`/`under_review` · `400` rejecting without a `rejectionReason`.
 
 ## Membership applications — not built yet (explicitly deferred)
 
-- Admin review (`PATCH /v1/applications/:id` approve/reject) — `reviewed_by`/`reviewed_at`/
-  `rejection_reason` columns exist on `membership_applications` for this, but no endpoint writes
-  them. Deferred per explicit product decision, not an oversight.
-- Anything that provisions a `member_profiles` row / flips `profiles.role` to `member` — depends
-  on the admin review endpoint above.
+- Admin review **UI** — the endpoint above exists; no page consumes it yet.
 - Member directory (`GET /v1/members`, `GET /v1/members/:id`) — separate future backend session.
 - Real payment gateway integration — `payment_status='paid'` is modeled but unreachable.
+- Real LinkedIn import — `MockLinkedInImportProvider` only; n8n integration is a future DI swap.
 
 ## Articles
 

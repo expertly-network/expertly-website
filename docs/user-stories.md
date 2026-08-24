@@ -73,22 +73,29 @@ As a user, I want to land on the right surface for my role immediately after aut
 ### US-03-01: Starting an application
 As a client, I want to apply to become a vetted member so I can offer consultations and publish
 articles.
-- [ ] `POST /v1/applications` per `docs/rest-api.md`; duplicate-application prevention per
-      `apps/backend/src/applications/`
+- [x] `POST /v1/applications/me` (upsert — see `docs/superpowers/specs/2026-08-23-member-application-form-design.md`)
+      per `docs/rest-api.md`; duplicate-application prevention per `apps/backend/src/applications/`
+      — a `rejected` applicant may start a fresh application, `submitted`/`under_review`/`approved`
+      may not.
 
 ### US-03-02: Completing the application wizard
 As an applicant, I want a multi-step form (identity, background, services & rates, review &
 submit) matching `apply.html`/`onboarding_form.html` so the process feels structured, not a wall
 of fields.
-- [ ] Each step validates independently before advancing (see
-      `components/apply/steps/*`)
-- [ ] LinkedIn import step pre-fills identity/background where available
-- [ ] Review step shows every collected field before final submit
+- [x] Each step validates independently before advancing (see `components/apply/steps/*`)
+- [x] LinkedIn import step pre-fills identity/background where available (real fetch against a
+      `LinkedInImportProvider`, mocked for now — see the spec doc §5) — imported fields are
+      visually tagged and the tag clears the moment the applicant edits that field
+- [x] Review step shows every collected field before final submit
+- [x] Progress is saved to the backend as the applicant advances (not frontend-only) — leaving and
+      returning resumes at the last-saved step with prior data intact
+- [x] Profile photo upload (magic-byte-validated, real Supabase Storage) — `apply.html` had this
+      in the design; the wizard didn't implement it until this session
 
 ### US-03-03: Checking my application status
 As an applicant, I want to see my current status so I know whether to expect a decision.
-- [ ] `GET /v1/applications/me` 🔒 returns current status
-      (`submitted`/`under_review`/`approved`/`rejected`)
+- [x] `GET /v1/applications/me` 🔒 returns current status
+      (`draft`/`submitted`/`under_review`/`approved`/`rejected`)
 - [ ] Payment step after approval is **explicitly deferred** per `docs/rest-api.md`'s
       "not built yet" section — don't assume it exists
 
@@ -99,8 +106,9 @@ As an applicant, I want to see my current status so I know whether to expect a d
 ### US-04-01: Becoming a member after approval
 As an approved applicant, I want my account role to change to `member` and gain access to the
 member portal.
-- [ ] Role transition happens server-side on admin approval (Section on Admin: Member Management,
-      US-12), never client-writable
+- [x] Role transition happens server-side on admin approval (`PATCH /v1/admin/applications/:id`,
+      backend-only — no admin UI exists to trigger this yet, see the spec doc §7), never
+      client-writable
 
 ---
 

@@ -38,10 +38,14 @@ identical 5-step wizard — LinkedIn Import → Identity → Background → Serv
 Submit — same fields in both, so they don't fork this schema) plus `review.html` (post-submit
 status page, no additional data).
 
-**Flow:** a signed-in `client` submits one application in a single request (the wizard's multi-step
-UI is frontend-only state; nothing is persisted until final submit — the design has no
-save-and-resume). Approving an application (a separate, deferred admin feature) is the only path
-that will create a `member_profiles` row and flip `profiles.role` to `member`; not built yet.
+**Flow (updated — see `docs/superpowers/specs/2026-08-23-member-application-form-design.md` for
+the full design):** a signed-in `client`'s application starts as a `draft` row the moment they
+save their first field, mutated in place across `POST /v1/applications/me` calls as they move
+through the wizard (real save-and-resume, not frontend-only state), then transitions to
+`submitted` once the merged row is complete. From `submitted` onward the row is treated as an
+immutable snapshot again, same as the original design. Approving an application
+(`PATCH /v1/admin/applications/:id`, backend-only, no UI) is the only path that creates a
+`member_profiles` row and flips `profiles.role` to `member`.
 
 ### `membership_applications`
 
@@ -49,34 +53,44 @@ that will create a `member_profiles` row and flip `profiles.role` to `member`; n
 |---|---|---|
 | `id` | uuid PK | |
 | `applicant_id` | uuid FK → `profiles.id` | |
-| `status` | enum `submitted`\|`under_review`\|`approved`\|`rejected` | default `submitted` |
-| `photo_url` | text | |
-| `first_name`, `last_name` | text NOT NULL | |
-| `contact_email` | citext NOT NULL | deliberately separate from `profiles.email` (work vs. login email) |
-| `phone_country_code`, `phone` | text | optional |
-| `region` | enum (7 values: `asia_pacific`…`africa`) | NOT NULL |
-| `country` | text NOT NULL | free text in the design (fixed option list + "Other"), not its own lookup table yet |
-| `state`, `city` | text | optional |
-| `linkedin_url` | text NOT NULL | |
-| `bio` | varchar(500) NOT NULL | |
-| `years_of_experience` | smallint, check 0–60 | |
-| `work_experiences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a child table |
-| `educations` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below |
-| `service_preferences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a join table |
-| `rate_min_cents`, `rate_max_cents` | int, check `max > min` | USD/hr |
-| `selected_tier` | enum `budding_entrepreneur`\|`seasoned_professional` | auto-derived from `years_of_experience` at submit (>12yr → seasoned); admin can override — but that override applies to the eventual `member_profiles` row, not this immutable submission record |
-| `billing_period` | enum `monthly`\|`annual` | |
-| `list_price_cents` | int | price snapshot at submission time |
+| `status` | enum `draft`\|`submitted`\|`under_review`\|`approved`\|`rejected` | default `draft` |
+| `current_step` | smallint, default `1` | which wizard step to resume on; only meaningful while `status = 'draft'` |
+| `photo_path` | text, nullable | **private Storage path** (`application-assets` bucket), not a public URL — a signed URL is minted at read time by `ApplicationsService.toDto()`. Replaces the old `photo_url` column. |
+| `first_name`, `last_name` | text, nullable | nullable so a draft can be incomplete; required by the time `status` becomes `submitted` (enforced in `ApplicationsService`, not the DB) |
+| `contact_email` | citext, nullable | deliberately separate from `profiles.email` (work vs. login email) |
+| `phone_country_code`, `phone` | text | optional, always |
+| `region` | enum (7 values: `asia_pacific`…`africa`), nullable | required at submit |
+| `country` | text, nullable | free text in the design (fixed option list + "Other"), not its own lookup table yet; required at submit |
+| `state`, `city` | text | optional, always |
+| `linkedin_url` | text, nullable | required at submit |
+| `bio` | varchar(500), nullable | required at submit |
+| `years_of_experience` | smallint, check 0–60, nullable | required at submit |
+| `work_experiences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a child table; non-empty required at submit |
+| `educations` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below; non-empty required at submit |
+| `documents` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | array of `{id, filename, path, mimeType, sizeBytes, uploadedAt}` — generic/extensible; only the profile photo has upload UI in this iteration |
+| `service_preferences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a join table; non-empty required at submit |
+| `rate_min_cents`, `rate_max_cents` | int, nullable, check `max > min` (only enforced once both are non-null) | USD/hr; required at submit |
+| `selected_tier` | enum `budding_entrepreneur`\|`seasoned_professional`, nullable | computed and stamped only at the submit transition — admin can override, but that override applies to the eventual `member_profiles` row, not this record |
+| `billing_period` | enum `monthly`\|`annual`, nullable | required at submit |
+| `list_price_cents` | int, nullable | stamped at the submit transition |
 | `coupon_code` | text, nullable | free text; validity checked in application code, no `coupons` table (deliberate — see below) |
 | `discount_amount_cents` | int, default 0 | |
-| `amount_due_cents` | int, check `>= 0` | |
-| `payment_status` | enum `pending`\|`waived`\|`paid` | only `waived` is reachable without a real payment gateway; `paid` reserved for later |
-| `linkedin_import_consent` | bool | |
-| `terms_version_agreed`, `privacy_version_agreed` | text | e.g. `"1.0"` |
-| `background_check_consent` | bool NOT NULL | |
-| `reviewed_by` | uuid FK → `profiles.id`, nullable | deferred admin feature — column exists, no endpoint writes it yet |
+| `amount_due_cents` | int, nullable, check `>= 0` | stamped at the submit transition |
+| `payment_status` | enum `pending`\|`waived`\|`paid`, nullable | stamped at the submit transition; only `waived` is reachable without a real payment gateway |
+| `linkedin_import_consent` | bool, default `false` | |
+| `terms_version_agreed`, `privacy_version_agreed` | text, nullable | e.g. `"1.0"`; required at submit |
+| `background_check_consent` | bool, nullable | must be `true` at submit |
+| `reviewed_by` | uuid FK → `profiles.id`, nullable | written by `PATCH /v1/admin/applications/:id` |
 | `reviewed_at`, `rejection_reason` | nullable | ditto |
 | `created_at`, `updated_at` | timestamptz | |
+
+**`draft` is the one deliberate exception to the immutable-snapshot design below** — everything
+said about `work_experiences`/`educations`/`service_preferences` being "written once, read as a
+whole, never edited per-entry" describes the row from `submitted` onward. A `draft` row is
+genuinely mutated in place, in full, across multiple calls; completeness for the `submitted`
+transition is asserted in `ApplicationsService.assertComplete()`, not by any DB constraint — same
+"cross-field rules live in the service" convention this schema already used for
+`rate_max_cents > rate_min_cents`.
 
 **`work_experiences` / `educations` — JSONB arrays, not child tables.** Initial design used two
 normalized child tables (`application_work_experiences`, `application_educations`); reconsidered
@@ -144,6 +158,13 @@ a genuinely region-specific practice area is added later.
 - **`country` is free text**, matching the design's fixed-but-not-database-backed option list —
   not normalized into its own table for this feature; revisit if a future feature needs to query/
   filter by country as a first-class entity.
+- **`application-assets` Storage bucket** — private, same RLS-scoped-to-`auth.uid()` posture as
+  `member-proofs`, keyed `members/application/<applicantId>/profile-photo.<ext>` or
+  `document-<n>.<ext>`. Unlike `member-proofs`' signed-upload-URL flow, uploads here are proxied
+  through the backend (`POST /v1/applications/me/uploads`) so magic-byte MIME validation is
+  actually possible — a signed-URL flow never puts the file's bytes through the API. See
+  `docs/rest-api.md` for the endpoint and root `CLAUDE.md`'s non-negotiable file-upload rule for
+  why this diverges from the `member-proofs` pattern.
 - Migration verified end-to-end against a real (throwaway, local) Postgres instance before being
   considered final — three separate passes as the schema was revised (child tables → JSONB, then
   service preferences relational → JSONB): migrations apply cleanly in sequence each time, the

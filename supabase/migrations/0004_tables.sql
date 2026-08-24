@@ -113,46 +113,61 @@ insert into public.practice_areas (name, category) values
   ('Antitrust', 'finance_advisory');
 
 -- ============================================================================
--- membership_applications — a client applies to become a member. Approving an application
--- (deferred admin feature, not built by this migration) is the only path that provisions a
--- member_profiles row (see docs/database-erd.md's target shape, a separate future backend
--- session) and flips profiles.role to 'member'.
+-- membership_applications — a client applies to become a member. Rows start as an in-place-
+-- mutable 'draft' (see current_step/photo_path/documents below) across multiple wizard saves;
+-- once 'submitted' the row is treated as an immutable snapshot again (written once at the submit
+-- transition, read as a whole for review, never edited per-entry) — 'draft' is the one
+-- deliberate exception to that immutability, not a change to the principle itself. Approving an
+-- application (PATCH /v1/admin/applications/:id) is the only path that provisions a
+-- member_profiles row (see docs/database-erd.md's target shape) and flips profiles.role to
+-- 'member'.
 -- ============================================================================
 
 create table public.membership_applications (
   id uuid primary key default gen_random_uuid(),
   applicant_id uuid not null references public.profiles (id) on delete cascade,
-  status application_status not null default 'submitted',
+  status application_status not null default 'draft',
+  -- Which wizard step to resume on. Only meaningful while status = 'draft'.
+  current_step smallint not null default 1,
 
-  -- Identity (step 2)
-  photo_url text,
-  first_name text not null,
-  last_name text not null,
-  contact_email citext not null,
+  -- Identity (step 2). Every column below this point that used to be `not null` is now
+  -- nullable — a draft row can be arbitrarily incomplete. Completeness for status='submitted' is
+  -- enforced in ApplicationsService (assertComplete), not here — same "cross-field rules live in
+  -- the service" convention this schema already uses for rate_min/max_cents ordering.
+  --
+  -- photo_path: private Storage path (application-assets bucket, see below), not a public URL —
+  -- a signed URL is minted at read time by ApplicationsService.toDto().
+  photo_path text,
+  first_name text,
+  last_name text,
+  contact_email citext,
   phone_country_code text,
   phone text,
-  region application_region not null,
-  country text not null,
+  region application_region,
+  country text,
   state text,
   city text,
-  linkedin_url text not null,
-  bio varchar(500) not null,
+  linkedin_url text,
+  bio varchar(500),
 
-  -- Background (step 3). Stored as JSONB, not child tables — this is an immutable
-  -- submission record (written once at submit, read as a whole for review, never queried or
-  -- edited per-entry), unlike the member-side equivalents (member_profiles below) which do
-  -- need per-entry search/edit. Matches the frontend wizard's own array-of-objects shape
-  -- exactly, no relational mapping needed. Trade-off: individual sub-fields (e.g. firmSize)
+  -- Background (step 3). Stored as JSONB, not child tables — see the immutable-submission-record
+  -- rationale in the table comment above; matches the frontend wizard's own array-of-objects
+  -- shape exactly, no relational mapping needed. Trade-off: individual sub-fields (e.g. firmSize)
   -- aren't DB-type-enforced — validated at the DTO layer instead.
   --
   -- work_experiences element shape: { title, company, city, firmSize, companyUrl, startMonth,
   --   startYear, endMonth, endYear, isCurrent }
   -- educations element shape: { institution, degree, fieldOfStudy, startYear, endYear }
-  years_of_experience smallint not null check (years_of_experience between 0 and 60),
+  years_of_experience smallint check (years_of_experience between 0 and 60),
   work_experiences jsonb not null default '[]'
     check (jsonb_typeof(work_experiences) = 'array'),
   educations jsonb not null default '[]'
     check (jsonb_typeof(educations) = 'array'),
+
+  -- Documents (photo lives on photo_path above; this is the generic/extensible slot — array of
+  -- {id, filename, path, mimeType, sizeBytes, uploadedAt}). Only the profile photo has upload UI
+  -- in the initial iteration, but future document types don't need another migration.
+  documents jsonb not null default '[]' check (jsonb_typeof(documents) = 'array'),
 
   -- Services & rates (step 4). service_preferences: [{ practiceAreaId, priority }, ...], up to
   -- 3 entries. JSONB, not a join table with a real FK to practice_areas — a deliberate
@@ -163,30 +178,30 @@ create table public.membership_applications (
   -- schema.
   service_preferences jsonb not null default '[]'
     check (jsonb_typeof(service_preferences) = 'array'),
-  rate_min_cents integer not null check (rate_min_cents >= 0),
-  rate_max_cents integer not null check (rate_max_cents > rate_min_cents),
+  rate_min_cents integer check (rate_min_cents >= 0),
+  rate_max_cents integer check (rate_max_cents > rate_min_cents),
 
   -- Payment (coupon-only, no real gateway integration yet). selected_tier is auto-derived
   -- from years_of_experience at submission time (>12 years -> seasoned_professional per
   -- current product rule); the operations team can override the final tier at approval time
   -- — that override lives on member_profiles (below), not here, since this table is an
-  -- immutable submission record.
-  selected_tier membership_tier not null,
-  billing_period billing_period not null,
-  list_price_cents integer not null,
+  -- immutable submission record. All of these are computed/stamped only at the submit
+  -- transition, hence nullable here.
+  selected_tier membership_tier,
+  billing_period billing_period,
+  list_price_cents integer,
   coupon_code text,
   discount_amount_cents integer not null default 0,
-  amount_due_cents integer not null check (amount_due_cents >= 0),
-  payment_status payment_status not null default 'pending',
+  amount_due_cents integer check (amount_due_cents >= 0),
+  payment_status payment_status,
 
   -- Declarations (step 5)
   linkedin_import_consent boolean not null default false,
-  terms_version_agreed text not null,
-  privacy_version_agreed text not null,
-  background_check_consent boolean not null,
+  terms_version_agreed text,
+  privacy_version_agreed text,
+  background_check_consent boolean,
 
-  -- Review (deferred admin feature — columns exist now so the lifecycle is modeled
-  -- correctly; no endpoint writes them yet)
+  -- Review — PATCH /v1/admin/applications/:id writes these on approve/reject.
   reviewed_by uuid references public.profiles (id),
   reviewed_at timestamptz,
   rejection_reason text,
@@ -720,3 +735,22 @@ create policy member_proofs_owner_rw
   on storage.objects for all
   using (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================================
+-- Storage — application-assets bucket, backing POST /v1/applications/me/uploads. Unlike
+-- member-proofs' signed-upload-URL flow, uploads here are proxied through the backend (see
+-- ApplicationsService.uploadFile) so magic-byte MIME validation is actually possible before the
+-- object is written — a signed-upload-URL flow never puts the file's bytes through the API.
+-- Private (not public); a signed URL is minted at read time. Objects are keyed
+-- "members/application/<applicantId>/profile-photo.<ext>" or "...document-<n>.<ext>", so index 3
+-- (1-indexed: members, application, <applicantId>, ...) is the applicant id.
+-- ============================================================================
+
+insert into storage.buckets (id, name, public)
+values ('application-assets', 'application-assets', false)
+on conflict (id) do nothing;
+
+create policy application_assets_owner_all
+  on storage.objects for all
+  using (bucket_id = 'application-assets' and (storage.foldername(name))[3] = auth.uid()::text)
+  with check (bucket_id = 'application-assets' and (storage.foldername(name))[3] = auth.uid()::text);

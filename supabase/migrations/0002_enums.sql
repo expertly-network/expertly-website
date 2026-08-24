@@ -22,7 +22,9 @@ create type public.practice_area_category as enum ('taxation', 'legal', 'finance
 
 -- ── membership_applications ──────────────────────────────────────────────────
 
-create type public.application_status as enum ('submitted', 'under_review', 'approved', 'rejected');
+-- 'draft' added for the resumable application wizard — a client's in-progress application lives
+-- as a draft row, mutated in place across multiple saves, until it's complete enough to submit.
+create type public.application_status as enum ('draft', 'submitted', 'under_review', 'approved', 'rejected');
 create type public.application_region as enum (
   'asia_pacific', 'europe', 'latin_america', 'middle_east', 'north_america', 'south_asia', 'africa'
 );
