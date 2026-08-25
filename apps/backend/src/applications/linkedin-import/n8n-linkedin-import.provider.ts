@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable, RequestTimeoutException } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger, RequestTimeoutException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
   EducationInput,
@@ -95,6 +95,8 @@ function mapEducation(raw: RawEducation[] | undefined): EducationInput[] {
 
 @Injectable()
 export class N8nLinkedInImportProvider implements LinkedInImportProvider {
+  private readonly logger = new Logger(N8nLinkedInImportProvider.name);
+
   async importProfile(linkedinUrl: string): Promise<LinkedInImportResponse> {
     const webhookUrl = process.env.LINKEDIN_IMPORT_WEBHOOK_URL;
     if (!webhookUrl) {
@@ -127,14 +129,17 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
+        this.logger.error('LinkedIn import timed out', { linkedinUrl });
         throw new RequestTimeoutException('LinkedIn import timed out.');
       }
+      this.logger.error(`Failed to reach LinkedIn import service: ${err instanceof Error ? err.message : String(err)}`);
       throw new BadGatewayException('Failed to reach LinkedIn import service.');
     } finally {
       clearTimeout(timeout);
     }
 
     if (!res.ok) {
+      this.logger.error(`LinkedIn import service returned ${res.status} ${res.statusText}`);
       throw new BadGatewayException('LinkedIn import service returned an error.');
     }
 
@@ -142,6 +147,7 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
     try {
       data = await res.json();
     } catch {
+      this.logger.error('LinkedIn import service returned an invalid response body.');
       throw new BadGatewayException('LinkedIn import service returned an invalid response.');
     }
 
