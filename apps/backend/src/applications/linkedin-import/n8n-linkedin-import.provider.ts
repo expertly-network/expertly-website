@@ -129,7 +129,7 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        this.logger.error('LinkedIn import timed out', { linkedinUrl });
+        this.logger.error(`LinkedIn import timed out for ${linkedinUrl}`);
         throw new RequestTimeoutException('LinkedIn import timed out.');
       }
       this.logger.error(`Failed to reach LinkedIn import service: ${err instanceof Error ? err.message : String(err)}`);
