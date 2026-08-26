@@ -75,6 +75,10 @@ export function LinkedInImportStep({
         patch.country = result.country;
         importedFields.add('country');
       }
+      if (result.state) {
+        patch.state = result.state;
+        importedFields.add('state');
+      }
       if (result.city) {
         patch.city = result.city;
         importedFields.add('city');

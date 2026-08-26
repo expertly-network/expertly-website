@@ -110,15 +110,17 @@ Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever p
 configured `LinkedInImportProvider` can produce for the given URL and returns it directly; the
 frontend merges the result into its wizard state and saves it through `POST /v1/applications/me`
 like any manually-entered edit, so there's exactly one write path regardless of how the data
-originated. Backed today by `MockLinkedInImportProvider` — deterministic (derives a plausible
-name from the URL slug), deliberately omits `country`/`city`/`yearsOfExperience` so the
-"applicant fills what couldn't be imported" UX is real. The real n8n-backed provider is a future
-swap of the `LinkedInImportProvider` DI binding in `applications.module.ts` — no controller, DTO,
-or frontend change required when it lands.
+originated. Backed by `N8nLinkedInImportProvider` when `LINKEDIN_IMPORT_WEBHOOK_URL` is configured,
+falling back to the deterministic `MockLinkedInImportProvider` otherwise (e.g. local dev without
+real credentials) — see `docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md`
+for the confirmed n8n request/response contract and field-mapping rules. Request/response shape
+here is unchanged either way — swapping providers was a zero-controller/DTO/frontend-change DI
+rebind, as originally designed.
 
 **Request:** `LinkedInImportRequest` — `{ linkedinUrl: string }`.
-**Response `200`:** `LinkedInImportResponse` — every field optional; absent fields mean "couldn't
-be extracted."
+**Response `201`:** `LinkedInImportResponse` — every field optional; absent fields mean "couldn't
+be extracted." (NestJS's default status for a `POST` handler with no `@HttpCode()` override —
+confirmed live, not `200` as previously documented here.)
 
 ### 🔒 `POST /v1/applications/me/uploads`
 
