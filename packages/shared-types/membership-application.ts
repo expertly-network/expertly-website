@@ -141,8 +141,10 @@ export interface LinkedInImportRequest {
 
 /**
  * Normalized LinkedIn-import result — every field optional, since anything that couldn't be
- * extracted is simply omitted (the applicant fills it manually). Backed today by a deterministic
- * mock provider; swapping in the real n8n-backed provider changes nothing about this shape.
+ * extracted is simply omitted (the applicant fills it manually). Backed by the real n8n-backed
+ * provider (apps/backend/src/applications/linkedin-import/n8n-linkedin-import.provider.ts) when
+ * configured, the deterministic mock provider otherwise — see that module for which fields each
+ * one actually populates.
  */
 export interface LinkedInImportResponse {
   firstName?: string;
@@ -152,6 +154,7 @@ export interface LinkedInImportResponse {
   workExperiences?: WorkExperienceInput[];
   educations?: EducationInput[];
   country?: string;
+  state?: string;
   city?: string;
 }
 

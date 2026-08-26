@@ -47,7 +47,7 @@ interface RawLinkedInProfile {
   firstName?: string;
   lastName?: string;
   about?: string;
-  location?: { parsed?: { city?: string; country?: string } };
+  location?: { parsed?: { city?: string; state?: string; country?: string } };
   experience?: RawExperience[];
   education?: RawEducation[];
 }
@@ -84,7 +84,7 @@ function mapEducation(raw: RawEducation[] | undefined): EducationInput[] {
       if (!e.schoolName) return null;
       return {
         institution: e.schoolName,
-        degree: e.degree ?? 'Not specified',
+        degree: e.degree || 'Not specified',
         fieldOfStudy: e.fieldOfStudy || undefined,
         startYear: e.startDate?.year,
         endYear: e.endDate?.year,
@@ -163,6 +163,7 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
       lastName: raw.lastName || undefined,
       bio: raw.about ? raw.about.slice(0, BIO_MAX_CHARS) : undefined,
       country: raw.location?.parsed?.country || undefined,
+      state: raw.location?.parsed?.state || undefined,
       city: raw.location?.parsed?.city || undefined,
       workExperiences: mapExperience(raw.experience),
       educations: mapEducation(raw.education),
