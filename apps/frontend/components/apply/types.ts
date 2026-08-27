@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type {
   ApplicationDto,
   ApplicationRegion,
@@ -7,6 +8,29 @@ import type {
   UpdateApplicationRequest,
   WorkExperienceInput,
 } from '@shared/membership-application';
+
+// Shared across every wizard step: "Next"/"Submit" stays clickable even when required fields are
+// empty — clicking it while invalid sets `attempted`, which turns on each empty field's `error`
+// prop, instead of silently disabling the button. See docs/design-system.md's Input/Select/
+// Textarea `error` prop note for the full rationale.
+export const REQUIRED_MSG = 'This field is required.';
+
+/** onInvalid is optional extra work a step needs on a failed attempt (e.g. BackgroundStep
+ * auto-expanding collapsed cards that turned out invalid) — most steps don't need it. */
+export function useAttemptedNext(canContinue: boolean, onNext: () => void, onInvalid?: () => void) {
+  const [attempted, setAttempted] = useState(false);
+
+  function handleNext() {
+    if (!canContinue) {
+      setAttempted(true);
+      onInvalid?.();
+      return;
+    }
+    onNext();
+  }
+
+  return { attempted, handleNext };
+}
 
 // Wizard's working state — a superset of UpdateApplicationRequest with a few
 // fields kept as strings for controlled inputs (numbers, dollars not cents)
@@ -77,9 +101,11 @@ export function toUpdateRequest(
     // the field entirely once nothing's left, so an early save on step 1/2 doesn't trip
     // Background's own validation before the applicant has gotten there.
     //
-    // companyUrl is IsOptional + IsUrl on the backend — class-validator's IsOptional only skips
-    // null/undefined, not '', so the empty-string default from EMPTY_WORK_EXPERIENCE must be
-    // scrubbed here.
+    // companyUrl is IsOptional + IsUrl on the backend (deliberately deferred to submit-time
+    // completeness, not per-save — LinkedIn import leaves it blank and auto-saves immediately
+    // after import, before the applicant can fill it in manually) — class-validator's IsOptional
+    // only skips null/undefined, not '', so the empty-string default from EMPTY_WORK_EXPERIENCE
+    // (and LinkedIn-imported entries) must be scrubbed here.
     workExperiences: nonEmptyOrUndefined(
       form.workExperiences
         .filter((w) => w.title.trim() || w.company.trim())

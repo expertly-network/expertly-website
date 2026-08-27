@@ -63,6 +63,10 @@ function mapExperience(raw: RawExperience[] | undefined): WorkExperienceInput[] 
       return {
         title: e.position,
         company: e.companyName,
+        // LinkedIn only exposes companyLinkedinUrl (a LinkedIn company page), never the company's
+        // real website — this app's companyUrl field means the latter, so it's left for the
+        // applicant to fill in rather than substituting a LinkedIn page URL for it.
+        companyUrl: '',
         city: e.location?.split(',')[0]?.trim() || undefined,
         startMonth: e.startDate?.month ? MONTH_NUM[e.startDate.month] : undefined,
         startYear,

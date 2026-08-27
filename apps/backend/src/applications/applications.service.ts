@@ -72,8 +72,11 @@ const REQUIRED_TO_SUBMIT: [string, string][] = [
   ['first_name', 'firstName'],
   ['last_name', 'lastName'],
   ['contact_email', 'contactEmail'],
+  ['phone', 'phone'],
   ['region', 'region'],
   ['country', 'country'],
+  ['state', 'state'],
+  ['city', 'city'],
   ['linkedin_url', 'linkedinUrl'],
   ['bio', 'bio'],
   ['years_of_experience', 'yearsOfExperience'],
@@ -409,16 +412,36 @@ export class ApplicationsService {
   }
 
   private assertComplete(row: Row) {
-    const missing = REQUIRED_TO_SUBMIT.filter(([column]) => row[column] === null || row[column] === undefined).map(
-      ([, key]) => key
-    );
+    // Plain @IsString() DTO fields (firstName, lastName, phone, country, state, city, bio) have
+    // no @IsNotEmpty() — a direct API call bypassing the frontend's own `|| undefined` scrubbing
+    // could otherwise satisfy this check with ''. Numeric REQUIRED_TO_SUBMIT columns are never
+    // strings, so this doesn't affect them.
+    const isBlank = (value: unknown) =>
+      value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+    const missing = REQUIRED_TO_SUBMIT.filter(([column]) => isBlank(row[column])).map(([, key]) => key);
 
-    const workExperiences = (row.work_experiences ?? []) as unknown[];
+    const workExperiences = (row.work_experiences ?? []) as {
+      isCurrent?: boolean;
+      startMonth?: number;
+      startYear?: number;
+      endMonth?: number;
+      endYear?: number;
+    }[];
     const educations = (row.educations ?? []) as unknown[];
-    const servicePreferences = (row.service_preferences ?? []) as unknown[];
+    const servicePreferences = (row.service_preferences ?? []) as { priority?: number }[];
     if (workExperiences.length < 1) missing.push('workExperiences');
     if (educations.length < 1) missing.push('educations');
+    if (
+      workExperiences.length >= 1 &&
+      !workExperiences.every((w) => w.startMonth && w.startYear && (w.isCurrent || (w.endMonth && w.endYear)))
+    ) {
+      missing.push('workExperiences[].startMonth/startYear/endMonth/endYear');
+    }
     if (servicePreferences.length < 1) missing.push('servicePreferences');
+    if (servicePreferences.length >= 1 && !servicePreferences.some((p) => p.priority === 1)) {
+      missing.push('a 1st-preference service is required');
+    }
+    if (!row.photo_path) missing.push('photo');
     if (row.background_check_consent !== true) missing.push('backgroundCheckConsent must be true');
     if (!row.terms_version_agreed) missing.push('termsVersionAgreed');
     if (!row.privacy_version_agreed) missing.push('privacyVersionAgreed');

@@ -122,6 +122,15 @@ form, and the application wizard before this existed).
 | `Input` | A single labeled text/email/password field | Wraps a native `<input>`; `label` and optional `labelRight` (e.g. a "Forgot?" link) are required props. |
 | `Select` | A labeled `<select>` | Same label pattern as `Input`; pass `<option>`s as children. |
 | `Textarea` | A labeled multi-line field | Same label pattern, plus an optional `hint` line below it. |
+
+All three of the above also accept an optional `error?: string` prop — when set, the field's border
+switches to `border-error` and the message renders below it in `text-error` (the same token from
+the palette above, not a new color). Used for the wizard's click-then-validate pattern: the "Next"
+button stays enabled and clickable even when required fields are empty; clicking it while invalid
+sets a local `attempted` flag rather than calling the parent's `onNext`, which turns on each empty
+required field's `error` prop. Don't disable "Next" on field validity anymore — that pattern (still
+used for pure network-busy states like `saving`/`uploading`) was replaced site-wide in the
+application wizard so an applicant always sees *why* they can't proceed instead of a dead button.
 | `Card` | A bordered surface/panel | `rounded-card border border-line bg-bg-card`; `padding="lg"` (default, collapses on mobile) or `"md"`. |
 | `Badge` | A pill/chip/tag | `variant`: `neutral` (bg-bg-alt), `emphasis` (bg-ink), `brand` (accent-tinted) — the same three chip treatments documented above. |
 

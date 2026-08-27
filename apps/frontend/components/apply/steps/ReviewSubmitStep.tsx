@@ -4,7 +4,13 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
-import { REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
+import {
+  REGIONS,
+  TERMS_VERSION,
+  PRIVACY_VERSION,
+  useAttemptedNext,
+  type WizardFormState,
+} from '@/components/apply/types';
 import type { BillingPeriod } from '@shared/membership-application';
 import type { PracticeAreaDto } from '@shared/practice-area';
 
@@ -41,15 +47,29 @@ export function ReviewSubmitStep({
   const regionLabel = REGIONS.find((r) => r.value === form.region)?.label ?? form.region;
   const location = [form.city, form.state, form.country].filter(Boolean).join(', ');
 
-  const canSubmit = consentTerms && consentPrivacy && form.backgroundCheckConsent && !saving;
+  const canSubmit = Boolean(consentTerms && consentPrivacy && form.backgroundCheckConsent);
+
+  const { attempted, handleNext: handleSubmit } = useAttemptedNext(canSubmit, onSubmit);
 
   return (
     <div>
-      <h2 className="text-heading text-ink">Ready to submit.</h2>
-      <p className="mt-2 text-sm text-ink-3">Review your details, then choose your membership plan.</p>
+      <div className="flex items-center gap-5">
+        <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border border-line bg-bg-alt text-ink-3">
+          {form.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-xs">No photo</span>
+          )}
+        </div>
+        <div>
+          <h2 className="text-heading text-ink">Ready to submit.</h2>
+          <p className="mt-2 text-sm text-ink-3">Review your details, then choose your membership plan.</p>
+        </div>
+      </div>
 
       <div className="mt-7 rounded-2xl border border-line bg-bg-card divide-y divide-line">
-        <ReviewRow label="Name" value={`${form.firstName} ${form.lastName}`} />
+        <ReviewRow label="Name" value={`${form.firstName} ${form.lastName}`.trim()} />
         <ReviewRow label="Email" value={form.contactEmail} />
         <ReviewRow label="Phone" value={form.phone ? `${form.phoneCountryCode} ${form.phone}` : '—'} />
         <ReviewRow label="Location" value={[location, regionLabel].filter(Boolean).join(' · ') || '—'} />
@@ -118,19 +138,31 @@ export function ReviewSubmitStep({
         <span className="text-mono-label text-ink-3">DECLARATION &amp; CONSENT</span>
 
         <div className="mt-4 flex flex-col gap-3">
-          <label className="flex items-start gap-3 rounded-input border border-line-2 bg-bg-alt px-3.5 py-3 text-sm">
+          <label
+            className={`flex items-start gap-3 rounded-input border bg-bg-alt px-3.5 py-3 text-sm ${
+              attempted && !consentTerms ? 'border-error' : 'border-line-2'
+            }`}
+          >
             <input type="checkbox" className="mt-0.5" checked={consentTerms} onChange={(e) => setConsentTerms(e.target.checked)} />
             <span className="text-ink-2">
               I agree to the <span className="font-medium text-accent">Terms of Service</span> (v{TERMS_VERSION}).
             </span>
           </label>
-          <label className="flex items-start gap-3 rounded-input border border-line-2 bg-bg-alt px-3.5 py-3 text-sm">
+          <label
+            className={`flex items-start gap-3 rounded-input border bg-bg-alt px-3.5 py-3 text-sm ${
+              attempted && !consentPrivacy ? 'border-error' : 'border-line-2'
+            }`}
+          >
             <input type="checkbox" className="mt-0.5" checked={consentPrivacy} onChange={(e) => setConsentPrivacy(e.target.checked)} />
             <span className="text-ink-2">
               I agree to the <span className="font-medium text-accent">Privacy Policy</span> (v{PRIVACY_VERSION}).
             </span>
           </label>
-          <label className="flex items-start gap-3 rounded-input border border-line-2 bg-bg-alt px-3.5 py-3 text-sm">
+          <label
+            className={`flex items-start gap-3 rounded-input border bg-bg-alt px-3.5 py-3 text-sm ${
+              attempted && !form.backgroundCheckConsent ? 'border-error' : 'border-line-2'
+            }`}
+          >
             <input
               type="checkbox"
               className="mt-0.5"
@@ -142,6 +174,9 @@ export function ReviewSubmitStep({
               the membership review process.
             </span>
           </label>
+          {attempted && !canSubmit && (
+            <p className="text-xs text-error">All three declarations are required to submit.</p>
+          )}
         </div>
       </div>
 
@@ -153,9 +188,9 @@ export function ReviewSubmitStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onSubmit}
+        onNext={handleSubmit}
         nextLabel={saving ? 'Submitting…' : 'Submit application'}
-        nextDisabled={!canSubmit}
+        nextDisabled={saving}
       />
     </div>
   );

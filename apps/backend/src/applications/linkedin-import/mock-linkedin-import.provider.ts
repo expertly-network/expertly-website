@@ -32,6 +32,7 @@ export class MockLinkedInImportProvider implements LinkedInImportProvider {
         {
           title: 'Senior Consultant',
           company: 'Independent Practice',
+          companyUrl: '',
           startYear: 2019,
           isCurrent: true,
         },

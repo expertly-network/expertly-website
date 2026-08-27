@@ -7,7 +7,14 @@ import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
-import { COUNTRIES, PHONE_CODES, REGIONS, type WizardFormState } from '@/components/apply/types';
+import {
+  COUNTRIES,
+  PHONE_CODES,
+  REGIONS,
+  REQUIRED_MSG,
+  useAttemptedNext,
+  type WizardFormState,
+} from '@/components/apply/types';
 import { uploadApplicationFile } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 
@@ -32,16 +39,23 @@ export function IdentityStep({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const canContinue =
+  const canContinue = Boolean(
     form.firstName.trim() &&
-    form.lastName.trim() &&
-    form.contactEmail.trim() &&
-    form.region &&
-    form.country &&
-    form.linkedinUrl.trim() &&
-    form.bio.trim().length > 0 &&
-    form.bio.length <= 500 &&
-    !uploading;
+      form.lastName.trim() &&
+      form.contactEmail.trim() &&
+      form.phone.trim() &&
+      form.region &&
+      form.country &&
+      form.state.trim() &&
+      form.city.trim() &&
+      form.photoUrl &&
+      form.linkedinUrl.trim() &&
+      form.bio.trim().length > 0 &&
+      form.bio.length <= 500 &&
+      !uploading
+  );
+
+  const { attempted, handleNext } = useAttemptedNext(canContinue, onNext);
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,7 +99,9 @@ export function IdentityStep({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-ink-2">Profile photo</span>
+            <span className="text-xs font-medium text-ink-2">
+              Profile photo <span className="font-normal text-error">*</span>
+            </span>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -105,6 +121,7 @@ export function IdentityStep({
           </div>
         </div>
         {uploadError && <ErrorBanner message={uploadError} />}
+        {attempted && !form.photoUrl && <p className="text-xs text-error">{REQUIRED_MSG}</p>}
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
@@ -115,6 +132,7 @@ export function IdentityStep({
             value={form.firstName}
             onChange={(e) => update({ firstName: e.target.value })}
             required
+            error={attempted && !form.firstName.trim() ? REQUIRED_MSG : undefined}
           />
           <Input
             label="Last name"
@@ -124,6 +142,7 @@ export function IdentityStep({
             value={form.lastName}
             onChange={(e) => update({ lastName: e.target.value })}
             required
+            error={attempted && !form.lastName.trim() ? REQUIRED_MSG : undefined}
           />
         </div>
 
@@ -136,12 +155,17 @@ export function IdentityStep({
             value={form.contactEmail}
             onChange={(e) => update({ contactEmail: e.target.value })}
             required
+            error={attempted && !form.contactEmail.trim() ? REQUIRED_MSG : undefined}
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-ink-2">
-              WhatsApp / Phone <span className="font-normal text-ink-3">(optional)</span>
+              WhatsApp / Phone <span className="font-normal text-error">*</span>
             </label>
-            <div className="flex overflow-hidden rounded-input border border-line">
+            <div
+              className={`flex overflow-hidden rounded-input border ${
+                attempted && !form.phone.trim() ? 'border-error' : 'border-line'
+              }`}
+            >
               <select
                 className="border-r border-line bg-bg-alt px-2 text-xs text-ink outline-none"
                 value={form.phoneCountryCode}
@@ -159,6 +183,7 @@ export function IdentityStep({
                 onChange={(e) => update({ phone: e.target.value })}
               />
             </div>
+            {attempted && !form.phone.trim() && <span className="text-xs text-error">{REQUIRED_MSG}</span>}
           </div>
         </div>
 
@@ -168,6 +193,7 @@ export function IdentityStep({
             value={form.region}
             onChange={(e) => update({ region: e.target.value as WizardFormState['region'] })}
             required
+            error={attempted && !form.region ? REQUIRED_MSG : undefined}
           >
             <option value="">Select region…</option>
             {REGIONS.map((r) => (
@@ -181,6 +207,7 @@ export function IdentityStep({
             value={form.country}
             onChange={(e) => update({ country: e.target.value })}
             required
+            error={attempted && !form.country ? REQUIRED_MSG : undefined}
           >
             <option value="">Select country…</option>
             {COUNTRIES.map((c) => (
@@ -192,25 +219,22 @@ export function IdentityStep({
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
             label="State / Province"
-            labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
             name="state"
             placeholder="e.g. California"
             value={form.state}
             onChange={(e) => update({ state: e.target.value })}
+            required
+            error={attempted && !form.state.trim() ? REQUIRED_MSG : undefined}
           />
           <Input
             label="City"
-            labelRight={
-              form.importedFields.has('city') ? (
-                <ImportedTag />
-              ) : (
-                <span className="text-xs font-normal text-ink-3">optional</span>
-              )
-            }
+            labelRight={form.importedFields.has('city') ? <ImportedTag /> : undefined}
             name="city"
             placeholder="e.g. London"
             value={form.city}
             onChange={(e) => update({ city: e.target.value })}
+            required
+            error={attempted && !form.city.trim() ? REQUIRED_MSG : undefined}
           />
         </div>
 
@@ -222,6 +246,7 @@ export function IdentityStep({
           value={form.linkedinUrl}
           onChange={(e) => update({ linkedinUrl: e.target.value })}
           required
+          error={attempted && !form.linkedinUrl.trim() ? REQUIRED_MSG : undefined}
         />
 
         <Textarea
@@ -232,6 +257,7 @@ export function IdentityStep({
           placeholder="Describe your professional background, expertise, and what makes you uniquely qualified…"
           value={form.bio}
           onChange={(e) => update({ bio: e.target.value })}
+          error={attempted && form.bio.trim().length === 0 ? REQUIRED_MSG : undefined}
           hint={
             <span className={form.bio.length > 500 ? 'text-error' : ''}>
               {form.bio.length} / 500 characters — appears on your public member profile
@@ -248,9 +274,9 @@ export function IdentityStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onNext}
+        onNext={handleNext}
         nextLabel={saving ? 'Saving…' : 'Next: Background'}
-        nextDisabled={!canContinue || saving}
+        nextDisabled={saving || uploading}
       />
     </div>
   );

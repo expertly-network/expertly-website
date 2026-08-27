@@ -3,9 +3,10 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   labelRight?: ReactNode;
+  error?: string;
 }
 
-export function Input({ label, labelRight, id, ...inputProps }: InputProps) {
+export function Input({ label, labelRight, error, id, ...inputProps }: InputProps) {
   const fieldId = id ?? inputProps.name;
 
   return (
@@ -16,9 +17,15 @@ export function Input({ label, labelRight, id, ...inputProps }: InputProps) {
       </label>
       <input
         id={fieldId}
-        className="w-full rounded-input border border-line px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[0.08]"
+        className={`w-full rounded-input border px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:ring-[3px] ${
+          error
+            ? 'border-error focus:border-error focus:ring-error/[0.08]'
+            : 'border-line focus:border-ink focus:ring-ink/[0.08]'
+        }`}
+        aria-invalid={error ? true : undefined}
         {...inputProps}
       />
+      {error && <span className="text-xs text-error">{error}</span>}
     </div>
   );
 }

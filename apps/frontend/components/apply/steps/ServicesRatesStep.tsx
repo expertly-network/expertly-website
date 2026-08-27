@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
-import type { WizardFormState } from '@/components/apply/types';
+import { REQUIRED_MSG, useAttemptedNext, type WizardFormState } from '@/components/apply/types';
 import type { PracticeAreaCategory, PracticeAreaDto } from '@shared/practice-area';
 
 const CATEGORY_LABELS: Record<PracticeAreaCategory, string> = {
@@ -50,11 +50,11 @@ export function ServicesRatesStep({
 
   const minDollars = Number(form.rateMinDollars);
   const maxDollars = Number(form.rateMaxDollars);
-  const canContinue =
-    preferenceFor(1) &&
-    form.rateMinDollars !== '' &&
-    form.rateMaxDollars !== '' &&
-    maxDollars > minDollars;
+  const canContinue = Boolean(
+    preferenceFor(1) && form.rateMinDollars !== '' && form.rateMaxDollars !== '' && maxDollars > minDollars
+  );
+
+  const { attempted, handleNext } = useAttemptedNext(canContinue, onNext);
 
   return (
     <div>
@@ -91,6 +91,7 @@ export function ServicesRatesStep({
             value={preferenceFor(1)}
             onChange={(e) => setPreference(1, e.target.value)}
             required
+            error={attempted && !preferenceFor(1) ? REQUIRED_MSG : undefined}
           >
             <option value="">Select service…</option>
             {visibleAreas.map((a) => (
@@ -144,6 +145,8 @@ export function ServicesRatesStep({
           placeholder="e.g. 500"
           value={form.rateMinDollars}
           onChange={(e) => update({ rateMinDollars: e.target.value })}
+          required
+          error={attempted && form.rateMinDollars === '' ? REQUIRED_MSG : undefined}
         />
         <Input
           label="Max (USD / hour)"
@@ -152,6 +155,8 @@ export function ServicesRatesStep({
           placeholder="e.g. 2000"
           value={form.rateMaxDollars}
           onChange={(e) => update({ rateMaxDollars: e.target.value })}
+          required
+          error={attempted && form.rateMaxDollars === '' ? REQUIRED_MSG : undefined}
         />
       </div>
       {form.rateMinDollars !== '' && form.rateMaxDollars !== '' && maxDollars <= minDollars && (
@@ -166,9 +171,9 @@ export function ServicesRatesStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onNext}
+        onNext={handleNext}
         nextLabel={saving ? 'Saving…' : 'Next: Review'}
-        nextDisabled={!canContinue || saving}
+        nextDisabled={saving}
       />
     </div>
   );
