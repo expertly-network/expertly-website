@@ -22,7 +22,7 @@ export function WizardSidebar({
       <h1 className="mt-4 text-headline">
         Let&apos;s build your <em className="font-normal not-italic text-accent">profile.</em>
       </h1>
-      <p className="mt-4 text-sm leading-relaxed text-ink-3">
+      <p className="mt-4 text-lede text-ink-3">
         Complete the questions below. Once approved, this information will display on your public
         directory listing.
       </p>

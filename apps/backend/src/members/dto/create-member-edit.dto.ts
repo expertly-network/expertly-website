@@ -1,4 +1,4 @@
-import { IsIn, IsObject, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString } from 'class-validator';
 import type { MemberEditSection } from '@shared/member';
 
 const SECTIONS: MemberEditSection[] = [
@@ -24,8 +24,10 @@ export class CreateMemberEditDto {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload!: any;
 
+  // Storage object path returned as `path` from POST /v1/members/:id/uploads
+  // (e.g. `member-proofs/<memberId>/<timestamp>-<filename>`) — not a fully-qualified URL.
   @IsOptional()
-  @IsUrl()
+  @IsString()
   proofFileUrl?: string;
 
   @IsOptional()

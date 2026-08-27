@@ -155,7 +155,6 @@ export class MembersService {
 
     return {
       ...this.toListDto(row, profilesById, servicesByMember),
-      bio: row.bio,
       firmWebsite: row.firm_website,
       availabilityNotes: row.availability_notes,
       isAvailable: row.is_available,
@@ -504,6 +503,7 @@ export class MembersService {
       name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Unknown member',
       initials,
       headline: row.headline,
+      bio: row.bio,
       firmName: row.firm_name,
       region: row.region,
       country: row.country,

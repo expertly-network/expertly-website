@@ -52,7 +52,7 @@ export function BackgroundStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Your background.</h2>
-      <p className="mt-2 text-sm text-ink-3">Work history, qualifications, and overall seniority.</p>
+      <p className="mt-2 text-lede text-ink-3">Work history, qualifications, and overall seniority.</p>
 
       <div className="mt-7 max-w-[220px]">
         <Input

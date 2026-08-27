@@ -70,7 +70,7 @@ export function IdentityStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Your identity.</h2>
-      <p className="mt-2 text-sm text-ink-3">
+      <p className="mt-2 text-lede text-ink-3">
         Personal details, contact info, and your professional presence.
       </p>
 

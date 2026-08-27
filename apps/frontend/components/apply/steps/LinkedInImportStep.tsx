@@ -100,7 +100,7 @@ export function LinkedInImportStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Connect your LinkedIn.</h2>
-      <p className="mt-2 text-sm text-ink-3">
+      <p className="mt-2 text-lede text-ink-3">
         We&apos;ll pre-fill what we can from your LinkedIn profile — you&apos;ll review and can
         edit everything before submitting. Skip this if you&apos;d rather add it manually in the
         next step.

@@ -59,7 +59,7 @@ export function ServicesRatesStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Your services.</h2>
-      <p className="mt-2 text-sm text-ink-3">
+      <p className="mt-2 text-lede text-ink-3">
         Select your service preferences and set your consultation rate.
       </p>
 

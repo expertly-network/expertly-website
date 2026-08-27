@@ -46,7 +46,7 @@ export function ReviewSubmitStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Ready to submit.</h2>
-      <p className="mt-2 text-sm text-ink-3">Review your details, then choose your membership plan.</p>
+      <p className="mt-2 text-lede text-ink-3">Review your details, then choose your membership plan.</p>
 
       <div className="mt-7 rounded-2xl border border-line bg-bg-card divide-y divide-line">
         <ReviewRow label="Name" value={`${form.firstName} ${form.lastName}`} />

@@ -74,12 +74,16 @@ export interface MemberKeyClient {
   logoUrl: string | null;
 }
 
-// List-view shape — GET /v1/members. No child arrays, no self-edit state.
+// List-view shape — GET /v1/members. No child arrays, no self-edit state. `bio` IS included
+// (unlike the child arrays) — the directory card shows a 2-line excerpt of it
+// (`line-clamp-2`), matching design/static_html/members.html's card exactly; truncation is
+// client-side, same as the design's own `-webkit-line-clamp` approach.
 export interface MemberListItemDto {
   id: string;
   name: string;
   initials: string;
   headline: string | null;
+  bio: string | null;
   firmName: string | null;
   region: ApplicationRegion | null;
   country: string;
@@ -97,7 +101,6 @@ export interface MemberListItemDto {
 // Full detail — GET /v1/members/:id. A member's own published articles are fetched separately via
 // GET /v1/articles?authorId=, not embedded here.
 export interface MemberDto extends MemberListItemDto {
-  bio: string | null;
   firmWebsite: string | null;
   availabilityNotes: string | null;
   isAvailable: boolean;

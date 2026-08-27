@@ -73,7 +73,7 @@ export default async function ApplicationSubmittedPage() {
             <h2 className="mt-3 text-heading text-ink">
               You&apos;re in the queue, <span className="text-accent">{application.firstName}.</span>
             </h2>
-            <p className="mx-auto mt-3 max-w-[440px] text-sm leading-relaxed text-ink-3">
+            <p className="mx-auto mt-3 max-w-[440px] text-lede text-ink-3">
               Your application has been submitted successfully. Our credentials committee will
               personally review your profile.
             </p>

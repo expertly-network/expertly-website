@@ -82,6 +82,10 @@ create table public.practice_areas (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   category practice_area_category not null,
+  -- Decorative-only representative image for directory/homepage chip art — not a member
+  -- photo, not user-editable. Nullable: a missing image degrades to a plain chip, it never
+  -- blocks a practice area from existing.
+  image_url text,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -97,20 +101,21 @@ create policy practice_areas_select_all
 -- Seed data, sourced from design/static_html/assets/members.js's EXPERTLY_PRACTICE_AREAS and
 -- assets/onboarding-form.js's category-per-practice-area mapping — notably not a naive
 -- legal-vs-finance split: Banking & Finance is `legal`, while Antitrust and Compliance are
--- `finance_advisory`.
-insert into public.practice_areas (name, category) values
-  ('M&A Tax', 'taxation'),
-  ('Transfer Pricing', 'taxation'),
-  ('Indirect Tax', 'taxation'),
-  ('Corporate Law', 'legal'),
-  ('IP & Technology', 'legal'),
-  ('Banking & Finance', 'legal'),
-  ('Dispute Resolution', 'legal'),
-  ('Capital Markets', 'finance_advisory'),
-  ('Private Equity', 'finance_advisory'),
-  ('Restructuring', 'finance_advisory'),
-  ('Compliance', 'finance_advisory'),
-  ('Antitrust', 'finance_advisory');
+-- `finance_advisory`. image_url values are the same per-name Unsplash URLs
+-- EXPERTLY_PRACTICE_AREAS itself uses (dev/placeholder imagery, not member data).
+insert into public.practice_areas (name, category, image_url) values
+  ('M&A Tax', 'taxation', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=200&q=70'),
+  ('Transfer Pricing', 'taxation', 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=200&q=70'),
+  ('Indirect Tax', 'taxation', 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=200&q=70'),
+  ('Corporate Law', 'legal', 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=200&q=70'),
+  ('IP & Technology', 'legal', 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=200&q=70'),
+  ('Banking & Finance', 'legal', 'https://images.unsplash.com/photo-1501167786227-4cba60f6d58f?auto=format&fit=crop&w=200&q=70'),
+  ('Dispute Resolution', 'legal', 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=200&q=70'),
+  ('Capital Markets', 'finance_advisory', 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=200&q=70'),
+  ('Private Equity', 'finance_advisory', 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=70'),
+  ('Restructuring', 'finance_advisory', 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=200&q=70'),
+  ('Compliance', 'finance_advisory', 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=200&q=70'),
+  ('Antitrust', 'finance_advisory', 'https://images.unsplash.com/photo-1593115057322-e94b77572f20?auto=format&fit=crop&w=200&q=70');
 
 -- ============================================================================
 -- membership_applications — a client applies to become a member. Rows start as an in-place-

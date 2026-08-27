@@ -9,7 +9,7 @@ export class PracticeAreasService {
   async list(): Promise<PracticeAreaDto[]> {
     const { data, error } = await this.supabase.db
       .from('practice_areas')
-      .select('id, name, category')
+      .select('id, name, category, imageUrl:image_url')
       .eq('is_active', true)
       .order('name');
 
