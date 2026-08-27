@@ -124,12 +124,17 @@ the frontend's dropdown options) has something to check against.
 
 ### `practice_areas`
 
-`id`, `name` (unique), `is_active`, `category` (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`).
+`id`, `name` (unique), `is_active`, `category`, `image_url` (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`).
 Seeded with the 12 real practice areas
 from `design/static_html/assets/members.js`'s `EXPERTLY_PRACTICE_AREAS` (M&A Tax, Transfer
 Pricing, Corporate Law, Capital Markets, IP & Technology, Banking & Finance, Dispute Resolution,
-Private Equity, Antitrust, Restructuring, Indirect Tax, Compliance). Will also back the future
-member directory's practice-area filter — same taxonomy, not duplicated.
+Private Equity, Antitrust, Restructuring, Indirect Tax, Compliance). Backs the member directory's
+practice-area filter and the homepage's Practice Areas marquee — same taxonomy, not duplicated.
+
+**`image_url`** — nullable text, decorative-only representative art for chip/card UI (e.g. the
+homepage's Practice Areas marquee). Seeded with the same per-name Unsplash URLs
+`EXPERTLY_PRACTICE_AREAS` itself uses — dev/placeholder imagery, not a real asset pipeline. Not
+exposed for editing via any write endpoint today.
 
 **`category`** — enum `taxation`\|`legal`\|`finance_advisory`, NOT NULL. Backs the category-pill
 filter in `design/static_html/onboarding_form.html`'s service-preference step. The mapping is
@@ -188,16 +193,19 @@ later flip `status` back to `draft` (self-service unpublish) via `PATCH`.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
+| `slug` | text NOT NULL, unique | **always server-generated** from `title` on `POST` (kebab-case, `-2`/`-3`/... suffix on collision) — never client-writable, never regenerated on `PATCH`. On `ArticleDto` but not yet wired into routing (article detail route is still `/articles/[id]`) |
 | `author_id` | uuid FK → `profiles.id` | |
 | `status` | enum `draft`\|`published` | default `draft`; `POST` always creates `published` |
 | `title` | text | |
-| `body` | text | full article content |
+| `body` | text | full article content, rich HTML (`<p>`/`<h2>`/`<h3>`/`<ul>`/`<ol>`/`<li>`/`<blockquote>`/`<strong>`/`<em>`/`<a>`/`<br>` only) — always passed through `sanitize-html` server-side before insert/update, per root `CLAUDE.md`'s non-negotiable rule |
 | `excerpt` | text | **always server-derived** from `body` (truncated to ~200 chars on a word boundary) — never accepted from the client |
 | `read_time_minutes` | smallint | **always server-derived** from `body`'s word count (`words / 200`, min 1) |
 | `cover_image_url` | text | |
 | `practice_area_ids` | uuid[], default `{}` | see below — not a join table, same trade-off as `service_preferences` |
 | `country` | text NOT NULL | |
 | `state` | text | optional |
+| `ai_summary` | text | nullable, not populated or exposed by anything in this contract — column exists for a future AI-drafting flow (see "Not built yet" below), not the current API |
+| `creation_mode` | text NOT NULL | default `'manual'`; every write path here omits it and takes the default — same reason as `ai_summary`, reserved for the not-yet-built AI-drafting flow |
 | `created_at`, `updated_at` | timestamptz | |
 
 **`practice_area_ids` is a native array, not a join table** — the write form's practice-area picker
@@ -242,8 +250,46 @@ feature, not derived from (and in one case directly contradicting) what the stat
   real per-article data.
 - View/like/comment counters — anonymous, `localStorage`-based in the prototype, unrelated to any
   account; a plausible separate future feature, not part of this CRUD-with-ownership contract.
+- Slug-based routing (`/articles/[slug]` instead of `/articles/[id]`) — `slug` exists on the row
+  and DTO (server-generated, unique) but the frontend detail route still keys on `id`; wiring
+  slug-based lookup into `GET /v1/articles/:id` is a small, self-contained follow-up, not done now.
+- AI-drafting write flow (`ai_summary`, `creation_mode` columns) — see root `CLAUDE.md`'s "AI-
+  assisted article generation is explicitly deferred"; no LLM call exists anywhere in this repo.
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
+
+## Events (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
+
+**Source:** `design/static_html/assets/members.js`'s `EXPERTLY_EVENTS` (the prototype's own event
+data) for the field set; the `events` table itself already existed in this schema before any
+backend module read from it — see the drift note below.
+
+### `events`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `title` | text | |
+| `slug` | text, unique | |
+| `description` | text | |
+| `short_description` | text, nullable | |
+| `cover_image_url` | text, nullable | |
+| `start_date` | timestamptz | |
+| `end_date` | timestamptz, nullable | single-day events have no end date |
+| `timezone` | text, nullable | |
+| `event_type` | text, nullable | free-text category (e.g. "Tax", "M&A", "AI & Tech") — not FK'd to `practice_areas`, the prototype's own category list doesn't line up 1:1 with that taxonomy |
+| `event_format` | text, nullable, check `in_person`\|`virtual`\|`hybrid` | |
+| `country`, `city`, `venue_name` | text, nullable | |
+| `is_free` | boolean, default `false` | |
+| `registration_url` | text, nullable | |
+| `organiser_name` | text, nullable | |
+| `status` | enum `draft`\|`published` | RLS only exposes `published` rows to `select` |
+| `created_at`, `updated_at` | timestamptz | |
+
+**Only `GET /v1/events` (upcoming + published) is built.** No write/suggestion/admin-moderation
+endpoints exist yet — `status` already models the moderation state a future session needs, so no
+schema change should be required when that session ships. See `docs/rest-api.md`'s Events
+section for the exact current contract.
 
 ## ⚠️ Resolved: live database vs. migration file drift
 

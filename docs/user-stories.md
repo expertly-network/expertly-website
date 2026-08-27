@@ -32,9 +32,11 @@ committing to sign up.
 ### US-01-03: Reading a published article as a guest
 As a visitor, I want to read member-authored articles so I can evaluate the platform's expertise
 before signing up.
-- [ ] `GET /v1/articles` returns only `published` articles to unauthenticated callers
-- [ ] `GET /v1/articles/:id` 🔑 requires auth for full body per `docs/rest-api.md` — guest sees list
-      + excerpt only, not full body, unless that's since changed in the contract
+- [x] `GET /v1/articles` returns only `published` articles to unauthenticated callers
+- [x] `GET /v1/articles/:id` 🔑 requires auth for full body per `docs/rest-api.md` — guest sees list
+      + excerpt only, not full body, unless that's since changed in the contract (frontend:
+      `/articles/[id]` fetches the public list and shows a title+excerpt preview for guests,
+      rather than calling the gated endpoint)
 
 ---
 
@@ -154,13 +156,15 @@ As a member, I want to attach a document or link as proof for a claim so my edit
 
 ### US-07-01: Creating and submitting an article
 As a member, I want to write and submit an article so I can build visibility and credibility.
-- [ ] `POST /v1/articles` 🔒 member; body sanitized with `sanitize-html` before storage
-- [ ] `GET /v1/articles/mine` 🔒 lists the author's own articles regardless of status
+- [x] `POST /v1/articles` 🔒 member; body sanitized with `sanitize-html` before storage
+- [x] `GET /v1/articles/mine` 🔒 lists the author's own articles regardless of status
+- [ ] No frontend "Write an Article" authoring UI exists yet — these are API-level criteria only;
+      the prototype's write flow (incl. its AI-drafting path) is a separate, later feature
 
 ### US-07-02: Editing or withdrawing my article
 As a member, I want to edit or delete my own article before or after publication.
-- [ ] `PATCH /v1/articles/:id` and `DELETE /v1/articles/:id` 🔒, scoped to the article's own author
-- [ ] AI-assisted article generation is **explicitly deferred** per `docs/rest-api.md` — don't
+- [x] `PATCH /v1/articles/:id` and `DELETE /v1/articles/:id` 🔒, scoped to the article's own author
+- [x] AI-assisted article generation is **explicitly deferred** per `docs/rest-api.md` — don't
       assume an AI-generation endpoint exists
 
 ---
@@ -254,19 +258,22 @@ note and rating that my matched peer never sees.
 
 ---
 
-## US-13 — Events 🧱
+## US-13 — Events ⚠️ Browsing built, suggestion queue not
 
 ### US-13-01: Suggesting an event
 As a client or member, I want to suggest an event for the community calendar.
 - [ ] Suggestion enters a `pending` queue; admin approves (publishes) or rejects/deletes
 - [ ] Admin can also directly add-and-publish, bypassing the queue — one soft-hide list, not two
       disconnected pools (don't reproduce that prototype shortcut)
+- Not built: `/events`'s "Suggest an event" card is a `mailto:contact@expertly.global` link, not
+  a form — there's nowhere to submit a suggestion to yet.
 
 ### US-13-02: Browsing published events
 As a guest or user, I want to see upcoming published events.
-- [ ] `GET /v1/events` 🌐 returns published events only
-- [ ] "Register" is a UI stub in the design, not a real RSVP flow — don't build registration
-      logic without an explicit product decision first
+- [x] `GET /v1/events` 🌐 returns published events only
+- [x] "Register" is a UI stub in the design, not a real RSVP flow — don't build registration
+      logic without an explicit product decision first (matches `MemberCard`'s disabled Request
+      Consultation treatment: a real, styled, disabled button, not a fake link)
 
 ---
 

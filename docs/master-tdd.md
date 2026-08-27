@@ -68,9 +68,9 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | `profiles` | ✅ Built | `auth/` |
 | `categories`, `services` | ✅ Built | `practice-areas/` |
 | `membership_applications` | ✅ Built | `applications/` |
-| `articles` | ✅ Built | `articles/` |
+| `articles` | ✅ Built — restored from `main-backup`'s `763bf75` (dropped in a prior rewrite; docs/shared-types had stayed current the whole time) plus `authorId` query-param filtering added for the profile page's Articles tab | `articles/` |
 | `member_profiles` + 7 child tables, `member_profile_edits`, `member_renewal_policy` | ✅ Built | `members/` |
-| `events` | 🧱 Schema only | none — see Section 6 |
+| `events` | ⚠️ Partially built — `GET /v1/events` only (upcoming + published, homepage use only), no write/moderation endpoints | `events/` |
 | `consultation_requests` | 🧱 Schema only | none — see Section 6 |
 | `peer_connect_matches`, `peer_connect_member_preferences` | 🧱 Schema only | none — see Section 6 |
 | Perks, templates, learnings | 📋 Roadmap — no schema yet | none |
@@ -122,11 +122,11 @@ pixel/behavior reference per root `CLAUDE.md`'s methodology.
 | Auth (signup/login/OAuth) | ✅ Built | `login.html`, `admin-login.html` | No custom REST — `supabase-js` direct |
 | Practice areas / taxonomy | ✅ Built | (embedded in several pages) | — |
 | Membership applications | ✅ Built | `apply.html`, `onboarding_form.html`, `review.html` | Payment integration deferred — see `docs/rest-api.md`'s "not built yet" section |
-| Articles | ✅ Built | `articles.html`, `article.html` | AI-summary generation deferred — see `docs/rest-api.md` |
+| Articles | ✅ Built — browse grid + detail page, plus member profile's Articles tab | `articles.html`, `article.html` | Guest sees title+excerpt only on the detail page (`GET /v1/articles/:id` requires auth); "Write an Article" authoring UI (incl. the prototype's AI-drafting path) explicitly not built — no LLM integration exists anywhere in this repo, see root `CLAUDE.md` |
 | Member directory & profiles | ✅ Built | `members.html`, `member-profile.html`, `dashboard.html`/`dashboard-alt-3.html` | Per-section edit-approval workflow; `docs/roadmap.md`'s framing of this as unbuilt is stale |
 | Consultations | 🧱 Schema only | `consultation-requests.html`, `my-consultations.html` | Sketch endpoints in `docs/roadmap.md` |
 | Peer Connect | 🧱 Schema only | `peer-connect.html` | Monthly 1:1 matching program, not a directory — recommend its own scoping session per `docs/roadmap.md` |
-| Events | 🧱 Schema only | `events.html` | Public suggestion queue + admin moderation pattern, same shape as articles |
+| Events | ✅ Built — homepage teaser + standalone `/events` browse page | `events.html` | `GET /v1/events?upcoming=false` backs the standalone page's month-grouped, client-filtered list (date preset/country/format); no suggestion-queue write endpoint or admin moderation yet — "Suggest an event" is a `mailto:` link. See `docs/rest-api.md` |
 | Perks / Templates / Learnings | 📋 Roadmap | `perks.html`, `templates.html`, `learnings.html` | Identical CRUD shape ×3; public-vs-member-gated is an open product call |
 | Newsletter subscriptions | 📋 Roadmap | `index.html` (footer capture) | Plain email capture, unrelated to accounts |
 | Global cross-entity search | 📋 Roadmap → 🔭 expanded below | `index.html` (homepage search bar) | Low priority per roadmap; see Section 8 for a fuller shape |

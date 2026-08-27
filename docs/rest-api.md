@@ -26,9 +26,11 @@ Returns active practice areas for the application wizard's service-preference dr
 later, the member directory's filter).
 
 **Response `200`:** `PracticeAreaDto[]` — `{ id: string, name: string, category:
-'taxation'|'legal'|'finance_advisory' }[]`. `category` backs the pill-filter UI in the design
-(`onboarding_form.html`'s service-preference step) — see `docs/database-erd.md`'s `practice_areas`
-section for the full mapping.
+'taxation'|'legal'|'finance_advisory', imageUrl: string | null }[]`. `category` backs the
+pill-filter UI in the design (`onboarding_form.html`'s service-preference step) — see
+`docs/database-erd.md`'s `practice_areas` section for the full mapping. `imageUrl` is
+decorative-only representative art (the homepage's Practice Areas marquee) — nullable, never
+blocks rendering when absent.
 
 The wizard persists to the backend as the applicant moves through it — there is no
 frontend-only-until-submit state anymore (see `docs/superpowers/specs/2026-08-23-member-application-form-design.md`
@@ -174,6 +176,25 @@ transaction API from a service-role client.
 Backing `apps/backend/src/articles/`. Schema: `docs/database-erd.md`. Shared types:
 `packages/shared-types/article.ts`.
 
+Every `ArticleDto`/`ArticleListItemDto` carries a `slug` — generated server-side from `title` on
+`POST` (kebab-case, disambiguated with a `-2`/`-3`/... suffix on collision), never client-writable
+and never regenerated on `PATCH`. Routes below still key on the real `id` (UUID), matching this
+session's article detail route (`/articles/[id]`); `slug` is carried on the DTO for a future
+pretty-URL pass, not wired into routing yet.
+
+`authorPhotoUrl: string | null` — sourced from the author's `member_profiles.photo_url` (falling
+back to `profiles.avatar_url`, same posture as `MembersService`'s `photoUrl`), null when neither
+is set. `authorHeadline`/`authorFirmName: string | null` — sourced from `member_profiles.headline`/
+`firm_name`, the "designation" line under the author's name/photo. All three are additive fields,
+no version bump.
+
+`aiSummary: string | null` — a short 3-point summary rendered as the detail page's "AI Summary"
+callout (one bullet per `\n`-separated line), sourced from `articles.ai_summary`. **Not** LLM-
+generated — genuinely written per article and stored directly in seed data (see
+`supabase/migrations/0007_dev_seed_articles.sql`); root CLAUDE.md's "AI-assisted article
+generation is deferred" still holds, this is a static field, not a model integration. Additive,
+no version bump.
+
 ### 🌐 `GET /v1/articles`
 
 The browse grid — published articles only, list shape (no `body`).
@@ -181,8 +202,7 @@ The browse grid — published articles only, list shape (no `body`).
 **Query params:** `authorId` (optional) — added by the Member Directory & Profiles session so a
 member's profile page can list their own published articles via this endpoint rather than an
 embedded/duplicated array (the prototype embeds a copy of the author's articles directly on the
-profile object — not reproduced). ⚠️ Documented but unverified end-to-end: the `articles` table
-does not exist on the live database as of this writing — see `docs/database-erd.md`'s drift note.
+profile object — not reproduced).
 
 **Response `200`:** `ArticleListItemDto[]`, newest first.
 
@@ -259,6 +279,34 @@ Same owner-or-admin check as `PATCH`.
 - `category`/`country` query-param filtering on `GET /v1/articles` — the prototype filters
   client-side over the full published set; not built server-side yet.
 
+## Events
+
+Backing `apps/backend/src/events/`. Schema: `docs/database-erd.md`. Shared types:
+`packages/shared-types/event.ts`. The `events` table itself already existed (schema-only, per
+`docs/master-tdd.md`'s prior "🧱 Schema only" status) — only the module/controller/service were
+missing.
+
+### 🌐 `GET /v1/events`
+
+**Query params:** `upcoming` (optional, default `true`). `true`/omitted preserves the original
+homepage-only behaviour exactly (`status='published'` and not-yet-ended, soonest-first — see
+`EventsService.listUpcoming()`'s comment for the start-of-UTC-day comparison rationale).
+`upcoming=false` returns every `published` event regardless of date, ascending by `start_date` —
+backs the standalone `/events` page's month-grouped browse list, which groups everything
+chronologically rather than splitting past/upcoming.
+
+**Response `200`:** `EventDto[]`.
+
+### Not built yet (explicitly deferred)
+
+- Public suggestion queue + admin moderation (`draft`→`published`/rejected) — `status` already
+  supports this (`event_status` enum), but no write endpoints exist yet. All seeded rows are
+  inserted directly as `published`. The `/events` page's "Suggest an event" card is a `mailto:`
+  link, not a form, since there's nowhere to submit one yet.
+- Country/format/date-range filtering on `GET /v1/events` itself — the standalone page filters
+  client-side over the full `upcoming=false` set (same pattern as `/articles`), not query params,
+  since the dataset is small (dozens, not thousands).
+
 ## Member directory & profiles
 
 Backing `apps/backend/src/members/`. Schema: `docs/database-erd.md`. Shared types:
@@ -285,10 +333,12 @@ The directory list — published/active members only.
 (`featured`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
 `pageSize=8`, matching the prototype's infinite-scroll page size).
 
-**Response `200`:** `MemberListItemDto[]` — id, name, initials, headline, firmName, region,
+**Response `200`:** `MemberListItemDto[]` — id, name, initials, headline, bio, firmName, region,
 country, city, practiceAreas (`{id, name}[]`, from `member_services`), isVerified, memberTier,
 yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl. Tenure/rate display strings
 (`"18y"`, `"$420/hr"`) are **not** returned — format them client-side from the numeric fields.
+`bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
+`line-clamp-2`, matching the design's own approach, so no separate excerpt field was added.
 
 ### 🔒 `GET /v1/members/:id`
 
