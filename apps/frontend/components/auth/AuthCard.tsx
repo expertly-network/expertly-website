@@ -48,14 +48,22 @@ export function AuthCard({
   const [authView, setAuthView] = useState<AuthView>('signin');
   const [linkedinPending, setLinkedinPending] = useState(false);
   const [linkedinError, setLinkedinError] = useState<string | null>(null);
+  // Only the User tab's explicit "Sign up" view unambiguously means "create
+  // an account" before ever calling LinkedIn — that's the one case consent
+  // can be collected upfront. A plain "Sign in" click (either tab) might
+  // turn out to create a new account anyway (first LinkedIn login), but that
+  // can only be discovered after the OAuth round-trip — see
+  // app/auth/callback/route.ts and ConfirmSignupCard for that path.
+  const [signupConsent, setSignupConsent] = useState(false);
   const copy = COPY[mode][authView];
+  const requiresUpfrontConsent = mode === 'user' && authView === 'signup';
 
   async function handleLinkedIn() {
     setLinkedinPending(true);
     setLinkedinError(null);
     // `mode` doubles as the OAuth intent: 'member' triggers the post-login
     // member-vs-not-yet-a-member check in app/auth/callback/route.ts.
-    const { error } = await signInWithLinkedIn(returnTo, mode);
+    const { error } = await signInWithLinkedIn(returnTo, mode, requiresUpfrontConsent && signupConsent);
     if (error) {
       setLinkedinError(error);
       setLinkedinPending(false);
@@ -70,16 +78,32 @@ export function AuthCard({
         onChange={(next) => {
           setMode(next);
           setAuthView('signin');
+          setSignupConsent(false);
         }}
       />
 
       <Card>
         <h1 className="text-heading text-ink">{copy.title}</h1>
-        <p className="mb-7 mt-2.5 text-[15px] text-ink-3">{copy.sub}</p>
+        <p className="mb-7 mt-2.5 text-lede text-ink-3">{copy.sub}</p>
 
         <div className="flex flex-col gap-2">
           <ErrorBanner message={linkedinError} />
-          <SsoButton provider="linkedin" onClick={handleLinkedIn} disabled={linkedinPending} />
+          {requiresUpfrontConsent && (
+            <label className="flex items-start gap-2.5 text-sm text-ink-2">
+              <input
+                type="checkbox"
+                checked={signupConsent}
+                onChange={(e) => setSignupConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-none rounded border-line-2 accent-accent"
+              />
+              <span>I agree to Expertly&apos;s Terms of Service and Privacy Policy.</span>
+            </label>
+          )}
+          <SsoButton
+            provider="linkedin"
+            onClick={handleLinkedIn}
+            disabled={linkedinPending || (requiresUpfrontConsent && !signupConsent)}
+          />
         </div>
 
         {mode === 'user' && (
@@ -90,9 +114,21 @@ export function AuthCard({
               <span className="h-px flex-1 bg-line" />
             </div>
             {authView === 'signin' ? (
-              <SignInForm returnTo={returnTo} onSwitchToSignUp={() => setAuthView('signup')} />
+              <SignInForm
+                returnTo={returnTo}
+                onSwitchToSignUp={() => {
+                  setAuthView('signup');
+                  setSignupConsent(false);
+                }}
+              />
             ) : (
-              <SignUpForm returnTo={returnTo} onSwitchToSignIn={() => setAuthView('signin')} />
+              <SignUpForm
+                returnTo={returnTo}
+                onSwitchToSignIn={() => {
+                  setAuthView('signin');
+                  setSignupConsent(false);
+                }}
+              />
             )}
           </>
         )}

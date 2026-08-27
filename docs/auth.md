@@ -73,6 +73,19 @@ endpoints per `rest-api.md`). Key pieces, so later page-by-page work doesn't red
   via the not-yet-built membership-application approval flow). Google OAuth is intentionally not
   wired up (design's own JS hides it regardless of tab); LinkedIn is (`lib/auth/linkedin.ts` +
   `app/auth/callback/route.ts`, a PKCE code-exchange route required by `@supabase/ssr`).
+- **LinkedIn Terms/Privacy consent — an app-level decision, not derived from `design/static_html`
+  (which has no such checkbox anywhere)**: Supabase creates the account as an unavoidable side
+  effect of the OAuth handshake, so there's no point *before* that to gate on consent for a plain
+  "Continue with LinkedIn" click — the only place consent can genuinely be collected upfront is
+  the User tab's explicit "Sign up" view (`AuthCard.tsx`'s `requiresUpfrontConsent`), where intent
+  is unambiguous before ever calling `signInWithOAuth`. Every other path (User tab "Sign in", the
+  whole Member tab) can only discover *after* the round-trip that it just created a brand-new
+  account — `app/auth/callback/route.ts`'s `isNewlyCreatedAccount()` compares the returned user's
+  `created_at`/`last_sign_in_at` (Supabase doesn't expose "was this just created" as a direct
+  flag) and, if new and consent wasn't already collected upfront (`consented=1` on the redirect
+  URL), routes to `/auth/confirm-signup` (`ConfirmSignupCard.tsx`) instead of the real destination
+  — a checkbox-gated "create your account?" confirmation that signs the user back out on Cancel
+  rather than leaving an unconsented session active.
 - **Session/route protection**: `apps/frontend/middleware.ts` (session refresh + redirects signed-out
   users away from protected prefixes — currently just `/dashboard`) using
   `apps/frontend/lib/supabase/{client,server,middleware}.ts` (`@supabase/ssr`, cookie-based session,
