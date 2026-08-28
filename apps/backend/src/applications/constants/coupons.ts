@@ -1,7 +1,3 @@
-// Placeholder coupon system — no real payment gateway integration yet, and
-// per docs/database-erd.md's deliberate "no coupons table" decision, this is
-// plain application code, not DB-backed. Add/remove codes here directly
-// until a real, admin-manageable coupon system is built.
 interface CouponDefinition {
   discountType: 'full_waiver' | 'percentage' | 'fixed_amount';
   /** Percentage (0-100) for 'percentage', cents for 'fixed_amount'. Unused for 'full_waiver'. */

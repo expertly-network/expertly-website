@@ -7,15 +7,12 @@ import type {
 } from '@shared/membership-application';
 import { LinkedInImportProvider } from './linkedin-import.provider';
 
-// Apify runs backing this workflow can legitimately take up to ~90s (see the design doc's
-// reference to the dormant BullMQ worker's own 90s poll ceiling) — set above that, not at it.
+// Apify runs backing this workflow can legitimately take up to ~90s.
 const REQUEST_TIMEOUT_MS = 100_000;
 const MAX_EXPERIENCES = 5;
 const MAX_EDUCATIONS = 3;
 const BIO_MAX_CHARS = 500;
 
-// LinkedIn/Apify date fields give month as a 3-letter abbreviation, not a number — this app's
-// WorkExperienceInput wants startMonth/endMonth as 1-12.
 const MONTH_NUM: Record<string, number> = {
   Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
   Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
@@ -52,8 +49,7 @@ interface RawLinkedInProfile {
   education?: RawEducation[];
 }
 
-// Drops an entry entirely if a genuinely-required field (title/company/startYear) is missing —
-// fabricating one would misrepresent the applicant's real history. See design doc §2.
+// Drops an entry entirely if a genuinely-required field (title/company/startYear) is missing.
 function mapExperience(raw: RawExperience[] | undefined): WorkExperienceInput[] {
   return (raw ?? [])
     .slice(0, MAX_EXPERIENCES)
@@ -74,9 +70,7 @@ function mapExperience(raw: RawExperience[] | undefined): WorkExperienceInput[] 
     .filter((e): e is WorkExperienceInput => e !== null);
 }
 
-// A missing `degree` defaults to the same 'Not specified' placeholder MockLinkedInImportProvider
-// already uses — the save endpoint's @IsNotEmpty() on degree would 400 on a raw empty/null value.
-// Only drops an entry if `institution` itself is missing. See design doc §2.
+
 function mapEducation(raw: RawEducation[] | undefined): EducationInput[] {
   return (raw ?? [])
     .slice(0, MAX_EDUCATIONS)
@@ -100,8 +94,6 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
   async importProfile(linkedinUrl: string): Promise<LinkedInImportResponse> {
     const webhookUrl = process.env.LINKEDIN_IMPORT_WEBHOOK_URL;
     if (!webhookUrl) {
-      // Only reachable if applications.module.ts's binding is bypassed — the module decides
-      // real-vs-mock at construction (Task 3), so this is a defensive guard, not the normal path.
       throw new BadGatewayException('LinkedIn import is not configured.');
     }
 
@@ -118,9 +110,6 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
 
     let res: Response;
     try {
-      // n8n Chat Trigger contract, confirmed live against n8n.expertly.network (2026-08-25) —
-      // NOT { profileUrl } as the ported reference doc assumed. sessionId is fresh per call so
-      // concurrent imports from different users never share n8n chat-memory state.
       res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,8 +140,6 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
       throw new BadGatewayException('LinkedIn import service returned an invalid response.');
     }
 
-    // Confirmed live: response is a bare object, not the reference doc's assumed array — handle
-    // both defensively in case that ever changes upstream.
     return (Array.isArray(data) ? data[0] : data) as RawLinkedInProfile | undefined;
   }
 

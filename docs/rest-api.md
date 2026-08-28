@@ -110,12 +110,10 @@ Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever p
 configured `LinkedInImportProvider` can produce for the given URL and returns it directly; the
 frontend merges the result into its wizard state and saves it through `POST /v1/applications/me`
 like any manually-entered edit, so there's exactly one write path regardless of how the data
-originated. Backed by `N8nLinkedInImportProvider` when `LINKEDIN_IMPORT_WEBHOOK_URL` is configured,
-falling back to the deterministic `MockLinkedInImportProvider` otherwise (e.g. local dev without
-real credentials) — see `docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md`
-for the confirmed n8n request/response contract and field-mapping rules. Request/response shape
-here is unchanged either way — swapping providers was a zero-controller/DTO/frontend-change DI
-rebind, as originally designed.
+originated. Backed by `N8nLinkedInImportProvider` — `LINKEDIN_IMPORT_WEBHOOK_URL` is a required env
+var everywhere, including local dev; the app throws at boot if it's unset. There is no mock
+fallback — see `docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md` for the
+confirmed n8n request/response contract and field-mapping rules.
 
 **Request:** `LinkedInImportRequest` — `{ linkedinUrl: string }`.
 **Response `201`:** `LinkedInImportResponse` — every field optional; absent fields mean "couldn't
@@ -167,7 +165,6 @@ transaction API from a service-role client.
 - Admin review **UI** — the endpoint above exists; no page consumes it yet.
 - Member directory (`GET /v1/members`, `GET /v1/members/:id`) — separate future backend session.
 - Real payment gateway integration — `payment_status='paid'` is modeled but unreachable.
-- Real LinkedIn import — `MockLinkedInImportProvider` only; n8n integration is a future DI swap.
 
 ## Articles
 

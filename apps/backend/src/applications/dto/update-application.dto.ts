@@ -30,11 +30,6 @@ const REGIONS: ApplicationRegion[] = [
 ];
 const BILLING_PERIODS: BillingPeriod[] = ['monthly', 'annual'];
 
-// Every field optional — a draft can be arbitrarily incomplete, and a single save-on-advance call
-// only carries the fields for the step just completed. Completeness for `status: 'submitted'` is
-// checked in ApplicationsService.assertComplete against the *merged* row, not here — same
-// "cross-field rules live in the service" convention the old CreateApplicationDto followed for
-// rateMaxCents > rateMinCents.
 export class UpdateApplicationDto {
   @IsOptional()
   @IsString()
@@ -113,8 +108,7 @@ export class UpdateApplicationDto {
   @Min(0)
   rateMinCents?: number;
 
-  // rateMaxCents > rateMinCents is a cross-field rule, checked in ApplicationsService against the
-  // merged row (both fields might arrive across different calls).
+
   @IsOptional()
   @IsInt()
   rateMaxCents?: number;
