@@ -14,6 +14,20 @@ version bump; anything that changes an existing shape goes to `/v2`.
 | _role_ | Auth, restricted to exactly that role (see note below) |
 | 🛡️ _permission_ | `admin`, further restricted to an admin sub-tier that has that permission — see "Admin sub-tier permissions" under Member Directory & Profiles |
 
+## Live/generated API docs (Swagger)
+
+`@nestjs/swagger` generates a live, always-current view of the actual wired-up routes/DTOs at
+`/api` (JSON spec at `/api-json`) on the backend — a cross-check against this hand-authored file,
+not a replacement for it (this file is the *design* contract, decided before implementation;
+Swagger just reflects whatever's actually implemented right now, which can drift from this file if
+they aren't both updated together).
+
+**Deliberately left open in every environment for now**, including once deployed — see the comment
+on `SwaggerModule.setup()` in `apps/backend/src/main.ts`. It doesn't expose real data (only route
+names and DTO shapes), but it does hand a full map of the backend's routes to anyone with the URL.
+**Future improvement**: gate it to non-production only (`process.env.NODE_ENV !== 'production'`)
+once that tradeoff is worth revisiting — not done yet, a deliberate deferral, not an oversight.
+
 ## Membership applications
 
 Backing `apps/backend/src/applications/`, `apps/backend/src/practice-areas/`. Schema:
@@ -206,10 +220,11 @@ profile object — not reproduced).
 
 **Response `200`:** `ArticleListItemDto[]`, newest first.
 
-### 🔒 `GET /v1/articles/mine`
+### 🔒 `GET /v1/articles/me`
 
 The caller's own articles, any status (`draft` included). Empty array if none — not a `404`, since
-this is a list endpoint, unlike `GET /v1/applications/me`.
+this is a list endpoint, unlike `GET /v1/applications/me`. Named `me`, not `mine`, to match that
+same convention rather than inventing a second word for "the caller's own resource."
 
 **Response `200`:** `ArticleListItemDto[]`, newest first.
 
@@ -382,7 +397,7 @@ validation failure (payload shape doesn't match `section`).
 ### 🔒 `GET /v1/members/:id/edits`
 
 Owner's own edit requests, any status, newest first — drives the "pending verification" badge.
-Owner-only, same posture as `GET /v1/articles/mine`.
+Owner-only, same posture as `GET /v1/articles/me`.
 
 **Response `200`:** `MemberProfileEditDto[]`.
 

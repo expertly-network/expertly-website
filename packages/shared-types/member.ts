@@ -1,146 +1,157 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { ApplicationRegion, MembershipTier } from './membership-application';
+
+const APPLICATION_REGIONS = [
+  'asia_pacific',
+  'europe',
+  'latin_america',
+  'middle_east',
+  'north_america',
+  'south_asia',
+  'africa',
+];
 
 export type MemberProfileStatus = 'active' | 'deactivated';
 export type RenewalPaymentStatus = 'paid' | 'pending' | 'overdue';
 export type RenewalDueState = 'active' | 'due-soon' | 'overdue';
 
-export interface MemberPracticeArea {
-  id: string;
-  name: string;
+export class MemberPracticeArea {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
 }
 
-export interface MemberWorkExperience {
-  id: string;
-  title: string;
-  company: string;
-  startYear: number;
-  endYear: number | null;
-  isCurrent: boolean;
-  description: string | null;
+export class MemberWorkExperience {
+  @ApiProperty() id!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty() company!: string;
+  @ApiProperty() startYear!: number;
+  @ApiProperty({ nullable: true, type: Number }) endYear!: number | null;
+  @ApiProperty() isCurrent!: boolean;
+  @ApiProperty({ nullable: true, type: String }) description!: string | null;
 }
 
-export interface MemberEducation {
-  id: string;
-  degree: string;
-  institution: string;
-  field: string | null;
-  endYear: number | null;
+export class MemberEducation {
+  @ApiProperty() id!: string;
+  @ApiProperty() degree!: string;
+  @ApiProperty() institution!: string;
+  @ApiProperty({ nullable: true, type: String }) field!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) endYear!: number | null;
 }
 
-export interface MemberEngagement {
-  id: string;
-  title: string;
-  organization: string;
-  year: number | null;
-  url: string | null;
+export class MemberEngagement {
+  @ApiProperty() id!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty() organization!: string;
+  @ApiProperty({ nullable: true, type: Number }) year!: number | null;
+  @ApiProperty({ nullable: true, type: String }) url!: string | null;
 }
 
-export interface MemberQualification {
-  id: string;
-  name: string;
-  year: number | null;
+export class MemberQualification {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ nullable: true, type: Number }) year!: number | null;
 }
 
-export interface MemberCredential {
-  id: string;
-  name: string;
-  issuingBody: string | null;
-  year: number | null;
-  isVerified: boolean;
+export class MemberCredential {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ nullable: true, type: String }) issuingBody!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) year!: number | null;
+  @ApiProperty() isVerified!: boolean;
 }
 
-export interface MemberTestimonial {
-  id: string;
-  quote: string;
-  clientName: string;
-  clientTitle: string | null;
-  clientCompany: string | null;
-  serviceName: string | null;
-  occurredOn: string | null;
-  isVerified: boolean;
+export class MemberTestimonial {
+  @ApiProperty() id!: string;
+  @ApiProperty() quote!: string;
+  @ApiProperty() clientName!: string;
+  @ApiProperty({ nullable: true, type: String }) clientTitle!: string | null;
+  @ApiProperty({ nullable: true, type: String }) clientCompany!: string | null;
+  @ApiProperty({ nullable: true, type: String }) serviceName!: string | null;
+  @ApiProperty({ nullable: true, type: String }) occurredOn!: string | null;
+  @ApiProperty() isVerified!: boolean;
 }
 
-export interface MemberAward {
-  id: string;
-  title: string;
-  issuingBody: string | null;
-  year: number | null;
-  description: string | null;
+export class MemberAward {
+  @ApiProperty() id!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty({ nullable: true, type: String }) issuingBody!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) year!: number | null;
+  @ApiProperty({ nullable: true, type: String }) description!: string | null;
 }
 
-export interface MemberKeyClient {
-  id: string;
-  name: string;
-  logoUrl: string | null;
+export class MemberKeyClient {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ nullable: true, type: String }) logoUrl!: string | null;
 }
 
 // List-view shape — GET /v1/members. No child arrays, no self-edit state. `bio` IS included
 // (unlike the child arrays) — the directory card shows a 2-line excerpt of it
 // (`line-clamp-2`), matching design/static_html/members.html's card exactly; truncation is
 // client-side, same as the design's own `-webkit-line-clamp` approach.
-export interface MemberListItemDto {
-  id: string;
-  name: string;
-  initials: string;
-  headline: string | null;
-  bio: string | null;
-  firmName: string | null;
-  region: ApplicationRegion | null;
-  country: string;
-  city: string | null;
-  practiceAreas: MemberPracticeArea[];
-  isVerified: boolean;
-  memberTier: MembershipTier;
-  yearsOfExperience: number;
-  rateMinCents: number | null;
-  rateMaxCents: number | null;
-  rateCurrency: string;
-  photoUrl: string | null;
+export class MemberListItemDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() initials!: string;
+  @ApiProperty({ nullable: true, type: String }) headline!: string | null;
+  @ApiProperty({ nullable: true, type: String }) bio!: string | null;
+  @ApiProperty({ nullable: true, type: String }) firmName!: string | null;
+  @ApiProperty({ nullable: true, enum: APPLICATION_REGIONS }) region!: ApplicationRegion | null;
+  @ApiProperty() country!: string;
+  @ApiProperty({ nullable: true, type: String }) city!: string | null;
+  @ApiProperty({ type: () => MemberPracticeArea, isArray: true }) practiceAreas!: MemberPracticeArea[];
+  @ApiProperty() isVerified!: boolean;
+  @ApiProperty({ enum: ['budding_entrepreneur', 'seasoned_professional'] }) memberTier!: MembershipTier;
+  @ApiProperty() yearsOfExperience!: number;
+  @ApiProperty({ nullable: true, type: Number }) rateMinCents!: number | null;
+  @ApiProperty({ nullable: true, type: Number }) rateMaxCents!: number | null;
+  @ApiProperty() rateCurrency!: string;
+  @ApiProperty({ nullable: true, type: String }) photoUrl!: string | null;
 }
 
 // Full detail — GET /v1/members/:id. A member's own published articles are fetched separately via
 // GET /v1/articles?authorId=, not embedded here.
-export interface MemberDto extends MemberListItemDto {
-  firmWebsite: string | null;
-  availabilityNotes: string | null;
-  isAvailable: boolean;
-  contactEmail: string | null;
-  contactPhone: string | null;
-  linkedinUrl: string | null;
-  website: string | null;
-  workExperiences: MemberWorkExperience[];
-  educations: MemberEducation[];
-  engagements: MemberEngagement[];
-  qualifications: MemberQualification[];
-  credentials: MemberCredential[];
-  testimonials: MemberTestimonial[];
-  awards: MemberAward[];
-  keyClients: MemberKeyClient[];
+export class MemberDto extends MemberListItemDto {
+  @ApiProperty({ nullable: true, type: String }) firmWebsite!: string | null;
+  @ApiProperty({ nullable: true, type: String }) availabilityNotes!: string | null;
+  @ApiProperty() isAvailable!: boolean;
+  @ApiProperty({ nullable: true, type: String }) contactEmail!: string | null;
+  @ApiProperty({ nullable: true, type: String }) contactPhone!: string | null;
+  @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
+  @ApiProperty({ nullable: true, type: String }) website!: string | null;
+  @ApiProperty({ type: () => MemberWorkExperience, isArray: true }) workExperiences!: MemberWorkExperience[];
+  @ApiProperty({ type: () => MemberEducation, isArray: true }) educations!: MemberEducation[];
+  @ApiProperty({ type: () => MemberEngagement, isArray: true }) engagements!: MemberEngagement[];
+  @ApiProperty({ type: () => MemberQualification, isArray: true }) qualifications!: MemberQualification[];
+  @ApiProperty({ type: () => MemberCredential, isArray: true }) credentials!: MemberCredential[];
+  @ApiProperty({ type: () => MemberTestimonial, isArray: true }) testimonials!: MemberTestimonial[];
+  @ApiProperty({ type: () => MemberAward, isArray: true }) awards!: MemberAward[];
+  @ApiProperty({ type: () => MemberKeyClient, isArray: true }) keyClients!: MemberKeyClient[];
 }
 
 // Admin-only fields layered on top of the list shape — GET /v1/admin/members.
-export interface AdminMemberListItemDto extends MemberListItemDto {
-  status: MemberProfileStatus;
-  applicationId: string | null;
-  membershipStartedAt: string;
-  renewalPaymentStatus: RenewalPaymentStatus | null;
-  renewalDueState: RenewalDueState;
+export class AdminMemberListItemDto extends MemberListItemDto {
+  @ApiProperty({ enum: ['active', 'deactivated'] }) status!: MemberProfileStatus;
+  @ApiProperty({ nullable: true, type: String }) applicationId!: string | null;
+  @ApiProperty() membershipStartedAt!: string;
+  @ApiProperty({ nullable: true, enum: ['paid', 'pending', 'overdue'] }) renewalPaymentStatus!: RenewalPaymentStatus | null;
+  @ApiProperty({ enum: ['active', 'due-soon', 'overdue'] }) renewalDueState!: RenewalDueState;
 }
 
-export interface UpdateAdminMemberRequest {
-  status?: MemberProfileStatus;
-  membershipStartedAt?: string;
-  renewalPaymentStatus?: RenewalPaymentStatus | null;
+export class UpdateAdminMemberRequest {
+  @ApiPropertyOptional({ enum: ['active', 'deactivated'] }) status?: MemberProfileStatus;
+  @ApiPropertyOptional() membershipStartedAt?: string;
+  @ApiPropertyOptional({ nullable: true, enum: ['paid', 'pending', 'overdue'] }) renewalPaymentStatus?: RenewalPaymentStatus | null;
 }
 
-export interface UploadRequest {
-  fileName: string;
-  contentType: string;
+export class UploadRequest {
+  @ApiProperty() fileName!: string;
+  @ApiProperty() contentType!: string;
 }
 
-export interface UploadResponse {
-  uploadUrl: string;
-  path: string;
+export class UploadResponse {
+  @ApiProperty() uploadUrl!: string;
+  @ApiProperty() path!: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,16 +174,16 @@ export type MemberEditSection =
 
 export type MemberEditStatus = 'pending' | 'verified' | 'rejected';
 
-export interface HeadlineBioEditPayload {
-  headline: string;
-  bio: string;
+export class HeadlineBioEditPayload {
+  @ApiProperty() headline!: string;
+  @ApiProperty() bio!: string;
 }
 
-export interface ContactEditPayload {
-  contactEmail: string | null;
-  contactPhone: string | null;
-  linkedinUrl: string | null;
-  website: string | null;
+export class ContactEditPayload {
+  @ApiProperty({ nullable: true, type: String }) contactEmail!: string | null;
+  @ApiProperty({ nullable: true, type: String }) contactPhone!: string | null;
+  @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
+  @ApiProperty({ nullable: true, type: String }) website!: string | null;
 }
 
 // Proof/asset lives per-item for these sections — embedded directly in each array element, not on
@@ -202,34 +213,48 @@ export type CreateMemberEditRequest = MemberEditPayload & {
   proofLink?: string;
 };
 
-export interface MemberProfileEditDto {
-  id: string;
-  memberId: string;
-  memberName: string;
-  section: MemberEditSection;
+export class MemberProfileEditDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() memberId!: string;
+  @ApiProperty() memberName!: string;
+  @ApiProperty({
+    enum: [
+      'headline_bio',
+      'contact',
+      'engagements',
+      'education',
+      'work_experiences',
+      'key_clients',
+      'testimonials',
+      'awards',
+    ],
+  })
+  section!: MemberEditSection;
+  // Shape depends on `section` (see MemberEditPayload above) — left untyped for Swagger/OpenAPI,
+  // same as the eslint exemption below for the same reason.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload: any;
-  proofFileUrl: string | null;
-  proofLink: string | null;
-  status: MemberEditStatus;
-  reviewNote: string | null;
-  reviewedBy: string | null;
-  reviewedAt: string | null;
-  submittedAt: string;
+  @ApiProperty({ type: 'object', additionalProperties: true }) payload: any;
+  @ApiProperty({ nullable: true, type: String }) proofFileUrl!: string | null;
+  @ApiProperty({ nullable: true, type: String }) proofLink!: string | null;
+  @ApiProperty({ enum: ['pending', 'verified', 'rejected'] }) status!: MemberEditStatus;
+  @ApiProperty({ nullable: true, type: String }) reviewNote!: string | null;
+  @ApiProperty({ nullable: true, type: String }) reviewedBy!: string | null;
+  @ApiProperty({ nullable: true, type: String }) reviewedAt!: string | null;
+  @ApiProperty() submittedAt!: string;
 }
 
-export interface ReviewMemberEditRequest {
-  status: 'verified' | 'rejected';
-  reviewNote?: string;
+export class ReviewMemberEditRequest {
+  @ApiProperty({ enum: ['verified', 'rejected'] }) status!: 'verified' | 'rejected';
+  @ApiPropertyOptional() reviewNote?: string;
 }
 
-export interface RenewalPolicyDto {
-  periodMonths: number;
-  reminderDays: number;
-  updatedAt: string;
+export class RenewalPolicyDto {
+  @ApiProperty() periodMonths!: number;
+  @ApiProperty() reminderDays!: number;
+  @ApiProperty() updatedAt!: string;
 }
 
-export interface UpdateRenewalPolicyRequest {
-  periodMonths?: number;
-  reminderDays?: number;
+export class UpdateRenewalPolicyRequest {
+  @ApiPropertyOptional() periodMonths?: number;
+  @ApiPropertyOptional() reminderDays?: number;
 }

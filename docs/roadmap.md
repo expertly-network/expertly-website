@@ -18,7 +18,7 @@ open questions with whoever's driving) exactly like membership applications and 
 | Auth | — (Supabase direct, no custom REST) | `docs/auth.md` |
 | Membership applications | `POST /v1/applications`, `GET /v1/applications/me` | `docs/rest-api.md` |
 | Practice areas | `GET /v1/practice-areas` | `docs/rest-api.md` |
-| Articles | `GET /v1/articles`, `GET /v1/articles/mine`, `GET/:id`, `POST`, `PATCH/:id`, `DELETE/:id` | `docs/rest-api.md` |
+| Articles | `GET /v1/articles`, `GET /v1/articles/me`, `GET/:id`, `POST`, `PATCH/:id`, `DELETE/:id` | `docs/rest-api.md` |
 
 ## Cross-cutting open decisions
 

@@ -3,7 +3,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type { AdminMemberListItemDto, MemberProfileEditDto, RenewalPolicyDto } from '@shared/member';
+// Real (not `import type`) import — Swagger's @ApiResponse needs the actual classes at runtime.
+import { AdminMemberListItemDto, MemberProfileEditDto, RenewalPolicyDto } from '@shared/member';
 import { MembersService } from './members.service';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';

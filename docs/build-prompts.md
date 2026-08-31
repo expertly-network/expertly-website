@@ -84,7 +84,7 @@ contract actually returns, not what the static HTML implies.
 
 Pages needed: /articles (browse, public), /articles/[id] (detail, signed-in only — redirect to
 login otherwise), a write/edit flow (member or admin only), and "my articles" (owner's own list
-regardless of status, uses GET /v1/articles/mine).
+regardless of status, uses GET /v1/articles/me).
 
 Use apps/frontend/components/ui/ primitives throughout. Add "Articles" to TopNav's nav links now
 that the page exists (see TopNav.tsx's own comment about adding links as pages ship).

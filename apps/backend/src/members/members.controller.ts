@@ -3,7 +3,8 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type { MemberDto, MemberListItemDto, MemberProfileEditDto, UploadResponse } from '@shared/member';
+// Real (not `import type`) import — Swagger's @ApiResponse needs the actual classes at runtime.
+import { MemberDto, MemberListItemDto, MemberProfileEditDto, UploadResponse } from '@shared/member';
 import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
@@ -72,7 +73,7 @@ export class MembersController {
     return this.service.createEdit(id, user, dto);
   }
 
-  // 🔒 Owner — no @Roles() needed, same as GET /articles/mine; the service's ownership check is
+  // 🔒 Owner — no @Roles() needed, same as GET /articles/me; the service's ownership check is
   // what actually scopes this.
   @Get(':id/edits')
   listMyEdits(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {

@@ -22,7 +22,7 @@ function getJwks() {
 interface SupabaseJwtPayload {
   sub: string;
   email: string;
-  user_metadata?: { first_name?: string; last_name?: string };
+  user_metadata?: { given_name?: string; family_name?: string };
   // Custom claim from custom_access_token_hook (supabase/migrations/) — NOT
   // Supabase's own built-in `role` claim, which is always "authenticated" for
   // any logged-in user and unrelated to our client/member/admin business role.
@@ -57,7 +57,7 @@ export async function verifySupabaseToken(token: string): Promise<Profile> {
     id: claims.sub,
     email: claims.email,
     role,
-    first_name: claims.user_metadata?.first_name ?? '',
-    last_name: claims.user_metadata?.last_name ?? '',
+    first_name: claims.user_metadata?.given_name ?? '',
+    last_name: claims.user_metadata?.family_name ?? '',
   };
 }

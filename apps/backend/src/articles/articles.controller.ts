@@ -3,7 +3,12 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type { ArticleDto, ArticleListItemDto } from '@shared/article';
+// ArticleDto is a real (not `import type`) import — Swagger's @ApiResponse needs the actual
+// class at runtime to build a response schema, not just its compile-time shape. ArticleListItemDto
+// stays `import type`: it's a derived `Omit<>` type alias, not a class, so there's no runtime
+// value to import.
+import { ArticleDto } from '@shared/article';
+import type { ArticleListItemDto } from '@shared/article';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -21,11 +26,12 @@ export class ArticlesController {
     return this.service.listPublished(authorId);
   }
 
-  // 🔒 Owner — the caller's own articles regardless of status. Must be
-  // registered before the `:id` route below or Nest would match "mine" as an
-  // id param.
-  @Get('mine')
-  listMine(@CurrentUser() user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
+  // 🔒 Owner — the caller's own articles regardless of status. `me`, matching
+  // applications/me's convention (not `mine` — one word for "the caller's own
+  // resource" across the whole API, not two). Must be registered before the
+  // `:id` route below or Nest would match "me" as an id param.
+  @Get('me')
+  listMe(@CurrentUser() user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
     return this.service.listMine(user);
   }
 

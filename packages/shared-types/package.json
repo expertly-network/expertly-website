@@ -2,5 +2,8 @@
   "name": "@expertly/shared-types",
   "version": "1.0.0",
   "private": true,
-  "types": "index.ts"
+  "types": "index.ts",
+  "dependencies": {
+    "@nestjs/swagger": "^11.4.7"
+  }
 }

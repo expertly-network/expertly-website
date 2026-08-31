@@ -1,3 +1,5 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 export type ApplicationStatus = 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
 export type ApplicationRegion =
@@ -8,6 +10,16 @@ export type ApplicationRegion =
   | 'north_america'
   | 'south_asia'
   | 'africa';
+
+const APPLICATION_REGIONS = [
+  'asia_pacific',
+  'europe',
+  'latin_america',
+  'middle_east',
+  'north_america',
+  'south_asia',
+  'africa',
+];
 
 export type FirmSize = 'solo' | '2_10' | '11_50' | '51_200' | '200_plus';
 
@@ -21,35 +33,35 @@ export type BillingPeriod = 'monthly' | 'annual';
 // reserved for when one gets integrated.
 export type PaymentStatus = 'pending' | 'waived' | 'paid';
 
-export interface WorkExperienceInput {
-  title: string;
-  company: string;
-  city?: string;
-  firmSize?: FirmSize;
-  companyUrl?: string;
-  startMonth?: number; // 1-12
-  startYear: number;
-  endMonth?: number; // 1-12, omit if isCurrent
-  endYear?: number; // omit if isCurrent
-  isCurrent: boolean;
+export class WorkExperienceInput {
+  @ApiProperty() title!: string;
+  @ApiProperty() company!: string;
+  @ApiPropertyOptional() city?: string;
+  @ApiPropertyOptional({ enum: ['solo', '2_10', '11_50', '51_200', '200_plus'] }) firmSize?: FirmSize;
+  @ApiPropertyOptional() companyUrl?: string;
+  @ApiPropertyOptional() startMonth?: number; // 1-12
+  @ApiProperty() startYear!: number;
+  @ApiPropertyOptional() endMonth?: number; // 1-12, omit if isCurrent
+  @ApiPropertyOptional() endYear?: number; // omit if isCurrent
+  @ApiProperty() isCurrent!: boolean;
 }
 
-export interface EducationInput {
-  institution: string;
-  degree: string;
-  fieldOfStudy?: string;
-  startYear?: number;
-  endYear?: number;
+export class EducationInput {
+  @ApiProperty() institution!: string;
+  @ApiProperty() degree!: string;
+  @ApiPropertyOptional() fieldOfStudy?: string;
+  @ApiPropertyOptional() startYear?: number;
+  @ApiPropertyOptional() endYear?: number;
 }
 
-export interface ServicePreferenceInput {
-  practiceAreaId: string;
-  priority: 1 | 2 | 3;
+export class ServicePreferenceInput {
+  @ApiProperty() practiceAreaId!: string;
+  @ApiProperty({ enum: [1, 2, 3] }) priority!: 1 | 2 | 3;
 }
 
-export interface ServicePreference extends ServicePreferenceInput {
+export class ServicePreference extends ServicePreferenceInput {
   /** Resolved server-side for display — not required on input. */
-  practiceAreaName: string;
+  @ApiProperty() practiceAreaName!: string;
 }
 
 /**
@@ -59,84 +71,84 @@ export interface ServicePreference extends ServicePreferenceInput {
  * every field below except couponCode to be present, on the merged row, not just this call's
  * body).
  */
-export interface UpdateApplicationRequest {
-  firstName?: string;
-  lastName?: string;
-  contactEmail?: string;
-  phoneCountryCode?: string;
-  phone?: string;
-  region?: ApplicationRegion;
-  country?: string;
-  state?: string;
-  city?: string;
-  linkedinUrl?: string;
-  bio?: string;
-  yearsOfExperience?: number;
-  workExperiences?: WorkExperienceInput[];
-  educations?: EducationInput[];
-  servicePreferences?: ServicePreferenceInput[];
-  rateMinCents?: number;
-  rateMaxCents?: number;
-  billingPeriod?: BillingPeriod;
+export class UpdateApplicationRequest {
+  @ApiPropertyOptional() firstName?: string;
+  @ApiPropertyOptional() lastName?: string;
+  @ApiPropertyOptional() contactEmail?: string;
+  @ApiPropertyOptional() phoneCountryCode?: string;
+  @ApiPropertyOptional() phone?: string;
+  @ApiPropertyOptional({ enum: APPLICATION_REGIONS }) region?: ApplicationRegion;
+  @ApiPropertyOptional() country?: string;
+  @ApiPropertyOptional() state?: string;
+  @ApiPropertyOptional() city?: string;
+  @ApiPropertyOptional() linkedinUrl?: string;
+  @ApiPropertyOptional() bio?: string;
+  @ApiPropertyOptional() yearsOfExperience?: number;
+  @ApiPropertyOptional({ type: () => WorkExperienceInput, isArray: true }) workExperiences?: WorkExperienceInput[];
+  @ApiPropertyOptional({ type: () => EducationInput, isArray: true }) educations?: EducationInput[];
+  @ApiPropertyOptional({ type: () => ServicePreferenceInput, isArray: true }) servicePreferences?: ServicePreferenceInput[];
+  @ApiPropertyOptional() rateMinCents?: number;
+  @ApiPropertyOptional() rateMaxCents?: number;
+  @ApiPropertyOptional({ enum: ['monthly', 'annual'] }) billingPeriod?: BillingPeriod;
   /** Free text, validated server-side. Omit or send an invalid code for no discount. */
-  couponCode?: string;
-  linkedinImportConsent?: boolean;
-  termsVersionAgreed?: string;
-  privacyVersionAgreed?: string;
-  backgroundCheckConsent?: boolean;
+  @ApiPropertyOptional() couponCode?: string;
+  @ApiPropertyOptional() linkedinImportConsent?: boolean;
+  @ApiPropertyOptional() termsVersionAgreed?: string;
+  @ApiPropertyOptional() privacyVersionAgreed?: string;
+  @ApiPropertyOptional() backgroundCheckConsent?: boolean;
   /** Which wizard step to resume on next load. Purely a UX convenience, not validated. */
-  currentStep?: number;
+  @ApiPropertyOptional() currentStep?: number;
   /** Omit or 'draft' to just save progress. 'submitted' triggers full validation + transition. */
-  status?: 'draft' | 'submitted';
+  @ApiPropertyOptional({ enum: ['draft', 'submitted'] }) status?: 'draft' | 'submitted';
 }
 
-export interface ApplicationDocumentDto {
-  id: string;
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
+export class ApplicationDocumentDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() filename!: string;
+  @ApiProperty() mimeType!: string;
+  @ApiProperty() sizeBytes!: number;
   /** Signed URL, minted fresh on every read — not stable, don't cache long-term. */
-  url: string;
-  uploadedAt: string;
+  @ApiProperty() url!: string;
+  @ApiProperty() uploadedAt!: string;
 }
 
 /** Response shape for POST /v1/applications/me (200) and GET /v1/applications/me (200). */
-export interface ApplicationDto {
-  id: string;
-  status: ApplicationStatus;
-  currentStep: number;
+export class ApplicationDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ enum: ['draft', 'submitted', 'under_review', 'approved', 'rejected'] }) status!: ApplicationStatus;
+  @ApiProperty() currentStep!: number;
   /** Signed URL, minted fresh on every read — not stable, don't cache long-term. */
-  photoUrl: string | null;
-  documents: ApplicationDocumentDto[];
-  firstName: string | null;
-  lastName: string | null;
-  contactEmail: string | null;
-  phoneCountryCode: string | null;
-  phone: string | null;
-  region: ApplicationRegion | null;
-  country: string | null;
-  state: string | null;
-  city: string | null;
-  linkedinUrl: string | null;
-  bio: string | null;
-  yearsOfExperience: number | null;
-  workExperiences: WorkExperienceInput[];
-  educations: EducationInput[];
-  servicePreferences: ServicePreference[];
-  rateMinCents: number | null;
-  rateMaxCents: number | null;
-  selectedTier: MembershipTier | null;
-  billingPeriod: BillingPeriod | null;
-  listPriceCents: number | null;
-  couponCode: string | null;
-  discountAmountCents: number | null;
-  amountDueCents: number | null;
-  paymentStatus: PaymentStatus | null;
-  createdAt: string;
+  @ApiProperty({ nullable: true, type: String }) photoUrl!: string | null;
+  @ApiProperty({ type: () => ApplicationDocumentDto, isArray: true }) documents!: ApplicationDocumentDto[];
+  @ApiProperty({ nullable: true, type: String }) firstName!: string | null;
+  @ApiProperty({ nullable: true, type: String }) lastName!: string | null;
+  @ApiProperty({ nullable: true, type: String }) contactEmail!: string | null;
+  @ApiProperty({ nullable: true, type: String }) phoneCountryCode!: string | null;
+  @ApiProperty({ nullable: true, type: String }) phone!: string | null;
+  @ApiProperty({ nullable: true, enum: APPLICATION_REGIONS }) region!: ApplicationRegion | null;
+  @ApiProperty({ nullable: true, type: String }) country!: string | null;
+  @ApiProperty({ nullable: true, type: String }) state!: string | null;
+  @ApiProperty({ nullable: true, type: String }) city!: string | null;
+  @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
+  @ApiProperty({ nullable: true, type: String }) bio!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) yearsOfExperience!: number | null;
+  @ApiProperty({ type: () => WorkExperienceInput, isArray: true }) workExperiences!: WorkExperienceInput[];
+  @ApiProperty({ type: () => EducationInput, isArray: true }) educations!: EducationInput[];
+  @ApiProperty({ type: () => ServicePreference, isArray: true }) servicePreferences!: ServicePreference[];
+  @ApiProperty({ nullable: true, type: Number }) rateMinCents!: number | null;
+  @ApiProperty({ nullable: true, type: Number }) rateMaxCents!: number | null;
+  @ApiProperty({ nullable: true, enum: ['budding_entrepreneur', 'seasoned_professional'] }) selectedTier!: MembershipTier | null;
+  @ApiProperty({ nullable: true, enum: ['monthly', 'annual'] }) billingPeriod!: BillingPeriod | null;
+  @ApiProperty({ nullable: true, type: Number }) listPriceCents!: number | null;
+  @ApiProperty({ nullable: true, type: String }) couponCode!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) discountAmountCents!: number | null;
+  @ApiProperty({ nullable: true, type: Number }) amountDueCents!: number | null;
+  @ApiProperty({ nullable: true, enum: ['pending', 'waived', 'paid'] }) paymentStatus!: PaymentStatus | null;
+  @ApiProperty() createdAt!: string;
 }
 
-export interface LinkedInImportRequest {
-  linkedinUrl: string;
+export class LinkedInImportRequest {
+  @ApiProperty() linkedinUrl!: string;
 }
 
 /**
@@ -146,21 +158,21 @@ export interface LinkedInImportRequest {
  * configured, the deterministic mock provider otherwise — see that module for which fields each
  * one actually populates.
  */
-export interface LinkedInImportResponse {
-  firstName?: string;
-  lastName?: string;
-  bio?: string;
-  yearsOfExperience?: number;
-  workExperiences?: WorkExperienceInput[];
-  educations?: EducationInput[];
-  country?: string;
-  state?: string;
-  city?: string;
+export class LinkedInImportResponse {
+  @ApiPropertyOptional() firstName?: string;
+  @ApiPropertyOptional() lastName?: string;
+  @ApiPropertyOptional() bio?: string;
+  @ApiPropertyOptional() yearsOfExperience?: number;
+  @ApiPropertyOptional({ type: () => WorkExperienceInput, isArray: true }) workExperiences?: WorkExperienceInput[];
+  @ApiPropertyOptional({ type: () => EducationInput, isArray: true }) educations?: EducationInput[];
+  @ApiPropertyOptional() country?: string;
+  @ApiPropertyOptional() state?: string;
+  @ApiPropertyOptional() city?: string;
 }
 
 /** PATCH /v1/admin/applications/:id request body. */
-export interface AdminApplicationReviewRequest {
-  status: 'approved' | 'rejected';
+export class AdminApplicationReviewRequest {
+  @ApiProperty({ enum: ['approved', 'rejected'] }) status!: 'approved' | 'rejected';
   /** Required when status is 'rejected'. */
-  rejectionReason?: string;
+  @ApiPropertyOptional() rejectionReason?: string;
 }

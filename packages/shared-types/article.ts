@@ -1,53 +1,55 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 export type ArticleStatus = 'draft' | 'published';
 
-export interface ArticlePracticeArea {
-  id: string;
-  name: string;
+export class ArticlePracticeArea {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
 }
 
-export interface ArticleDto {
-  id: string;
+export class ArticleDto {
+  @ApiProperty() id!: string;
   // Server-generated from `title` on create, stable thereafter (never regenerated on update) —
   // never client-writable, same posture as member profile slugs.
-  slug: string;
-  authorId: string;
-  authorName: string;
+  @ApiProperty() slug!: string;
+  @ApiProperty() authorId!: string;
+  @ApiProperty() authorName!: string;
   // Sourced from `member_profiles.photo_url` (falling back to `profiles.avatar_url`) — null
   // when neither is set, in which case the UI falls back to initials.
-  authorPhotoUrl: string | null;
+  @ApiProperty({ nullable: true, type: String }) authorPhotoUrl!: string | null;
   // Sourced from `member_profiles.headline`/`firm_name` — the "designation" line under the
   // author's name (design/static_html/articles.html: `[title, firm].filter(Boolean).join(', ')`).
   // Null for either half when the author hasn't set it.
-  authorHeadline: string | null;
-  authorFirmName: string | null;
-  status: ArticleStatus;
-  title: string;
-  body: string;
-  excerpt: string;
+  @ApiProperty({ nullable: true, type: String }) authorHeadline!: string | null;
+  @ApiProperty({ nullable: true, type: String }) authorFirmName!: string | null;
+  @ApiProperty({ enum: ['draft', 'published'] }) status!: ArticleStatus;
+  @ApiProperty() title!: string;
+  @ApiProperty() body!: string;
+  @ApiProperty() excerpt!: string;
   // A short, genuinely-written 3-point summary (seed data today — see docs/rest-api.md; not a
   // real LLM call, root CLAUDE.md's AI-integration deferral still holds). Rendered as the
   // article detail page's "AI Summary" callout, one bullet per '\n'-separated line. Null for
   // an article that doesn't have one yet.
-  aiSummary: string | null;
-  readTimeMinutes: number;
-  coverImageUrl: string;
-  practiceAreas: ArticlePracticeArea[];
-  country: string;
-  state: string | null;
-  createdAt: string;
-  updatedAt: string;
+  @ApiProperty({ nullable: true, type: String }) aiSummary!: string | null;
+  @ApiProperty() readTimeMinutes!: number;
+  @ApiProperty() coverImageUrl!: string;
+  @ApiProperty({ type: () => ArticlePracticeArea, isArray: true }) practiceAreas!: ArticlePracticeArea[];
+  @ApiProperty() country!: string;
+  @ApiProperty({ nullable: true, type: String }) state!: string | null;
+  @ApiProperty() createdAt!: string;
+  @ApiProperty() updatedAt!: string;
 }
 
 // List views omit `body` — matches the browse grid's actual card usage.
 export type ArticleListItemDto = Omit<ArticleDto, 'body'>;
 
-export interface CreateArticleRequest {
-  title: string;
-  body: string;
-  coverImageUrl: string;
-  practiceAreaIds: string[];
-  country: string;
-  state?: string;
+export class CreateArticleRequest {
+  @ApiProperty() title!: string;
+  @ApiProperty() body!: string;
+  @ApiProperty() coverImageUrl!: string;
+  @ApiProperty({ type: String, isArray: true }) practiceAreaIds!: string[];
+  @ApiProperty() country!: string;
+  @ApiPropertyOptional() state?: string;
 }
 
 // All fields optional; `status` only takes effect for the owner or admin —

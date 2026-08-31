@@ -217,7 +217,15 @@ export class ApplicationsService {
   // members.service.ts's requestUpload) — a signed-URL flow never puts the file's bytes through
   // the API, so magic-byte MIME validation (root CLAUDE.md's non-negotiable file-upload rule)
   // would be structurally impossible. See the spec doc §6 for the full rationale.
-  async uploadFile(user: AuthenticatedUser, kind: UploadKind, file: Express.Multer.File): Promise<ApplicationDto> {
+  //
+  // `file`'s shape is deliberately a plain object, not Express.Multer.File/Fastify's
+  // MultipartFile — the controller adapts whatever the HTTP adapter hands it into this shape,
+  // so this service stays adapter-agnostic (see applications.controller.ts's uploadFile).
+  async uploadFile(
+    user: AuthenticatedUser,
+    kind: UploadKind,
+    file: { buffer: Buffer; size: number; originalname: string }
+  ): Promise<ApplicationDto> {
     if (file.size > MAX_BYTES[kind]) {
       throw new BadRequestException(`File too large — max ${MAX_BYTES[kind] / 1024 / 1024}MB for ${kind}.`);
     }

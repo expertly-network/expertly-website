@@ -28,4 +28,4 @@ ENV NODE_ENV=production
 COPY --from=build /app/deploy ./
 
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/apps/backend/src/main.js"]

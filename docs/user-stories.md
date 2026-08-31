@@ -157,7 +157,7 @@ As a member, I want to attach a document or link as proof for a claim so my edit
 ### US-07-01: Creating and submitting an article
 As a member, I want to write and submit an article so I can build visibility and credibility.
 - [x] `POST /v1/articles` 🔒 member; body sanitized with `sanitize-html` before storage
-- [x] `GET /v1/articles/mine` 🔒 lists the author's own articles regardless of status
+- [x] `GET /v1/articles/me` 🔒 lists the author's own articles regardless of status
 - [ ] No frontend "Write an Article" authoring UI exists yet — these are API-level criteria only;
       the prototype's write flow (incl. its AI-drafting path) is a separate, later feature
 

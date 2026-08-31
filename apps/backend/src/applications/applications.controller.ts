@@ -1,8 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { BadRequestException, Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import type { FastifyRequest } from 'fastify';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type { ApplicationDto, LinkedInImportResponse } from '@shared/membership-application';
+// Real (not `import type`) import — Swagger's @ApiResponse needs the actual classes at runtime.
+import { ApplicationDto, LinkedInImportResponse } from '@shared/membership-application';
 import { ApplicationsService } from './applications.service';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { LinkedInImportRequestDto } from './dto/linkedin-import-request.dto';
@@ -45,14 +48,29 @@ export class ApplicationsController {
   // 🔒 Owner — kind validated against an allow-list by UploadApplicationFileDto; ownership and
   // MIME/size validation happen in the service (magic bytes, not the client-declared
   // content-type — see the service for why this proxies through the backend at all).
+  //
+  // Multipart form, so @Body() doesn't apply here (Fastify, unlike Express+multer, never
+  // populates req.body from a multipart form) — the file comes from request.file() (global
+  // 15MB limit registered on the @fastify/multipart plugin in main.ts) and the sibling `kind`
+  // field off that same part's .fields, validated by hand against the same DTO the rest of this
+  // controller uses via @Body() elsewhere, so the validation rule itself isn't duplicated.
   @Post('me/uploads')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024 } }))
-  uploadFile(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: UploadApplicationFileDto,
-    @UploadedFile() file?: Express.Multer.File
-  ): Promise<ApplicationDto> {
-    if (!file) throw new BadRequestException('No file provided.');
+  async uploadFile(@CurrentUser() user: AuthenticatedUser, @Req() request: FastifyRequest): Promise<ApplicationDto> {
+    const part = await request.file();
+    if (!part) throw new BadRequestException('No file provided.');
+
+    // .fields.kind is a single Multipart normally, only an array if the client repeated the
+    // field name — and only a MultipartValue (has `.value`) has anything to read, as opposed to
+    // a nested MultipartFile.
+    const kindField = Array.isArray(part.fields.kind) ? part.fields.kind[0] : part.fields.kind;
+    const kindValue = kindField && 'value' in kindField ? kindField.value : undefined;
+
+    const dto = plainToInstance(UploadApplicationFileDto, { kind: kindValue });
+    const errors = await validate(dto);
+    if (errors.length > 0) throw new BadRequestException('Invalid or missing `kind` field.');
+
+    const buffer = await part.toBuffer();
+    const file = { buffer, size: buffer.length, originalname: part.filename };
     return this.service.uploadFile(user, dto.kind, file);
   }
 }

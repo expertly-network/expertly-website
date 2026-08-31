@@ -1,7 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { EventsService } from './events.service';
-import type { EventDto } from '@shared/event';
+// Real (not `import type`) import — Swagger's @ApiResponse needs the actual class at runtime.
+import { EventDto } from '@shared/event';
 
 // 🌐 Public — the browse list. `upcoming` (optional, default `true`) preserves the homepage's
 // exact original behaviour for every existing caller; the standalone /events page passes
