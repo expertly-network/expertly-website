@@ -9,6 +9,7 @@ import { MemberBenefitsPanel } from '@/components/auth/MemberBenefitsPanel';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { Card } from '@/components/ui/Card';
 import { signInWithLinkedIn } from '@/lib/auth/linkedin';
+import { TERMS_OF_SERVICE_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
 
 type AuthView = 'signin' | 'signup';
 
@@ -22,6 +23,9 @@ const COPY: Record<AuthMode, Record<AuthView, { title: string; sub: string }> & 
       title: 'Become a user.',
       sub: 'Create a client account to search experts and book consultations.',
     },
+    // Passive clickwrap — no separate confirmation step. Continuing (any path: email or
+    // LinkedIn) is itself the acceptance; there's no enforced gate behind it. See AuthCard's
+    // render for the actual linked version of this text.
     foot: "By continuing, you agree to Expertly's Terms of Service.",
   },
   member: {
@@ -135,7 +139,31 @@ export function AuthCard({
 
         {mode === 'member' && <MemberBenefitsPanel />}
 
-        <p className="mt-5 text-center text-[13px] text-ink-3">{COPY[mode].foot}</p>
+        {mode === 'user' ? (
+          <p className="mt-5 text-center text-[13px] text-ink-3">
+            By continuing, you agree to Expertly&apos;s{' '}
+            <a
+              href={TERMS_OF_SERVICE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-ink-2"
+            >
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a
+              href={PRIVACY_POLICY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-ink-2"
+            >
+              Privacy Policy
+            </a>
+            .
+          </p>
+        ) : (
+          <p className="mt-5 text-center text-[13px] text-ink-3">{COPY[mode].foot}</p>
+        )}
       </Card>
     </>
   );
