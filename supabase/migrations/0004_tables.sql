@@ -70,6 +70,18 @@ create policy profiles_select_own
   on public.profiles for select
   using (auth.uid() = id);
 
+-- custom_access_token_hook (0003_functions.sql) runs as supabase_auth_admin, not as the
+-- logged-in user, so profiles_select_own's `auth.uid() = id` never matches it (there's no
+-- end-user JWT context during token minting) — without this grant + policy, GoTrue's call to
+-- the hook throws "permission denied for table profiles" (42501) and the entire login request
+-- fails with a 500 on POST /auth/v1/token, for every provider, not just LinkedIn.
+grant select on table public.profiles to supabase_auth_admin;
+
+create policy profiles_select_auth_admin
+  on public.profiles for select
+  to supabase_auth_admin
+  using (true);
+
 -- ============================================================================
 -- practice_areas — the practice-area taxonomy. One flat table: `category` groups areas for the
 -- category-pill filter, `name` is what's picked in the application wizard / article write flow
