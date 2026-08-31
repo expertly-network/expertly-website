@@ -33,10 +33,10 @@ $$;
 --   - last_login_at: set to signup time. There's no separate login-event tracking built yet, so
 --     this is the first (and, until that's built, the only) truthful value for it — "created a
 --     session" is what signing up actually did.
---   - consent: a hardcoded current terms/privacy version snapshot, same pattern as
---     membership_applications.terms_version_agreed/privacy_version_agreed — there's no real
---     versioning system yet, so '1.0'/'1.0' is the confirmed real current value, not a
---     placeholder. Bump both here (and reconsider this function) the day those documents change.
+--   - terms_accepted_at, marketing_consent: left at their column defaults (null, false) — a new
+--     signup has NOT consented to anything yet, regardless of path. The frontend's mandatory
+--     post-signup gate (docs/auth.md) is what actually records real consent, via a real user
+--     click through POST /v1/me/consent; this trigger must never fabricate it.
 create function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -52,7 +52,7 @@ begin
   end;
 
   insert into public.profiles (
-    id, email, first_name, last_name, auth_provider, last_login_at, consent
+    id, email, first_name, last_name, auth_provider, last_login_at
   )
   values (
     new.id,
@@ -60,8 +60,7 @@ begin
     coalesce(new.raw_user_meta_data ->> 'first_name', new.raw_user_meta_data ->> 'given_name', ''),
     coalesce(new.raw_user_meta_data ->> 'last_name', new.raw_user_meta_data ->> 'family_name', ''),
     provider,
-    now(),
-    jsonb_build_object('termsVersion', '1.0', 'privacyVersion', '1.0', 'acceptedAt', now())
+    now()
   );
   return new;
 end;
@@ -79,10 +78,17 @@ begin
 end;
 $$;
 
--- Custom Access Token Hook: injects `app_role` into the JWT as a fast-path claim for the
--- NestJS backend. Created here but INERT until manually registered in the Supabase dashboard
--- under Authentication -> Hooks -> "Custom Access Token" — that registration step can't be
--- done via SQL/CLI.
+-- Custom Access Token Hook: injects `app_role` and `consent_given` into the JWT as fast-path
+-- claims for the frontend/backend. Created here but INERT until manually registered in the
+-- Supabase dashboard under Authentication -> Hooks -> "Custom Access Token" — that registration
+-- step can't be done via SQL/CLI.
+--
+-- `consent_given` mirrors `app_role`'s posture exactly: read once at token-mint time, not
+-- re-checked per request. middleware.ts uses it to gate every route (opt-out allowlist) until
+-- the caller has accepted Terms/Privacy — see docs/auth.md. Same staleness tradeoff as
+-- app_role (up to ~1hr) is fine here because the consent flow itself calls
+-- supabase.auth.refreshSession() right after recording consent, so the very next request
+-- already carries the updated claim instead of waiting for a natural refresh.
 create function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql
@@ -91,10 +97,13 @@ as $$
 declare
   claims jsonb;
   user_role text;
+  has_consented boolean;
 begin
-  select role into user_role from public.profiles where id = (event ->> 'user_id')::uuid;
+  select role, terms_accepted_at is not null into user_role, has_consented
+    from public.profiles where id = (event ->> 'user_id')::uuid;
   claims := coalesce(event -> 'claims', '{}'::jsonb);
   claims := jsonb_set(claims, '{app_role}', to_jsonb(coalesce(user_role, 'client')));
+  claims := jsonb_set(claims, '{consent_given}', to_jsonb(coalesce(has_consented, false)));
   event := jsonb_set(event, '{claims}', claims);
   return event;
 end;

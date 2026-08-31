@@ -27,6 +27,10 @@ interface SupabaseJwtPayload {
   // Supabase's own built-in `role` claim, which is always "authenticated" for
   // any logged-in user and unrelated to our client/member/admin business role.
   app_role?: string;
+  // Same hook, same posture: true only once profiles.terms_accepted_at is
+  // actually set via a real POST /v1/me/consent call. middleware.ts gates
+  // nearly every route on this.
+  consent_given?: boolean;
 }
 
 /**
@@ -59,5 +63,6 @@ export async function verifySupabaseToken(token: string): Promise<Profile> {
     role,
     first_name: claims.user_metadata?.given_name ?? '',
     last_name: claims.user_metadata?.family_name ?? '',
+    consent_given: claims.consent_given ?? false,
   };
 }

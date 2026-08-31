@@ -23,9 +23,11 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, role, first_name, last_name, email')
+    .select('id, role, first_name, last_name, email, terms_accepted_at')
     .eq('id', user.id)
     .single();
+  if (!profile) return null;
 
-  return profile as Profile | null;
+  const { terms_accepted_at, ...rest } = profile;
+  return { ...rest, consent_given: terms_accepted_at !== null } as Profile;
 });

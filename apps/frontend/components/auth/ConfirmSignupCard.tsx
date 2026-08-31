@@ -5,20 +5,42 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
+import { apiFetch, ApiError } from '@/lib/api/client';
+import type { ConsentStatusDto } from '@shared/consent';
 
-// Shown once, right after a LinkedIn sign-in unexpectedly created a new
-// account (see app/auth/callback/route.ts) — the one point in this flow
-// where Terms/Privacy consent can actually be collected, since Supabase had
-// already created the account as a side effect of the OAuth handshake
-// itself by the time this page can know that happened.
+// The universal post-signup consent gate — middleware.ts redirects any signed-in-but-
+// unconsented request here (any path: email signup, LinkedIn signup, or a pre-existing account
+// that predates this gate), not just the LinkedIn "turned out to be new" case this used to be
+// scoped to. See docs/auth.md.
 export function ConfirmSignupCard({ destination }: { destination: string }) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleContinue() {
-    router.push(destination);
-    router.refresh();
+  async function handleContinue() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiFetch<ConsentStatusDto>('/me/consent', {
+        method: 'POST',
+        body: JSON.stringify({ marketingConsent: true }),
+      });
+
+      // The JWT's consent_given claim was set at token-mint time (before this call) — refresh
+      // now so the *next* request already carries the updated claim, instead of waiting for a
+      // natural refresh up to ~1hr later. Without this, middleware would bounce them right back
+      // here even though they just consented.
+      const supabase = createClient();
+      await supabase.auth.refreshSession();
+
+      router.push(destination);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setSubmitting(false);
+    }
   }
 
   async function handleCancel() {
@@ -31,10 +53,9 @@ export function ConfirmSignupCard({ destination }: { destination: string }) {
 
   return (
     <Card>
-      <h1 className="text-heading text-ink">Create your account?</h1>
+      <h1 className="text-heading text-ink">One more step</h1>
       <p className="mb-6 mt-2.5 text-[15px] text-ink-3">
-        We didn&apos;t find an existing Expertly account for that LinkedIn profile — confirm
-        below to create one.
+        We need your consent to continue — you can change your email preferences anytime.
       </p>
 
       <label className="flex items-start gap-2.5 text-sm text-ink-2">
@@ -44,21 +65,27 @@ export function ConfirmSignupCard({ destination }: { destination: string }) {
           onChange={(e) => setAgreed(e.target.checked)}
           className="mt-0.5 h-4 w-4 flex-none rounded border-line-2 accent-accent"
         />
-        <span>I agree to Expertly&apos;s Terms of Service and Privacy Policy.</span>
+        <span>
+          I agree to Expertly&apos;s Terms of Service and Privacy Policy, and consent to receive
+          occasional emails about new experts, articles, and product updates. You can unsubscribe
+          anytime.
+        </span>
       </label>
 
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
       <div className="mt-6 flex flex-col gap-2.5">
-        <Button type="button" onClick={handleContinue} disabled={!agreed} fullWidth>
-          Create my account →
+        <Button type="button" onClick={handleContinue} disabled={!agreed || submitting} fullWidth>
+          {submitting ? 'Please wait…' : 'Continue →'}
         </Button>
         <Button
           type="button"
           onClick={handleCancel}
-          disabled={cancelling}
+          disabled={cancelling || submitting}
           variant="ghost"
           fullWidth
         >
-          {cancelling ? 'Please wait…' : 'Cancel'}
+          {cancelling ? 'Please wait…' : 'Sign out'}
         </Button>
       </div>
     </Card>

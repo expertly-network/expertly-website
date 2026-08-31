@@ -33,7 +33,15 @@ create table public.profiles (
   initials text,
   auth_provider auth_provider not null default 'email',
   timezone text not null default 'UTC',
-  consent jsonb not null default '{}',
+  -- null = hasn't consented. This is the actual gate the frontend's middleware checks (via
+  -- custom_access_token_hook's consent_given claim, see 0003_functions.sql) — every request
+  -- except a small allowlist redirects here until it's set. Only ever written by a real user
+  -- click through POST /v1/me/consent; never fabricated by the signup trigger.
+  terms_accepted_at timestamptz,
+  -- Separate from terms_accepted_at on purpose, even though the frontend currently shows them
+  -- as one combined checkbox — marketing consent must stay independently toggleable (e.g. an
+  -- unsubscribe flow) without touching whether the account can be used at all.
+  marketing_consent boolean not null default false,
   deletion_reason text,
   last_login_at timestamptz,
   -- Only meaningful when role='admin'. Null for a plain admin (treated as super_admin by the
