@@ -11,24 +11,20 @@ import { mapAuthError } from '@/lib/auth/errors';
  * Supabase's default email-matching behavior; a brand-new LinkedIn user gets
  * role='client' via the same handle_new_user trigger as email signup.
  *
- * `consented` (default false): set true only when the caller already
- * collected explicit Terms/Privacy consent *before* this call (the User
- * tab's explicit "Sign up" view, which — unlike a plain "Sign in" click —
- * unambiguously means "create an account", so consent can be asked upfront).
- * The callback route skips its own new-account confirmation step when this
- * is true, so a genuinely new signup isn't asked to consent twice.
+ * No consent param — Terms/Privacy acceptance is passive clickwrap
+ * (AuthCard's footer), not a gate, so this flow doesn't need to know or care
+ * whether it just created a new account.
  */
 export async function signInWithLinkedIn(
   returnTo: string,
-  intent: 'user' | 'member',
-  consented = false,
+  intent: 'user' | 'member'
 ): Promise<{ error: string | null }> {
   const supabase = createClient();
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'linkedin_oidc',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnTo)}&intent=${intent}&consented=${consented ? '1' : '0'}`,
+      redirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnTo)}&intent=${intent}`,
     },
   });
 
