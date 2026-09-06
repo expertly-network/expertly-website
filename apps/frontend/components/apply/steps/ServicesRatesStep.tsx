@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
+import { scrollToFirstError } from '@/components/apply/scrollToError';
 import type { WizardFormState } from '@/components/apply/types';
 import type { PracticeAreaCategory, PracticeAreaDto } from '@shared/practice-area';
 
@@ -50,11 +51,29 @@ export function ServicesRatesStep({
 
   const minDollars = Number(form.rateMinDollars);
   const maxDollars = Number(form.rateMaxDollars);
-  const canContinue =
-    preferenceFor(1) &&
-    form.rateMinDollars !== '' &&
-    form.rateMaxDollars !== '' &&
-    maxDollars > minDollars;
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function validate(): Record<string, string> {
+    const e: Record<string, string> = {};
+    if (!preferenceFor(1)) e.servicePreference1 = '1st preference is required.';
+    if (form.rateMinDollars === '') e.rateMinDollars = 'Minimum rate is required.';
+    if (form.rateMaxDollars === '') e.rateMaxDollars = 'Maximum rate is required.';
+    if (form.rateMinDollars !== '' && form.rateMaxDollars !== '' && maxDollars <= minDollars) {
+      e.rateMaxDollars = 'Max must be greater than min.';
+    }
+    return e;
+  }
+
+  function handleNext() {
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      scrollToFirstError(fieldErrors);
+      return;
+    }
+    setErrors({});
+    onNext();
+  }
 
   return (
     <div>
@@ -87,9 +106,11 @@ export function ServicesRatesStep({
 
         <div className="flex flex-col gap-4">
           <Select
+            id="servicePreference1"
             label="1st Preference"
             value={preferenceFor(1)}
             onChange={(e) => setPreference(1, e.target.value)}
+            error={errors.servicePreference1}
             required
           >
             <option value="">Select service…</option>
@@ -138,25 +159,26 @@ export function ServicesRatesStep({
 
       <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
         <Input
+          id="rateMinDollars"
           label="Min (USD / hour)"
           type="number"
           min={0}
           placeholder="e.g. 500"
           value={form.rateMinDollars}
           onChange={(e) => update({ rateMinDollars: e.target.value })}
+          error={errors.rateMinDollars}
         />
         <Input
+          id="rateMaxDollars"
           label="Max (USD / hour)"
           type="number"
           min={0}
           placeholder="e.g. 2000"
           value={form.rateMaxDollars}
           onChange={(e) => update({ rateMaxDollars: e.target.value })}
+          error={errors.rateMaxDollars}
         />
       </div>
-      {form.rateMinDollars !== '' && form.rateMaxDollars !== '' && maxDollars <= minDollars && (
-        <p className="mt-2 text-xs text-error">Max must be greater than min.</p>
-      )}
 
       {saveError && (
         <div className="mt-6">
@@ -166,9 +188,9 @@ export function ServicesRatesStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onNext}
+        onNext={handleNext}
         nextLabel={saving ? 'Saving…' : 'Next: Review'}
-        nextDisabled={!canContinue || saving}
+        nextDisabled={saving}
       />
     </div>
   );

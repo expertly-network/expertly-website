@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
+import { scrollToFirstError } from '@/components/apply/scrollToError';
 import {
   EMPTY_EDUCATION,
   EMPTY_WORK_EXPERIENCE,
@@ -32,10 +34,40 @@ export function BackgroundStep({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const canContinue =
-    form.yearsOfExperience !== '' &&
-    form.workExperiences.every((w) => w.title.trim() && w.company.trim() && w.startYear) &&
-    form.educations.every((e) => e.institution.trim() && e.degree.trim());
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function validate(): Record<string, string> {
+    const e: Record<string, string> = {};
+    if (form.yearsOfExperience === '') e.yearsOfExperience = 'Years of experience is required.';
+
+    form.workExperiences.forEach((w, i) => {
+      if (!w.title.trim()) e[`workExperiences.${i}.title`] = 'Job title is required.';
+      else if (!w.company.trim()) e[`workExperiences.${i}.company`] = 'Company is required.';
+      else if (!w.startYear) e[`workExperiences.${i}.startYear`] = 'Start year is required.';
+    });
+    form.educations.forEach((edu, i) => {
+      if (!edu.institution.trim()) e[`educations.${i}.institution`] = 'Institution is required.';
+      else if (!edu.degree.trim()) e[`educations.${i}.degree`] = 'Degree is required.';
+    });
+    form.peerReferences.forEach((r, i) => {
+      if (!r.name.trim()) e[`peerReferences.${i}.name`] = 'Reference name is required.';
+      else if (!r.relationship.trim()) e[`peerReferences.${i}.relationship`] = 'Relationship is required.';
+      else if (!r.email.trim()) e[`peerReferences.${i}.email`] = 'Reference email is required.';
+    });
+
+    return e;
+  }
+
+  function handleNext() {
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      scrollToFirstError(fieldErrors);
+      return;
+    }
+    setErrors({});
+    onNext();
+  }
 
   function updateWork(index: number, patch: Partial<WizardFormState['workExperiences'][number]>) {
     const next = [...form.workExperiences];
@@ -47,6 +79,12 @@ export function BackgroundStep({
     const next = [...form.educations];
     next[index] = { ...next[index], ...patch };
     update({ educations: next });
+  }
+
+  function updateReference(index: number, patch: Partial<WizardFormState['peerReferences'][number]>) {
+    const next = [...form.peerReferences];
+    next[index] = { ...next[index], ...patch };
+    update({ peerReferences: next });
   }
 
   return (
@@ -65,6 +103,7 @@ export function BackgroundStep({
           placeholder="e.g. 12"
           value={form.yearsOfExperience}
           onChange={(e) => update({ yearsOfExperience: e.target.value })}
+          error={errors.yearsOfExperience}
           required
         />
       </div>
@@ -95,16 +134,20 @@ export function BackgroundStep({
 
             <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
               <Input
+                id={`workExperiences.${i}.title`}
                 label="Job title"
                 placeholder="Partner"
                 value={work.title}
                 onChange={(e) => updateWork(i, { title: e.target.value })}
+                error={errors[`workExperiences.${i}.title`]}
               />
               <Input
+                id={`workExperiences.${i}.company`}
                 label="Company"
                 placeholder="Firm name"
                 value={work.company}
                 onChange={(e) => updateWork(i, { company: e.target.value })}
+                error={errors[`workExperiences.${i}.company`]}
               />
             </div>
 
@@ -157,7 +200,10 @@ export function BackgroundStep({
                     ))}
                   </select>
                   <select
-                    className="min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink outline-none"
+                    id={`workExperiences.${i}.startYear`}
+                    className={`min-w-0 flex-1 rounded-input border px-2 py-3 text-sm text-ink outline-none ${
+                      errors[`workExperiences.${i}.startYear`] ? 'border-error' : 'border-line'
+                    }`}
                     value={work.startYear || ''}
                     onChange={(e) => updateWork(i, { startYear: Number(e.target.value) })}
                   >
@@ -167,6 +213,9 @@ export function BackgroundStep({
                     ))}
                   </select>
                 </div>
+                {errors[`workExperiences.${i}.startYear`] && (
+                  <span className="text-xs text-error">{errors[`workExperiences.${i}.startYear`]}</span>
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-ink-2">End date</label>
@@ -255,16 +304,20 @@ export function BackgroundStep({
 
             <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
               <Input
+                id={`educations.${i}.institution`}
                 label="Institution"
                 placeholder="University name"
                 value={edu.institution}
                 onChange={(e) => updateEdu(i, { institution: e.target.value })}
+                error={errors[`educations.${i}.institution`]}
               />
               <Input
+                id={`educations.${i}.degree`}
                 label="Degree"
                 placeholder="LLB, MBA…"
                 value={edu.degree}
                 onChange={(e) => updateEdu(i, { degree: e.target.value })}
+                error={errors[`educations.${i}.degree`]}
               />
             </div>
 
@@ -311,6 +364,58 @@ export function BackgroundStep({
         </button>
       )}
 
+      <div className="mt-8 flex items-baseline justify-between border-t border-line pt-6">
+        <span className="text-mono-label text-ink-3">PEER REFERENCES</span>
+        <span className="text-xs text-ink-3">2 required, as part of verification</span>
+      </div>
+      <p className="mt-1.5 text-sm text-ink-3">
+        Two professional peers we can contact to verify your background.
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        {form.peerReferences.map((reference, i) => (
+          <div key={i} className="rounded-2xl border border-line bg-bg-card p-6">
+            <span className="text-mono-label text-ink-3">Reference {String(i + 1).padStart(2, '0')}</span>
+
+            <div className="mt-3.5 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+              <Input
+                id={`peerReferences.${i}.name`}
+                label="Full name"
+                value={reference.name}
+                onChange={(e) => updateReference(i, { name: e.target.value })}
+                error={errors[`peerReferences.${i}.name`]}
+              />
+              <Input
+                id={`peerReferences.${i}.relationship`}
+                label="Relationship"
+                placeholder="e.g. Former manager"
+                value={reference.relationship}
+                onChange={(e) => updateReference(i, { relationship: e.target.value })}
+                error={errors[`peerReferences.${i}.relationship`]}
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+              <Input
+                id={`peerReferences.${i}.email`}
+                label="Email"
+                type="email"
+                value={reference.email}
+                onChange={(e) => updateReference(i, { email: e.target.value })}
+                error={errors[`peerReferences.${i}.email`]}
+              />
+              <Input
+                label="Phone"
+                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+                type="tel"
+                value={reference.phone ?? ''}
+                onChange={(e) => updateReference(i, { phone: e.target.value })}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
       {saveError && (
         <div className="mt-6">
           <ErrorBanner message={saveError} />
@@ -319,9 +424,9 @@ export function BackgroundStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onNext}
+        onNext={handleNext}
         nextLabel={saving ? 'Saving…' : 'Next: Services'}
-        nextDisabled={!canContinue || saving}
+        nextDisabled={saving}
       />
     </div>
   );

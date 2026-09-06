@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { ApiError } from '@/lib/api/client';
 import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
-import type { ApplicationDto } from '@shared/membership-application';
+import type { AdminApplicationListItemDto, ApplicationDto } from '@shared/membership-application';
 import type { MemberDto, MemberListItemDto, MemberProfileEditDto } from '@shared/member';
 import type { PracticeAreaDto } from '@shared/practice-area';
 import type { ArticleDto, ArticleListItemDto } from '@shared/article';
@@ -30,6 +30,32 @@ export async function getMyApplicationServer(): Promise<ApplicationDto | null> {
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(body?.message ?? 'Failed to load application.', res.status);
+  }
+
+  return res.json();
+}
+
+/**
+ * Server Component variant for the admin review-queue page (apps/frontend/app/(shell)/admin/
+ * applications). 🛡️ manageApplications on the backend — an admin without that permission gets
+ * a 403 from the API, which the page surfaces rather than silently showing an empty list.
+ */
+export async function getAdminApplicationsServer(status?: string): Promise<AdminApplicationListItemDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/applications${qs}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load applications.', res.status);
   }
 
   return res.json();

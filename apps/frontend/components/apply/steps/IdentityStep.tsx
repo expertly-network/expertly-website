@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
-import { COUNTRIES, PHONE_CODES, REGIONS, type WizardFormState } from '@/components/apply/types';
+import { COUNTRIES, PHONE_COUNTRY_CODES, REGIONS, type WizardFormState } from '@/components/apply/types';
+import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 
@@ -31,17 +32,32 @@ export function IdentityStep({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const canContinue =
-    form.firstName.trim() &&
-    form.lastName.trim() &&
-    form.contactEmail.trim() &&
-    form.region &&
-    form.country &&
-    form.linkedinUrl.trim() &&
-    form.bio.trim().length > 0 &&
-    form.bio.length <= 500 &&
-    !uploading;
+  function validate(): Record<string, string> {
+    const e: Record<string, string> = {};
+    if (!form.firstName.trim()) e.firstName = 'First name is required.';
+    if (!form.lastName.trim()) e.lastName = 'Last name is required.';
+    if (!form.contactEmail.trim()) e.contactEmail = 'Contact email is required.';
+    if (!form.region) e.region = 'Region is required.';
+    if (!form.country) e.country = 'Country is required.';
+    if (!form.linkedinUrl.trim()) e.linkedinUrl = 'LinkedIn URL is required.';
+    if (!form.bio.trim()) e.bio = 'Professional bio is required.';
+    else if (form.bio.length > 500) e.bio = 'Bio must be 500 characters or fewer.';
+    return e;
+  }
+
+  function handleNext() {
+    if (uploading) return;
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      scrollToFirstError(fieldErrors);
+      return;
+    }
+    setErrors({});
+    onNext();
+  }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -114,6 +130,7 @@ export function IdentityStep({
             placeholder="Jane"
             value={form.firstName}
             onChange={(e) => update({ firstName: e.target.value })}
+            error={errors.firstName}
             required
           />
           <Input
@@ -123,6 +140,7 @@ export function IdentityStep({
             placeholder="Smith"
             value={form.lastName}
             onChange={(e) => update({ lastName: e.target.value })}
+            error={errors.lastName}
             required
           />
         </div>
@@ -135,6 +153,7 @@ export function IdentityStep({
             placeholder="you@example.com"
             value={form.contactEmail}
             onChange={(e) => update({ contactEmail: e.target.value })}
+            error={errors.contactEmail}
             required
           />
           <div className="flex flex-col gap-1.5">
@@ -143,12 +162,14 @@ export function IdentityStep({
             </label>
             <div className="flex overflow-hidden rounded-input border border-line">
               <select
-                className="border-r border-line bg-bg-alt px-2 text-xs text-ink outline-none"
+                className="max-w-[9.5rem] border-r border-line bg-bg-alt px-2 text-xs text-ink outline-none"
                 value={form.phoneCountryCode}
                 onChange={(e) => update({ phoneCountryCode: e.target.value })}
               >
-                {PHONE_CODES.map((code) => (
-                  <option key={code}>{code}</option>
+                {PHONE_COUNTRY_CODES.map(({ country, code }) => (
+                  <option key={country} value={code}>
+                    {country} ({code})
+                  </option>
                 ))}
               </select>
               <input
@@ -164,9 +185,11 @@ export function IdentityStep({
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Select
+            id="region"
             label="Region"
             value={form.region}
             onChange={(e) => update({ region: e.target.value as WizardFormState['region'] })}
+            error={errors.region}
             required
           >
             <option value="">Select region…</option>
@@ -177,9 +200,11 @@ export function IdentityStep({
             ))}
           </Select>
           <Select
+            id="country"
             label="Country"
             value={form.country}
             onChange={(e) => update({ country: e.target.value })}
+            error={errors.country}
             required
           >
             <option value="">Select country…</option>
@@ -221,10 +246,12 @@ export function IdentityStep({
           placeholder="https://linkedin.com/in/yourprofile"
           value={form.linkedinUrl}
           onChange={(e) => update({ linkedinUrl: e.target.value })}
+          error={errors.linkedinUrl}
           required
         />
 
         <Textarea
+          id="bio"
           label="Professional bio"
           labelRight={form.importedFields.has('bio') ? <ImportedTag /> : undefined}
           rows={4}
@@ -232,11 +259,8 @@ export function IdentityStep({
           placeholder="Describe your professional background, expertise, and what makes you uniquely qualified…"
           value={form.bio}
           onChange={(e) => update({ bio: e.target.value })}
-          hint={
-            <span className={form.bio.length > 500 ? 'text-error' : ''}>
-              {form.bio.length} / 500 characters — appears on your public member profile
-            </span>
-          }
+          error={errors.bio}
+          hint={`${form.bio.length} / 500 characters — appears on your public member profile`}
         />
       </div>
 
@@ -248,9 +272,9 @@ export function IdentityStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onNext}
-        nextLabel={saving ? 'Saving…' : 'Next: Background'}
-        nextDisabled={!canContinue || saving}
+        onNext={handleNext}
+        nextLabel={saving ? 'Saving…' : uploading ? 'Uploading photo…' : 'Next: Background'}
+        nextDisabled={saving || uploading}
       />
     </div>
   );

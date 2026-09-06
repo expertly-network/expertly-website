@@ -4,16 +4,15 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
+import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
 import type { BillingPeriod } from '@shared/membership-application';
 import type { PracticeAreaDto } from '@shared/practice-area';
 
-// Static display copy, matching design/static_html/membership.html exactly
-// ("$499/year or $49/month, all professionals, no tier-based pricing").
-// The authoritative amount is always whatever POST /v1/applications returns
-// — this is just UI copy, not something computed/trusted client-side.
+// Static display copy. Annual-only per 2026-08-31 client feedback (monthly billing removed) —
+// the authoritative amount is always whatever POST /v1/applications returns, this is just UI
+// copy, not something computed/trusted client-side.
 const PRICE_LABEL: Record<BillingPeriod, string> = {
-  monthly: '$49/month',
   annual: '$499/year',
 };
 
@@ -36,12 +35,33 @@ export function ReviewSubmitStep({
 }) {
   const [consentTerms, setConsentTerms] = useState(false);
   const [consentPrivacy, setConsentPrivacy] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const practiceAreaName = (id: string) => practiceAreas.find((a) => a.id === id)?.name ?? id;
   const regionLabel = REGIONS.find((r) => r.value === form.region)?.label ?? form.region;
   const location = [form.city, form.state, form.country].filter(Boolean).join(', ');
 
-  const canSubmit = consentTerms && consentPrivacy && form.backgroundCheckConsent && !saving;
+  function validate(): Record<string, string> {
+    const e: Record<string, string> = {};
+    if (!consentTerms) e.consentTerms = 'You must agree to the Terms of Service to submit.';
+    if (!consentPrivacy) e.consentPrivacy = 'You must agree to the Privacy Policy to submit.';
+    if (!form.backgroundCheckConsent) {
+      e.backgroundCheckConsent = 'You must consent to background verification to submit.';
+    }
+    return e;
+  }
+
+  function handleSubmit() {
+    if (saving) return;
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      scrollToFirstError(fieldErrors);
+      return;
+    }
+    setErrors({});
+    onSubmit();
+  }
 
   return (
     <div>
@@ -78,26 +98,11 @@ export function ReviewSubmitStep({
 
       <div className="mt-8 border-t border-line pt-6">
         <span className="text-mono-label text-ink-3">MEMBERSHIP PLAN</span>
-        <p className="mt-1.5 text-sm text-ink-3">
-          Same plan either way — pick how you&apos;d like to be billed.
-        </p>
+        <p className="mt-1.5 text-sm text-ink-3">Billed annually — one plan, no tiers.</p>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 max-[480px]:grid-cols-1">
-          {(['monthly', 'annual'] as const).map((period) => (
-            <button
-              key={period}
-              type="button"
-              onClick={() => update({ billingPeriod: period })}
-              className={`rounded-2xl border p-5 text-left transition-colors ${
-                form.billingPeriod === period ? 'border-ink bg-bg-alt' : 'border-line hover:border-ink-3'
-              }`}
-            >
-              <div className="text-mono-label text-ink-3">
-                {period === 'monthly' ? 'Monthly' : 'Annual · best value'}
-              </div>
-              <div className="mt-1.5 text-title text-ink">{PRICE_LABEL[period]}</div>
-            </button>
-          ))}
+        <div className="mt-4 rounded-2xl border border-ink bg-bg-alt p-5">
+          <div className="text-mono-label text-ink-3">Annual</div>
+          <div className="mt-1.5 text-title text-ink">{PRICE_LABEL.annual}</div>
         </div>
 
         <div className="mt-5">
@@ -108,9 +113,7 @@ export function ReviewSubmitStep({
             value={form.couponCode}
             onChange={(e) => update({ couponCode: e.target.value })}
           />
-          <p className="mt-1.5 text-xs text-ink-3">
-            Applied when you submit — if it&apos;s valid, your amount due becomes $0.
-          </p>
+          <p className="mt-1.5 text-xs text-ink-3">Apply a coupon code to your order.</p>
         </div>
       </div>
 
@@ -118,30 +121,66 @@ export function ReviewSubmitStep({
         <span className="text-mono-label text-ink-3">DECLARATION &amp; CONSENT</span>
 
         <div className="mt-4 flex flex-col gap-3">
-          <label className="flex items-start gap-3 rounded-input border border-line-2 bg-bg-alt px-3.5 py-3 text-sm">
-            <input type="checkbox" className="mt-0.5" checked={consentTerms} onChange={(e) => setConsentTerms(e.target.checked)} />
-            <span className="text-ink-2">
-              I agree to the <span className="font-medium text-accent">Terms of Service</span> (v{TERMS_VERSION}).
-            </span>
-          </label>
-          <label className="flex items-start gap-3 rounded-input border border-line-2 bg-bg-alt px-3.5 py-3 text-sm">
-            <input type="checkbox" className="mt-0.5" checked={consentPrivacy} onChange={(e) => setConsentPrivacy(e.target.checked)} />
-            <span className="text-ink-2">
-              I agree to the <span className="font-medium text-accent">Privacy Policy</span> (v{PRIVACY_VERSION}).
-            </span>
-          </label>
-          <label className="flex items-start gap-3 rounded-input border border-line-2 bg-bg-alt px-3.5 py-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={form.backgroundCheckConsent}
-              onChange={(e) => update({ backgroundCheckConsent: e.target.checked })}
-            />
-            <span className="text-ink-2">
-              I consent to Expertly verifying my professional credentials and background as part of
-              the membership review process.
-            </span>
-          </label>
+          <div>
+            <label
+              className={`flex items-start gap-3 rounded-input border bg-bg-alt px-3.5 py-3 text-sm ${
+                errors.consentTerms ? 'border-error' : 'border-line-2'
+              }`}
+            >
+              <input
+                id="consentTerms"
+                type="checkbox"
+                className="mt-0.5"
+                checked={consentTerms}
+                onChange={(e) => setConsentTerms(e.target.checked)}
+              />
+              <span className="text-ink-2">
+                I agree to the <span className="font-medium text-accent">Terms of Service</span> (v{TERMS_VERSION}).
+              </span>
+            </label>
+            {errors.consentTerms && <p className="mt-1 text-xs text-error">{errors.consentTerms}</p>}
+          </div>
+          <div>
+            <label
+              className={`flex items-start gap-3 rounded-input border bg-bg-alt px-3.5 py-3 text-sm ${
+                errors.consentPrivacy ? 'border-error' : 'border-line-2'
+              }`}
+            >
+              <input
+                id="consentPrivacy"
+                type="checkbox"
+                className="mt-0.5"
+                checked={consentPrivacy}
+                onChange={(e) => setConsentPrivacy(e.target.checked)}
+              />
+              <span className="text-ink-2">
+                I agree to the <span className="font-medium text-accent">Privacy Policy</span> (v{PRIVACY_VERSION}).
+              </span>
+            </label>
+            {errors.consentPrivacy && <p className="mt-1 text-xs text-error">{errors.consentPrivacy}</p>}
+          </div>
+          <div>
+            <label
+              className={`flex items-start gap-3 rounded-input border bg-bg-alt px-3.5 py-3 text-sm ${
+                errors.backgroundCheckConsent ? 'border-error' : 'border-line-2'
+              }`}
+            >
+              <input
+                id="backgroundCheckConsent"
+                type="checkbox"
+                className="mt-0.5"
+                checked={form.backgroundCheckConsent}
+                onChange={(e) => update({ backgroundCheckConsent: e.target.checked })}
+              />
+              <span className="text-ink-2">
+                I consent to Expertly verifying my professional credentials and background as part of
+                the membership review process.
+              </span>
+            </label>
+            {errors.backgroundCheckConsent && (
+              <p className="mt-1 text-xs text-error">{errors.backgroundCheckConsent}</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -153,9 +192,9 @@ export function ReviewSubmitStep({
 
       <StepActions
         onBack={onBack}
-        onNext={onSubmit}
+        onNext={handleSubmit}
         nextLabel={saving ? 'Submitting…' : 'Submit application'}
-        nextDisabled={!canSubmit}
+        nextDisabled={saving}
       />
     </div>
   );

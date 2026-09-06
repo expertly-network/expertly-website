@@ -181,6 +181,15 @@ create table public.membership_applications (
   educations jsonb not null default '[]'
     check (jsonb_typeof(educations) = 'array'),
 
+  -- Peer references (2026-08-31 client feedback: two peer references are now part of the
+  -- verification process). Same JSONB-array trade-off as work_experiences/educations above —
+  -- element shape: { name, relationship, email, phone }. The "exactly 2" cardinality rule is
+  -- enforced in ApplicationsService.assertComplete at submit time, not here (same "cross-field/
+  -- count rules live in the service" convention as rate_min/max_cents ordering) — a draft can
+  -- have 0 or 1 while still in progress.
+  peer_references jsonb not null default '[]'
+    check (jsonb_typeof(peer_references) = 'array'),
+
   -- Documents (photo lives on photo_path above; this is the generic/extensible slot — array of
   -- {id, filename, path, mimeType, sizeBytes, uploadedAt}). Only the profile photo has upload UI
   -- in the initial iteration, but future document types don't need another migration.

@@ -41,6 +41,9 @@ const MEMBERS_ICON = (
   </>
 );
 const BENEFITS_ICON = <path d="M12 2a6 6 0 100 12 6 6 0 000-12zM15.5 13.5L17 22l-5-3-5 3 1.5-8.5" />;
+const ADMIN_ICON = (
+  <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />
+);
 
 // Matches design/static_html's guest sidebar nav: Articles, Events, Members, Membership
 // Benefits, in that order. Articles/Events/Members are real destinations; "Expertly Benefits"
@@ -86,6 +89,12 @@ export function SidebarNav({
         <span className={navLabelClasses(variant)}>Expertly Benefits</span>
         <span className={soonBadgeClasses(variant)}>SOON</span>
       </span>
+      {user?.role === 'admin' && (
+        <Link href="/admin/applications" className={navLinkClasses(variant)}>
+          <svg {...iconProps}>{ADMIN_ICON}</svg>
+          <span className={navLabelClasses(variant)}>Admin</span>
+        </Link>
+      )}
     </nav>
   );
 }

@@ -77,7 +77,8 @@ ever runs, so a malformed body from a non-client caller surfaces as `400` first,
 - `status: 'submitted'` in the body → after merging, the **merged row** (not just this call's
   body) must satisfy every requirement the old one-shot `POST /v1/applications` used to enforce
   (all identity/background/services/rates fields present, `workExperiences`/`educations`/
-  `servicePreferences` non-empty, `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
+  `servicePreferences` non-empty, `peerReferences` exactly 2 entries (added 2026-08-31 per
+  client feedback), `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
   terms/privacy versions present) — missing/invalid fields are named in the `400` response body,
   not just a generic rejection. On success: computes `selectedTier`, `listPriceCents`,
   `discountAmountCents`, `amountDueCents`, `paymentStatus` exactly as the old endpoint did (see
@@ -91,6 +92,10 @@ for the discussion.
 **Request:** `UpdateApplicationRequest` (see `packages/shared-types/membership-application.ts`) —
 every field optional, plus `status?: 'draft' | 'submitted'` and `currentStep?: number` (which
 wizard step to resume on, pure UX convenience, not validated).
+- `billingPeriod` — annual only as of 2026-08-31 (`BillingPeriod` is now a single-member
+  `'annual'` union); `'monthly'` is rejected by validation, not silently accepted.
+- `peerReferences` — up to 2 entries while a draft, exactly 2 required to submit; each is
+  `{ name, relationship, email, phone? }`.
 - `servicePreferences[].practiceAreaId` is validated against a live, `is_active` `practice_areas`
   query whenever a call actually includes `servicePreferences` — the DB has no FK to catch an
   invalid id (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field

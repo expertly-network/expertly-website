@@ -4,9 +4,12 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
   labelRight?: ReactNode;
   hint?: ReactNode;
+  /** Red border + message below the field — see Input's identical prop for the convention.
+   * Takes over from `hint` when present (a field shouldn't show both at once). */
+  error?: string;
 }
 
-export function Textarea({ label, labelRight, hint, id, ...textareaProps }: TextareaProps) {
+export function Textarea({ label, labelRight, hint, id, error, ...textareaProps }: TextareaProps) {
   const fieldId = id ?? textareaProps.name;
 
   return (
@@ -17,10 +20,15 @@ export function Textarea({ label, labelRight, hint, id, ...textareaProps }: Text
       </label>
       <textarea
         id={fieldId}
-        className="w-full resize-y rounded-input border border-line px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[0.08]"
+        aria-invalid={error ? true : undefined}
+        className={`w-full resize-y rounded-input border px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:ring-[3px] ${
+          error
+            ? 'border-error focus:border-error focus:ring-error/[0.08]'
+            : 'border-line focus:border-ink focus:ring-ink/[0.08]'
+        }`}
         {...textareaProps}
       />
-      {hint && <span className="text-xs text-ink-3">{hint}</span>}
+      {error ? <span className="text-xs text-error">{error}</span> : hint && <span className="text-xs text-ink-3">{hint}</span>}
     </div>
   );
 }

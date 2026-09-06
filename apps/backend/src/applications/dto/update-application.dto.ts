@@ -17,6 +17,7 @@ import {
 import type { ApplicationRegion, BillingPeriod } from '@shared/membership-application';
 import { WorkExperienceDto } from './work-experience.dto';
 import { EducationDto } from './education.dto';
+import { PeerReferenceDto } from './peer-reference.dto';
 import { ServicePreferenceDto } from './service-preference.dto';
 
 const REGIONS: ApplicationRegion[] = [
@@ -28,7 +29,8 @@ const REGIONS: ApplicationRegion[] = [
   'south_asia',
   'africa',
 ];
-const BILLING_PERIODS: BillingPeriod[] = ['monthly', 'annual'];
+// Annual-only per 2026-08-31 client feedback — 'monthly' is no longer an accepted value.
+const BILLING_PERIODS: BillingPeriod[] = ['annual'];
 
 // Every field optional — a draft can be arbitrarily incomplete, and a single save-on-advance call
 // only carries the fields for the step just completed. Completeness for `status: 'submitted'` is
@@ -100,6 +102,16 @@ export class UpdateApplicationDto {
   @ValidateNested({ each: true })
   @Type(() => EducationDto)
   educations?: EducationDto[];
+
+  // Exactly 2 required to submit (checked in ApplicationsService.assertComplete against the
+  // merged row, same convention as workExperiences/educations above) — this cap only guards
+  // against sending more than the form ever collects.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => PeerReferenceDto)
+  peerReferences?: PeerReferenceDto[];
 
   @IsOptional()
   @IsArray()

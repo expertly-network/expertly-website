@@ -93,6 +93,11 @@ of fields.
       returning resumes at the last-saved step with prior data intact
 - [x] Profile photo upload (magic-byte-validated, real Supabase Storage) — `apply.html` had this
       in the design; the wizard didn't implement it until this session
+- [x] Two peer references collected in the Background step (name, relationship, email, optional
+      phone) — added 2026-08-31 per client feedback, not in the original `apply.html` design;
+      exactly 2 required to submit
+- [x] Membership plan is annual-only — the monthly toggle was removed 2026-08-31 per client
+      feedback (`BillingPeriod` is now a single-value `'annual'` union end to end)
 
 ### US-03-03: Checking my application status
 As an applicant, I want to see my current status so I know whether to expect a decision.

@@ -9,8 +9,10 @@ import {
 import { SupabaseService } from '../auth/supabase.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
+  AdminApplicationListItemDto,
   ApplicationDocumentDto,
   ApplicationDto,
+  ApplicationStatus,
   BillingPeriod,
   ServicePreference,
 } from '@shared/membership-application';
@@ -56,6 +58,7 @@ const WRITABLE_COLUMNS: Record<string, keyof UpdateApplicationDto> = {
   years_of_experience: 'yearsOfExperience',
   work_experiences: 'workExperiences',
   educations: 'educations',
+  peer_references: 'peerReferences',
   service_preferences: 'servicePreferences',
   rate_min_cents: 'rateMinCents',
   rate_max_cents: 'rateMaxCents',
@@ -286,6 +289,39 @@ export class ApplicationsService {
     return this.toDto(saved, practiceAreaById);
   }
 
+  // 🛡️ manageApplications — the admin review queue's list view. Defaults to the two
+  // reviewable statuses (draft/approved/rejected already have a decided or not-yet-actionable
+  // outcome); pass `status` to look at a specific bucket instead, e.g. 'approved' to audit past
+  // decisions. Lighter than toDto()'s full ApplicationDto — no documents/work-experience/
+  // education resolution, which this list view doesn't render.
+  async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
+    let query = this.supabase.db
+      .from('membership_applications')
+      .select(
+        'id, status, first_name, last_name, contact_email, country, selected_tier, billing_period, amount_due_cents, payment_status, created_at'
+      )
+      .order('created_at', { ascending: false });
+
+    query = status ? query.eq('status', status) : query.in('status', ['submitted', 'under_review']);
+
+    const { data, error } = await query;
+    if (error) throw new InternalServerErrorException('Failed to load applications.');
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      status: row.status,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      contactEmail: row.contact_email,
+      country: row.country,
+      selectedTier: row.selected_tier,
+      billingPeriod: row.billing_period,
+      amountDueCents: row.amount_due_cents,
+      paymentStatus: row.payment_status,
+      createdAt: row.created_at,
+    }));
+  }
+
   // Approve/reject a submitted application. Not a real DB transaction — supabase-js has no
   // multi-statement transaction API from a service-role client, so this is a deliberately
   // ordered sequence instead: member_profiles/member_services are provisioned and the role flip
@@ -423,9 +459,13 @@ export class ApplicationsService {
 
     const workExperiences = (row.work_experiences ?? []) as unknown[];
     const educations = (row.educations ?? []) as unknown[];
+    const peerReferences = (row.peer_references ?? []) as unknown[];
     const servicePreferences = (row.service_preferences ?? []) as unknown[];
     if (workExperiences.length < 1) missing.push('workExperiences');
     if (educations.length < 1) missing.push('educations');
+    // Exactly 2, not "at least 2" — matches the client's explicit "two peer references" ask,
+    // not an open-ended list.
+    if (peerReferences.length !== 2) missing.push('peerReferences (exactly 2 required)');
     if (servicePreferences.length < 1) missing.push('servicePreferences');
     if (row.background_check_consent !== true) missing.push('backgroundCheckConsent must be true');
     if (!row.terms_version_agreed) missing.push('termsVersionAgreed');
@@ -485,6 +525,7 @@ export class ApplicationsService {
       yearsOfExperience: row.years_of_experience,
       workExperiences: row.work_experiences ?? [],
       educations: row.educations ?? [],
+      peerReferences: row.peer_references ?? [],
       servicePreferences,
       rateMinCents: row.rate_min_cents,
       rateMaxCents: row.rate_max_cents,

@@ -4,8 +4,8 @@ import type { BillingPeriod, MembershipTier } from '@shared/membership-applicati
 // $49/month", "All Professionals", no tier-based pricing shown anywhere in
 // the current design). Confirmed explicitly: price does NOT vary by tier —
 // tier is computed and stored for other purposes, not pricing.
+// Monthly removed 2026-08-31 per client feedback — annual only going forward.
 export const MEMBERSHIP_PRICE_CENTS: Record<BillingPeriod, number> = {
-  monthly: 4900,
   annual: 49900,
 };
 

@@ -67,11 +67,12 @@ immutable snapshot again, same as the original design. Approving an application
 | `years_of_experience` | smallint, check 0–60, nullable | required at submit |
 | `work_experiences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a child table; non-empty required at submit |
 | `educations` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below; non-empty required at submit |
+| `peer_references` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | added 2026-08-31 per client feedback; see below — exactly 2 (not just non-empty) required at submit |
 | `documents` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | array of `{id, filename, path, mimeType, sizeBytes, uploadedAt}` — generic/extensible; only the profile photo has upload UI in this iteration |
 | `service_preferences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a join table; non-empty required at submit |
 | `rate_min_cents`, `rate_max_cents` | int, nullable, check `max > min` (only enforced once both are non-null) | USD/hr; required at submit |
 | `selected_tier` | enum `budding_entrepreneur`\|`seasoned_professional`, nullable | computed and stamped only at the submit transition — admin can override, but that override applies to the eventual `member_profiles` row, not this record |
-| `billing_period` | enum `monthly`\|`annual`, nullable | required at submit |
+| `billing_period` | enum `monthly`\|`annual`, nullable | required at submit; app-layer now only ever writes `'annual'` (monthly removed 2026-08-31 per client feedback) — the DB enum still has the unused `monthly` value, not worth an `ALTER TYPE ... DROP VALUE` migration for a value nothing writes |
 | `list_price_cents` | int, nullable | stamped at the submit transition |
 | `coupon_code` | text, nullable | free text; validity checked in application code, no `coupons` table (deliberate — see below) |
 | `discount_amount_cents` | int, default 0 | |
@@ -106,6 +107,10 @@ from multiple paths.
 - `work_experiences` element shape: `{ title, company, city, firmSize, companyUrl, startMonth,
   startYear, endMonth, endYear, isCurrent }`
 - `educations` element shape: `{ institution, degree, fieldOfStudy, startYear, endYear }`
+- `peer_references` element shape: `{ name, relationship, email, phone }` (`phone` optional) —
+  same JSONB trade-off, plus the same "cardinality rule lives in the service" convention:
+  `assertComplete()` requires exactly 2 entries to submit, not just "at least 1" like
+  `work_experiences`/`educations`.
 
 **`service_preferences` is JSONB too**, not a join table — `[{ practiceAreaId, priority }, ...]`,
 up to 3 entries. This was reconsidered a second time: the original relational design had a real

@@ -27,7 +27,10 @@ export type FirmSize = 'solo' | '2_10' | '11_50' | '51_200' | '200_plus';
 // accepted from the client. See POST /v1/applications/me in docs/rest-api.md.
 export type MembershipTier = 'budding_entrepreneur' | 'seasoned_professional';
 
-export type BillingPeriod = 'monthly' | 'annual';
+// Annual-only — the client decided against offering a monthly plan (2026-08-31 feedback).
+// Kept as a single-member union rather than a bare literal so every existing
+// `Record<BillingPeriod, ...>` call site and the DB column's `text` shape stay unchanged.
+export type BillingPeriod = 'annual';
 
 // Only 'waived' is reachable without a real payment gateway; 'paid' is
 // reserved for when one gets integrated.
@@ -64,6 +67,16 @@ export class ServicePreference extends ServicePreferenceInput {
   @ApiProperty() practiceAreaName!: string;
 }
 
+/** A peer reference for the verification process (2026-08-31 client feedback: exactly two
+ * required to submit — cardinality enforced server-side in ApplicationsService.assertComplete,
+ * not expressible on this shape alone since a draft may have 0 or 1). */
+export class PeerReferenceInput {
+  @ApiProperty() name!: string;
+  @ApiProperty() relationship!: string;
+  @ApiProperty() email!: string;
+  @ApiPropertyOptional() phone?: string;
+}
+
 /**
  * POST /v1/applications/me request body — an upsert. Every field is optional: a draft can be
  * arbitrarily incomplete, and each call only needs to carry the fields that changed. Set
@@ -86,10 +99,12 @@ export class UpdateApplicationRequest {
   @ApiPropertyOptional() yearsOfExperience?: number;
   @ApiPropertyOptional({ type: () => WorkExperienceInput, isArray: true }) workExperiences?: WorkExperienceInput[];
   @ApiPropertyOptional({ type: () => EducationInput, isArray: true }) educations?: EducationInput[];
+  /** Exactly 2 required to submit; a draft may have 0 or 1. */
+  @ApiPropertyOptional({ type: () => PeerReferenceInput, isArray: true }) peerReferences?: PeerReferenceInput[];
   @ApiPropertyOptional({ type: () => ServicePreferenceInput, isArray: true }) servicePreferences?: ServicePreferenceInput[];
   @ApiPropertyOptional() rateMinCents?: number;
   @ApiPropertyOptional() rateMaxCents?: number;
-  @ApiPropertyOptional({ enum: ['monthly', 'annual'] }) billingPeriod?: BillingPeriod;
+  @ApiPropertyOptional({ enum: ['annual'] }) billingPeriod?: BillingPeriod;
   /** Free text, validated server-side. Omit or send an invalid code for no discount. */
   @ApiPropertyOptional() couponCode?: string;
   @ApiPropertyOptional() linkedinImportConsent?: boolean;
@@ -134,11 +149,12 @@ export class ApplicationDto {
   @ApiProperty({ nullable: true, type: Number }) yearsOfExperience!: number | null;
   @ApiProperty({ type: () => WorkExperienceInput, isArray: true }) workExperiences!: WorkExperienceInput[];
   @ApiProperty({ type: () => EducationInput, isArray: true }) educations!: EducationInput[];
+  @ApiProperty({ type: () => PeerReferenceInput, isArray: true }) peerReferences!: PeerReferenceInput[];
   @ApiProperty({ type: () => ServicePreference, isArray: true }) servicePreferences!: ServicePreference[];
   @ApiProperty({ nullable: true, type: Number }) rateMinCents!: number | null;
   @ApiProperty({ nullable: true, type: Number }) rateMaxCents!: number | null;
   @ApiProperty({ nullable: true, enum: ['budding_entrepreneur', 'seasoned_professional'] }) selectedTier!: MembershipTier | null;
-  @ApiProperty({ nullable: true, enum: ['monthly', 'annual'] }) billingPeriod!: BillingPeriod | null;
+  @ApiProperty({ nullable: true, enum: ['annual'] }) billingPeriod!: BillingPeriod | null;
   @ApiProperty({ nullable: true, type: Number }) listPriceCents!: number | null;
   @ApiProperty({ nullable: true, type: String }) couponCode!: string | null;
   @ApiProperty({ nullable: true, type: Number }) discountAmountCents!: number | null;
@@ -175,4 +191,24 @@ export class AdminApplicationReviewRequest {
   @ApiProperty({ enum: ['approved', 'rejected'] }) status!: 'approved' | 'rejected';
   /** Required when status is 'rejected'. */
   @ApiPropertyOptional() rejectionReason?: string;
+}
+
+/**
+ * GET /v1/admin/applications response row — the review-queue table's shape, deliberately
+ * lighter than the full ApplicationDto (no documents/workExperiences/educations, which the
+ * list view doesn't render). 🛡️ manageApplications, same guard chain as the PATCH above.
+ */
+export class AdminApplicationListItemDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ enum: ['draft', 'submitted', 'under_review', 'approved', 'rejected'] })
+  status!: ApplicationStatus;
+  @ApiProperty() firstName!: string;
+  @ApiProperty() lastName!: string;
+  @ApiProperty() contactEmail!: string;
+  @ApiProperty() country!: string;
+  @ApiProperty({ nullable: true, type: String }) selectedTier!: MembershipTier | null;
+  @ApiProperty({ nullable: true, type: String }) billingPeriod!: BillingPeriod | null;
+  @ApiProperty({ nullable: true, type: Number }) amountDueCents!: number | null;
+  @ApiProperty({ enum: ['pending', 'waived', 'paid'] }) paymentStatus!: PaymentStatus;
+  @ApiProperty() createdAt!: string;
 }

@@ -1,5 +1,6 @@
 import { apiFetch, ApiError } from '@/lib/api/client';
 import type {
+  AdminApplicationReviewRequest,
   ApplicationDto,
   LinkedInImportRequest,
   LinkedInImportResponse,
@@ -39,5 +40,17 @@ export function uploadApplicationFile(kind: 'photo' | 'document', file: File): P
   return apiFetch<ApplicationDto>('/applications/me/uploads', {
     method: 'POST',
     body: form,
+  });
+}
+
+/** Admin review action — approve provisions the member record and flips the applicant's role
+ * server-side (ApplicationsService.reviewApplication); reject requires a reason. 🛡️ manageApplications. */
+export function reviewApplication(
+  id: string,
+  payload: AdminApplicationReviewRequest
+): Promise<{ status: 'approved' | 'rejected' }> {
+  return apiFetch<{ status: 'approved' | 'rejected' }>(`/admin/applications/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   });
 }
