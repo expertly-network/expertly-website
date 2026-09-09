@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
 import type { EventDto } from '@shared/event';
 
@@ -21,12 +22,42 @@ function formatDateRange(startDate: string, endDate: string | null): string {
 }
 
 // Matches design/static_html/events.html's `.ev-row` layout exactly — 140px date column, 36px
-// column gap, 17px date/title text (this app previously used a much tighter 110px/24px/14px
-// layout, which read as cramped compared to the design). `isMonthFirst` reproduces the design's
-// `.ev-row.ev-month-first` treatment — the first event of each month group gets a tinted,
-// border-free highlight instead of the plain divider row every other event uses.
-export function EventRow({ event, isMonthFirst = false }: { event: EventDto; isMonthFirst?: boolean }) {
+// column gap, 17px date/title text. `isMonthFirst` reproduces the design's `.ev-row.ev-month-
+// first` treatment — the first event of each month group gets a tinted, border-free highlight
+// instead of the plain divider row every other event uses.
+//
+// `adminBadge`/`adminActions` are optional slots the admin list (components/admin/
+// AdminEventsList.tsx) uses to show a draft/published Badge and swap the public Register CTA for
+// Edit/Delete actions — the public /events page passes neither and renders exactly as before.
+export function EventRow({
+  event,
+  isMonthFirst = false,
+  adminBadge,
+  adminActions,
+}: {
+  event: EventDto;
+  isMonthFirst?: boolean;
+  adminBadge?: ReactNode;
+  adminActions?: ReactNode;
+}) {
   const location = [event.city, event.country].filter(Boolean).join(', ');
+
+  const registerAction = event.registrationUrl ? (
+    <Button href={event.registrationUrl} variant="secondary" size="sm" className="self-start">
+      Register →
+    </Button>
+  ) : (
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled
+      aria-disabled="true"
+      title="Coming soon — registration isn't live yet"
+      className="self-start"
+    >
+      Register →
+    </Button>
+  );
 
   return (
     <div
@@ -51,6 +82,7 @@ export function EventRow({ event, isMonthFirst = false }: { event: EventDto; isM
               {FORMAT_LABEL[event.eventFormat]}
             </Badge>
           )}
+          {adminBadge}
         </div>
         <h3 className="line-clamp-2 text-[17px] font-semibold leading-[1.25] tracking-[-0.018em] text-ink">
           {event.title}
@@ -71,27 +103,11 @@ export function EventRow({ event, isMonthFirst = false }: { event: EventDto; isM
       )}
 
       {/* registrationUrl is unpopulated in seed data and there's no real registration/booking
-          backend yet (events remain 🧱 schema-only for write endpoints) — same disabled-CTA
-          treatment as MemberCard's Request Consultation button, not a fake external link,
-          matching the design's own Register button (which is equally non-functional there:
-          `onclick="event.preventDefault()"`). If registrationUrl is ever populated, it becomes
-          a real link. */}
-      {event.registrationUrl ? (
-        <Button href={event.registrationUrl} variant="secondary" size="sm" className="self-start">
-          Register →
-        </Button>
-      ) : (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled
-          aria-disabled="true"
-          title="Coming soon — registration isn't live yet"
-          className="self-start"
-        >
-          Register →
-        </Button>
-      )}
+          backend yet — same disabled-CTA treatment as MemberCard's Request Consultation button,
+          not a fake external link, matching the design's own Register button (equally
+          non-functional there: `onclick="event.preventDefault()"`). adminActions overrides this
+          entirely in the admin list. */}
+      {adminActions ?? registerAction}
     </div>
   );
 }

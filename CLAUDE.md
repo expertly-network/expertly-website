@@ -232,9 +232,11 @@ generous whitespace. If it looks like a generic template, it is not done.
 ## Build order
 
 Full detail and rationale: `docs/master-tdd.md` Section 10. Summary — already built: auth, practice
-areas, membership applications, articles, member directory & profiles. Next, in order:
-consultations → perks/templates/learnings → events → Peer Connect (its own dedicated scoping
-session) → beyond-roadmap (notifications, admin/ops overview dashboard, search, renewal billing).
+areas, membership applications, articles, member directory & profiles, events (browsing + direct
+admin CRUD — the public suggestion-queue submission flow is the one piece still open, see
+`docs/master-tdd.md` Section 10 item 4). Next, in order: consultations → perks/templates/learnings
+→ the events suggestion queue → Peer Connect (its own dedicated scoping session) → beyond-roadmap
+(notifications, admin/ops overview dashboard, search, renewal billing).
 
 ## Session closing checklist
 

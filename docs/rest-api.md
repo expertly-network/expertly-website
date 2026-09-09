@@ -429,12 +429,81 @@ chronologically rather than splitting past/upcoming.
 
 **Response `200`:** `EventDto[]`.
 
+## Events — admin
+
+🛡️ `manageEvents` on every route below — same posture as Membership applications admin: base
+`admin` role re-checked fresh (`RolesGuard`), then `admin_role` re-checked fresh against the
+`manageEvents` permission (`AdminPermissionGuard`). Direct admin CRUD only — no public
+suggestion-queue submission endpoint exists yet (see "Not built yet" below).
+
+### 🛡️ `manageEvents` `GET /v1/admin/events`
+
+Every event regardless of `status` (draft and published), chronological by `start_date` — same
+ordering as the public browse list, just not status-filtered. Backs the admin list at
+`/admin/events`.
+
+**Response `200`:** `EventDto[]`.
+
+### 🛡️ `manageEvents` `GET /v1/admin/events/:id`
+
+Single event, any status. Backs the admin edit page's prefill — no public by-id endpoint exists
+to reuse (the public route only ever needed list shapes).
+
+**Response `200`:** `EventDto`. **Errors:** `404` not found.
+
+### 🛡️ `manageEvents` `POST /v1/admin/events`
+
+Creates an event. Slug is generated server-side from `title` (never client-writable, same
+posture as article slugs).
+
+**Request:** `CreateEventRequest`. `status` optional — **omitting it defaults to `'draft'`**,
+matching the `events.status` column's own default; the admin form always sends an explicit
+draft-or-publish choice, so this only matters as a safety net. A draft only needs `title`,
+`description`, `startDate` (the DTO's unconditional requireds) — see **Publish requirements**
+below for what else is enforced when `status: 'published'`.
+
+**Response `201`:** `EventDto`. **Errors:** `401` no/invalid token · `403` not admin or missing
+`manageEvents` · `400` validation failure (including publish requirements, see below).
+
+### 🛡️ `manageEvents` `PATCH /v1/admin/events/:id`
+
+Partial update — only provided fields change, including `status` (draft ⇄ published).
+
+**Request:** `UpdateEventRequest`. **Response `200`:** `EventDto`. **Errors:** `401` · `403` ·
+`404` not found · `400` validation failure (including publish requirements, see below).
+
+**Clearing an optional field:** every optional field accepts `null` in addition to its normal
+type. An **omitted** key leaves that column unchanged (standard partial-update semantics); an
+**explicit `null`** clears it. This distinction only matters for `PATCH` — on `POST` the two are
+equivalent, since `EventsService.create()` falls back to `?? null` either way.
+
+#### Publish requirements
+
+`title`, `description`, and `startDate` are always required (DTO-level `@IsNotEmpty`). The
+remaining fields are optional on a DTO level — a draft can omit all of them — but are enforced by
+`EventsService` (`apps/backend/src/events/publish-requirements.ts`) whenever the event's *effective*
+status resolves to `'published'`: `organiserName`, `endDate`, `eventFormat`, `eventType`, `city`,
+`country`, `registrationUrl`. "Effective" means `dto.status ?? <current row's status for PATCH>`
+checked against the *merged* fields (existing row's values patched with whatever this request
+provides) — not just what's present in a single request body. This closes two gaps a pure
+per-request check would miss: publishing a draft that already has some fields set via a prior save
+(PATCH `{status: 'published'}` alone must still see those fields), and a status-less PATCH against
+an already-published event trying to blank out a required field (e.g. `{city: ''}`).
+
+On failure: `400` with one message per missing field (e.g. `"Organizer is required to publish an
+event."`), same array-of-strings shape as class-validator's own errors.
+
+### 🛡️ `manageEvents` `DELETE /v1/admin/events/:id`
+
+**Response `204`.** **Errors:** `401` · `403` · `404` not found.
+
 ### Not built yet (explicitly deferred)
 
-- Public suggestion queue + admin moderation (`draft`→`published`/rejected) — `status` already
-  supports this (`event_status` enum), but no write endpoints exist yet. All seeded rows are
-  inserted directly as `published`. The `/events` page's "Suggest an event" card is a `mailto:`
-  link, not a form, since there's nowhere to submit one yet.
+- Public suggestion queue + admin approve/reject moderation of those suggestions
+  (`POST /v1/events/suggestions`, admin review endpoints) — `status` already supports the
+  underlying state, but no submission endpoint exists yet. The `/events` page's "Suggest an
+  event" card remains a `mailto:` link. Direct admin add/edit/delete (above) is built; the
+  public-submission half of US-13-01 is not.
 - Country/format/date-range filtering on `GET /v1/events` itself — the standalone page filters
   client-side over the full `upcoming=false` set (same pattern as `/articles`), not query params,
   since the dataset is small (dozens, not thousands).

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Button, Card, FilterPopover } from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { EventRow } from '@/components/events/EventRow';
@@ -34,8 +34,26 @@ function startOfToday(): Date {
 // events.html); simplified here to preset ranges rather than reproducing a custom calendar
 // widget for marginal value over presets, a deliberate scope call given the dataset is only
 // dozens of events, not something a precise custom date needs to slice further.
-export function EventsList({ events }: { events: EventDto[] }) {
-  const [datePreset, setDatePreset] = useState<DatePreset>('upcoming');
+//
+// Shared by the public /events page and /admin/events — the admin list is the exact same
+// filters/grouping over a superset of events (drafts included, since the filters here don't
+// touch status at all), not a forked copy. `getAdminBadge`/`getAdminActions` are optional
+// per-event render slots (passed straight through to EventRow) the admin page uses for the
+// draft/published Badge and Edit/Delete actions; the public page passes neither.
+export function EventsList({
+  events,
+  defaultDatePreset = 'upcoming',
+  getAdminBadge,
+  getAdminActions,
+  emptyMessage,
+}: {
+  events: EventDto[];
+  defaultDatePreset?: DatePreset;
+  getAdminBadge?: (event: EventDto) => ReactNode;
+  getAdminActions?: (event: EventDto) => ReactNode;
+  emptyMessage?: string;
+}) {
+  const [datePreset, setDatePreset] = useState<DatePreset>(defaultDatePreset);
   const [countryFilter, setCountryFilter] = useState<string[]>([]);
   const [formatFilter, setFormatFilter] = useState<EventFormat[]>([]);
 
@@ -73,7 +91,7 @@ export function EventsList({ events }: { events: EventDto[] }) {
     return [...map.entries()];
   }, [filtered]);
 
-  const hasFilters = datePreset !== 'upcoming' || countryFilter.length > 0 || formatFilter.length > 0;
+  const hasFilters = datePreset !== defaultDatePreset || countryFilter.length > 0 || formatFilter.length > 0;
 
   return (
     <div>
@@ -84,7 +102,7 @@ export function EventsList({ events }: { events: EventDto[] }) {
           searchable={false}
           options={DATE_PRESETS}
           selected={[datePreset]}
-          onChange={(values) => setDatePreset((values[0] as DatePreset) ?? 'upcoming')}
+          onChange={(values) => setDatePreset((values[0] as DatePreset) ?? defaultDatePreset)}
         />
         <FilterPopover
           label="All countries"
@@ -149,12 +167,24 @@ export function EventsList({ events }: { events: EventDto[] }) {
               </div>
               <div>
                 {monthEvents.map((event, j) => (
-                  <EventRow key={event.id} event={event} isMonthFirst={j === 0} />
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    isMonthFirst={j === 0}
+                    adminBadge={getAdminBadge?.(event)}
+                    adminActions={getAdminActions?.(event)}
+                  />
                 ))}
               </div>
             </div>
           ))}
         </div>
+      ) : events.length === 0 && emptyMessage ? (
+        // The truly-empty case (nothing exists yet, not just filtered to nothing) — admin's
+        // "create one to get started" framing instead of the filtered-empty copy below.
+        <Card padding="lg" className="mt-8 flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-ink-3">{emptyMessage}</p>
+        </Card>
       ) : (
         <Card padding="lg" className="mt-8 flex flex-col items-center gap-3 text-center">
           <p className="font-mono text-xs tracking-[0.04em] text-ink-3">No results</p>
@@ -163,7 +193,7 @@ export function EventsList({ events }: { events: EventDto[] }) {
             <Button
               variant="secondary"
               onClick={() => {
-                setDatePreset('upcoming');
+                setDatePreset(defaultDatePreset);
                 setCountryFilter([]);
                 setFormatFilter([]);
               }}

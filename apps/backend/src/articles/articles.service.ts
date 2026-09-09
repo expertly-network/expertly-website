@@ -39,7 +39,7 @@ function stripHtml(html: string): string {
 // write flow (POST /v1/articles/ai-draft + CreateArticleDto.creationMode) — selected/exposed
 // below, no longer the dead column the old comment here described. `ai_summary` is populated by
 // generateSummaryIfNeeded() the first time an article is published (see docs/rest-api.md),
-// unrelated to creation_mode.
+// unrelated to creation_mode
 interface ArticleRow {
   id: string;
   slug: string;
