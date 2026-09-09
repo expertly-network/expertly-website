@@ -31,7 +31,7 @@ export default async function AdminApplicationsPage() {
           <h1 className="mt-2 text-headline text-bg-card">Membership applications</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
             Review submitted applications. Approving one provisions the member profile and
-            services immediately and promotes the applicant's account to <code>member</code>.
+            services immediately and promotes the applicant&apos;s account to <code>member</code>.
           </p>
         </PageContainer>
       </section>
