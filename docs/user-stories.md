@@ -297,15 +297,23 @@ note and rating that my matched peer never sees.
 
 ---
 
-## US-13 — Events ⚠️ Browsing built, suggestion queue not
+## US-13 — Events ⚠️ Browsing + direct admin CRUD built, suggestion queue not
 
 ### US-13-01: Suggesting an event
 As a client or member, I want to suggest an event for the community calendar.
 - [ ] Suggestion enters a `pending` queue; admin approves (publishes) or rejects/deletes
-- [ ] Admin can also directly add-and-publish, bypassing the queue — one soft-hide list, not two
-      disconnected pools (don't reproduce that prototype shortcut)
+- [x] Admin can also directly add-and-publish, bypassing the queue — one soft-hide list, not two
+      disconnected pools (don't reproduce that prototype shortcut). Built as `/admin/events`:
+      create, edit (including draft ⇄ published), and delete — see `docs/rest-api.md`'s
+      Events — admin section.
+- [x] A draft can be saved with just title/description/start date, but publishing (new or an
+      existing draft) requires organizer, end date, format, category, city, country, and
+      registration URL too — enforced server-side (`400` naming every missing field) and mirrored
+      client-side as inline per-field errors, not just a generic banner. See `docs/rest-api.md`'s
+      "Publish requirements" subsection.
 - Not built: `/events`'s "Suggest an event" card is a `mailto:contact@expertly.global` link, not
-  a form — there's nowhere to submit a suggestion to yet.
+  a form — there's nowhere to submit a suggestion to yet. The public submission → pending-queue
+  half of this story remains deferred.
 
 ### US-13-02: Browsing published events
 As a guest or user, I want to see upcoming published events.

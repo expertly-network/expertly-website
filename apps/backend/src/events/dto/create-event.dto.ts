@@ -1,0 +1,75 @@
+import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
+import type { EventFormat, EventStatus } from '@shared/event';
+
+const EVENT_FORMATS: EventFormat[] = ['in_person', 'virtual', 'hybrid'];
+const EVENT_STATUSES: EventStatus[] = ['draft', 'published'];
+
+export class CreateEventDto {
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  description!: string;
+
+  // `@IsOptional()` treats both `undefined` (omitted) and `null` as "skip validation" — so
+  // `null` passes through untouched to EventsService, which is what lets a PATCH explicitly
+  // clear one of these once-set fields instead of the field just being left unchanged.
+  @IsOptional()
+  @IsString()
+  shortDescription?: string | null;
+
+  @IsOptional()
+  @IsUrl()
+  coverImageUrl?: string | null;
+
+  @IsString()
+  @IsNotEmpty()
+  startDate!: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  timezone?: string | null;
+
+  @IsOptional()
+  @IsString()
+  eventType?: string | null;
+
+  @IsOptional()
+  @IsIn(EVENT_FORMATS)
+  eventFormat?: EventFormat | null;
+
+  @IsOptional()
+  @IsString()
+  country?: string | null;
+
+  @IsOptional()
+  @IsString()
+  city?: string | null;
+
+  @IsOptional()
+  @IsString()
+  venueName?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isFree?: boolean;
+
+  @IsOptional()
+  @IsUrl()
+  registrationUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  organiserName?: string | null;
+
+  // Defaults to 'draft' in EventsService.create if omitted — see CreateEventRequest's comment.
+  @IsOptional()
+  @IsIn(EVENT_STATUSES)
+  status?: EventStatus;
+}

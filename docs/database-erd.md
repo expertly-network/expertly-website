@@ -335,10 +335,11 @@ backend module read from it — see the drift note below.
 | `status` | enum `draft`\|`published` | RLS only exposes `published` rows to `select` |
 | `created_at`, `updated_at` | timestamptz | |
 
-**Only `GET /v1/events` (upcoming + published) is built.** No write/suggestion/admin-moderation
-endpoints exist yet — `status` already models the moderation state a future session needs, so no
-schema change should be required when that session ships. See `docs/rest-api.md`'s Events
-section for the exact current contract.
+**`GET /v1/events` (public, published-only) plus direct admin CRUD (`GET`/`POST /v1/admin/events`,
+`GET`/`PATCH`/`DELETE /v1/admin/events/:id`) are built.** The public suggestion-queue submission
+endpoint is not — `status` already models the moderation state that future session needs, so no
+schema change should be required when it ships. See `docs/rest-api.md`'s Events section for the
+exact current contract.
 
 ## ⚠️ Resolved: live database vs. migration file drift
 

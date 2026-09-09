@@ -256,3 +256,56 @@ export async function getEventsServer(params: { upcoming?: boolean } = {}): Prom
   }
   return res.json();
 }
+
+/**
+ * Server Component variant for the admin events list (apps/frontend/app/(shell)/admin/events).
+ * 🛡️ manageEvents on the backend — returns every event regardless of status, unlike the public
+ * getEventsServer above. Empty array (not a throw) when there's no session, matching
+ * getMyMemberEditsServer's convention — the page itself already redirects non-admins before this
+ * is ever called with no session.
+ */
+export async function getAdminEventsServer(): Promise<EventDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/events`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load events.', res.status);
+  }
+
+  return res.json();
+}
+
+/**
+ * Server Component variant for the admin edit page's prefill (apps/frontend/app/(shell)/admin/
+ * events/[id]/edit). Returns null on no-session or 404 — same convention as getMemberServer —
+ * the page turns a null into notFound().
+ */
+export async function getAdminEventServer(id: string): Promise<EventDto | null> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/events/${id}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load event.', res.status);
+  }
+
+  return res.json();
+}

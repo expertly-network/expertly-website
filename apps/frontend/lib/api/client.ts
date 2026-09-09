@@ -25,13 +25,15 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   // A FormData body must NOT get an explicit Content-Type — fetch sets
   // multipart/form-data with the correct boundary itself only when the header
-  // is left unset. Any other body (or none) uses JSON as before.
+  // is left unset. A bodyless request (e.g. DELETE) must not get one either —
+  // Fastify's JSON body parser rejects "Content-Type: application/json" paired
+  // with an empty body outright. Only an actual non-FormData body gets the header.
   const isFormData = options.body instanceof FormData;
 
   const res = await fetch(`${getApiBaseUrlClient()}/v1${path}`, {
     ...options,
     headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(options.body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       ...options.headers,
     },

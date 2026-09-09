@@ -2,6 +2,26 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: all 15 tasks complete** (checkboxes below reflect this). Three things happened after
+> this plan was executed that its inline code snippets don't reflect — treat the actual source
+> files, not the snippets in Tasks 2/10/11 below, as current:
+> 1. **Publish-required-fields validation** (title/organizer/description/start+end date/format/
+>    category/city/country/registration URL required only once `status` resolves to `'published'`,
+>    not for a draft) — new `apps/backend/src/events/publish-requirements.ts`, wired into
+>    `EventsService.create()`/`update()`, mirrored client-side in `EventForm.tsx`. Not in this
+>    plan's original scope; added after a later requirements discussion. See `docs/rest-api.md`'s
+>    "Publish requirements" subsection.
+> 2. **Admin list reuses the public `EventsList` component** (date/country/format filters) instead
+>    of `AdminEventsList` maintaining its own forked month-grouping logic — `AdminEventsList.tsx` is
+>    now a thin state wrapper (owns delete-state only) around `EventsList`, not the self-contained
+>    component Task 10 below writes out in full.
+> 3. **A code-review pass** (post-implementation) fixed a field-clearing bug (blank optional fields
+>    now send `null` to distinguish "clear this field" from "leave unchanged" — see
+>    `CreateEventRequest`'s comment in `packages/shared-types/event.ts`), extracted slug generation
+>    into shared `apps/backend/src/common/slugify.ts` (Task 3's inline `slugify()`/
+>    `generateUniqueSlug()` is no longer a private copy in `events.service.ts`), and collapsed
+>    `remove()`'s two DB round trips into one.
+
 **Goal:** Give admins direct create/edit/delete control over events at `/admin/events`, backed by
 new `GET/POST /v1/admin/events` + `GET/PATCH/DELETE /v1/admin/events/:id` endpoints — no public
 suggestion queue in this pass (deferred, see the spec).
@@ -31,7 +51,7 @@ a browser step) instead of an automated test step — this matches the verificat
 **Files:**
 - Modify: `packages/shared-types/event.ts`
 
-- [ ] **Step 1: Add `CreateEventRequest`/`UpdateEventRequest`**
+- [x] **Step 1: Add `CreateEventRequest`/`UpdateEventRequest`**
 
 Change the top import line and append these two exports at the end of the file:
 
@@ -67,12 +87,12 @@ export class CreateEventRequest {
 export type UpdateEventRequest = Partial<CreateEventRequest>;
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/backend && pnpm typecheck && cd ../frontend && pnpm typecheck`
 Expected: both pass (this file is consumed by both apps via the `@shared/*` alias).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/shared-types/event.ts
@@ -87,7 +107,7 @@ git commit -m "feat(shared-types): add CreateEventRequest/UpdateEventRequest"
 - Create: `apps/backend/src/events/dto/create-event.dto.ts`
 - Create: `apps/backend/src/events/dto/update-event.dto.ts`
 
-- [ ] **Step 1: Write `create-event.dto.ts`**
+- [x] **Step 1: Write `create-event.dto.ts`**
 
 ```ts
 import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
@@ -164,7 +184,7 @@ export class CreateEventDto {
 }
 ```
 
-- [ ] **Step 2: Write `update-event.dto.ts`**
+- [x] **Step 2: Write `update-event.dto.ts`**
 
 ```ts
 import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
@@ -243,12 +263,12 @@ export class UpdateEventDto {
 }
 ```
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `cd apps/backend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/events/dto
@@ -262,7 +282,7 @@ git commit -m "feat(events): add admin create/update DTOs"
 **Files:**
 - Modify: `apps/backend/src/events/events.service.ts`
 
-- [ ] **Step 1: Update imports and add admin methods**
+- [x] **Step 1: Update imports and add admin methods**
 
 Replace the top of the file (the import block plus `SELECT_COLUMNS`) — currently:
 
@@ -432,13 +452,13 @@ function slugify(title: string): string {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/backend && pnpm typecheck`
 Expected: pass. (`CreateEventDto`/`UpdateEventDto` imports will error until Task 2 is done —
 confirm Task 2 landed first.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/events/events.service.ts
@@ -453,7 +473,7 @@ git commit -m "feat(events): add admin list/get/create/update/delete to EventsSe
 - Create: `apps/backend/src/events/admin-events.controller.ts`
 - Modify: `apps/backend/src/events/events.module.ts`
 
-- [ ] **Step 1: Write the controller**
+- [x] **Step 1: Write the controller**
 
 ```ts
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
@@ -505,7 +525,7 @@ export class AdminEventsController {
 }
 ```
 
-- [ ] **Step 2: Register the controller**
+- [x] **Step 2: Register the controller**
 
 Replace `apps/backend/src/events/events.module.ts` entirely with:
 
@@ -524,12 +544,12 @@ import { EventsService } from './events.service';
 export class EventsModule {}
 ```
 
-- [ ] **Step 3: Typecheck and build**
+- [x] **Step 3: Typecheck and build**
 
 Run: `cd apps/backend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/events/admin-events.controller.ts apps/backend/src/events/events.module.ts
@@ -546,7 +566,7 @@ git commit -m "feat(events): add AdminEventsController at /v1/admin/events"
 - Modify: `docs/user-stories.md`
 - Modify: `docs/master-tdd.md`
 
-- [ ] **Step 1: `docs/rest-api.md`** — in the `## Events` section, insert a new `## Events — admin`
+- [x] **Step 1: `docs/rest-api.md`** — in the `## Events` section, insert a new `## Events — admin`
 section between the existing `### 🌐 GET /v1/events` block and `### Not built yet`, and rewrite
 that `### Not built yet` block. Find this exact text:
 
@@ -626,7 +646,7 @@ Partial update — only provided fields change, including `status` (draft ⇄ pu
   since the dataset is small (dozens, not thousands).
 ```
 
-- [ ] **Step 2: `docs/database-erd.md`** — find this exact text in the `## Events` section:
+- [x] **Step 2: `docs/database-erd.md`** — find this exact text in the `## Events` section:
 
 ```
 **Only `GET /v1/events` (upcoming + published) is built.** No write/suggestion/admin-moderation
@@ -645,7 +665,7 @@ schema change should be required when it ships. See `docs/rest-api.md`'s Events 
 exact current contract.
 ```
 
-- [ ] **Step 3: `docs/user-stories.md`** — find this exact text:
+- [x] **Step 3: `docs/user-stories.md`** — find this exact text:
 
 ```
 ## US-13 — Events ⚠️ Browsing built, suggestion queue not
@@ -676,7 +696,7 @@ As a client or member, I want to suggest an event for the community calendar.
   half of this story remains deferred.
 ```
 
-- [ ] **Step 4: `docs/master-tdd.md`** — four separate edits.
+- [x] **Step 4: `docs/master-tdd.md`** — four separate edits.
 
 Find:
 ```
@@ -719,7 +739,7 @@ Replace:
    submission + approval flow, lower complexity than the original estimate.
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/rest-api.md docs/database-erd.md docs/user-stories.md docs/master-tdd.md
@@ -732,13 +752,13 @@ git commit -m "docs: document admin events CRUD contract"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Start the backend**
+- [x] **Step 1: Start the backend**
 
 Run: `cd apps/backend && pnpm dev`
 Expected: server starts on its configured port with no errors, `EventsModule` logs both
 controllers registered.
 
-- [ ] **Step 2: Verify auth boundary with curl**
+- [x] **Step 2: Verify auth boundary with curl**
 
 Get three bearer tokens first (client, member, admin — via Supabase or existing test accounts per
 `docs/auth.md`), then:
@@ -754,7 +774,7 @@ curl -i http://localhost:3001/v1/admin/events -H "Authorization: Bearer $MEMBER_
 curl -i http://localhost:3001/v1/admin/events -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-- [ ] **Step 3: Verify create defaults to draft**
+- [x] **Step 3: Verify create defaults to draft**
 
 ```bash
 curl -i -X POST http://localhost:3001/v1/admin/events \
@@ -764,14 +784,14 @@ curl -i -X POST http://localhost:3001/v1/admin/events \
 ```
 Expected: `201`, response body has `"status":"draft"` and a generated `"slug"`.
 
-- [ ] **Step 4: Verify the public endpoint still excludes it**
+- [x] **Step 4: Verify the public endpoint still excludes it**
 
 ```bash
 curl -s http://localhost:3001/v1/events?upcoming=false | grep "Test Event"
 ```
 Expected: no output — the draft event must not appear on the public route.
 
-- [ ] **Step 5: Verify publish via PATCH, then delete**
+- [x] **Step 5: Verify publish via PATCH, then delete**
 
 ```bash
 # Replace :id with the id from Step 3's response
@@ -804,7 +824,7 @@ frontend phase starts against this contract.
 **Files:**
 - Create: `apps/frontend/lib/api/events.ts`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file**
 
 ```ts
 import { apiFetch } from '@/lib/api/client';
@@ -831,12 +851,12 @@ export function deleteEvent(id: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/lib/api/events.ts
@@ -850,7 +870,7 @@ git commit -m "feat(frontend): add admin events API client"
 **Files:**
 - Modify: `apps/frontend/lib/api/server.ts`
 
-- [ ] **Step 1: Append two functions** at the end of the file (after `getEventsServer`):
+- [x] **Step 1: Append two functions** at the end of the file (after `getEventsServer`):
 
 ```ts
 
@@ -911,12 +931,12 @@ export async function getAdminEventServer(id: string): Promise<EventDto | null> 
 `EventDto` is already imported at the top of this file (used by `getEventsServer`) — no import
 change needed.
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/lib/api/server.ts
@@ -930,7 +950,7 @@ git commit -m "feat(frontend): add admin events server fetchers"
 **Files:**
 - Modify: `apps/frontend/components/events/EventRow.tsx`
 
-- [ ] **Step 1: Replace the entire file** with:
+- [x] **Step 1: Replace the entire file** with:
 
 ```tsx
 import type { ReactNode } from 'react';
@@ -1054,12 +1074,12 @@ props, `adminBadge` rendered alongside the existing badges, and the trailing
 (`EventsList.tsx`, `UpcomingEvents.tsx` if it uses `EventRow`) pass neither prop, so their output
 is byte-for-byte unchanged.
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/components/events/EventRow.tsx
@@ -1073,7 +1093,7 @@ git commit -m "feat(events): give EventRow an optional admin badge/actions slot"
 **Files:**
 - Create: `apps/frontend/components/admin/AdminEventsList.tsx`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file**
 
 ```tsx
 'use client';
@@ -1203,12 +1223,12 @@ export function AdminEventsList({ initialEvents }: { initialEvents: EventDto[] }
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/components/admin/AdminEventsList.tsx
@@ -1222,7 +1242,7 @@ git commit -m "feat(admin): add AdminEventsList with inline delete-confirm"
 **Files:**
 - Create: `apps/frontend/components/admin/EventForm.tsx`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file**
 
 ```tsx
 'use client';
@@ -1490,12 +1510,12 @@ export function EventForm({ event }: { event?: EventDto }) {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/components/admin/EventForm.tsx
@@ -1509,7 +1529,7 @@ git commit -m "feat(admin): add shared EventForm for create/edit"
 **Files:**
 - Create: `apps/frontend/app/(shell)/admin/events/page.tsx`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file**
 
 ```tsx
 import { redirect } from 'next/navigation';
@@ -1567,12 +1587,12 @@ export default async function AdminEventsPage() {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "apps/frontend/app/(shell)/admin/events/page.tsx"
@@ -1586,7 +1606,7 @@ git commit -m "feat(admin): add /admin/events list page"
 **Files:**
 - Create: `apps/frontend/app/(shell)/admin/events/new/page.tsx`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file**
 
 ```tsx
 import { redirect } from 'next/navigation';
@@ -1626,12 +1646,12 @@ export default async function NewAdminEventPage() {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "apps/frontend/app/(shell)/admin/events/new/page.tsx"
@@ -1645,7 +1665,7 @@ git commit -m "feat(admin): add /admin/events/new create page"
 **Files:**
 - Create: `apps/frontend/app/(shell)/admin/events/[id]/edit/page.tsx`
 
-- [ ] **Step 1: Write the file**
+- [x] **Step 1: Write the file**
 
 Note: this app is on Next.js 14 (`apps/frontend/package.json`: `"next": "14.2.18"`), where
 `params` is a plain object, not a Promise (that's a Next 15 change) — confirmed against
@@ -1695,12 +1715,12 @@ export default async function EditAdminEventPage({ params }: { params: { id: str
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `cd apps/frontend && pnpm typecheck`
 Expected: pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "apps/frontend/app/(shell)/admin/events/[id]/edit/page.tsx"
@@ -1713,21 +1733,21 @@ git commit -m "feat(admin): add /admin/events/[id]/edit page"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Start both servers**
+- [x] **Step 1: Start both servers**
 
 Run: `cd apps/backend && pnpm dev` (separate terminal) and `cd apps/frontend && pnpm dev`
 
-- [ ] **Step 2: Non-admin redirect**
+- [x] **Step 2: Non-admin redirect**
 
 Sign in as a `client` or `member` account in the browser, navigate to `/admin/events`.
 Expected: redirected to `/dashboard` (or `/login` if signed out).
 
-- [ ] **Step 3: Empty state**
+- [x] **Step 3: Empty state**
 
 Sign in as an admin with no events yet (or a fresh test DB). Navigate to `/admin/events`.
 Expected: "No events yet — create one to get started." message, "Create event" button visible.
 
-- [ ] **Step 4: Create → draft → publish → edit → delete round-trip**
+- [x] **Step 4: Create → draft → publish → edit → delete round-trip**
 
 1. Click "Create event", fill in title/description/start date, click "Save as draft".
    Expected: redirected to `/admin/events`, the new event appears with a "Draft" badge.
@@ -1738,7 +1758,7 @@ Expected: "No events yet — create one to get started." message, "Create event"
 5. Back in `/admin/events`, click "Delete", then "Confirm delete".
    Expected: the row disappears from the list without a page reload.
 
-- [ ] **Step 5: Responsive check**
+- [x] **Step 5: Responsive check**
 
 At 375px width: confirm the list rows stack (no horizontal overflow) and the create/edit form's
 field grid collapses to one column. At 1440px: confirm the multi-column field grid and month-

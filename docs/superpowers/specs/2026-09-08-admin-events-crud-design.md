@@ -1,6 +1,12 @@
 # Admin Events CRUD — Design Spec
 
-**Status:** Approved
+**Status:** Approved — superseded in two places by a later requirements discussion, kept here as
+the historical record rather than rewritten: §4.2's DTO requiredness list predates the
+publish-required-fields rule (organiser/end date/format/category/city/country/registration URL are
+now required once `status` resolves to `'published'`, not unconditionally optional), and §5.2's
+"no date-preset/format/country filters" call for the admin list was reversed (it now reuses the
+public `EventsList`'s filters, defaulting to "All dates" instead of "Upcoming"). Current contract:
+`docs/rest-api.md`'s Events — admin section.
 **Scope:** Backend + frontend, done together in this session (not the usual two-session split) —
 the feature is small enough that the backend phase (implement + verify the contract without a
 frontend, update `docs/rest-api.md`/`docs/database-erd.md`/`packages/shared-types/event.ts`) is

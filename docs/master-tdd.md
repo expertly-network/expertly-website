@@ -70,7 +70,7 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | `membership_applications` | ✅ Built | `applications/` |
 | `articles` | ✅ Built — restored from `main-backup`'s `763bf75` (dropped in a prior rewrite; docs/shared-types had stayed current the whole time) plus `authorId` query-param filtering added for the profile page's Articles tab | `articles/` |
 | `member_profiles` + 7 child tables, `member_profile_edits`, `member_renewal_policy` | ✅ Built | `members/` |
-| `events` | ⚠️ Partially built — `GET /v1/events` only (upcoming + published, homepage use only), no write/moderation endpoints | `events/` |
+| `events` | ⚠️ Partially built — public `GET /v1/events` plus admin CRUD (`/v1/admin/events`); public suggestion-queue submission not built | `events/` |
 | `consultation_requests` | 🧱 Schema only | none — see Section 6 |
 | `peer_connect_matches`, `peer_connect_member_preferences` | 🧱 Schema only | none — see Section 6 |
 | Perks, templates, learnings | 📋 Roadmap — no schema yet | none |
@@ -98,9 +98,9 @@ model, made server-real during the Member Directory & Profiles session — `docs
 "cross-cutting open decision #1" on this topic is resolved; that section of the roadmap doc is
 stale.
 
-Note: `manageEvents`, `manageConsultations`, and `manageResources` permissions already exist in
-that constant even though events/consultations/perks-templates-learnings have no backend module
-yet — the permission model was scoped ahead of the features it'll gate.
+Note: `manageEvents` is now wired up (`AdminEventsController`, see Section 6). `manageConsultations`
+and `manageResources` still have no backend module to gate — the permission model was scoped ahead
+of the features it'll gate.
 
 ---
 
@@ -126,7 +126,7 @@ pixel/behavior reference per root `CLAUDE.md`'s methodology.
 | Member directory & profiles | ✅ Built | `members.html`, `member-profile.html`, `dashboard.html`/`dashboard-alt-3.html` | Per-section edit-approval workflow; `docs/roadmap.md`'s framing of this as unbuilt is stale |
 | Consultations | 🧱 Schema only | `consultation-requests.html`, `my-consultations.html` | Sketch endpoints in `docs/roadmap.md` |
 | Peer Connect | 🧱 Schema only | `peer-connect.html` | Monthly 1:1 matching program, not a directory — recommend its own scoping session per `docs/roadmap.md` |
-| Events | ✅ Built — homepage teaser + standalone `/events` browse page | `events.html` | `GET /v1/events?upcoming=false` backs the standalone page's month-grouped, client-filtered list (date preset/country/format); no suggestion-queue write endpoint or admin moderation yet — "Suggest an event" is a `mailto:` link. See `docs/rest-api.md` |
+| Events | ✅ Built — homepage teaser, standalone `/events` browse page, admin CRUD at `/admin/events` | `events.html` | `GET /v1/events?upcoming=false` backs the standalone page's month-grouped, client-filtered list (date preset/country/format); `/admin/events` covers direct create/edit/delete. No public suggestion-queue submission endpoint yet — "Suggest an event" is a `mailto:` link. See `docs/rest-api.md` |
 | Perks / Templates / Learnings | 📋 Roadmap | `perks.html`, `templates.html`, `learnings.html` | Identical CRUD shape ×3; public-vs-member-gated is an open product call |
 | Newsletter subscriptions | 📋 Roadmap | `index.html` (footer capture) | Plain email capture, unrelated to accounts |
 | Global cross-entity search | 📋 Roadmap → 🔭 expanded below | `index.html` (homepage search bar) | Low priority per roadmap; see Section 8 for a fuller shape |
@@ -240,7 +240,8 @@ for what turned out to already have schema:
    exist (needs a valid `memberId`).
 3. **Perks / Templates / Learnings** — no schema yet, low complexity, same shape ×3; resolve
    public-vs-member-gated once, apply to all three.
-4. **Events** — schema exists; medium complexity (suggestion queue + admin moderation).
+4. **Events** — direct admin CRUD built; remaining scope is just the public suggestion-queue
+   submission + approval flow, lower complexity than the original estimate.
 5. **Peer Connect** — schema exists but is the largest remaining feature (matching algorithm,
    video-call integration, AI transcription); its own dedicated scoping session, build last.
 6. **Beyond-roadmap** (Section 8), only once at least two of the above are live: notifications,
