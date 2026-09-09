@@ -4,7 +4,7 @@ import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
 import type { AdminApplicationListItemDto, ApplicationDto } from '@shared/membership-application';
 import type { MemberDto, MemberListItemDto, MemberProfileEditDto } from '@shared/member';
 import type { PracticeAreaDto } from '@shared/practice-area';
-import type { ArticleDto, ArticleListItemDto } from '@shared/article';
+import type { AdminArticleListItemDto, ArticleDto, ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
 
 /**
@@ -161,6 +161,56 @@ export async function getArticlesServer(
     const body = await res.json().catch(() => null);
     throw new ApiError(body?.message ?? 'Failed to load articles.', res.status);
   }
+  return res.json();
+}
+
+/**
+ * Server Component variant for the articles page's "My Articles" tab — the signed-in member's
+ * own articles regardless of status (draft/pending_review/published/rejected), via
+ * GET /v1/articles/me. Returns [] when signed out rather than throwing, since the tab itself is
+ * already hidden for a signed-out visitor — this is a defensive fallback, not the real gate.
+ */
+export async function getMyArticlesServer(): Promise<ArticleListItemDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/articles/me`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load your articles.', res.status);
+  }
+  return res.json();
+}
+
+/**
+ * Server Component variant for the admin article-review-queue page
+ * (apps/frontend/app/(shell)/admin/articles). 🛡️ manageArticles on the backend — only ever
+ * non-empty when ARTICLES_REVIEW_MODE=editorial.
+ */
+export async function getAdminArticlesServer(status?: string): Promise<AdminArticleListItemDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/articles${qs}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load articles for review.', res.status);
+  }
+
   return res.json();
 }
 

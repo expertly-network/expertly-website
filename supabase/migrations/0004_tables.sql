@@ -279,8 +279,15 @@ create table public.articles (
   -- is_active — an already-published article should keep showing the real name of a practice
   -- area even if it's since been deactivated.
   practice_area_ids uuid[] not null default '{}',
-  country text not null,
+  -- Same array/no-FK trade-off as practice_area_ids above, not a join table — the write form's
+  -- country picker is genuinely multi-select (an article can apply to more than one country),
+  -- same as practice areas. Free-form country names, not ids, so no live-validation query is
+  -- needed on write (unlike practice_area_ids).
+  countries text[] not null default '{}',
   state text,
+  -- Set when status = 'rejected' in editorial review mode; null otherwise. Same shape as
+  -- membership_applications.rejection_reason.
+  rejection_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -34,7 +34,10 @@ create type public.payment_status as enum ('pending', 'waived', 'paid');
 
 -- ── articles ──────────────────────────────────────────────────────────────────
 
-create type public.article_status as enum ('draft', 'published');
+-- pending_review/rejected back the editorial-review path (ARTICLES_REVIEW_MODE=editorial in
+-- ArticlesService) added alongside the write-flow rebuild — draft/published-only was the
+-- original, instant-publish-only iteration. See docs/database-erd.md.
+create type public.article_status as enum ('draft', 'pending_review', 'published', 'rejected');
 
 -- ── events ────────────────────────────────────────────────────────────────────
 

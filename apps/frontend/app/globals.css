@@ -25,6 +25,39 @@
   --ok: #0e9e6e;
   --error: #dc2626;
   --nav-green: #0b3a2d;
+
+  /* "Write an Article" CTA — a distinct, more saturated green than --accent, ported verbatim
+     from design/static_html/assets/styles.css's .anv-write-cta-btn — the write flow is styled as
+     its own visual moment there, not like the rest of the app's buttons. Used at 2+ call sites
+     (articles tab row, My Articles empty state), so promoted to a real token per this file's own
+     "add it here first" convention. */
+  --cta: #1b8a4b;
+  --cta-hover: #156b3a;
+}
+
+/* Write-flow entrance/success animations, ported verbatim from
+   design/static_html/assets/styles.css (`anvIn`/`anvSuccessPulse`) — referenced via Tailwind's
+   arbitrary `animate-[...]` utility at each write-flow call site rather than duplicated inline,
+   since @keyframes can't be expressed as a Tailwind utility value itself. */
+@keyframes anvIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes anvSuccessPulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
 }
 
 /* Base body typography — from theme.css's html/body rule. Everything else
@@ -128,19 +161,17 @@ body {
    `.d1-shell.in-hero` rules (~styles.css line 2664) and its own inline-script comment: while
    a page's stellar hero is in view (HeroLogoHandoff's IntersectionObserver sets `in-hero` on
    <html>), the sidebar's own collapsed "E." hides so HeroLogoHandoff's fixed-position
-   "Expertly." wordmark reads as the one true logo over the dark hero. Hovering the sidebar
-   rail open overrides this back to visible, same as design's `.in-hero.revealed` rules,
-   reimplemented here with `group-hover` per this app's existing group-hover-not-JS-class
-   pattern (see Sidebar.tsx). */
+   "Expertly." wordmark reads as the one true logo over the dark hero — a single logo at a
+   time, never both. Deliberately NOT re-revealed on sidebar hover while in-hero (an earlier
+   version did via `.group:hover`, which put both wordmarks at opacity 1 simultaneously,
+   nearly on top of each other — the bug this comment used to describe as intentional): the
+   fixed wordmark already reads fine over the hover-expanded rail's own dark background, so
+   there's nothing to hand back to the sidebar's own mark until in-hero clears. */
 html.in-hero .sidebar-logo-mark,
-html.in-hero .sidebar-logo-dot {
-  opacity: 0;
+html.in-hero .sidebar-logo-dot,
+html.in-hero .sidebar-logo-text {
+  opacity: 0 !important;
   transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-html.in-hero .group:hover .sidebar-logo-mark,
-html.in-hero .group:hover .sidebar-logo-dot {
-  opacity: 1;
-  transition: opacity 0.22s 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .hero-logo-handoff {
   opacity: 0;

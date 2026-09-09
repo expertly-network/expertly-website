@@ -29,7 +29,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             {primaryPracticeArea && <Badge variant="brand">{primaryPracticeArea.name}</Badge>}
-            <span className="truncate text-xs text-ink-3">{article.country}</span>
+            <span className="truncate text-xs text-ink-3">{article.countries.join(', ')}</span>
           </div>
           <span className="flex-none text-xs text-ink-3">
             {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()} ·{' '}

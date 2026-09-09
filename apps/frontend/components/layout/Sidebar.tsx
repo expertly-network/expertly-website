@@ -44,6 +44,13 @@ const BENEFITS_ICON = <path d="M12 2a6 6 0 100 12 6 6 0 000-12zM15.5 13.5L17 22l
 const ADMIN_ICON = (
   <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />
 );
+const ADMIN_ARTICLES_ICON = (
+  <>
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <polyline points="14,2 14,8 20,8" />
+    <path d="M9 13l2 2 4-4" />
+  </>
+);
 
 // Matches design/static_html's guest sidebar nav: Articles, Events, Members, Membership
 // Benefits, in that order. Articles/Events/Members are real destinations; "Expertly Benefits"
@@ -90,10 +97,16 @@ export function SidebarNav({
         <span className={soonBadgeClasses(variant)}>SOON</span>
       </span>
       {user?.role === 'admin' && (
-        <Link href="/admin/applications" className={navLinkClasses(variant)}>
-          <svg {...iconProps}>{ADMIN_ICON}</svg>
-          <span className={navLabelClasses(variant)}>Admin</span>
-        </Link>
+        <>
+          <Link href="/admin/applications" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{ADMIN_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Admin</span>
+          </Link>
+          <Link href="/admin/articles" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{ADMIN_ARTICLES_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Review Articles</span>
+          </Link>
+        </>
       )}
     </nav>
   );

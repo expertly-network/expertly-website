@@ -7,5 +7,8 @@ import { PracticeAreasService } from './practice-areas.service';
   imports: [AuthModule],
   controllers: [PracticeAreasController],
   providers: [PracticeAreasService],
+  // Exported so AiModule can reuse the same `is_active` query for the write flow's
+  // "suggest topics with no practice area selected yet" fallback — see AiService.suggestTopics.
+  exports: [PracticeAreasService],
 })
 export class PracticeAreasModule {}

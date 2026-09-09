@@ -11,12 +11,42 @@ import { spawn } from 'node:child_process';
 const ENTRY = 'dist/apps/backend/src/main.js';
 const NEST = 'node_modules/.bin/nest';
 
+const children = new Set();
+
 function run(cmd, args) {
-  const child = spawn(cmd, args, { stdio: 'inherit', shell: true });
+  // detached so each child is its own process-group leader — on shutdown we kill the
+  // whole group (see killAll). A plain SIGTERM to just this pid leaves `node --watch`'s
+  // internal worker process — the one that actually binds the port — orphaned and still
+  // holding it for the next `pnpm dev`.
+  const child = spawn(cmd, args, { stdio: 'inherit', shell: true, detached: true });
+  children.add(child);
   child.on('exit', (code) => {
-    if (code && code !== 0) process.exit(code);
+    children.delete(child);
+    if (code && code !== 0) {
+      killAll();
+      process.exit(code);
+    }
   });
   return child;
+}
+
+function killAll() {
+  for (const child of children) {
+    if (child.pid) {
+      try {
+        process.kill(-child.pid, 'SIGTERM');
+      } catch {
+        // already gone
+      }
+    }
+  }
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    killAll();
+    process.exit(0);
+  });
 }
 
 // One-off build first so ENTRY exists before `node --watch` starts — it can't watch a

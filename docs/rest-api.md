@@ -207,12 +207,16 @@ is set. `authorHeadline`/`authorFirmName: string | null` — sourced from `membe
 `firm_name`, the "designation" line under the author's name/photo. All three are additive fields,
 no version bump.
 
-`aiSummary: string | null` — a short 3-point summary rendered as the detail page's "AI Summary"
-callout (one bullet per `\n`-separated line), sourced from `articles.ai_summary`. **Not** LLM-
-generated — genuinely written per article and stored directly in seed data (see
-`supabase/migrations/0007_dev_seed_articles.sql`); root CLAUDE.md's "AI-assisted article
-generation is deferred" still holds, this is a static field, not a model integration. Additive,
-no version bump.
+`aiSummary: string | null` — a short 3-to-4-point summary rendered as the detail page's "AI
+Summary" callout (one bullet per `\n`-separated line), sourced from `articles.ai_summary`.
+Generated once, server-side, by `ArticlesService.generateSummaryIfNeeded()` (`AiService.
+summarizeArticle`) the first time an article transitions to `status: 'published'` — fired async
+and never awaited by the publish/approve request, so it never blocks or fails that response; on
+an AI failure the field is just left `null` and the error is logged, no retry. Uses the same
+`AI_PROVIDER`/`AI_MODEL` config as `POST /v1/articles/ai-draft`. Not regenerated on later edits to
+an already-published article. Seed data (`supabase/migrations/0007_dev_seed_articles.sql`) still
+pre-populates it for dev fixtures so the callout has something to show without waiting on a real
+model call. Additive, no version bump.
 
 ### 🌐 `GET /v1/articles`
 
@@ -246,37 +250,120 @@ published yet."
 **Response `200`:** `ArticleDto`. **Errors:** `401` no/invalid token · `404` not found, or a draft
 the caller can't see.
 
+### `member` `POST /v1/articles/ai-draft`
+
+The AI wizard's "Generate" step — generates a `{ title, body }` draft using the backend's fixed,
+env-configured AI provider+model (`AI_PROVIDER`/`AI_MODEL` in `apps/backend/.env`, resolved in
+`apps/backend/src/ai/ai.service.ts` via the Vercel `ai` SDK — `@ai-sdk/openai` /
+`@ai-sdk/anthropic` / `@ai-sdk/google` depending on `AI_PROVIDER`, never a client-chosen
+provider/model). **Does not save anything** — the member reviews/edits/refines the result
+client-side, then saves it via `POST /v1/articles` below (typically with `creationMode: 'ai'`).
+
+**Request:** `multipart/form-data`, not JSON — a `payload` field carrying the
+`AiDraftArticleRequest` shape (see `packages/shared-types/article.ts`) as a JSON string, plus zero
+or more `files` parts (the wizard's source-document dropzone; PDF/DOCX/TXT). Why multipart: the
+JSON-only fields (`practiceAreaIds`, `countries`, `state`, `notes`, `recentDevelopments`, `advice`,
+`sourceLinks`, `includeVisual`, `tone`, `extraInstructions`, optional `title`) needed to travel
+alongside real file uploads in one request, same reasoning as the membership-application photo
+upload endpoint. Source files are extracted to text server-side (`pdf-parse` for PDF, `mammoth`
+for DOCX, raw UTF-8 for TXT; magic-byte checked via `file-type` first, per root CLAUDE.md's
+non-negotiable upload rule) and **never persisted** — used once to build this one prompt, then
+discarded. `sourceLinks` (max 5) are fetched server-side with SSRF guards
+(`apps/backend/src/ai/fetch-safe.ts`: http(s)-only, DNS-resolved IP re-checked against
+private/loopback/link-local ranges before and after every redirect hop, 8s timeout, 3MB cap) — a
+link that fails to fetch is silently skipped, not a whole-request error. Same `@Roles('member')`
+posture as `POST /v1/articles`.
+
+**Response `201`:** `AiDraftArticleResponse`. **Errors:** `401` · `403` client account · `400`
+validation (missing/invalid `payload`, unsupported source file type) · `503` AI drafting not
+configured (`AI_PROVIDER`/`AI_MODEL`/matching API key unset) or the provider call itself failed —
+manual article writing is unaffected either way.
+
+### `member` `POST /v1/articles/ai-refine`
+
+The wizard's inline "refine" box — re-prompts the model against the *current* draft plus the
+member's requested changes, returning a complete revised draft (not a diff). Plain JSON, unlike
+`ai-draft` above (no files here).
+
+**Request:** `RefineArticleDraftRequest` — `title`, `body` (the current draft), `refinementNotes`
+(required), `tone` (optional, e.g. "More formal").
+
+**Response `201`:** `AiDraftArticleResponse`. **Errors:** same as `ai-draft` above.
+
+### `member` `POST /v1/articles/suggest-topics`
+
+The write-it-yourself form's "Stuck? Try a topic" chip row — a real model call (one `generateText`
+call via the same fixed `AI_PROVIDER`/`AI_MODEL`), regenerated on demand via the chip row's
+"More ideas" action. Not the AI wizard's draft flow — this only ever returns title ideas, never a
+body.
+
+**Request:** `SuggestTopicsRequest` — `practiceAreaIds` optional. With none given (the form's
+first render, before any practice area is selected), the backend samples 3 random active practice
+areas itself rather than requiring a selection first.
+
+**Response `201`:** `SuggestTopicsResponse` — `{ topics: string[] }`, up to 6 ideas. **Errors:**
+`401` · `403` client account · `503` AI drafting not configured or the provider call failed (same
+causes as `ai-draft`).
+
+### `member` `GET /v1/articles/cover-images`
+
+The write flow's "auto-selected cover image" (both paths) — proxies a live Unsplash search so
+`UNSPLASH_ACCESS_KEY` never reaches the client. Registered before the `GET /v1/articles/:id` route
+below for the same reason as `me` — otherwise `:id` would swallow the literal path segment.
+
+**Query params:** `query` (optional) — free text, typically the selected practice area name(s)
+joined with a space; omitted/blank falls back to a generic finance/legal query so the form still
+has an image before any practice area is chosen.
+
+**Response `200`:** `CoverImageSuggestionsResponse` — `{ images: string[] }`, up to 5 URLs. The
+frontend cycles through these client-side for "Try another image" rather than re-querying on every
+click. **Errors:** `401` · `403` client account · `503` `UNSPLASH_ACCESS_KEY` not set or the
+Unsplash call failed.
+
 ### `member` `POST /v1/articles`
 
-Creates and immediately publishes an article. `@Roles('member')` — `admin` passes too via
-`RolesGuard`'s ranked model (admin rank ≥ member rank); `client` is rejected. Unlike
-`POST /v1/applications`, this doesn't need an exact-role check — "member or admin" fits the ranked
-model directly.
+Creates an article, submitted (see below) immediately unless `status: 'draft'` is sent.
+`@Roles('member')` — `admin` passes too via `RolesGuard`'s ranked model (admin rank ≥ member
+rank); `client` is rejected. Unlike `POST /v1/applications`, this doesn't need an exact-role
+check — "member or admin" fits the ranked model directly.
 
 **Request:** `CreateArticleRequest` (see `packages/shared-types/article.ts`). Notably:
 - `authorId` is never accepted from the client — always the caller's own id.
-- `status` is never accepted — always created as `published`.
+- `status` — optional, `'draft' | 'published'`. Sending `'draft'` (or a resulting status of
+  `'draft'` on `PATCH`) saves a work-in-progress draft. **Anything else (including omitting the
+  field) means "submit it"** — the actual resulting status (`published` vs. `pending_review`) is
+  resolved server-side from the `ARTICLES_REVIEW_MODE` env var (`instant` default | `editorial`;
+  see `docs/database-erd.md`), never chosen directly by the client. A `draft` skips the
+  word-count check below entirely (re-checked whenever it's later submitted).
+- `countries` — required, min 1 entry; genuinely multi-select (see `docs/database-erd.md`), free-
+  form country names, not ids.
+- `creationMode` — optional, `'manual' | 'ai'`, purely descriptive of which authoring path
+  produced the row (defaults `'manual'`); not an authorization signal, so accepting it directly
+  from the client is fine.
 - `excerpt`, `readTimeMinutes` are never accepted — always server-derived from `body`.
-- `body` must be 800–2000 words (from the design's own "Write it yourself" validation copy),
-  checked in `ArticlesService`, not expressible as a class-validator decorator for a single field.
+- `body` must be 800–2000 words (from the design's own "Write it yourself" validation copy) —
+  only enforced when the resulting status isn't `'draft'` — checked in `ArticlesService`, not
+  expressible as a class-validator decorator for a single field.
 - `practiceAreaIds` validated against a live, `is_active`-filtered `practice_areas` query before
   insert — same load-bearing check as applications' `servicePreferences`; see
   `docs/database-erd.md`.
 
 **Response `201`:** `ArticleDto`. **Errors:** `401` no/invalid token · `403` client account · `400`
-validation failure (malformed body, word count out of range, invalid/inactive practice area id).
+validation failure (malformed body, word count out of range, invalid/inactive practice area id,
+empty `countries`).
 
 ### 🔒 `PATCH /v1/articles/:id`
 
 Partial update. `@Roles('member')` rejects `client` at the guard layer; a finer-grained check in
 `ArticlesService` then requires the caller be the article's own author **or** `admin` — anyone else
-gets `403`. Owner or admin may also change `status` between `draft`/`published` here (self-service
-unpublish/republish) — there's no separate moderation endpoint, since this session doesn't build an
-admin review queue (see `docs/database-erd.md`).
+gets `403`. Owner or admin may also change `status` here (self-service unpublish, or resubmitting
+a `rejected` article — same `'draft'` vs. "submit" resolution as `POST` above; a fresh submission
+clears any earlier `rejectionReason`). There's no separate moderation endpoint for this — approve/
+reject only happens via `GET`/`PATCH /v1/admin/articles` below, in `editorial` review mode.
 
 **Request:** `UpdateArticleRequest` — all fields optional; only provided fields change. `body`,
-`practiceAreaIds` re-validated the same way as `POST` if present; `excerpt`/`readTimeMinutes`
-re-derived if `body` changes.
+`practiceAreaIds`, `countries` re-validated the same way as `POST` if present; `excerpt`/
+`readTimeMinutes` re-derived if `body` changes.
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not the owner and not admin · `404` not
 found · `400` validation failure.
@@ -287,17 +374,42 @@ Same owner-or-admin check as `PATCH`.
 
 **Response `204`.** **Errors:** `401` · `403` not the owner and not admin · `404` not found.
 
+### 🛡️ `manageArticles` `GET /v1/admin/articles`
+
+The editorial review queue's list view — only ever non-empty when `ARTICLES_REVIEW_MODE=editorial`
+(in `instant` mode nothing ever reaches `pending_review`). Same guard chain and shape as
+`GET /v1/admin/applications`: `@Roles('admin')` (freshly re-checked by `RolesGuard`) +
+`@RequiresPermission('manageArticles')` (freshly re-checked by `AdminPermissionGuard` against the
+admin's `admin_role`).
+
+**Query params:** `status` (optional) — narrows to one bucket (e.g. `?status=rejected` to audit
+past decisions); omit for the default queue (`pending_review`).
+
+**Response `200`:** `AdminArticleListItemDto[]` — lighter than `ArticleDto` (no `body`), newest
+first.
+
+### 🛡️ `manageArticles` `PATCH /v1/admin/articles/:id`
+
+Approve (→ `published`) or reject (→ `rejected` + `rejectionReason`) an article that's currently
+`pending_review`. Same guard chain as the `GET` above.
+
+**Request:** `AdminArticleReviewRequest` — `status: 'published' | 'rejected'`, `rejectionReason`
+required when rejecting.
+
+**Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not admin or lacks `manageArticles` ·
+`400` article isn't `pending_review`, or rejecting without a reason.
+
 ## Articles — not built yet (explicitly deferred)
 
-- Admin moderation/review queue (`pending`/`rejected` states, approve/reject actions) — the
-  prototype models this; this session ships plain ownership-scoped CRUD instead. See
-  `docs/database-erd.md`.
 - Tags, AI-generated summary bullet points, view/like/comment counters — none of these are real
-  per-article data in the prototype (tags are suggested-but-never-saved, summary points are a
-  static per-category lookup, engagement is anonymous `localStorage` state) — out of scope for a
-  CRUD-with-ownership contract.
-- `category`/`country` query-param filtering on `GET /v1/articles` — the prototype filters
-  client-side over the full published set; not built server-side yet.
+  persisted per-article data (tags are a cosmetic, client-derived suggestion shown during writing,
+  never saved — matches the prototype's own tags-are-UI-only behavior; summary points are a
+  static seed-data lookup; engagement is anonymous `localStorage` state in the prototype) — out of
+  scope for this contract.
+- `category`/`country` query-param filtering on `GET /v1/articles` — the prototype (and this
+  build) filter client-side over the full published set; not built server-side yet.
+- Email/notification when an article is approved or rejected — no email infrastructure exists yet
+  (root CLAUDE.md's "not yet applicable" list); the author finds out by checking My Articles.
 
 ## Events
 

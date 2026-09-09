@@ -22,7 +22,8 @@ export function ArticlesGrid({
 
   const filtered = useMemo(() => {
     return articles.filter((a) => {
-      const matchesCountry = countryFilter.length === 0 || countryFilter.includes(a.country);
+      const matchesCountry =
+        countryFilter.length === 0 || a.countries.some((c) => countryFilter.includes(c));
       const matchesPracticeArea =
         practiceAreaFilter.length === 0 ||
         a.practiceAreas.some((p) => practiceAreaFilter.includes(p.id));

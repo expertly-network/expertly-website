@@ -35,6 +35,7 @@ export function CredentialsTab({
                   {edu.institution}
                   {edu.endYear ? ` · ${edu.endYear}` : ''}
                 </div>
+                {edu.field && <div className="text-sm text-ink-3">{edu.field}</div>}
               </div>
             ))}
           </div>

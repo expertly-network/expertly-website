@@ -15,7 +15,7 @@ export function MobileCtaBar({ member }: { member: MemberDto }) {
           {formatRate(member.rateMinCents, member.rateMaxCents, member.rateCurrency)}
         </div>
         <div className="text-xs text-ink-3">
-          {member.isAvailable ? 'Available' : 'Not currently available'}
+          {member.isAvailable ? 'Available' : 'Currently unavailable'}
         </div>
       </div>
       <Button disabled aria-disabled="true" title="Coming soon">

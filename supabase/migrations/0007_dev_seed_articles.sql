@@ -23,7 +23,7 @@
 -- there is no real LLM call behind it (see docs/rest-api.md's "not built yet" note).
 insert into public.articles (
   slug, author_id, status, title, body, excerpt, read_time_minutes, cover_image_url,
-  practice_area_ids, country, created_at, updated_at, ai_summary
+  practice_area_ids, countries, created_at, updated_at, ai_summary
 )
 select
   v.slug,
@@ -35,7 +35,7 @@ select
   v.read_time_minutes,
   v.cover_image_url,
   (select array_agg(pa.id) from public.practice_areas pa where pa.name = any(v.practice_area_names)),
-  v.country,
+  array[v.country],
   v.created_at,
   v.created_at,
   v.ai_summary

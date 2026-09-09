@@ -33,6 +33,10 @@ const config: Config = {
         ok: 'var(--ok)',
         error: 'var(--error)',
         'nav-green': 'var(--nav-green)',
+        cta: {
+          DEFAULT: 'var(--cta)',
+          hover: 'var(--cta-hover)',
+        },
       },
 
       fontFamily: {
@@ -94,6 +98,10 @@ const config: Config = {
       borderRadius: {
         input: '10px',
         card: '20px',
+        // The write-flow's own bigger card radius (design/static_html/assets/styles.css's
+        // .anv-write-card/.anv-write-option/.anv-preview-page all use 24px) — visually distinct
+        // from the app's normal 20px `card` radius, used at 3+ call sites in that one flow.
+        'card-lg': '24px',
       },
     },
   },

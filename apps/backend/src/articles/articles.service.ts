@@ -3,37 +3,31 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import sanitizeHtml from 'sanitize-html';
 import { SupabaseService } from '../auth/supabase.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
+  AdminArticleListItemDto,
+  ArticleCreationMode,
   ArticleDto,
   ArticleListItemDto,
   ArticlePracticeArea,
+  ArticleStatus,
 } from '@shared/article';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
+import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
+import { sanitizeArticleBody } from './sanitize-article-body';
+import { AiService } from '../ai/ai.service';
 
-const MIN_WORDS = 800;
+const MIN_WORDS = 400;
 const MAX_WORDS = 2000;
 const EXCERPT_LENGTH = 200;
 
-// Article body is rich HTML (design's own article.html renders <p>/<h2>/<ul>/<blockquote>),
-// authored by a `member` — an untrusted role — so it's sanitised before it ever reaches the
-// database per root CLAUDE.md's non-negotiable "Article HTML: always sanitise with
-// sanitize-html before storing". Allowlist matches exactly the tags the detail page renders,
-// nothing more (no images/tables/scripts/styles).
-const ARTICLE_BODY_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
-  allowedTags: ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'strong', 'em', 'a', 'br'],
-  allowedAttributes: { a: ['href', 'target', 'rel'] },
-  allowedSchemes: ['https'],
-};
-
-function sanitizeArticleBody(html: string): string {
-  return sanitizeHtml(html, ARTICLE_BODY_SANITIZE_OPTIONS).trim();
-}
+type ArticlesReviewMode = 'instant' | 'editorial';
 
 // Word count / excerpt are derived from the sanitised body's plain text, not the raw HTML — so
 // tags don't inflate the word count and the excerpt doesn't contain stray markup.
@@ -41,32 +35,33 @@ function stripHtml(html: string): string {
   return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} });
 }
 
-// Raw shape of a row selected from public.articles. `creation_mode` also exists on the live
-// table (added for a not-yet-built AI-drafting flow — see docs/database-erd.md's "not built
-// yet") but isn't selected: nothing in the current contract exposes it, and it has a `'manual'`
-// default so omitting it from every insert here is fine. `ai_summary` IS selected/exposed below —
-// a real per-article value (seeded, not LLM-generated; see docs/rest-api.md), not the
-// not-yet-built drafting flow.
+// Raw shape of a row selected from public.articles. `creation_mode` now backs the AI-drafting
+// write flow (POST /v1/articles/ai-draft + CreateArticleDto.creationMode) — selected/exposed
+// below, no longer the dead column the old comment here described. `ai_summary` is populated by
+// generateSummaryIfNeeded() the first time an article is published (see docs/rest-api.md),
+// unrelated to creation_mode.
 interface ArticleRow {
   id: string;
   slug: string;
   author_id: string;
-  status: 'draft' | 'published';
+  status: ArticleStatus;
   title: string;
   body: string;
   excerpt: string;
   read_time_minutes: number;
   cover_image_url: string;
   practice_area_ids: string[];
-  country: string;
+  countries: string[];
   state: string | null;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
   ai_summary: string | null;
+  creation_mode: ArticleCreationMode;
 }
 
 const ARTICLE_COLUMNS =
-  'id, slug, author_id, status, title, body, excerpt, read_time_minutes, cover_image_url, practice_area_ids, country, state, created_at, updated_at, ai_summary';
+  'id, slug, author_id, status, title, body, excerpt, read_time_minutes, cover_image_url, practice_area_ids, countries, state, rejection_reason, created_at, updated_at, ai_summary, creation_mode';
 
 interface AuthorInfo {
   name: string;
@@ -81,11 +76,33 @@ interface AuthorInfo {
 
 @Injectable()
 export class ArticlesService {
-  constructor(private readonly supabase: SupabaseService) {}
+  private readonly logger = new Logger(ArticlesService.name);
+
+  // Read once per instance, not per request — a running instance's review mode doesn't change
+  // mid-flight. Defaults to 'instant' (today's only behavior) when unset, so existing deployments
+  // don't need an env change to keep working.
+  private readonly reviewMode: ArticlesReviewMode =
+    process.env.ARTICLES_REVIEW_MODE === 'editorial' ? 'editorial' : 'instant';
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly ai: AiService
+  ) { }
+
+  // The one place a client-requested "make this live" ('published' on the DTO, meaning
+  // "submit") gets resolved to the real resulting status — a client can never set
+  // 'pending_review'/'rejected' directly, only 'draft' or "submit" (see Create/UpdateArticleDto's
+  // comments). Word-count is still asserted against the submitted body either way.
+  private resolveSubmitStatus(): ArticleStatus {
+    return this.reviewMode === 'editorial' ? 'pending_review' : 'published';
+  }
 
   async create(user: AuthenticatedUser, dto: CreateArticleDto): Promise<ArticleDto> {
+    const status: ArticleStatus = dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
     const body = sanitizeArticleBody(dto.body);
-    assertWordCount(body);
+    // A draft-in-progress can be any length — the word-count bound only guards what actually
+    // gets submitted/published, checked again in update() if/when a draft's status flips.
+    if (status !== 'draft') assertWordCount(body);
     await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
     const slug = await this.generateUniqueSlug(dto.title);
 
@@ -94,15 +111,16 @@ export class ArticlesService {
       .insert({
         slug,
         author_id: user.id,
-        status: 'published',
+        status,
         title: dto.title,
         body,
         excerpt: deriveExcerpt(body),
         read_time_minutes: deriveReadTimeMinutes(body),
         cover_image_url: dto.coverImageUrl,
         practice_area_ids: dto.practiceAreaIds,
-        country: dto.country,
+        countries: dto.countries,
         state: dto.state ?? null,
+        creation_mode: dto.creationMode ?? 'manual',
       })
       .select(ARTICLE_COLUMNS)
       .single();
@@ -110,6 +128,7 @@ export class ArticlesService {
     if (error || !inserted) throw new InternalServerErrorException('Failed to create article.');
 
     const row = inserted as ArticleRow;
+    this.generateSummaryIfNeeded(row);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(row.practice_area_ids),
       this.resolveAuthors([user.id]),
@@ -151,10 +170,7 @@ export class ArticlesService {
   async findOne(id: string, user: AuthenticatedUser): Promise<ArticleDto> {
     const row = await this.getRowOrThrow(id);
 
-    // A draft is only visible to its own author or an admin — 404, not 403,
-    // so a non-owner can't distinguish "doesn't exist" from "exists but
-    // isn't published yet."
-    if (row.status === 'draft' && row.author_id !== user.id && user.role !== 'admin') {
+    if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
       throw new NotFoundException('Article not found.');
     }
 
@@ -168,9 +184,10 @@ export class ArticlesService {
   async update(id: string, user: AuthenticatedUser, dto: UpdateArticleDto): Promise<ArticleDto> {
     const existing = await this.getRowOrThrow(id);
     this.assertOwnerOrAdmin(existing, user);
-
     const body = dto.body !== undefined ? sanitizeArticleBody(dto.body) : undefined;
-    if (body !== undefined) assertWordCount(body);
+    const resultingStatus: ArticleStatus | undefined = dto.status === undefined ? undefined : dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
+    const effectiveStatus = resultingStatus ?? existing.status;
+    if (effectiveStatus !== 'draft') assertWordCount(body ?? existing.body);
     if (dto.practiceAreaIds !== undefined) {
       await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
     }
@@ -184,9 +201,14 @@ export class ArticlesService {
     }
     if (dto.coverImageUrl !== undefined) patch.cover_image_url = dto.coverImageUrl;
     if (dto.practiceAreaIds !== undefined) patch.practice_area_ids = dto.practiceAreaIds;
-    if (dto.country !== undefined) patch.country = dto.country;
+    if (dto.countries !== undefined) patch.countries = dto.countries;
     if (dto.state !== undefined) patch.state = dto.state;
-    if (dto.status !== undefined) patch.status = dto.status;
+    if (resultingStatus !== undefined) {
+      patch.status = resultingStatus;
+      // A fresh (re)submission clears any earlier rejection reason — it no longer describes
+      // the article being submitted now.
+      if (resultingStatus !== 'draft') patch.rejection_reason = null;
+    }
 
     const { data: updated, error } = await this.supabase.db
       .from('articles')
@@ -198,6 +220,71 @@ export class ArticlesService {
     if (error || !updated) throw new InternalServerErrorException('Failed to update article.');
 
     const row = updated as ArticleRow;
+    this.generateSummaryIfNeeded(row);
+    const [practiceAreaNames, authors] = await Promise.all([
+      this.resolvePracticeAreaNames(row.practice_area_ids),
+      this.resolveAuthors([row.author_id]),
+    ]);
+    return toDto(row, practiceAreaNames, authors);
+  }
+
+  // 🛡️ manageArticles — the editorial review queue's list view. Defaults to 'pending_review'
+  // (the actual queue); pass `status` to look at a specific bucket instead, e.g. 'rejected' to
+  // audit past decisions. Only ever non-empty when ARTICLES_REVIEW_MODE=editorial — in 'instant'
+  // mode nothing reaches 'pending_review'. Lighter than toDto()'s full ArticleDto (no body).
+  async listForReview(status?: ArticleStatus): Promise<AdminArticleListItemDto[]> {
+    const { data, error } = await this.supabase.db
+      .from('articles')
+      .select(ARTICLE_COLUMNS)
+      .eq('status', status ?? 'pending_review')
+      .order('created_at', { ascending: false });
+
+    if (error) throw new InternalServerErrorException('Failed to load articles for review.');
+    const rows = (data ?? []) as ArticleRow[];
+    const [practiceAreaNames, authors] = await Promise.all([
+      this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
+      this.resolveAuthors(rows.map((r) => r.author_id)),
+    ]);
+
+    return rows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      title: row.title,
+      authorId: row.author_id,
+      authorName: authors.get(row.author_id)?.name ?? 'Expertly Member',
+      practiceAreas: row.practice_area_ids
+        .filter((id) => practiceAreaNames.has(id))
+        .map((id) => ({ id, name: practiceAreaNames.get(id)! })),
+      countries: row.countries,
+      createdAt: row.created_at,
+    }));
+  }
+
+  // 🛡️ manageArticles — approve publishes immediately; reject requires a reason and returns the
+  // article to the author (visible only to them, same as any other non-published status).
+  async review(id: string, dto: AdminArticleReviewDto): Promise<ArticleDto> {
+    const existing = await this.getRowOrThrow(id);
+    if (existing.status !== 'pending_review') {
+      throw new BadRequestException('Only an article pending review can be approved or rejected.');
+    }
+    if (dto.status === 'rejected' && !dto.rejectionReason?.trim()) {
+      throw new BadRequestException('A rejection reason is required.');
+    }
+
+    const { data: updated, error } = await this.supabase.db
+      .from('articles')
+      .update({
+        status: dto.status,
+        rejection_reason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null,
+      })
+      .eq('id', id)
+      .select(ARTICLE_COLUMNS)
+      .single();
+
+    if (error || !updated) throw new InternalServerErrorException('Failed to review article.');
+
+    const row = updated as ArticleRow;
+    this.generateSummaryIfNeeded(row);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(row.practice_area_ids),
       this.resolveAuthors([row.author_id]),
@@ -233,6 +320,24 @@ export class ArticlesService {
     return data as ArticleRow;
   }
 
+  // Fires the first time an article becomes 'published' (ai_summary still null) — never on a
+  // later edit to an already-published article, and never awaited by the caller: the publish/
+  // approve response must return immediately regardless of whether the LLM call succeeds. Errors
+  // are logged and swallowed here, same graceful-degrade posture as AiService's other callers.
+  private generateSummaryIfNeeded(row: ArticleRow): void {
+    if (row.status !== 'published' || row.ai_summary !== null) return;
+
+    void this.ai
+      .summarizeArticle(row.title, row.body)
+      .then((summary) => this.supabase.db.from('articles').update({ ai_summary: summary }).eq('id', row.id))
+      .catch((error) => {
+        this.logger.error(
+          `AI summary generation failed for article ${row.id}`,
+          error instanceof Error ? error.stack : error
+        );
+      });
+  }
+
   private assertOwnerOrAdmin(row: ArticleRow, user: AuthenticatedUser): void {
     if (row.author_id !== user.id && user.role !== 'admin') {
       throw new ForbiddenException('You can only modify your own articles.');
@@ -257,6 +362,15 @@ export class ArticlesService {
     if (invalidIds.length > 0) {
       throw new BadRequestException(`Invalid or inactive practice area id(s): ${invalidIds.join(', ')}`);
     }
+  }
+
+  // Used by AiService (via ArticlesController.aiDraft) to build the AI wizard's prompt from the
+  // ids the client selected in step 1 of the form — practice area *names*, not ids, are what
+  // belong in a natural-language prompt. Thin wrapper over resolvePracticeAreaNames below so the
+  // one query isn't duplicated in AiService.
+  async resolvePracticeAreaNamesList(ids: string[]): Promise<string[]> {
+    const map = await this.resolvePracticeAreaNames(ids);
+    return ids.map((id) => map.get(id)).filter((name): name is string => Boolean(name));
   }
 
   // Read path: deliberately NOT filtered by is_active — an already-created
@@ -403,11 +517,13 @@ function toDto(
     body: row.body,
     excerpt: row.excerpt,
     aiSummary: row.ai_summary,
+    creationMode: row.creation_mode,
     readTimeMinutes: row.read_time_minutes,
     coverImageUrl: row.cover_image_url,
     practiceAreas,
-    country: row.country,
+    countries: row.countries,
     state: row.state,
+    rejectionReason: row.rejection_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

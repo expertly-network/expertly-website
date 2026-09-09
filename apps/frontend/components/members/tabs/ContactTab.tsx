@@ -2,6 +2,13 @@ import { SectionBadge } from '@/components/members/SectionBadge';
 import { getSectionEditBadge } from '@/lib/members/edit-badge';
 import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
+// design/static_html/member-profile.html's populateProfile(): the Website row shows the bare
+// host (protocol + trailing slash stripped) as display text while the link still points at the
+// full URL; LinkedIn always shows the static label "View Profile" rather than the raw URL.
+function stripUrlDisplay(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
 export function ContactTab({
   member,
   edits,
@@ -16,8 +23,12 @@ export function ContactTab({
   const rows: { label: string; value: string | null; href?: string }[] = [
     { label: 'Email', value: member.contactEmail, href: member.contactEmail ? `mailto:${member.contactEmail}` : undefined },
     { label: 'Phone', value: member.contactPhone, href: member.contactPhone ? `tel:${member.contactPhone}` : undefined },
-    { label: 'LinkedIn', value: member.linkedinUrl, href: member.linkedinUrl ?? undefined },
-    { label: 'Website', value: member.website, href: member.website ?? undefined },
+    { label: 'LinkedIn', value: member.linkedinUrl ? 'View Profile' : null, href: member.linkedinUrl ?? undefined },
+    {
+      label: 'Website',
+      value: member.website ? stripUrlDisplay(member.website) : null,
+      href: member.website ?? undefined,
+    },
   ];
   const hasAny = rows.some((r) => r.value);
 

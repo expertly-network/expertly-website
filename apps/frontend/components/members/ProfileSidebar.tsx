@@ -50,7 +50,7 @@ export function ProfileSidebar({
           <span
             className={`h-[7px] w-[7px] flex-none rounded-full ${member.isAvailable ? 'bg-[#16a34a]' : 'bg-ink-4'}`}
           />
-          {member.isAvailable ? 'Available for consultations' : 'Not currently available'}
+          {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
         </div>
         {member.availabilityNotes && (
           <p className="mb-4 text-[13px] leading-relaxed text-ink-3">{member.availabilityNotes}</p>

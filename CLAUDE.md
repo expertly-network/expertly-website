@@ -177,10 +177,12 @@ SDK, which doesn't support that model.
 ✅ Article HTML: always sanitise with sanitize-html before storing
 ```
 
-**Not yet applicable:** AI-assisted article generation is explicitly deferred (nothing calls an LLM
-today) — see `docs/rest-api.md`'s "not built yet" section. When it's built, apply prompt-injection
-prevention on any user-supplied text fed to the model; there's no exact rule set yet because
-there's no implementation to write one against.
+**Built:** AI-assisted article drafting — `POST /v1/articles/ai-draft`
+(`apps/backend/src/ai/`), provider+model fixed via `AI_PROVIDER`/`AI_MODEL` env vars (never
+client-selectable), routed through the Vercel `ai` SDK rather than a per-provider proprietary
+client. The system prompt explicitly instructs the model to treat the member's topic/notes as
+untrusted source material, never as instructions to itself — see `docs/rest-api.md` for the
+full contract. No other AI/LLM integration exists elsewhere in the repo.
 
 ### Error handling
 ```

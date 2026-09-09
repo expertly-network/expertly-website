@@ -188,10 +188,14 @@ a genuinely region-specific practice area is added later.
 page), `admin-dashboard.html`'s article panels, and `assets/admin-data.js`/`article-engagement.js`
 — read in full, not spot-checked, per this doc's own methodology.
 
-**Flow:** a signed-in `member` (or `admin`) writes an article; it's `published` immediately — no
-editorial review queue this iteration (the prototype's `pending → published/rejected` admin
-approval workflow was explicitly considered and deferred, not overlooked). Owner or admin can
-later flip `status` back to `draft` (self-service unpublish) via `PATCH`.
+**Flow:** a signed-in `member` (or `admin`) writes an article through one of two paths (write it
+themselves, or answer the Expertly AI wizard's 3 steps) and submits it. What happens next is a
+deliberate, reversed decision from this table's original note (see "Design decisions" below): an
+`ARTICLES_REVIEW_MODE` env var (`instant` default | `editorial`) controls whether submitting
+publishes immediately (`instant`, the original-and-still-default behavior) or sets `status` to
+`pending_review` for an admin with the `manageArticles` permission to approve (→ `published`) or
+reject (→ `rejected` + `rejection_reason`) via `GET`/`PATCH /v1/admin/articles`. Owner or admin can
+also flip `status` back to `draft` (self-service unpublish) via `PATCH` regardless of mode.
 
 ### `articles`
 
@@ -200,17 +204,18 @@ later flip `status` back to `draft` (self-service unpublish) via `PATCH`.
 | `id` | uuid PK | |
 | `slug` | text NOT NULL, unique | **always server-generated** from `title` on `POST` (kebab-case, `-2`/`-3`/... suffix on collision) — never client-writable, never regenerated on `PATCH`. On `ArticleDto` but not yet wired into routing (article detail route is still `/articles/[id]`) |
 | `author_id` | uuid FK → `profiles.id` | |
-| `status` | enum `draft`\|`published` | default `draft`; `POST` always creates `published` |
+| `status` | enum `draft`\|`pending_review`\|`published`\|`rejected` | default `draft`; which of `published`/`pending_review` a submission resolves to is decided server-side by `ARTICLES_REVIEW_MODE`, never client-chosen directly (see "Flow" above) |
 | `title` | text | |
-| `body` | text | full article content, rich HTML (`<p>`/`<h2>`/`<h3>`/`<ul>`/`<ol>`/`<li>`/`<blockquote>`/`<strong>`/`<em>`/`<a>`/`<br>` only) — always passed through `sanitize-html` server-side before insert/update, per root `CLAUDE.md`'s non-negotiable rule |
+| `body` | text | full article content, rich HTML produced by the write flow's Tiptap editor (`apps/frontend/components/articles/RichTextEditor.tsx`) — `<p>`/`<h2>`/`<h3>`/`<ul>`/`<ol>`/`<li>`/`<blockquote>`/`<strong>`/`<em>`/`<u>`/`<code>`/`<pre>`/`<a>`/`<br>` only, always passed through `sanitize-html` server-side before insert/update, per root `CLAUDE.md`'s non-negotiable rule — kept in lockstep with the editor's own toolbar (no image/table support in either) |
 | `excerpt` | text | **always server-derived** from `body` (truncated to ~200 chars on a word boundary) — never accepted from the client |
 | `read_time_minutes` | smallint | **always server-derived** from `body`'s word count (`words / 200`, min 1) |
-| `cover_image_url` | text | |
+| `cover_image_url` | text | write-it-yourself: member-picked from a curated static set (`apps/frontend/lib/cover-images.ts`, keyed by practice area, no AI/upload); AI wizard: same set, pre-selected |
 | `practice_area_ids` | uuid[], default `{}` | see below — not a join table, same trade-off as `service_preferences` |
-| `country` | text NOT NULL | |
+| `countries` | text[] NOT NULL, default `{}` | genuinely multi-select (an article can apply to more than one country) — same array/no-FK trade-off as `practice_area_ids`, except free-form country names rather than ids, so no live-validation query on write. Was a single required `country` string before the write-flow rebuild; migrated in place (pre-production, no rows to backfill carefully) |
 | `state` | text | optional |
-| `ai_summary` | text | nullable, not populated or exposed by anything in this contract — column exists for a future AI-drafting flow (see "Not built yet" below), not the current API |
-| `creation_mode` | text NOT NULL | default `'manual'`; every write path here omits it and takes the default — same reason as `ai_summary`, reserved for the not-yet-built AI-drafting flow |
+| `rejection_reason` | text | nullable; set only when `status = 'rejected'` (editorial mode), cleared on any resubmission — same shape as `membership_applications.rejection_reason` |
+| `ai_summary` | text | nullable; server-written once by `ArticlesService.generateSummaryIfNeeded()` the first time an article becomes `published` (fire-and-forget, never blocks the publish/approve response) — see `docs/rest-api.md`. Never client-writable. Seed data pre-populates it for dev fixtures. |
+| `creation_mode` | text NOT NULL | default `'manual'`; `'manual' \| 'ai'`, settable via `CreateArticleRequest.creationMode` — see `POST /v1/articles/ai-draft` in `docs/rest-api.md` |
 | `created_at`, `updated_at` | timestamptz | |
 
 **`practice_area_ids` is a native array, not a join table** — the write form's practice-area picker
@@ -234,10 +239,13 @@ feature, not derived from (and in one case directly contradicting) what the stat
   regardless of session state, in the prototype. The real backend gates `GET /v1/articles/:id`
   behind auth anyway; the browse grid (`GET /v1/articles`, list-only, no body) stays public,
   matching the prototype.
-- **No editorial review queue.** The prototype models `pending`/`rejected` states with an admin
-  moderation table; this session intentionally ships plain ownership-scoped CRUD instead
-  (`draft`/`published` only, no queue) — same kind of explicit deferral as membership applications'
-  admin-review endpoint (see above).
+- **Editorial review queue exists, feature-flagged off by default.** An earlier session
+  deliberately deferred this (see this doc's git history); the write-flow rebuild session
+  reinstated it, but as an opt-in (`ARTICLES_REVIEW_MODE=editorial`) rather than the only mode —
+  `instant` (the original, always-published behavior) stays the default so nothing changes for a
+  deployment that never sets the env var. `GET`/`PATCH /v1/admin/articles` mirror the
+  `manageApplications` admin-review pattern almost exactly, gated by the already-reserved (and
+  until now, unused) `manageArticles` permission.
 - **Body content, `country`, and `state` are actually persisted.** The prototype's own
   member-submission flow silently drops all three after the preview screen (a bug in the static
   build, not a design choice) — confirmed by reading its `pendingSubmission` object shape directly.
@@ -246,11 +254,49 @@ feature, not derived from (and in one case directly contradicting) what the stat
 - **`author_id` is a real FK, checked against the authenticated session on every read/write.** The
   prototype hardcodes "current user" to the first seed member for its "My Articles" view — there is
   no real ownership check anywhere in the static build to derive one from.
+- **AI-drafting is a real, working LLM call**, not the prototype's client-side mock — `POST
+  /v1/articles/ai-draft` (see `docs/rest-api.md`) calls whatever provider/model
+  `AI_PROVIDER`/`AI_MODEL` name via the Vercel `ai` SDK. This supersedes root `CLAUDE.md`'s
+  older "AI-assisted article generation is explicitly deferred" note for this one endpoint —
+  everywhere else in the repo that deferral still holds. The write-flow rebuild session expanded
+  this from a bare topic/notes/tone call into the full 3-step wizard's brief (practice areas,
+  countries, notes, recent developments, advice, tone, extra instructions) plus real source
+  ingestion: uploaded PDF/DOCX/TXT documents are parsed to text server-side (`pdf-parse`/
+  `mammoth`, magic-byte checked via `file-type`) and pasted links are fetched server-side with
+  SSRF guards (`apps/backend/src/ai/fetch-safe.ts` — http(s)-only, DNS-resolved IP checked
+  against private/loopback/link-local ranges before and after every redirect hop, 8s timeout,
+  3MB cap) — both transient, fed into the prompt for one generate call, never persisted. A
+  sibling `POST /v1/articles/ai-refine` re-prompts against the current draft plus the member's
+  requested changes (the wizard's inline "refine" box).
+- **Cover image is auto-picked via a live Unsplash search, not AI-generated or uploaded.**
+  `GET /v1/articles/cover-images?query=` (see `docs/rest-api.md`) proxies Unsplash's search API —
+  query is the selected practice area name(s), or a generic finance/legal fallback before any are
+  chosen — so `UNSPLASH_ACCESS_KEY` never reaches the client (`apps/backend/src/ai/
+  unsplash.service.ts`). Up to 5 results come back per query; "Try another image" cycles through
+  them client-side rather than re-querying. An earlier iteration used a small curated local image
+  list instead — replaced with real Unsplash search per explicit client feedback. "Include an
+  illustration" in the AI wizard's step 3 still only ever produces a markdown table, never a real
+  image — no image-generation model is wired anywhere in this repo (root `CLAUDE.md`'s
+  AI-integration deferral still holds for that).
+- **Topic/title suggestions are a real AI call, not local templates.**
+  `POST /v1/articles/suggest-topics` (see `docs/rest-api.md`) is a dedicated `generateText` call
+  returning up to 6 title ideas — with no practice area selected yet, the backend samples 3 random
+  active ones itself. An earlier iteration used a local template+random-practice-area generator
+  instead — replaced with a real model call per explicit client feedback.
+- **Article content is authored in a real rich text editor (Tiptap), not a plain textarea.** The
+  prototype's write form is a bare `<textarea>` (`.anv-textarea-notepad`) — no formatting at all.
+  `apps/frontend/components/articles/RichTextEditor.tsx` adds a toolbar for bold/italic/underline,
+  bullet/numbered lists, blockquote, inline code, code block, and links, matching the reference
+  Expertly repo's own editor choice. Deliberately no headings (would fight the detail page's own
+  h2/h3 hierarchy), images, or tables — kept in lockstep with
+  `ArticlesService`'s `sanitize-html` allowlist above; a toolbar button with no matching allowed
+  tag would silently vanish on save. The AI wizard's plain-text draft is converted to real `<p>`
+  HTML (`plainTextToEditorHtml`) before it loads into this editor, rather than one run-on block.
 
 ### Not built yet (explicitly deferred)
 
-- Admin moderation/review queue (`pending`/`rejected` states, approve/reject actions) — see above.
-- Tags — suggested in the write-flow UI, never actually persisted in the prototype.
+- Tags — suggested in the write-flow UI (cosmetic, client-derived from practice areas + title
+  keywords), never actually persisted — matches the prototype's own tags-are-UI-only behavior.
 - AI-generated summary bullet points — a static per-category lookup table in the prototype, not
   real per-article data.
 - View/like/comment counters — anonymous, `localStorage`-based in the prototype, unrelated to any
@@ -258,8 +304,6 @@ feature, not derived from (and in one case directly contradicting) what the stat
 - Slug-based routing (`/articles/[slug]` instead of `/articles/[id]`) — `slug` exists on the row
   and DTO (server-generated, unique) but the frontend detail route still keys on `id`; wiring
   slug-based lookup into `GET /v1/articles/:id` is a small, self-contained follow-up, not done now.
-- AI-drafting write flow (`ai_summary`, `creation_mode` columns) — see root `CLAUDE.md`'s "AI-
-  assisted article generation is explicitly deferred"; no LLM call exists anywhere in this repo.
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
 

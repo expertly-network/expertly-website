@@ -40,7 +40,7 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
             <span className="text-ink-4">·</span>
             <span>{article.authorName}</span>
             <span className="text-ink-4">·</span>
-            <span>{article.country}</span>
+            <span>{article.countries.join(', ')}</span>
           </div>
 
           <p className="mt-6 text-sm leading-relaxed text-ink-2">{article.excerpt}</p>

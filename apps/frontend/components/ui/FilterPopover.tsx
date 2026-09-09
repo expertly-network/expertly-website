@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export interface FilterPopoverOption {
   value: string;
@@ -18,6 +18,8 @@ export function FilterPopover({
   onChange,
   multi = true,
   searchable = true,
+  footer,
+  fullWidth = false,
 }: {
   label: string;
   options: FilterPopoverOption[];
@@ -25,6 +27,14 @@ export function FilterPopover({
   onChange: (values: string[]) => void;
   multi?: boolean;
   searchable?: boolean;
+  /** Extra content rendered below the option list, inside the popover (e.g. MultiSelect's
+   * "custom / other" free-text add row) — separated by a divider. Optional, no effect on
+   * existing callers that don't pass it. */
+  footer?: ReactNode;
+  /** Stretches the trigger to fill its container and left-aligns the label, matching a real
+   * form field (Input/Select) instead of the default filter-bar pill — MultiSelect opts into
+   * this; the browse-page filter bars (ArticlesGrid, etc.) keep the default pill sizing. */
+  fullWidth?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -63,18 +73,22 @@ export function FilterPopover({
   }
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className={`relative ${fullWidth ? 'w-full' : ''}`} ref={rootRef}>
       <div
-        className={`inline-flex items-center gap-2 rounded-input border px-4 py-2.5 text-sm font-medium transition-colors ${
-          selected.length > 0
-            ? 'border-ink bg-bg-card text-ink'
-            : 'border-line-2 bg-bg-card text-ink-2 hover:border-ink'
+        className={`flex items-center gap-2 rounded-input border text-sm font-medium transition-colors ${
+          fullWidth ? 'w-full justify-between px-3.5 py-3' : 'inline-flex px-4 py-2.5'
+        } ${
+          open
+            ? 'border-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_14%,transparent)]'
+            : selected.length > 0
+              ? 'border-ink bg-bg-card text-ink'
+              : `border-line-2 bg-bg-card hover:border-ink ${fullWidth ? 'text-ink-4' : 'text-ink-2'}`
         }`}
       >
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="inline-flex items-center gap-2"
+          className={`inline-flex items-center gap-2 ${fullWidth ? 'w-full justify-between' : ''}`}
         >
           {triggerLabel}
           <span className="text-ink-4">▾</span>
@@ -92,7 +106,9 @@ export function FilterPopover({
       </div>
 
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-80 w-64 overflow-hidden rounded-xl border border-line bg-bg-card shadow-lg">
+        <div
+          className={`absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-80 overflow-hidden rounded-xl border border-line-2 bg-bg-card shadow-[0_16px_48px_-8px_rgba(0,0,0,0.14),0_4px_12px_-4px_rgba(0,0,0,0.08)] ${fullWidth ? '' : 'w-64'}`}
+        >
           {searchable && (
             <div className="border-b border-line p-2">
               <input
@@ -123,6 +139,7 @@ export function FilterPopover({
               </label>
             ))}
           </div>
+          {footer && <div className="border-t border-line p-1.5">{footer}</div>}
         </div>
       )}
     </div>

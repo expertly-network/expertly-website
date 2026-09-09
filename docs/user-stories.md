@@ -161,16 +161,40 @@ As a member, I want to attach a document or link as proof for a claim so my edit
 
 ### US-07-01: Creating and submitting an article
 As a member, I want to write and submit an article so I can build visibility and credibility.
-- [x] `POST /v1/articles` 🔒 member; body sanitized with `sanitize-html` before storage
-- [x] `GET /v1/articles/me` 🔒 lists the author's own articles regardless of status
-- [ ] No frontend "Write an Article" authoring UI exists yet — these are API-level criteria only;
-      the prototype's write flow (incl. its AI-drafting path) is a separate, later feature
+- [x] `POST /v1/articles` 🔒 member; body sanitized with `sanitize-html` before storage; `status`
+      resolves to `published` or `pending_review` server-side per `ARTICLES_REVIEW_MODE` (never a
+      client choice) — see US-10-02 for the review side
+- [x] `GET /v1/articles/me` 🔒 lists the author's own articles regardless of status; backs the
+      `/articles` page's "My Articles" tab (member/admin only)
+- [x] Frontend write flow at `/articles/write` (`WriteArticleFlow`), reached from a "Write an
+      Article" button in the `/articles` page's tab row (member/admin only) — matches
+      `design/static_html/articles.html`'s write-flow prototype step-for-step: choose a path
+      ("Write it yourself" / "Let Expertly AI draft it") → that path's form → a shared live
+      preview of exactly how the article will render → submit → success.
+- [x] Practice area(s) and countries are both genuinely multi-select (`MultiSelect`, searchable +
+      removable chips); cover image is auto-picked via a live Unsplash search keyed by practice
+      area, with a "shuffle" button; title suggestions are a real AI call
+      (`POST /v1/articles/suggest-topics`); suggested tags are shown during writing but never
+      persisted (cosmetic only, matching the prototype's own tags-are-UI-only behavior).
+- [x] Article content is authored in a real rich text editor (Tiptap —
+      `RichTextEditor`), not a plain textarea: bold, italic, underline, bullet/numbered lists,
+      blockquote, inline code, code block, and links. Matches the reference Expertly repo's own
+      editor choice; kept in lockstep with `ArticlesService`'s `sanitize-html` allowlist (no
+      headings/images/tables in either).
+- [x] AI-drafting path: a 3-step wizard (the basics; your input; sources & style) collects title,
+      practice areas/countries/state, notes/recent developments/advice, uploaded source documents
+      (PDF/DOCX/TXT, parsed server-side, never persisted), links (fetched server-side with SSRF
+      guards), tone, and extra instructions, then `POST /v1/articles/ai-draft` (multipart)
+      generates a `{title, body}` via the backend's fixed `AI_PROVIDER`/`AI_MODEL`. An inline
+      "refine" box (`POST /v1/articles/ai-refine`) can re-prompt the draft before continuing.
+      Nothing is auto-published from a generated draft — the member always continues through the
+      same shared preview step.
 
 ### US-07-02: Editing or withdrawing my article
 As a member, I want to edit or delete my own article before or after publication.
 - [x] `PATCH /v1/articles/:id` and `DELETE /v1/articles/:id` 🔒, scoped to the article's own author
-- [x] AI-assisted article generation is **explicitly deferred** per `docs/rest-api.md` — don't
-      assume an AI-generation endpoint exists
+- [x] Resubmitting a `rejected` article (editorial mode) clears its `rejectionReason` and goes
+      back through the same review-mode resolution as a first submission
 
 ---
 
@@ -204,6 +228,16 @@ to flag it as due-soon.
 ---
 
 ## US-10 — Admin: Article Review ✅
+
+### US-10-02: Reviewing and deciding on a submitted article
+As an admin with `manageArticles` permission, I want to review an article submitted for
+editorial review and approve or reject it.
+- [x] Only reachable when `ARTICLES_REVIEW_MODE=editorial` — the default `instant` mode publishes
+      on submit and this queue stays permanently empty, by design
+- [x] `GET /v1/admin/articles` / `PATCH /v1/admin/articles/:id`, gated by
+      `@RequirePermission('manageArticles')` — same guard chain as `manageApplications`
+- [x] Rejecting requires a reason; it's visible to the author via `GET /v1/articles/me` and shown
+      on their "My Articles" tab
 
 ### US-10-01: Managing admin permissions
 As a `super_admin`, I want to assign sub-tier roles (`content_manager`, `reviewer`) to other

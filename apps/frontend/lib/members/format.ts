@@ -15,5 +15,5 @@ export function formatRate(
   const symbol = currency === 'USD' ? '$' : `${currency} `;
   const min = Math.round(minCents / 100);
   const max = Math.round(maxCents / 100);
-  return min === max ? `${symbol}${min}/hr` : `${symbol}${min}–${max}/hr`;
+  return min === max ? `${symbol}${min} / hr` : `${symbol}${min} – ${symbol}${max} / hr`;
 }

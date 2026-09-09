@@ -1,9 +1,14 @@
-import { getArticlesServer, getMembersServer, getPracticeAreasServer } from '@/lib/api/server';
+import {
+  getArticlesServer,
+  getMembersServer,
+  getMyArticlesServer,
+  getPracticeAreasServer,
+} from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
-import { ArticlesGrid } from '@/components/articles/ArticlesGrid';
-import { ArticlesHeroSearch } from '@/components/articles/ArticlesHeroSearch';
+import { getSessionUser } from '@/lib/auth/session-claims';
+import { ArticlesHero } from '@/components/articles/ArticlesHero';
+import { ArticlesTabsSection } from '@/components/articles/ArticlesTabsSection';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
 
 export const metadata = {
   title: 'Articles — Expertly',
@@ -11,42 +16,38 @@ export const metadata = {
     'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
 };
 
-export default async function ArticlesPage() {
-  const [articles, practiceAreas, members] = await Promise.all([
+export default async function ArticlesPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string };
+}) {
+  const [articles, practiceAreas, members, profile] = await Promise.all([
     getArticlesServer(),
     getPracticeAreasServer(),
     getMembersServer(
       buildMembersQueryString({ sort: 'featured', practiceAreaId: [], country: [], page: 1, pageSize: 50 })
     ),
+    getSessionUser(),
   ]);
+  // Only a vetted member (or admin) can author an article — matches
+  // @Roles('member') on POST /v1/articles; a signed-out visitor or a `client`
+  // who hasn't been approved yet never sees the entry point (or the My Articles tab).
+  const canWrite = profile?.role === 'member' || profile?.role === 'admin';
+  const myArticles = canWrite ? await getMyArticlesServer() : [];
 
   return (
     <div>
-      {/* Dark hero band, matching design/static_html/articles.html — same treatment as the
-          members directory hero. */}
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Knowledge base</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">
-            Insights from the people who actually <span className="text-accent">practice.</span>
-          </h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">
-            Peer-reviewed analysis and expert commentary from verified finance &amp; legal
-            professionals.
-          </p>
-          <ArticlesHeroSearch members={members} articles={articles} />
-        </PageContainer>
-      </section>
+      <ArticlesHero members={members} articles={articles} />
 
       <section className="py-12">
         <PageContainer>
-          {articles.length > 0 ? (
-            <ArticlesGrid articles={articles} practiceAreas={practiceAreas} />
-          ) : (
-            <p className="py-16 text-center text-sm text-ink-3">
-              No articles published yet — check back soon.
-            </p>
-          )}
+          <ArticlesTabsSection
+            articles={articles}
+            practiceAreas={practiceAreas}
+            myArticles={myArticles}
+            canWrite={canWrite}
+            initialTab={searchParams.tab === 'mine' ? 'mine' : 'browse'}
+          />
         </PageContainer>
       </section>
     </div>

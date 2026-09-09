@@ -26,16 +26,18 @@ export class UpdateArticleDto {
   practiceAreaIds?: string[];
 
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  country?: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  countries?: string[];
 
   @IsOptional()
   @IsString()
   state?: string;
 
-  // Taking effect at all (not just passing validation) is gated in
-  // ArticlesService to owner-or-admin — see the controller/service comments.
+  // Taking effect at all (not just passing validation) is gated in ArticlesService to owner-or-
+  // admin. 'published' here means "(re)submit it" — same review-mode resolution as
+  // CreateArticleDto.status, see that file's comment.
   @IsOptional()
   @IsIn(ARTICLE_STATUSES)
   status?: ArticleStatus;

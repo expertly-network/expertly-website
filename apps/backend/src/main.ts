@@ -8,7 +8,11 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
-  app.enableCors();
+  // @fastify/cors defaults `methods` to 'GET,HEAD,POST' (not the fuller cors-npm-package
+  // default), which silently CORS-blocks every cross-origin PATCH/PUT/DELETE — invisible to
+  // curl-based backend verification since curl doesn't enforce CORS, only surfaces in a real
+  // browser. Every method this API actually uses needs to be listed explicitly.
+  app.enableCors({ methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'] });
 
   // Bare @fastify/multipart, no attachFieldsToBody — the one upload route reads the file via
   // request.file() and the sibling `kind` field off its own .fields, validated manually against

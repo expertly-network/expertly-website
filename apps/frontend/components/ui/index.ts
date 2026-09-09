@@ -5,6 +5,7 @@ export { Badge } from './Badge';
 export type { BadgeVariant } from './Badge';
 export { FilterPopover } from './FilterPopover';
 export type { FilterPopoverOption } from './FilterPopover';
+export { MultiSelect } from './MultiSelect';
 export { Input } from './Input';
 export { Select } from './Select';
 export { Textarea } from './Textarea';

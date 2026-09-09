@@ -41,7 +41,7 @@ export function Logo({
       <span
         className={
           collapsible
-            ? 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width] duration-200 group-hover:max-w-[140px] group-hover:opacity-100 group-hover:delay-150'
+            ? 'sidebar-logo-text max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width] duration-200 group-hover:max-w-[140px] group-hover:opacity-100 group-hover:delay-150'
             : ''
         }
       >

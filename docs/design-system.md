@@ -71,6 +71,14 @@ values-only addition to the same CSS-variable pattern.
 - **Success/verified indicator**: `text-ok`.
 - **Error/destructive indicator**: `text-error` — validation messages, required-field markers, destructive-action confirmations. Never a raw hex.
 - **Pending/in-review indicator** (e.g. a member profile section awaiting admin verification): Tailwind's default `amber-50`/`amber-700` pair, used directly (not a `--`-prefixed token) — first and, as of this addition, only call site (`components/members/SectionBadge.tsx`). Promote to a real CSS-variable token if a second call site ever needs it.
+- **"Write an Article" CTA**: `bg-cta` / `bg-cta-hover` (`text-bg-card` on top) — a distinct, more
+  saturated green than `--accent`, ported verbatim from the write-flow prototype's own
+  `.anv-write-cta-btn`/`.anv-write-submit`. Used only for the write-article flow's primary calls
+  to action (tab-row "Write an Article" button, My Articles empty state, form submit buttons) —
+  don't reach for it outside that flow; everywhere else uses `--accent`/`--ok`.
+- **Write-flow card radius**: `rounded-card-lg` (24px) — the write flow's own bigger radius
+  (`.anv-write-card`/`.anv-write-option`/`.anv-preview-page` in the prototype), distinct from the
+  app-wide `rounded-card` (20px). Scoped to that one flow, same reasoning as the CTA green above.
 
 ## Typography scale
 
