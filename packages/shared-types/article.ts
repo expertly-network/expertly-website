@@ -90,7 +90,8 @@ export interface AiDraftArticleRequest {
   notes?: string;
   recentDevelopments?: string;
   advice?: string;
-  /** Fetched server-side (SSRF-guarded) and folded into the prompt; max 5. */
+  /** Passed to the model as plain text; the model itself decides whether to fetch/search each one
+   * via the configured AI_PROVIDER's own hosted web tool (never fetched by our backend). Max 5. */
   sourceLinks?: string[];
   /** Include one markdown table if genuinely relevant — no real image generation exists in this
    * repo (see root CLAUDE.md's AI-integration deferral), so this never produces an illustration. */

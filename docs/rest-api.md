@@ -268,10 +268,15 @@ alongside real file uploads in one request, same reasoning as the membership-app
 upload endpoint. Source files are extracted to text server-side (`pdf-parse` for PDF, `mammoth`
 for DOCX, raw UTF-8 for TXT; magic-byte checked via `file-type` first, per root CLAUDE.md's
 non-negotiable upload rule) and **never persisted** — used once to build this one prompt, then
-discarded. `sourceLinks` (max 5) are fetched server-side with SSRF guards
-(`apps/backend/src/ai/fetch-safe.ts`: http(s)-only, DNS-resolved IP re-checked against
-private/loopback/link-local ranges before and after every redirect hop, 8s timeout, 3MB cap) — a
-link that fails to fetch is silently skipped, not a whole-request error. Same `@Roles('member')`
+discarded. `sourceLinks` (max 5) are **not fetched by this backend at all** — they're listed as
+plain text in the prompt, and the model itself decides whether/when to fetch or search a given one
+using the currently-configured `AI_PROVIDER`'s own hosted web tool (`anthropic.tools.
+webFetch_20260209`, `google.tools.urlContext`, or `openai.tools.webSearch` — see `AiService.
+resolveModelWithSourceLinkTool`). This replaced an earlier server-side fetch
+(`apps/backend/src/ai/fetch-safe.ts`, since deleted) that had a DNS-rebinding SSRF gap — moving the
+fetch to the provider's own infrastructure removes that vulnerability class outright rather than
+patching it. OpenAI's tool is search-based, not a guaranteed exact-URL fetch like Anthropic/
+Google's — source-link grounding quality can differ by configured provider. Same `@Roles('member')`
 posture as `POST /v1/articles`.
 
 **Response `201`:** `AiDraftArticleResponse`. **Errors:** `401` · `403` client account · `400`
