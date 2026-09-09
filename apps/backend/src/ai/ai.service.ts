@@ -1,10 +1,9 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { generateText, type LanguageModel } from 'ai';
+import { generateText, type LanguageModel, type ToolSet } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import sanitizeHtml from 'sanitize-html';
-import { fetchSafeText } from './fetch-safe';
 import type { AiDraftRequestDto } from './dto/ai-draft-request.dto';
 import type { RefineDraftDto } from './dto/refine-draft.dto';
 import { sanitizeArticleBody } from '../articles/sanitize-article-body';
@@ -132,17 +131,50 @@ export class AiService {
     }
   }
 
-  // The AI wizard's step 3 "sources" — each pasted link is fetched here (SSRF-guarded, see
-  // fetch-safe.ts) and folded into the prompt as untrusted grounding material. A link that
-  // fails to fetch is silently skipped (logged, not surfaced as an error) — one bad link
-  // shouldn't fail the whole generate call.
-  private async fetchSourceLinks(links: string[] | undefined): Promise<string> {
-    if (!links || links.length === 0) return '';
-    const texts = await Promise.all(links.map((url) => fetchSafeText(url)));
-    return texts
-      .map((text, i) => (text ? `--- Source link ${i + 1} (${links[i]}) ---\n${text.slice(0, 8000)}` : null))
-      .filter((t): t is string => Boolean(t))
-      .join('\n\n');
+  // generateDraft()-only: resolves both the model AND that provider's own hosted web-fetch/search
+  // tool for pasted source links, so the backend never fetches a member-pasted URL itself (see
+  // docs/superpowers/specs/2026-09-09-ai-source-link-provider-tools-design.md — this replaces the
+  // old fetch-safe.ts, which had a DNS-rebinding SSRF gap). `toolChoice` is left at the SDK
+  // default ('auto') everywhere this is used — the model decides for itself whether a given link
+  // is worth fetching/searching, same as any other drafting judgment call.
+  private resolveModelWithSourceLinkTool(): { model: LanguageModel; tools: ToolSet } {
+    const provider = process.env.AI_PROVIDER as AiProvider | undefined;
+    const modelId = process.env.AI_MODEL;
+
+    if (!provider || !modelId) {
+      throw new ServiceUnavailableException(
+        'AI drafting is not configured (set AI_PROVIDER and AI_MODEL).'
+      );
+    }
+    if (!SUPPORTED_PROVIDERS.includes(provider)) {
+      throw new ServiceUnavailableException(
+        `Unsupported AI_PROVIDER "${provider}" (expected one of ${SUPPORTED_PROVIDERS.join(', ')}).`
+      );
+    }
+
+    switch (provider) {
+      case 'openai': {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) throw new ServiceUnavailableException('OPENAI_API_KEY is not set.');
+        const openai = createOpenAI({ apiKey });
+        return { model: openai(modelId), tools: { web_search: openai.tools.webSearch({}) } };
+      }
+      case 'anthropic': {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) throw new ServiceUnavailableException('ANTHROPIC_API_KEY is not set.');
+        const anthropic = createAnthropic({ apiKey });
+        return {
+          model: anthropic(modelId),
+          tools: { web_fetch: anthropic.tools.webFetch_20260209({ maxUses: 5 }) },
+        };
+      }
+      case 'google': {
+        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+        if (!apiKey) throw new ServiceUnavailableException('GOOGLE_GENERATIVE_AI_API_KEY is not set.');
+        const google = createGoogleGenerativeAI({ apiKey });
+        return { model: google(modelId), tools: { url_context: google.tools.urlContext({}) } };
+      }
+    }
   }
 
   async generateDraft(
@@ -150,8 +182,7 @@ export class AiService {
     practiceAreaNames: string[],
     sourceFileTexts: string[]
   ): Promise<ArticleDraftOutput> {
-    const model = this.resolveModel();
-    const linkText = await this.fetchSourceLinks(input.sourceLinks);
+    const { model, tools } = this.resolveModelWithSourceLinkTool();
 
     const brief = [
       input.title ? `Working title (may be improved): ${input.title}` : null,
@@ -171,14 +202,16 @@ export class AiService {
             .map((text, i) => `--- Uploaded source document ${i + 1} ---\n${text.slice(0, 8000)}`)
             .join('\n\n')
         : null,
-      linkText || null,
+      input.sourceLinks && input.sourceLinks.length > 0
+        ? `Source links the author wants referenced (fetch/search these if useful to ground the article):\n${input.sourceLinks.map((url) => `- ${url}`).join('\n')}`
+        : null,
     ]
       .filter(Boolean)
       .join('\n\n');
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: DRAFT_SYSTEM_PROMPT, prompt: brief }));
+      ({ text } = await generateText({ model, tools, system: DRAFT_SYSTEM_PROMPT, prompt: brief }));
     } catch (error) {
       this.logger.error('AI article draft generation failed', error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('AI drafting failed — try again or write the article manually.');
