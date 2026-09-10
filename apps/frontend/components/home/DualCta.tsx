@@ -1,7 +1,6 @@
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
-// "Two Ways In" — copy verbatim from design/static_html/index.html, fully static.
 export function DualCta() {
   return (
     <section className="border-b border-line py-24">
@@ -42,8 +41,6 @@ export function DualCta() {
             </Button>
           </Card>
           <Card padding="xl" className="relative overflow-hidden bg-ink">
-            {/* Matches design's `.dual-card-dark::before` — soft accent-tinted circle bleeding
-                off the top-right corner, same technique as the other dark cards on this page. */}
             <div
               className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full"
               style={{

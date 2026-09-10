@@ -34,12 +34,8 @@ function matchesEvent(e: EventDto, q: string) {
   );
 }
 
-// Full-screen modal search overlay — matches design/static_html's `.d1-gsearch-overlay`
-// pattern (centered panel, dark backdrop, Escape/backdrop-click to close). Reused by the
-// homepage's AiSearchTeaser, /articles's hero search bar, and /events's hero search bar —
-// each passes whatever entity lists it already fetched, not a site-wide persistent search
-// (that's the roadmap-level global search feature, docs/master-tdd.md §8.3, out of scope
-// here). `events` is optional since not every caller has fetched events (e.g. /articles).
+// Reused by multiple hero search bars; each passes whatever entity lists it already fetched.
+// `events` is optional since not every caller has fetched events.
 export function SearchModal({
   open,
   onClose,

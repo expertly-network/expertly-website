@@ -15,10 +15,7 @@ export class UpdateEventDto {
   @IsNotEmpty()
   description?: string;
 
-  // `@IsOptional()` treats both `undefined` (omitted) and `null` as "skip validation" — so
-  // `null` passes through to EventsService.update(), which only leaves a column unchanged when
-  // the key is absent entirely (`dto.field !== undefined`). This is what lets the admin form
-  // clear a once-set optional field instead of the value being silently preserved.
+  // null clears the field; omitting it leaves it unchanged.
   @IsOptional()
   @IsString()
   shortDescription?: string | null;

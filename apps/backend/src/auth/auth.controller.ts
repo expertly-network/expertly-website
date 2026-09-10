@@ -3,11 +3,7 @@ import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedUser } from './types/auth.types';
 
-/**
- * Small smoke-test surface proving each rest-api.md access level end-to-end.
- * Real business endpoints (consultations, member directory, etc.) will get
- * their own controllers/modules as those features are built.
- */
+/** Smoke-test endpoints, one per access level. */
 @Controller()
 export class AuthController {
   // 🔑 Auth — any authenticated role (client, member, or admin).

@@ -37,15 +37,8 @@ function startOfDay(d: Date) {
   return c;
 }
 
-// Full interactive month-calendar grid — matches design/static_html/index.html's
-// `.home-calendar` (`#hcal-*` inline script) faithfully: Monday-start week grid, today/past/
-// weekend cell states, event pills spanning their date range via CSS grid columns, month
-// navigation. Reimplemented as React state instead of DOM manipulation; the custom
-// fixed-position hover tooltip is simplified to a native `title` attribute (same practical
-// result, far less code). Event pills aren't links — there's no `/events/[slug]` detail page
-// yet, so 30+ individual dead links would be worse than a title-only pill; the single "All
-// events" CTA does link to `/events` (task #6, not yet built, same precedent as this page's
-// "View all" articles link).
+// An interactive month-calendar grid. Event pills aren't links — there's no event detail page
+// yet — so the single "All events" CTA links to /events instead.
 export function EventsCalendar({ events }: { events: EventDto[] }) {
   const [monthOffset, setMonthOffset] = useState(0);
 

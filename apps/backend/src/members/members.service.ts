@@ -22,8 +22,7 @@ import {
   type ProfileIdentityRow,
 } from './members.repository';
 
-// Section name (self-edit payload) -> jsonb column on member_profiles, keyed the same way for
-// both listing and admin-approval (replace-on-approval, see applyEdit()).
+// Maps a self-edit section to its jsonb column on member_profiles.
 const SECTION_TO_COLUMN = {
   work_experiences: 'work_experiences',
   education: 'educations',
@@ -83,8 +82,6 @@ export class MembersService {
   async findOne(id: string, user: AuthenticatedUser): Promise<MemberDto> {
     const row = await this.repository.findDetailByProfileId(id);
 
-    // Don't leak existence of a deactivated/non-own profile — 404, not 403, same posture as a
-    // draft article the caller can't see.
     if (!row || (row.status !== 'active' && row.profile_id !== user.id)) {
       throw new NotFoundException('Member profile not found.');
     }
@@ -241,9 +238,7 @@ export class MembersService {
     }
   }
 
-  // On approval, an array-shaped section's payload wholesale-replaces that member's child rows
-  // for the section; headline_bio/contact overwrite member_profiles columns directly. See
-  // docs/database-erd.md's "whole-section-request workflow" note.
+  // Replaces the section's rows on approval; headline_bio/contact overwrite columns directly.
   private async applyEdit(edit: MemberProfileEditRow): Promise<void> {
     const { member_id: memberId, section, payload } = edit;
 
@@ -267,8 +262,6 @@ export class MembersService {
     const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
     if (!column) throw new BadRequestException(`Unknown edit section: ${section}`);
 
-    // Each item gets a fresh id — there's no DB-generated one for a jsonb array element the way
-    // a real table's uuid PK would provide.
     const items = (payload as Record<string, unknown>[]).map((item) => ({ id: randomUUID(), ...item }));
     await this.repository.applySectionEdit(memberId, column, section, items);
   }

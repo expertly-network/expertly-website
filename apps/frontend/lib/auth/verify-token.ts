@@ -3,11 +3,7 @@ import type { Profile, Role } from '@/lib/auth/types';
 
 const VALID_ROLES: Role[] = ['client', 'member', 'admin'];
 
-// createRemoteJWKSet caches the fetched public keys in-process (handles
-// rotation internally) — still a "no network call per request" design, just
-// verifying against the project's real public key material instead of a
-// shared secret. See the comment on verifySupabaseToken for why this
-// replaced a jsonwebtoken/HS256 approach.
+// Cached JWKS client used to verify Supabase-issued token signatures.
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 function getJwks() {
@@ -23,29 +19,11 @@ interface SupabaseJwtPayload {
   sub: string;
   email: string;
   user_metadata?: { given_name?: string; family_name?: string };
-  // Custom claim from custom_access_token_hook (supabase/migrations/) — NOT
-  // Supabase's own built-in `role` claim, which is always "authenticated" for
-  // any logged-in user and unrelated to our client/member/admin business role.
+  // Custom claim carrying the app's client/member/admin role.
   app_role?: string;
 }
 
-/**
- * Verifies a Supabase access token's signature against the project's JWKS
- * (public keys, fetched once and cached — no round-trip to Supabase Auth).
- * Mirrors apps/backend/src/auth/verify-token.ts; see CLAUDE.md for the full
- * rationale (fast path everywhere, DB re-check reserved for sensitive
- * backend actions).
- *
- * Originally implemented against a shared HS256 secret — discovered wrong
- * the first time this was tested against a real project: Supabase's modern
- * default is asymmetric signing (this project uses ES256), which a
- * shared-secret check can never verify. JWKS verification works with
- * whatever algorithm the project actually uses.
- *
- * `app_role` is only present once the Custom Access Token Hook is registered
- * in the Supabase dashboard; missing/unrecognized claims safely default to
- * 'client' — the lowest-privilege role (fails closed, not open).
- */
+// Verifies a Supabase access token and returns the profile it encodes.
 export async function verifySupabaseToken(token: string): Promise<Profile> {
   const { payload } = await jwtVerify(token, getJwks(), { audience: 'authenticated' });
   const claims = payload as unknown as SupabaseJwtPayload;

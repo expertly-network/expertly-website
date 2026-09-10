@@ -7,10 +7,7 @@ export interface FilterPopoverOption {
   label: string;
 }
 
-// A checkbox/radio popover for filter controls that need multi-select
-// and/or in-list search — native <select> (see Select.tsx) can't do either.
-// New base primitive because the directory's practice/country/rate/sort
-// filters all need this shape; documented in docs/design-system.md (Task 20).
+// A checkbox/radio popover supporting multi-select and in-list search.
 export function FilterPopover({
   label,
   options,
@@ -27,13 +24,9 @@ export function FilterPopover({
   onChange: (values: string[]) => void;
   multi?: boolean;
   searchable?: boolean;
-  /** Extra content rendered below the option list, inside the popover (e.g. MultiSelect's
-   * "custom / other" free-text add row) — separated by a divider. Optional, no effect on
-   * existing callers that don't pass it. */
+  /** Extra content rendered below the option list, separated by a divider. */
   footer?: ReactNode;
-  /** Stretches the trigger to fill its container and left-aligns the label, matching a real
-   * form field (Input/Select) instead of the default filter-bar pill — MultiSelect opts into
-   * this; the browse-page filter bars (ArticlesGrid, etc.) keep the default pill sizing. */
+  /** Stretches the trigger to fill its container, like a form field. */
   fullWidth?: boolean;
 }) {
   const [open, setOpen] = useState(false);

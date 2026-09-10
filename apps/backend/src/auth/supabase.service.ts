@@ -3,11 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class SupabaseService {
-  // Service-role client: bypasses RLS. Used only for the fresh `profiles.role`
-  // re-check that RolesGuard performs on 🛡️ Admin routes (see roles.guard.ts) —
-  // every other route trusts the JWT's claims (see verify-token.ts) without
-  // touching the DB at all. Never expose this client or its key outside this
-  // backend.
+  // Service-role Supabase client. Bypasses RLS — never expose outside the backend.
   readonly db: SupabaseClient;
 
   constructor() {

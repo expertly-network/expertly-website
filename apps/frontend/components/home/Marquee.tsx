@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react';
 
-// Splits `items` into `rows` buckets (round-robin) and renders each as an
-// infinitely-scrolling track — alternating direction per row, content
-// duplicated so the loop is seamless. `speeds` cycles per row so rows don't
-// all drift in lockstep. Ported from design/static_html/assets/home.js's
-// row-assignment logic (initFeaturedMembers/initPracticeAreas/initFirmsBand
-// all share this shape); the CSS keyframes live in globals.css since they're
-// shared by every homepage marquee, not just one component.
+// Splits items into row buckets, each an infinitely-scrolling, alternating-direction track.
 export function Marquee<T>({
   items,
   rows,

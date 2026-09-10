@@ -14,9 +14,7 @@ import { N8nLinkedInImportProvider } from './linkedin-import/n8n-linkedin-import
   providers: [
     ApplicationsService,
     ApplicationsRepository,
-    // Real provider when LINKEDIN_IMPORT_WEBHOOK_URL is configured, mock otherwise — keeps
-    // `pnpm dev` working for anyone without the real n8n webhook URL. See
-    // docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md §3.
+    // Uses the real n8n provider when configured, otherwise a mock.
     {
       provide: LinkedInImportProvider,
       useClass: process.env.LINKEDIN_IMPORT_WEBHOOK_URL

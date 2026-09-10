@@ -8,14 +8,7 @@ const TAB_CLASSES = (isActive: boolean) =>
     isActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-4 hover:text-ink-2'
   }`;
 
-// Matches design/static_html/articles.html's `#anv-tab-row` — persistent chrome shown above
-// every panel of the articles experience (browse, my articles, AND the write flow all sit below
-// this same row in the prototype's single page). Two modes:
-// - `onTabChange` provided (the /articles page itself): tabs are buttons that swap a client-side
-//   panel, per ArticlesTabsSection.
-// - `onTabChange` omitted (e.g. /articles/write, a separate Next.js route): tabs are plain links
-//   back to /articles, so the header still renders there without needing the panel-swap state.
-//   Neither tab shows "active" on that page — write isn't one of the two tab panels.
+// Tabs are buttons when onTabChange is provided (client-side panel swap), plain links otherwise.
 export function ArticlesTabsNav({
   canWrite,
   active,

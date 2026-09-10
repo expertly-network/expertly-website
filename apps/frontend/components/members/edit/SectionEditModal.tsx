@@ -16,10 +16,7 @@ import type { CreateMemberEditRequest, MemberDto, MemberEditSection } from '@sha
 
 type Row = Record<string, unknown>;
 
-// The native `required` attribute on Input/Textarea never actually blocks
-// submission since Submit is a <Button onClick>, not a <form onSubmit> — so
-// required-field completeness has to be checked explicitly and folded into
-// canSubmit, across every row for list/clients shapes.
+// Submit isn't a native form submit, so required-field completeness is checked explicitly.
 function hasRequiredFieldsFilled(config: SectionConfig, data: Row | Row[]): boolean {
   const rows = Array.isArray(data) ? data : [data];
   const requiredKeys = config.fields
@@ -57,10 +54,7 @@ function initialPayload(member: MemberDto, section: MemberEditSection): Row | Ro
         ? member.workExperiences.map(({ id: _id, ...rest }) => rest)
         : [{ ...EMPTY_ROW.work_experiences }];
     case 'key_clients':
-      // logoUrl is carried through unchanged unless a new file is uploaded
-      // (see the 'clients'-shape logo input below) — edits replace the
-      // section wholesale, so dropping it here would silently wipe an
-      // existing client's logo even if the member only meant to add another.
+      // Carried through unchanged unless a new file is uploaded.
       return member.keyClients.length
         ? member.keyClients.map((c) => ({ name: c.name, logoUrl: c.logoUrl, logoUploadPath: undefined }))
         : [{ ...EMPTY_ROW.key_clients }];
@@ -158,8 +152,7 @@ export function SectionEditModal({
 
   if (!section || data === null) return null;
 
-  // Captured as a const so the non-null narrowing survives into the nested
-  // closures below (addRow) — a parameter binding loses it there.
+  // Keeps the non-null narrowing available inside nested closures below.
   const activeSection = section;
 
   const config = SECTION_CONFIG[section];
@@ -191,9 +184,7 @@ export function SectionEditModal({
   const proofSatisfied = !needsProof || Boolean(proofFile) || proofLink.trim().length > 0;
   const canSubmit = proofSatisfied && hasRequiredFieldsFilled(config, data) && !submitting;
 
-  // 'clients' shape uploads a logo per-row, immediately on file select (not
-  // deferred to submit like proof files) — each row's logoUploadPath is set
-  // as soon as its own upload finishes, independent of the other rows.
+  // Uploads immediately per row, not deferred to submit like proof files.
   async function handleLogoUpload(rowIndex: number, file: File) {
     setError(null);
     try {

@@ -9,9 +9,7 @@ import { REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@
 import type { BillingPeriod } from '@shared/membership-application';
 import type { PracticeAreaDto } from '@shared/practice-area';
 
-// Static display copy. Annual-only per 2026-08-31 client feedback (monthly billing removed) —
-// the authoritative amount is always whatever POST /v1/applications returns, this is just UI
-// copy, not something computed/trusted client-side.
+// Static display copy; the authoritative amount always comes from the backend.
 const PRICE_LABEL: Record<BillingPeriod, string> = {
   annual: '$499/year',
 };

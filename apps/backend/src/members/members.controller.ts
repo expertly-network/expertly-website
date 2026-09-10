@@ -3,7 +3,6 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-// Real (not `import type`) import — Swagger's @ApiResponse needs the actual classes at runtime.
 import { MemberDto, MemberListItemDto, MemberProfileEditDto, UploadResponse } from '@shared/member';
 import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
@@ -43,8 +42,7 @@ export class MembersController {
     });
   }
 
-  // 🔒 full detail requires sign-in (any role) — a deliberate product decision, see
-  // docs/database-erd.md. No @Public() here is deliberate, same posture as articles' findOne.
+  // 🔒 Full detail requires sign-in (any role).
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberDto> {
     return this.service.findOne(id, user);
@@ -61,8 +59,7 @@ export class MembersController {
     return this.service.requestUpload(id, user, dto);
   }
 
-  // member, owner-only. Never touches the live profile — only creates a pending edit request;
-  // admin approval (see AdminMembersController) applies it.
+  // member, owner-only — creates a pending edit request; admin approval applies it.
   @Roles('member')
   @Patch(':id/edits')
   createEdit(
@@ -73,8 +70,7 @@ export class MembersController {
     return this.service.createEdit(id, user, dto);
   }
 
-  // 🔒 Owner — no @Roles() needed, same as GET /articles/me; the service's ownership check is
-  // what actually scopes this.
+  // 🔒 Owner — scoped by the service's ownership check.
   @Get(':id/edits')
   listMyEdits(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
     return this.service.listMyEdits(id, user);

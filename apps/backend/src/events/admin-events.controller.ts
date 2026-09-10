@@ -1,18 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
-// Real (not `import type`) import — Swagger's @ApiResponse needs the actual class at runtime,
-// same as ArticlesController/AdminApplicationsController.
 import { EventDto } from '@shared/event';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 
-// 🛡️ manageEvents — @Roles('admin') for the base role (freshly re-checked by RolesGuard),
-// @RequiresPermission('manageEvents') to further narrow to admins whose admin_role actually
-// carries it (freshly re-checked by AdminPermissionGuard). Same pattern as
-// AdminApplicationsController / AdminMembersController. Direct CRUD only — no suggestion-queue
-// endpoints here, see docs/superpowers/specs/2026-09-08-admin-events-crud-design.md.
+// 🛡️ manageEvents — direct admin CRUD.
 @Roles('admin')
 @RequiresPermission('manageEvents')
 @Controller('admin')

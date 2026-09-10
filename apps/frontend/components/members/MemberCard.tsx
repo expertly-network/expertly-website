@@ -8,16 +8,8 @@ const TIER_BADGE_LABEL: Record<MemberListItemDto['memberTier'], string | null> =
   seasoned_professional: null,
 };
 
-// Matches design/static_html/members.html's `.mv4-card` exactly, including its structure:
-// the whole card (photo + content, including the "Request Consultation" button) is one link
-// (`<a class="mv4-card">` in the source) — a CSS grid with the photo and content as the two
-// row items, so they stretch to equal height and the content column's chip/button row can
-// pin itself to the bottom via `margin-top: auto`, aligning with the photo's bottom edge
-// naturally. The design nests `<button class="mv4-request-btn">` inside that same `<a>` and
-// stops the click from also triggering navigation via `event.stopPropagation()` — replicated
-// here the same way, not split into a separate sibling block (which is what this component
-// used to do, and why the divider/chips row visually detached from the photo instead of
-// tracking its bottom edge).
+// The whole card, including the consultation button, is one link; the button stops
+// propagation so it doesn't also trigger navigation.
 export function MemberCard({ member }: { member: MemberListItemDto }) {
   const location = [member.city, member.country].filter(Boolean).join(', ');
   const roleText = member.firmName

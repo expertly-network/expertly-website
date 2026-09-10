@@ -7,19 +7,12 @@ import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import type { ReactNode } from 'react';
 
-// The write flow's article-content editor. Tiptap (matching the reference repo's own choice —
-// see docs/database-erd.md), configured to a deliberately small surface: paragraphs, bold/
-// italic/underline, bullet/numbered lists, blockquote, inline code + code block, and links —
-// exactly the tags apps/backend/src/articles/articles.service.ts's sanitize-html allowlist
-// accepts, so nothing a member formats here gets silently stripped on save. No headings/images/
-// tables — headings would fight the detail page's own h2/h3 hierarchy, and images need upload
-// infra this repo doesn't have yet.
+// A deliberately small toolset matching the backend's sanitize-html allowlist, so nothing a
+// member formats here gets silently stripped on save.
 function buildExtensions(placeholder?: string) {
   return [
     StarterKit.configure({
       heading: false,
-      // codeBlock/blockquote/bulletList/orderedList/bold/italic/code/paragraph/hardBreak all
-      // stay enabled at StarterKit's defaults.
     }),
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),

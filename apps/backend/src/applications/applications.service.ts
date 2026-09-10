@@ -23,9 +23,6 @@ import { applyCoupon } from './constants/coupons';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import { ApplicationsRepository, type ApplicationRow } from './applications.repository';
 
-// Pinned to file-type@16 deliberately — v17+ is pure ESM with an exports-map-only type layout
-// that this backend's CommonJS moduleResolution can't resolve (confirmed: TS2307 even via a
-// dynamic import()). v16 is the last CJS-native major, so a plain static import works.
 type UploadKind = 'photo' | 'document';
 
 const ALLOWED_MIME: Record<UploadKind, string[]> = {
@@ -37,11 +34,7 @@ const MAX_BYTES: Record<UploadKind, number> = {
   document: 15 * 1024 * 1024,
 };
 
-// A draft row is the one deliberate exception to this table's otherwise-immutable-snapshot
-// design (see supabase/migrations/0004_tables.sql's table comment) — these are the columns a
-// save-on-advance write is allowed to touch. Kept as a literal map (not derived from
-// UpdateApplicationDto's keys) so a future DTO field addition doesn't silently become writable
-// here without a deliberate edit to this map too.
+// Columns a draft's save-on-advance write is allowed to touch, mapped to their DTO key.
 const WRITABLE_COLUMNS: Record<string, keyof UpdateApplicationDto> = {
   first_name: 'firstName',
   last_name: 'lastName',
@@ -95,28 +88,18 @@ export class ApplicationsService {
   ) {}
 
   async saveOrSubmit(user: AuthenticatedUser, dto: UpdateApplicationDto): Promise<ApplicationDto> {
-    // Exact-role check, not @Roles('client') — RolesGuard's ranked model (admin
-    // satisfies a 'member' check) is wrong here: this endpoint is for client
-    // accounts specifically, not "client or higher."
+    // This endpoint is for client accounts specifically, not client-or-higher.
     if (user.role !== 'client') {
       throw new ForbiddenException('Only client accounts can manage a membership application.');
     }
 
     const latest = await this.repository.findLatestByApplicant(user.id);
 
-    // 'rejected' deliberately does NOT block a new application — matches the frontend's
-    // pre-existing intent (app/apply/page.tsx's redirect gate only blocks
-    // submitted/under_review/approved) and lets a rejected applicant try again. 'approved' is
-    // blocked here for defense-in-depth even though the role check above already makes it
-    // unreachable in practice (an approved applicant's role is flipped to 'member', so they'd
-    // never pass as user.role === 'client' to begin with).
     if (latest && ['submitted', 'under_review', 'approved'].includes(latest.status)) {
       throw new ConflictException('You already have an application in progress or decided.');
     }
 
-    // A 'rejected' row is a historical record, not something this call should mutate — a fresh
-    // application after rejection starts a brand-new row (insert path below), leaving the
-    // rejection intact for audit rather than silently overwriting it back to 'draft'.
+    // A rejected application isn't reused — a new application starts a fresh row.
     const existing = latest && latest.status === 'draft' ? latest : null;
 
     const patch: Row = {};
@@ -135,10 +118,7 @@ export class ApplicationsService {
       throw new BadRequestException('rateMaxCents must be greater than rateMinCents.');
     }
 
-    // MUST validate every practiceAreaId against a live, active practice_areas lookup before
-    // any insert/update that carries service_preferences — there's no FK/CASCADE safety net on
-    // this jsonb column (see supabase/migrations/0004_tables.sql's comment on it). Only runs
-    // when this call actually touches service_preferences, not on every unrelated save.
+    // Validates practiceAreaIds only when this call touches service_preferences.
     let practiceAreaById = new Map<string, string>();
     if (dto.servicePreferences !== undefined) {
       practiceAreaById = await this.assertActiveAndResolve(dto.servicePreferences);
@@ -167,10 +147,7 @@ export class ApplicationsService {
       ? await this.repository.updateById(existing.id, patch)
       : await this.repository.insert({ ...patch, applicant_id: user.id });
 
-    // If this call didn't touch service_preferences, resolve names from whatever the saved row
-    // already carries (read path — no is_active filter, same "an already-saved reference keeps
-    // showing its real name even if since deactivated" convention articles.practice_area_ids
-    // uses on read).
+    // Resolve names from the saved row when this call didn't touch service_preferences.
     if (dto.servicePreferences === undefined) {
       practiceAreaById = await this.resolvePracticeAreaNames(saved.service_preferences ?? []);
     }
@@ -190,14 +167,7 @@ export class ApplicationsService {
     return this.linkedInImportProvider.importProfile(linkedinUrl);
   }
 
-  // Proxies the upload through the backend rather than issuing a signed upload URL (unlike
-  // members.service.ts's requestUpload) — a signed-URL flow never puts the file's bytes through
-  // the API, so magic-byte MIME validation (root CLAUDE.md's non-negotiable file-upload rule)
-  // would be structurally impossible. See the spec doc §6 for the full rationale.
-  //
-  // `file`'s shape is deliberately a plain object, not Express.Multer.File/Fastify's
-  // MultipartFile — the controller adapts whatever the HTTP adapter hands it into this shape,
-  // so this service stays adapter-agnostic (see applications.controller.ts's uploadFile).
+  // Proxies the file through the backend so its MIME type can be validated from magic bytes.
   async uploadFile(
     user: AuthenticatedUser,
     kind: UploadKind,
@@ -248,20 +218,12 @@ export class ApplicationsService {
     return this.toDto(saved, practiceAreaById);
   }
 
-  // 🛡️ manageApplications — the admin review queue's list view. Defaults to the two
-  // reviewable statuses (draft/approved/rejected already have a decided or not-yet-actionable
-  // outcome); pass `status` to look at a specific bucket instead, e.g. 'approved' to audit past
-  // decisions.
+  // 🛡️ manageApplications — defaults to the two reviewable statuses (submitted, under_review).
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
     return this.repository.listForReview(status);
   }
 
-  // Approve/reject a submitted application. Not a real DB transaction — supabase-js has no
-  // multi-statement transaction API from a service-role client, so this is a deliberately
-  // ordered sequence instead: member_profiles/member_services are provisioned and the role flip
-  // happens *before* the application itself is marked 'approved', so a mid-sequence failure
-  // leaves the application still 'submitted' (reviewable again) rather than silently 'approved'
-  // with no member actually provisioned.
+  // Approves or rejects a submitted application, provisioning a member profile on approval.
   async reviewApplication(
     applicationId: string,
     reviewer: AuthenticatedUser,
@@ -324,13 +286,12 @@ export class ApplicationsService {
     return { status: 'approved' };
   }
 
-  /** Read path — resolves names with no is_active filter (see findMine's comment). */
   private async resolvePracticeAreaNames(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
     if (servicePreferences.length === 0) return new Map();
     return this.repository.findPracticeAreaNames(servicePreferences.map((p) => p.practiceAreaId));
   }
 
-  /** Write path — rejects any id that isn't a real, currently-active practice area. */
+  // Resolves names and rejects any id that isn't a currently-active practice area.
   private async assertActiveAndResolve(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
     if (servicePreferences.length === 0) return new Map();
 
@@ -355,8 +316,6 @@ export class ApplicationsService {
     const servicePreferences = (row.service_preferences ?? []) as unknown[];
     if (workExperiences.length < 1) missing.push('workExperiences');
     if (educations.length < 1) missing.push('educations');
-    // Exactly 2, not "at least 2" — matches the client's explicit "two peer references" ask,
-    // not an open-ended list.
     if (peerReferences.length !== 2) missing.push('peerReferences (exactly 2 required)');
     if (servicePreferences.length < 1) missing.push('servicePreferences');
     if (row.background_check_consent !== true) missing.push('backgroundCheckConsent must be true');

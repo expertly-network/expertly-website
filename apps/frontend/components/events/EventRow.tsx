@@ -21,14 +21,7 @@ function formatDateRange(startDate: string, endDate: string | null): string {
     : `${DATE_FORMAT.format(start)} – ${DATE_FORMAT.format(end)}`;
 }
 
-// Matches design/static_html/events.html's `.ev-row` layout exactly — 140px date column, 36px
-// column gap, 17px date/title text. `isMonthFirst` reproduces the design's `.ev-row.ev-month-
-// first` treatment — the first event of each month group gets a tinted, border-free highlight
-// instead of the plain divider row every other event uses.
-//
-// `adminBadge`/`adminActions` are optional slots the admin list (components/admin/
-// AdminEventsList.tsx) uses to show a draft/published Badge and swap the public Register CTA for
-// Edit/Delete actions — the public /events page passes neither and renders exactly as before.
+// adminBadge/adminActions let the admin list show a status badge and swap in edit/delete actions.
 export function EventRow({
   event,
   isMonthFirst = false,
@@ -87,8 +80,6 @@ export function EventRow({
         <h3 className="line-clamp-2 text-[17px] font-semibold leading-[1.25] tracking-[-0.018em] text-ink">
           {event.title}
         </h3>
-        {/* `description` holds the seed's short one-line blurb (0006_dev_seed_events.sql) —
-            `shortDescription` is a separate, currently-unpopulated column, not used here. */}
         {event.description && (
           <p className="mt-1 line-clamp-1 text-[13px] leading-[1.5] text-ink-3">{event.description}</p>
         )}
@@ -102,11 +93,6 @@ export function EventRow({
         </div>
       )}
 
-      {/* registrationUrl is unpopulated in seed data and there's no real registration/booking
-          backend yet — same disabled-CTA treatment as MemberCard's Request Consultation button,
-          not a fake external link, matching the design's own Register button (equally
-          non-functional there: `onclick="event.preventDefault()"`). adminActions overrides this
-          entirely in the admin list. */}
       {adminActions ?? registerAction}
     </div>
   );

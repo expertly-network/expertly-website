@@ -2,11 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { SupabaseService } from '../auth/supabase.service';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
 
-// Raw shape of a row selected from public.articles. `creation_mode` now backs the AI-drafting
-// write flow (POST /v1/articles/ai-draft + CreateArticleDto.creationMode) — selected/exposed
-// below, no longer the dead column the old comment here described. `ai_summary` is populated by
-// ArticlesService.generateSummaryIfNeeded() the first time an article is published (see
-// docs/rest-api.md), unrelated to creation_mode.
+// Raw shape of a row selected from public.articles.
 export interface ArticleRow {
   id: string;
   slug: string;
@@ -49,19 +45,12 @@ const ARTICLE_COLUMNS = [
 
 export interface AuthorInfo {
   name: string;
-  // `profiles.avatar_url` is used directly (not a private storage path needing a signed URL) —
-  // same posture as MembersRepository's `photoUrl`.
   photoUrl: string | null;
-  // headline/firmName mirror MemberListItemDto's fields — the article card's "designation"
-  // line (design/static_html/articles.html: `[title, firm].filter(Boolean).join(', ')`).
   headline: string | null;
   firmName: string | null;
 }
 
-// Slugs are always generated server-side (root CLAUDE.md's non-negotiable rule) — kebab-case the
-// title, then disambiguate against the table's real unique constraint by appending `-2`, `-3`, ...
-// Deliberately not sharing common/slugify.ts's generateUniqueSlug (pre-existing duplication, not
-// something this layering pass changes — see the design spec's "explicitly out of scope").
+// Kebab-cases a title for use as the base of a slug.
 function slugify(title: string): string {
   const base = title
     .toLowerCase()
@@ -136,8 +125,6 @@ export class ArticlesRepository {
     return updated as unknown as ArticleRow;
   }
 
-  // Same shape as updateById — kept separate because it's a distinct intent (editorial decision)
-  // with its own error message, matching what review() threw before this moved.
   async applyReview(id: string, patch: Record<string, unknown>): Promise<ArticleRow> {
     const { data: updated, error } = await this.supabase.db
       .from('articles')
@@ -166,17 +153,12 @@ export class ArticlesRepository {
     if (error) throw new InternalServerErrorException('Failed to delete article.');
   }
 
-  // Fire-and-forget from ArticlesService.generateSummaryIfNeeded — deliberately doesn't check
-  // `error` here, matching the original inline call's behavior: a failed ai_summary write is
-  // swallowed the same way an AiService failure is (see that method's comment), not surfaced to
-  // the publish/approve caller.
+  // Errors are not surfaced — a failed summary write shouldn't block the publish/approve response.
   async updateAiSummary(id: string, summary: string): Promise<void> {
     await this.supabase.db.from('articles').update({ ai_summary: summary }).eq('id', id);
   }
 
-  // Write path: only ids that exist AND are currently active are accepted — same load-bearing
-  // check as ApplicationsRepository's practice-area validation (no FK, so this is the only thing
-  // enforcing referential integrity on write).
+  // Only ids that exist and are currently active.
   async findActivePracticeAreaIds(ids: string[]): Promise<Set<string>> {
     const { data, error } = await this.supabase.db
       .from('practice_areas')
@@ -188,9 +170,7 @@ export class ArticlesRepository {
     return new Set((data ?? []).map((p) => p.id as string));
   }
 
-  // Read path: deliberately NOT filtered by is_active — an already-created article should keep
-  // showing the real name of a practice area even if it's since been deactivated, unlike the
-  // write-path check above.
+  // Resolves practice area names regardless of whether they're still active.
   async findPracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
@@ -201,13 +181,7 @@ export class ArticlesRepository {
     return new Map((data ?? []).map((p) => [p.id as string, p.name as string]));
   }
 
-  // Every article author is a `member` — their real photo lives on `member_profiles.photo_url`
-  // (set from their application, see MembersRepository's identical fallback), not
-  // `profiles.avatar_url` (a separate, not-yet-built self-service-avatar column that's null for
-  // every seeded/real member today). Two queries rather than a join: supabase-js's embedded-
-  // resource syntax needs a declared FK relationship for this pair that doesn't exist here (see
-  // `member_profiles.profile_id`'s own comment in the migration), so a plain `.in()` + in-memory
-  // merge is simpler than fighting the query builder for one nullable column.
+  // Resolves author name/photo/headline/firm from profiles and member_profiles.
   async findAuthorsInfo(ids: string[]): Promise<Map<string, AuthorInfo>> {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();

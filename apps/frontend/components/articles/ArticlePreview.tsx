@@ -7,11 +7,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Guest view of an article detail page — per docs/user-stories.md US-01-03, a signed-out
-// visitor sees the list-shape data (title + excerpt) but not the full body, which genuinely
-// requires auth at the API level (GET /v1/articles/:id has no @Public()). This calls only the
-// public GET /v1/articles list endpoint and finds the matching item — it never calls the
-// gated detail endpoint for a guest, since that would just 401.
+// A signed-out visitor sees a teaser (title + excerpt), not the full body.
 export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
   return (
     <div>

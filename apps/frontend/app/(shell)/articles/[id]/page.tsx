@@ -17,8 +17,6 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Verbatim from design/static_html/article.html — real product copy (legal disclaimer), not
-// prototype filler, so it's reproduced as-is rather than paraphrased.
 const LEGAL_DISCLAIMER =
   "The views expressed in this article are those of the author and do not constitute legal, tax, or financial advice. This content is published for informational purposes only. Readers should seek independent professional advice before acting on any information contained herein.";
 
@@ -34,13 +32,7 @@ const META_ICON_PROPS = {
   className: 'flex-none text-ink-4',
 };
 
-// Feeds LinkedIn/Reddit/Quora's own link-preview crawlers (see ArticleShareBar) — those
-// services build the share card from the target page's Open Graph tags, not from anything we
-// can pass in the share URL itself (LinkedIn deprecated title/summary URL params in 2018). Only
-// published articles get real OG data — the same guest-visible `GET /v1/articles` list this
-// route's own signed-out branch below already uses, so a draft/pending/rejected id (or a crawler
-// hitting a genuinely invalid one) silently falls back to the root layout's generic metadata
-// rather than leaking anything about an unpublished article.
+// Only published articles get real Open Graph data; others fall back to generic metadata.
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const publicArticles = await getArticlesServer();
   const article = publicArticles.find((a) => a.id === params.id);
@@ -68,10 +60,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 export default async function ArticleDetailPage({ params }: { params: { id: string } }) {
   const sessionUser = await getSessionUser();
 
-  // Guest: per docs/user-stories.md US-01-03, a signed-out visitor gets the list-shape data
-  // (title + excerpt) as a teaser, never the full body — GET /v1/articles/:id has no @Public(),
-  // so this looks the article up in the already-public GET /v1/articles list instead of ever
-  // calling the gated endpoint (which would just 401 for a guest).
+  // A signed-out visitor gets a teaser (title + excerpt), never the full body.
   if (!sessionUser) {
     const publicArticles = await getArticlesServer();
     const preview = publicArticles.find((a) => a.id === params.id);
@@ -192,9 +181,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
 
             <div
               className="prose-article mt-8 text-[16px] leading-[1.75] tracking-[-0.003em] text-ink-2 [&_blockquote]:my-6 [&_blockquote]:rounded-r-[10px] [&_blockquote]:border-l-[3px] [&_blockquote]:border-accent [&_blockquote]:bg-bg-alt [&_blockquote]:px-[22px] [&_blockquote]:py-[18px] [&_blockquote]:font-serif [&_blockquote]:text-[17px] [&_blockquote]:italic [&_blockquote]:leading-[1.5] [&_blockquote]:text-ink [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-[clamp(17px,1.8vw,22px)] [&_h2]:font-medium [&_h2]:leading-[1.2] [&_h2]:tracking-[-0.02em] [&_h2]:text-ink [&_h3]:mb-2.5 [&_h3]:mt-6 [&_h3]:text-[16px] [&_h3]:font-medium [&_h3]:tracking-[-0.01em] [&_h3]:text-ink [&_li]:relative [&_li]:pl-[15px] [&_ol]:my-0 [&_ol]:mb-5 [&_ol]:flex [&_ol]:list-decimal [&_ol]:flex-col [&_ol]:gap-2 [&_ol]:pl-5 [&_p]:mb-5 [&_p:last-child]:mb-0 [&_strong]:text-ink [&_ul]:my-0 [&_ul]:mb-5 [&_ul]:flex [&_ul]:list-none [&_ul]:flex-col [&_ul]:gap-2 [&_ul_li]:before:absolute [&_ul_li]:before:left-0 [&_ul_li]:before:top-[10px] [&_ul_li]:before:h-[5px] [&_ul_li]:before:w-[5px] [&_ul_li]:before:flex-none [&_ul_li]:before:rounded-full [&_ul_li]:before:bg-accent [&_a]:text-accent [&_a]:underline [&_code]:rounded [&_code]:bg-bg-alt [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[14px] [&_pre]:my-5 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-ink [&_pre]:p-4 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit"
-              // Safe: article.body is sanitised server-side (sanitize-html, allowlist of p/h2/h3/
-              // ul/ol/li/blockquote/strong/em/u/code/pre/a/br only) before it's ever stored —
-              // see apps/backend/src/articles/articles.service.ts.
+              // Safe — article.body is sanitized server-side before storage.
               dangerouslySetInnerHTML={{ __html: article.body }}
             />
 

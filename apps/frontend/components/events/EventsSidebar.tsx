@@ -1,11 +1,6 @@
 import { Button, Card } from '@/components/ui';
 
-// Matches design/static_html/events.html's right rail: curated-calendar blurb (no stats block —
-// the design dropped the 50+/20+/2 stat list this app previously had at some point since it was
-// last built, per the "sidebar has been updated in the design" feedback), a "Suggest an event"
-// card, and a membership CTA. "Suggest an event" is a mailto: link, not a form — there's no
-// public suggestion-queue write endpoint yet (docs/rest-api.md's Events "not built yet"), so
-// this is a real action (opens the user's mail client) rather than a form with nowhere to go.
+// "Suggest an event" is a mailto: link — there's no submission backend yet.
 export function EventsSidebar() {
   return (
     <div className="flex flex-col gap-6">
@@ -35,8 +30,6 @@ export function EventsSidebar() {
       </Card>
 
       <Card padding="md" className="relative overflow-hidden bg-ink">
-        {/* Matches design's `.ev-sidebar-cta::before` — soft accent-tinted circle bleeding off
-            the top-right corner, same technique as ArticleNewsletterCard/AuthRightPanel. */}
         <div
           className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
           style={{

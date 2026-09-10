@@ -3,9 +3,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { EventsCalendar } from '@/components/home/EventsCalendar';
 import type { EventDto } from '@shared/event';
 
-// Real upcoming/published events (GET /v1/events) rendered in the actual interactive
-// month-calendar widget (EventsCalendar) design/static_html/index.html uses — falls back to
-// an honest "coming soon" placeholder rather than fabricated data if the list is ever empty.
+// Falls back to a "coming soon" placeholder if there are no events yet.
 export function EventsTeaser({ events }: { events: EventDto[] }) {
   return (
     <section className="border-b border-line py-24">

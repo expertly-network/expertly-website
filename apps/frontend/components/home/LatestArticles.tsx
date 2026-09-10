@@ -26,13 +26,7 @@ function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36
   );
 }
 
-// Ported from design/static_html/assets/home.js's initLatestArticles + home.css's
-// `.articles-grid`/`.article-img`/`.article-author` rules: first article featured large
-// (1.3fr column, 360px-min-height image, 60px author avatar), next 4 as a 1fr list (36px
-// avatars) — a deliberate 1.3:1 split, not an even 2-column grid, and a taller image than
-// this app previously used. Data is the real GET /v1/articles (public, published-only,
-// newest-first) — `authorName`/`authorPhotoUrl` are already denormalized on the DTO, no
-// author lookup needed.
+// First article featured large, the rest in a compact list.
 export function LatestArticles({ articles }: { articles: ArticleListItemDto[] }) {
   if (articles.length === 0) return null;
   const [featured, ...rest] = articles;

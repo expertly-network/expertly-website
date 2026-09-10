@@ -29,17 +29,8 @@ function startOfToday(): Date {
   return d;
 }
 
-// Client-side filtering over the full past+future set (same pattern as ArticlesGrid) — the
-// design's own "Date range" control is a full mini-calendar date-picker (design/static_html/
-// events.html); simplified here to preset ranges rather than reproducing a custom calendar
-// widget for marginal value over presets, a deliberate scope call given the dataset is only
-// dozens of events, not something a precise custom date needs to slice further.
-//
-// Shared by the public /events page and /admin/events — the admin list is the exact same
-// filters/grouping over a superset of events (drafts included, since the filters here don't
-// touch status at all), not a forked copy. `getAdminBadge`/`getAdminActions` are optional
-// per-event render slots (passed straight through to EventRow) the admin page uses for the
-// draft/published Badge and Edit/Delete actions; the public page passes neither.
+// Client-side filtering over the full event set. Shared by the public and admin event lists;
+// `getAdminBadge`/`getAdminActions` are optional per-event render slots the admin page uses.
 export function EventsList({
   events,
   defaultDatePreset = 'upcoming',
@@ -112,10 +103,7 @@ export function EventsList({
         />
         {FORMAT_OPTIONS.map((opt) => {
           const active = formatFilter.includes(opt.value);
-          // Matches design's `.env-fmt-pill` — a small leading dot (grey by default, tinted
-          // when active) plus a per-format active color: In Person tints `--ok` (green), Hybrid
-          // tints `--accent` (teal) — previously both used the same accent tint regardless of
-          // which format was selected.
+          // In Person tints green, Hybrid tints teal.
           const activeColorVar = opt.value === 'in_person' ? '--ok' : '--accent';
           return (
             <button
@@ -153,11 +141,6 @@ export function EventsList({
       {groups.length > 0 ? (
         <div className="mt-5">
           {groups.map(([month, monthEvents], i) => (
-            // Matches design's `.ev-month-group` (52px top margin, 20px for the first group) +
-            // `.ev-month-header`'s flex row: the month name and a *separate* 1px `--line`-
-            // colored divider that fills the remaining width, not a thick border under the
-            // heading itself — the previous `border-b-2 border-ink` read as much darker/heavier
-            // than the design's actual hairline divider, which was the "lines are so dark" bug.
             <div key={month} className={i === 0 ? 'mt-5' : 'mt-[52px]'}>
               <div className="mb-[18px] flex items-baseline gap-3.5">
                 <span className="flex-none text-[clamp(26px,3vw,36px)] font-medium tracking-[-0.03em] text-ink">
@@ -180,8 +163,6 @@ export function EventsList({
           ))}
         </div>
       ) : events.length === 0 && emptyMessage ? (
-        // The truly-empty case (nothing exists yet, not just filtered to nothing) — admin's
-        // "create one to get started" framing instead of the filtered-empty copy below.
         <Card padding="lg" className="mt-8 flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-ink-3">{emptyMessage}</p>
         </Card>

@@ -34,17 +34,13 @@ const EMPTY: ManualArticleFormState = {
   countries: [],
   state: '',
   body: '',
-  // Fetched async on mount (see the cover-image effect below) — a live Unsplash search, not a
-  // static default, so this starts empty rather than pre-picked.
+  // Fetched async on mount, not a static default.
   coverImageUrl: '',
 };
 
 export { EMPTY as EMPTY_MANUAL_ARTICLE_FORM };
 
-// `body` is HTML now that the content field is a rich text editor, not plain text — strip tags
-// before counting so markup itself doesn't inflate the count. DOM-based (this only ever runs
-// client-side) rather than a regex strip, for the same reason the backend uses a real HTML
-// parser (sanitize-html) rather than a regex — tags can nest/contain attributes arbitrarily.
+// Strips HTML tags before counting so markup doesn't inflate the count.
 function wordCount(html: string): number {
   if (typeof document === 'undefined') return 0;
   const div = document.createElement('div');
@@ -53,9 +49,7 @@ function wordCount(html: string): number {
   return text ? text.split(/\s+/).length : 0;
 }
 
-// Cosmetic-only, never persisted (see docs/database-erd.md's note that the prototype's tags were
-// always UI suggestions, never real data) — derived from selected practice areas + a handful of
-// capitalized words from the title, shown only to make the write experience feel considered.
+// Cosmetic only, never persisted — derived from selected practice areas and the title.
 function suggestTags(title: string, practiceAreaNames: string[]): string[] {
   const titleWords = title
     .split(/\s+/)
@@ -65,12 +59,7 @@ function suggestTags(title: string, practiceAreaNames: string[]): string[] {
   return [...new Set([...practiceAreaNames, ...titleWords])].slice(0, 5);
 }
 
-// Matches design/static_html/articles.html's `#anv-write-upload` step — title, practice areas +
-// countries (both genuinely multi-select), optional state, content textarea with word count,
-// auto-selected cover image + shuffle, cosmetic suggested tags, then "Preview article". Topic
-// suggestions and the cover image are both live, backend-proxied calls (POST /articles/
-// suggest-topics — a real AI call; GET /articles/cover-images — a live Unsplash search) rather
-// than local canned data.
+// Title, practice areas/countries, content, auto-selected cover image, and suggested tags.
 export function ManualArticleForm({
   practiceAreas,
   value,
@@ -83,8 +72,7 @@ export function ManualArticleForm({
   value: ManualArticleFormState;
   onChange: (patch: Partial<ManualArticleFormState>) => void;
   onPreview: () => void;
-  // Omitted when editing an already-live article — there's no "draft" to save back to, only a
-  // direct content edit (see WriteArticleFlow's isLiveEdit).
+  // Omitted when editing an already-live article.
   onSaveDraft?: () => void;
   savingDraft: boolean;
 }) {
@@ -126,8 +114,7 @@ export function ManualArticleForm({
     }
   }
 
-  // Fetch once on mount, before any practice area is necessarily selected — matches the
-  // prototype showing real suggestions/an image from the very first render.
+  // Fetches once on mount.
   const mounted = useRef(false);
   useEffect(() => {
     if (mounted.current) return;

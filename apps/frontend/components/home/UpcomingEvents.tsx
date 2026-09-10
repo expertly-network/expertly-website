@@ -2,12 +2,7 @@ import { Card, Badge } from '@/components/ui';
 import { formatEventMonth, formatEventDay, formatEventFormat } from '@/lib/events/format';
 import type { EventDto } from '@shared/event';
 
-// Real event data (GET /v1/events, upcoming + published). NOT the design's actual homepage
-// widget — design/static_html/index.html shows a full interactive month-calendar grid
-// (.home-calendar, prev/next navigation, day cells mapping to events) here, which isn't built
-// (~150 lines of date-grid logic, a standalone Events page's job, not this teaser section) —
-// this is a simpler card list of the same real events instead. Flagged, not silently
-// downgraded.
+// A simpler card list in place of a full calendar widget.
 export function UpcomingEvents({ events }: { events: EventDto[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">

@@ -9,10 +9,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Matches design/static_html/articles.html's `.anv-card` — whole card is one link, cover
-// image, then a chip+country / date+read-time meta row, title, then an author row. No
-// excerpt shown on the card by design (title + author block only) — only the detail page
-// shows excerpt-length copy.
+// Cover image, meta row, title, then an author row.
 export function ArticleCard({ article }: { article: ArticleListItemDto }) {
   const primaryPracticeArea = article.practiceAreas[0];
   const designation = formatAuthorDesignation(article.authorHeadline, article.authorFirmName);

@@ -1,7 +1,6 @@
 export type Role = 'client' | 'member' | 'admin';
 
-// Higher rank implies every permission of the ranks below it — an admin can do
-// anything a member can, per RolesGuard's hierarchy check.
+// Numeric ranking used to compare roles — a higher rank includes every permission of the ranks below it.
 export const ROLE_RANK: Record<Role, number> = {
   client: 0,
   member: 1,

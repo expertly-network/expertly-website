@@ -5,13 +5,7 @@ import { REQUIRED_PERMISSION_KEY } from '../decorators/require-permission.decora
 import { adminRoleHasPermission, type AdminPermission } from '../constants/admin-permissions';
 import type { AuthenticatedUser } from '../types/auth.types';
 
-/**
- * Opt-in via @RequiresPermission('manageMembers') — always paired with @Roles('admin') on the
- * same route (this guard doesn't itself check the base role). Runs after RolesGuard, so a caller
- * reaching here has already passed the fresh admin.role/status check; this narrows further by
- * fresh-reading profiles.admin_role and checking it against the ADMIN_PERMISSIONS map. Same
- * false-denials-are-safe asymmetry as RolesGuard: a stale/just-changed admin_role fails closed.
- */
+/** Checks the current admin has the permission required by @RequiresPermission(). */
 @Injectable()
 export class AdminPermissionGuard implements CanActivate {
   constructor(

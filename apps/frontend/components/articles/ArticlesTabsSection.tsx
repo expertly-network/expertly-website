@@ -7,9 +7,6 @@ import { ArticlesTabsNav, type ArticlesTab } from '@/components/articles/Article
 import type { ArticleListItemDto } from '@shared/article';
 import type { PracticeAreaDto } from '@shared/practice-area';
 
-// Matches design/static_html/articles.html's browse/my-articles panel swap, below the shared
-// `ArticlesTabsNav` (see that component for why the nav itself is a separate piece — it's also
-// reused, in link mode, on the /articles/write route).
 export function ArticlesTabsSection({
   articles,
   practiceAreas,

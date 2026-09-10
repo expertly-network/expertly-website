@@ -5,11 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
 
-// The directory hero's search bar — design/static_html/members.html's `.dir-search`/
-// `.hero-search`. Submits the same `q` filter param the rest of the directory's URL-driven
-// filter state already uses (`lib/members/search-params.ts`), so this is genuinely
-// functional, not decorative. Dropped the design's rotating example-query placeholder
-// animation — decorative-only, not worth the extra state for a search input.
+// Submits the same q filter param the rest of the directory's URL-driven filter state uses.
 export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
   const router = useRouter();
   const pathname = usePathname();

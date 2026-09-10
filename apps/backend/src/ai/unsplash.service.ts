@@ -8,11 +8,7 @@ const SEARCH_URL = 'https://api.unsplash.com/search/photos';
 const RESULTS_PER_QUERY = 5;
 const TIMEOUT_MS = 8_000;
 
-// Proxies the write flow's "auto-selected cover image" through the backend so the Unsplash
-// access key never reaches the client (same posture as AiService's provider API keys) — the
-// frontend only ever sees the resulting image URLs, never UNSPLASH_ACCESS_KEY itself. Plain
-// `fetch`, no SDK: Unsplash's search endpoint is small enough that a client library would be
-// pure overhead for the one call this makes.
+// Searches Unsplash for cover image suggestions, keeping the access key server-side.
 @Injectable()
 export class UnsplashService {
   private readonly logger = new Logger(UnsplashService.name);

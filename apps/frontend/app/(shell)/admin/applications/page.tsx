@@ -9,9 +9,7 @@ export const metadata = {
   title: 'Applications — Admin — Expertly',
 };
 
-// UX-only gate — the real authorization boundary is the backend's @Roles('admin') +
-// @RequiresPermission('manageApplications') guard chain (docs/auth.md), re-checked fresh
-// against the DB on every request, not trusted from this JWT-derived role.
+// UX-only gate; the backend re-checks permissions fresh on every request.
 export default async function AdminApplicationsPage() {
   const profile = await getSessionUser();
   if (!profile) {

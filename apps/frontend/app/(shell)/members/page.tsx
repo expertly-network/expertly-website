@@ -31,9 +31,7 @@ export default async function MembersPage({
 
   return (
     <div>
-      {/* Dark hero band, matching design/static_html/members.html — a decorative
-          constellation replaces the design's canvas-drawn particle motif (reasonable
-          simplification, same call as the homepage hero's own decorative elements). */}
+      {/* Decorative constellation. */}
       <section className="relative overflow-hidden bg-ink py-16">
         <svg
           aria-hidden="true"

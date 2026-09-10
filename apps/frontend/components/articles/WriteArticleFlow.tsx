@@ -40,10 +40,7 @@ const AI_ICON = (
   </svg>
 );
 
-// Matches design/static_html/articles.html's `#anv-write-panel` step model exactly: choose a
-// path -> that path's form -> a preview shared by both paths -> success. One route
-// (/articles/write), client-side step state — same in-page-flow shape as the prototype rather
-// than a route per step.
+// Choose a path, fill out that path's form, preview, then confirm.
 export function WriteArticleFlow({
   practiceAreas,
   authorName,
@@ -95,10 +92,7 @@ export function WriteArticleFlow({
     }
   }
 
-  // Editing an already-live article (published/pending_review) omits `status` entirely so the
-  // PATCH is a pure content edit — the backend only touches status when the field is present
-  // (see ArticlesService.update). A draft or rejected article being edited still needs to go
-  // through the same 'draft' vs. "submit" resolution as a brand-new article.
+  // Omits status when editing an already-live article, so the PATCH is a pure content edit.
   async function submitManual() {
     setError(null);
     setSubmitting(true);
@@ -131,9 +125,6 @@ export function WriteArticleFlow({
     return <WriteSuccess status={result.status} articleId={result.id} />;
   }
 
-  // Editing an already-live article gets a single "Save changes" action (status untouched); a
-  // rejected one gets "Resubmit" (same submit resolution as a brand-new article); draft editing
-  // keeps the normal "Publish" copy since it's going through the same resolution too.
   const isLiveEdit =
     isEditing && (editArticle!.status === 'published' || editArticle!.status === 'pending_review');
   const confirmLabel = !isEditing ? 'Publish' : isLiveEdit ? 'Save changes' : editArticle!.status === 'rejected' ? 'Resubmit' : 'Publish';
@@ -218,18 +209,13 @@ export function WriteArticleFlow({
               const names = practiceAreas
                 .filter((p) => draft.practiceAreaIds.includes(p.id))
                 .map((p) => p.name);
-              // Best-effort — an Unsplash hiccup shouldn't block moving on to the preview step;
-              // the member can still pick an image manually from there if this comes back empty.
+              // Best-effort; falls back to no image if the search fails.
               const coverImageUrl = await getCoverImageSuggestions(names.join(' '))
                 .then((res) => res.images[0] ?? '')
                 .catch(() => '');
               setManual((prev) => ({
                 ...prev,
                 title: draft.title,
-                // Already real, sanitized HTML — the backend's ai-draft/ai-refine endpoints run
-                // the model's output through the same sanitize-html allowlist the save path uses
-                // before returning it (see apps/backend/src/ai/ai.service.ts), so it loads
-                // straight into the rich text editor as-is.
                 body: draft.body,
                 practiceAreaIds: draft.practiceAreaIds,
                 countries: draft.countries,

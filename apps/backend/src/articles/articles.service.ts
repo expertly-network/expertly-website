@@ -21,8 +21,7 @@ const EXCERPT_LENGTH = 200;
 
 type ArticlesReviewMode = 'instant' | 'editorial';
 
-// Word count / excerpt are derived from the sanitised body's plain text, not the raw HTML — so
-// tags don't inflate the word count and the excerpt doesn't contain stray markup.
+// Strips HTML tags, leaving plain text.
 function stripHtml(html: string): string {
   return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} });
 }
@@ -31,9 +30,7 @@ function stripHtml(html: string): string {
 export class ArticlesService {
   private readonly logger = new Logger(ArticlesService.name);
 
-  // Read once per instance, not per request — a running instance's review mode doesn't change
-  // mid-flight. Defaults to 'instant' (today's only behavior) when unset, so existing deployments
-  // don't need an env change to keep working.
+  // Defaults to 'instant' when ARTICLES_REVIEW_MODE is unset.
   private readonly reviewMode: ArticlesReviewMode =
     process.env.ARTICLES_REVIEW_MODE === 'editorial' ? 'editorial' : 'instant';
 
@@ -42,10 +39,7 @@ export class ArticlesService {
     private readonly ai: AiService
   ) {}
 
-  // The one place a client-requested "make this live" ('published' on the DTO, meaning
-  // "submit") gets resolved to the real resulting status — a client can never set
-  // 'pending_review'/'rejected' directly, only 'draft' or "submit" (see Create/UpdateArticleDto's
-  // comments). Word-count is still asserted against the submitted body either way.
+  // Resolves a submission to 'published' or 'pending_review' based on the review mode.
   private resolveSubmitStatus(): ArticleStatus {
     return this.reviewMode === 'editorial' ? 'pending_review' : 'published';
   }
@@ -53,8 +47,6 @@ export class ArticlesService {
   async create(user: AuthenticatedUser, dto: CreateArticleDto): Promise<ArticleDto> {
     const status: ArticleStatus = dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
     const body = sanitizeArticleBody(dto.body);
-    // A draft-in-progress can be any length — the word-count bound only guards what actually
-    // gets submitted/published, checked again in update() if/when a draft's status flips.
     if (status !== 'draft') assertWordCount(body);
     await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
     const slug = await this.repository.findUniqueSlug(dto.title);
@@ -134,8 +126,7 @@ export class ArticlesService {
     if (dto.state !== undefined) patch.state = dto.state;
     if (resultingStatus !== undefined) {
       patch.status = resultingStatus;
-      // A fresh (re)submission clears any earlier rejection reason — it no longer describes
-      // the article being submitted now.
+      // Clears any earlier rejection reason on resubmission.
       if (resultingStatus !== 'draft') patch.rejection_reason = null;
     }
 
@@ -149,10 +140,7 @@ export class ArticlesService {
     return toDto(row, practiceAreaNames, authors);
   }
 
-  // 🛡️ manageArticles — the editorial review queue's list view. Defaults to 'pending_review'
-  // (the actual queue); pass `status` to look at a specific bucket instead, e.g. 'rejected' to
-  // audit past decisions. Only ever non-empty when ARTICLES_REVIEW_MODE=editorial — in 'instant'
-  // mode nothing reaches 'pending_review'. Lighter than toDto()'s full ArticleDto (no body).
+  // 🛡️ manageArticles — defaults to the pending_review queue.
   async listForReview(status?: ArticleStatus): Promise<AdminArticleListItemDto[]> {
     const rows = await this.repository.findForReview(status);
     const [practiceAreaNames, authors] = await Promise.all([
@@ -174,8 +162,7 @@ export class ArticlesService {
     }));
   }
 
-  // 🛡️ manageArticles — approve publishes immediately; reject requires a reason and returns the
-  // article to the author (visible only to them, same as any other non-published status).
+  // 🛡️ manageArticles — approves or rejects a pending article.
   async review(id: string, dto: AdminArticleReviewDto): Promise<ArticleDto> {
     const existing = await this.repository.findByIdOrThrow(id);
     if (existing.status !== 'pending_review') {
@@ -212,10 +199,8 @@ export class ArticlesService {
     return rows.map((row) => omitBody(toDto(row, practiceAreaNames, authors)));
   }
 
-  // Fires the first time an article becomes 'published' (ai_summary still null) — never on a
-  // later edit to an already-published article, and never awaited by the caller: the publish/
-  // approve response must return immediately regardless of whether the LLM call succeeds. Errors
-  // are logged and swallowed here, same graceful-degrade posture as AiService's other callers.
+  // Generates an AI summary the first time an article is published. Not awaited — errors are
+  // logged and otherwise ignored.
   private generateSummaryIfNeeded(row: ArticleRow): void {
     if (row.status !== 'published' || row.ai_summary !== null) return;
 
@@ -244,10 +229,7 @@ export class ArticlesService {
     }
   }
 
-  // Used by AiService (via ArticlesController.aiDraft) to build the AI wizard's prompt from the
-  // ids the client selected in step 1 of the form — practice area *names*, not ids, are what
-  // belong in a natural-language prompt. Thin wrapper over resolvePracticeAreaNames below so the
-  // one query isn't duplicated in AiService.
+  // Resolves practice area ids to their names, for use in a natural-language prompt.
   async resolvePracticeAreaNamesList(ids: string[]): Promise<string[]> {
     const map = await this.resolvePracticeAreaNames(ids);
     return ids.map((id) => map.get(id)).filter((name): name is string => Boolean(name));
@@ -262,8 +244,6 @@ export class ArticlesService {
   }
 }
 
-// `body` here is already-sanitised HTML — these all derive from its plain-text content so tags
-// don't inflate the word count or leak into the excerpt.
 function assertWordCount(body: string): void {
   const wordCount = countWords(body);
   if (wordCount < MIN_WORDS || wordCount > MAX_WORDS) {

@@ -1,10 +1,5 @@
 import type { ReactNode } from 'react';
 
-// Matches design/static_html/assets/styles.css's `.anv-write-option` (+ `.ai` variant) exactly:
-// 24px radius, 1.5px border, the specific two-layer shadow, a -5px hover lift with a deeper
-// shadow, a 52px icon block that scales+rotates on hover, and a subtle radial-gradient sheen in
-// the corner. The AI card inverts to a dark (`--ink`) background with a slightly stronger hover
-// (translateY + scale) and an accent-tinted gradient instead of the light card's neutral one.
 export function WriteOptionCard({
   icon,
   title,

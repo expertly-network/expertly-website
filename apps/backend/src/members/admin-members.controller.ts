@@ -3,16 +3,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-// Real (not `import type`) import — Swagger's @ApiResponse needs the actual classes at runtime.
 import { AdminMemberListItemDto, MemberProfileEditDto, RenewalPolicyDto } from '@shared/member';
 import { MembersService } from './members.service';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateRenewalPolicyDto } from './dto/update-renewal-policy.dto';
 
-// 🛡️ manageMembers on every route here — @Roles('admin') for the base role (freshly re-checked
-// by RolesGuard), @RequiresPermission('manageMembers') to further narrow to admins whose
-// admin_role actually carries this permission (freshly re-checked by AdminPermissionGuard).
+// 🛡️ manageMembers on every route here.
 @Roles('admin')
 @RequiresPermission('manageMembers')
 @Controller('admin')

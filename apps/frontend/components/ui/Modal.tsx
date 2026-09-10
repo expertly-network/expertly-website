@@ -3,10 +3,6 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-// No modal primitive existed anywhere in the app before this — the only
-// current overlay-shaped UI is the auth pages, which are full pages, not
-// modals. Built here because SectionEditModal (Task 19) is this app's first
-// real dialog; documented in docs/design-system.md (Task 20) for reuse.
 export function Modal({
   open,
   onClose,

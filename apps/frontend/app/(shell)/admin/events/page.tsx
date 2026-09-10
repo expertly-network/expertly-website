@@ -9,10 +9,7 @@ export const metadata = {
   title: 'Events — Admin — Expertly',
 };
 
-// UX-only gate — the real authorization boundary is the backend's @Roles('admin') +
-// @RequiresPermission('manageEvents') guard chain (docs/auth.md), re-checked fresh against the
-// DB on every request, not trusted from this JWT-derived role. Matches
-// app/(shell)/admin/applications/page.tsx exactly.
+// UX-only gate; the backend re-checks permissions fresh on every request.
 export default async function AdminEventsPage() {
   const profile = await getSessionUser();
   if (!profile) {

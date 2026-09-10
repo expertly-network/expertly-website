@@ -13,12 +13,8 @@ const CLOCK_ICON = (
   </svg>
 );
 
-// Shared "Step 2" preview for both write paths — matches design/static_html/assets/styles.css's
-// `.anv-preview-page`/`.anv-preview-hero`/`.anv-preview-body-card`/`.anv-preview-confirm-bar`
-// exactly, mirroring the real detail page's hero/title/meta/body markup
-// (apps/frontend/app/(shell)/articles/[id]/page.tsx) so "exactly how it'll look once live" is an
-// honest claim. `body` is rendered as-is via dangerouslySetInnerHTML — same as the real detail
-// page — since it's the same pre-sanitize string the backend will sanitize-html and store.
+// Mirrors the real article detail page's markup, so this preview is an honest "as it will
+// look" claim.
 export function ArticleLivePreview({
   title,
   body,

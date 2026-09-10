@@ -6,10 +6,6 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-// ArticleDto is a real (not `import type`) import — Swagger's @ApiResponse needs the actual
-// class at runtime to build a response schema, not just its compile-time shape. ArticleListItemDto
-// stays `import type`: it's a derived `Omit<>` type alias, not a class, so there's no runtime
-// value to import.
 import { AiDraftArticleResponse, ArticleDto, CoverImageSuggestionsResponse, SuggestTopicsResponse } from '@shared/article';
 import type { ArticleListItemDto } from '@shared/article';
 import { ArticlesService } from './articles.service';
@@ -23,9 +19,6 @@ import { extractSourceFileText } from '../ai/extract-text';
 import { UnsplashService } from '../ai/unsplash.service';
 import { PracticeAreasService } from '../practice-areas/practice-areas.service';
 
-// Practice areas to sample when suggesting topics/a default cover image before the member has
-// selected any themselves (the write flow's title-suggestion chips and initial cover image both
-// need *something* to work with from the very first render).
 const RANDOM_PRACTICE_AREA_SAMPLE_SIZE = 3;
 const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
 
@@ -46,28 +39,20 @@ export class ArticlesController {
     return this.service.findOne(id, user);
   }
 
-  // 🌐 Public — the browse grid, published articles only, no body content.
-  // `authorId` (optional) narrows to one author's published articles — the
-  // member profile page's Articles tab, not a general multi-filter yet.
+  // 🌐 Public — published articles, optionally filtered to one author.
   @Public()
   @Get()
   list(@Query('authorId') authorId?: string): Promise<ArticleListItemDto[]> {
     return this.service.listPublished(authorId);
   }
 
-  // 🔒 Owner — the caller's own articles regardless of status. `me`, matching
-  // applications/me's convention (not `mine` — one word for "the caller's own
-  // resource" across the whole API, not two). Must be registered before the
-  // `:id` route below or Nest would match "me" as an id param.
+  // 🔒 Owner — the caller's own articles regardless of status.
   @Get('me')
   listMe(@CurrentUser() user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
     return this.service.listMine(user);
   }
 
-  // 🔒 member — the write flow's "auto-selected cover image" — a live Unsplash search, proxied
-  // so the access key stays server-side. `query` omitted/blank falls back to a generic
-  // finance/legal query (the form's very first render, before any practice area is selected).
-  // Registered before ':id' below for the same reason as 'me' above.
+  // 🔒 member — searches Unsplash for cover image suggestions.
   @Roles('member')
   @Get('cover-images')
   async coverImages(@Query('query') query?: string): Promise<CoverImageSuggestionsResponse> {
@@ -77,13 +62,8 @@ export class ArticlesController {
 
 
 
-  // 🔒 member — the AI wizard's "Generate" step. Multipart form, so @Body() doesn't apply (see
-  // applications.controller.ts's uploadFile for the same Fastify/@fastify/multipart pattern):
-  // one `payload` field carrying the JSON request (validated by hand against AiDraftRequestDto),
-  // plus zero or more file parts (source documents, extracted to text — never persisted, see
-  // extract-text.ts). Returns the draft only; it isn't saved until the member POSTs it back via
-  // create() below (with creationMode: 'ai'). Registered before the ':id' GET route isn't a
-  // concern here (different HTTP method), same reasoning as 'me'.
+  // 🔒 member — generates an AI draft from the wizard's brief and any uploaded source files.
+  // Returns the draft only; it's saved separately via create().
   @Roles('member')
   @Post('ai-draft')
   async aiDraft(@Req() request: FastifyRequest): Promise<AiDraftArticleResponse> {
@@ -115,17 +95,14 @@ export class ArticlesController {
     return this.ai.generateDraft(dto, practiceAreaNames, sourceFileTexts);
   }
 
-  // 🔒 member — the AI wizard's "refine" box: re-prompts the model against the current draft
-  // plus the member's requested changes. Plain JSON (no files here), unlike ai-draft above.
+  // 🔒 member — revises the current draft based on requested changes.
   @Roles('member')
   @Post('ai-refine')
   aiRefine(@Body() dto: RefineDraftDto): Promise<AiDraftArticleResponse> {
     return this.ai.refineDraft(dto);
   }
 
-  // 🔒 member — the write flow's "Stuck? Try a topic" chip row. `practiceAreaIds` optional: with
-  // none selected yet, a random sample of active practice areas stands in so the member still
-  // gets ideas before choosing any (same fallback the local-template version used).
+  // 🔒 member — suggests article title ideas, sampling active practice areas if none are selected.
   @Roles('member')
   @Post('suggest-topics')
   async suggestTopics(@Body() dto: SuggestTopicsDto): Promise<SuggestTopicsResponse> {

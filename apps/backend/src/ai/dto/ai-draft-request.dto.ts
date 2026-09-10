@@ -9,11 +9,8 @@ import {
   MaxLength,
 } from 'class-validator';
 
-// Arrives as the multipart `payload` field's JSON string (see AdminArticlesController's sibling
-// pattern in applications.controller.ts's uploadFile — Fastify never populates req.body from a
-// multipart form, so this is validated by hand via plainToInstance+validate, not the global
-// ValidationPipe/@Body()). Source files themselves arrive as the multipart's file parts,
-// extracted to text server-side (see extract-text.ts) — never a DTO field.
+// Parsed by hand from the multipart request's `payload` field. Source files arrive separately as
+// the multipart's file parts.
 export class AiDraftRequestDto {
   @IsOptional()
   @IsString()

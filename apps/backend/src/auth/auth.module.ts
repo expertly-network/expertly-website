@@ -12,11 +12,7 @@ import { AuthController } from './auth.controller';
   providers: [
     SupabaseService,
     ProfilesRepository,
-    // Registration order matters: SupabaseAuthGuard must resolve req.user
-    // before RolesGuard can check it, and RolesGuard must confirm the base
-    // 'admin' role before AdminPermissionGuard narrows to a specific
-    // permission. NestJS runs multiple APP_GUARD providers in the order
-    // they're registered here.
+    // Guards run in this order: authenticate, check role, then check permission.
     { provide: APP_GUARD, useClass: SupabaseAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: AdminPermissionGuard },

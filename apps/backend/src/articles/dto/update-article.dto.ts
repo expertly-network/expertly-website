@@ -35,9 +35,7 @@ export class UpdateArticleDto {
   @IsString()
   state?: string;
 
-  // Taking effect at all (not just passing validation) is gated in ArticlesService to owner-or-
-  // admin. 'published' here means "(re)submit it" — same review-mode resolution as
-  // CreateArticleDto.status, see that file's comment.
+  // 'published' means (re)submit. Only the owner or an admin may change it.
   @IsOptional()
   @IsIn(ARTICLE_STATUSES)
   status?: ArticleStatus;

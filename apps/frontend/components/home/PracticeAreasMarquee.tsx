@@ -2,12 +2,8 @@ import Link from 'next/link';
 import { Marquee } from '@/components/home/Marquee';
 import type { PracticeAreaDto, PracticeAreaCategory } from '@shared/practice-area';
 
-// Ported from design/static_html/assets/home.js's initPracticeAreas. The design mockup pairs
-// each practice area with a member count and a stock photo. `imageUrl` now exists on the real
-// contract (docs/database-erd.md's practice_areas.image_url) and is rendered here; the member
-// count is still not — a per-area aggregate count needs a separate contract addition (there's
-// no accurate client-side way to derive it against a paginated member list) — flagged, not
-// faked here. Falls back to a category-color dot when a given row has no image.
+// Member count per area isn't in the contract yet — flagged, not faked. Falls back to a
+// category-color dot when an area has no image.
 const CATEGORY_LABEL: Record<PracticeAreaCategory, string> = {
   taxation: 'Tax',
   legal: 'Legal',

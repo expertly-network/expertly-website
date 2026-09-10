@@ -1,17 +1,5 @@
 import Link from 'next/link';
 
-// Matches design/static_html's real footer content — populated at runtime by
-// `assets/shared.js`'s `renderFooter()` into the otherwise-empty `<footer class="footer--
-// minimal">` tag (a past pass here missed this: reading the static HTML alone shows nothing,
-// the content only exists via that JS). `nav-green` is correct here — confirmed against
-// `theme.css`'s `.footer--minimal { background: var(--nav-green) }`, contradicting an earlier
-// assumption in this codebase that the token wasn't used anywhere real.
-//
-// The design's footer is normally `position: fixed` (a parallax reveal-at-bottom-of-scroll
-// effect), but its OWN CSS (`dashboard-shell.css`) explicitly overrides that to a plain
-// static in-flow footer specifically for every page using the sidebar shell (`.d1-shell`) —
-// which is every page in this app. Implemented as static-only here; the fixed/parallax
-// variant is dead code for this app, not a corner cut.
 const PRIMARY_LINKS = [
   { label: 'Expertly', href: '/' },
   { label: 'Articles', href: '/articles' },
@@ -56,10 +44,7 @@ export function Footer() {
                 LinkedIn
               </a>
             </li>
-            {/* Terms & Conditions / Membership Policy / Privacy Policy are `href="#"`
-                placeholders in the design itself too — not real pages yet, so these are
-                plain (non-navigating) text rather than a fake link that jump-scrolls on
-                click. */}
+            {/* Not real pages yet — plain text, not a fake link. */}
             {['Terms & Conditions', 'Membership Policy', 'Privacy Policy'].map((label) => (
               <li key={label}>
                 <span className="cursor-default text-[15px] tracking-[-0.005em] text-white/[0.58]">

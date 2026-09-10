@@ -2,10 +2,7 @@ import type { MemberDto } from '@shared/member';
 
 const TOTAL_CHECKS = 10;
 
-// Ports the prototype's own 10-point profile-completeness checklist onto
-// MemberDto's real field names (confirmed by direct read of
-// design/static_html/assets member-profile.html's completion logic — see
-// the design spec §4.3). Evenly weighted, no per-item scoring.
+// Evenly weighted 10-point profile-completeness checklist.
 export function computeCompletionPct(member: MemberDto): number {
   const checks = [
     Boolean(member.photoUrl),

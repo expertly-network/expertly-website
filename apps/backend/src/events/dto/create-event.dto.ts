@@ -13,9 +13,6 @@ export class CreateEventDto {
   @IsNotEmpty()
   description!: string;
 
-  // `@IsOptional()` treats both `undefined` (omitted) and `null` as "skip validation" — so
-  // `null` passes through untouched to EventsService, which is what lets a PATCH explicitly
-  // clear one of these once-set fields instead of the field just being left unchanged.
   @IsOptional()
   @IsString()
   shortDescription?: string | null;
@@ -68,7 +65,7 @@ export class CreateEventDto {
   @IsString()
   organiserName?: string | null;
 
-  // Defaults to 'draft' in EventsService.create if omitted — see CreateEventRequest's comment.
+  // Defaults to 'draft' if omitted.
   @IsOptional()
   @IsIn(EVENT_STATUSES)
   status?: EventStatus;

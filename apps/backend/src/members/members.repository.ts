@@ -16,10 +16,8 @@ import type {
   RenewalPaymentStatus,
 } from '@shared/member';
 
-// Deliberately selects profile_id, not member_profiles' own surrogate id — profile_id is what
-// the API exposes as MemberDto.id and what every ownership/ownership-route check compares
-// against (it equals profiles.id / auth.uid()), matching how member_id means the same thing on
-// every other table in this schema. member_profiles' own id never leaves this module.
+// Selects profile_id, not member_profiles' own surrogate id — profile_id is what the API
+// exposes as MemberDto.id.
 const MEMBER_PROFILE_COLUMNS = [
   'profile_id',
   'headline',
@@ -49,8 +47,7 @@ const MEMBER_PROFILE_COLUMNS = [
   'renewal_payment_status',
 ] as const;
 
-// The 8 repeating profile-content sections, stored as jsonb columns on member_profiles — only
-// fetched for the full-detail view (findDetailByProfileId), not the list view.
+// Jsonb columns fetched only for the full-detail view, not the list view.
 const MEMBER_DETAIL_JSONB_COLUMNS = [
   'work_experiences',
   'educations',
@@ -171,10 +168,8 @@ export class MembersRepository {
     if (filters.rateMinCents !== undefined) dbQuery = dbQuery.gte('rate_max_cents', filters.rateMinCents);
     if (filters.rateMaxCents !== undefined) dbQuery = dbQuery.lte('rate_min_cents', filters.rateMaxCents);
     if (filters.q) {
-      // No cross-table (profiles.first_name/last_name) search in this query — matched separately
-      // by the service, since Supabase's `or()` can't span two tables in one call without a DB
-      // view. This filters on member_profiles' own text fields only; name matching happens
-      // in-memory on the merged result.
+      // Matches member_profiles' own text fields; name matching against profiles happens
+      // separately, in-memory.
       dbQuery = dbQuery.or(`headline.ilike.%${filters.q}%,firm_name.ilike.%${filters.q}%`);
     }
 
@@ -245,8 +240,6 @@ export class MembersRepository {
     return (data ?? []) as unknown as MemberProfileEditRow[];
   }
 
-  // Includes ", status" a second time (MEMBER_PROFILE_COLUMNS already selects it) — a pre-existing
-  // harmless quirk from before this layering pass, preserved rather than silently "fixed" here.
   async adminFindAllProfiles(): Promise<MemberProfileRow[]> {
     const { data, error } = await this.supabase.db
       .from('member_profiles')
@@ -325,8 +318,6 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to apply contact edit.');
   }
 
-  // Each item gets a fresh id — there's no DB-generated one for a jsonb array element the way a
-  // real table's uuid PK would provide (caller assigns it before calling this).
   async applySectionEdit(memberId: string, column: string, section: string, items: Record<string, unknown>[]): Promise<void> {
     const { error } = await this.supabase.db
       .from('member_profiles')
@@ -385,8 +376,6 @@ export class MembersRepository {
     const practiceAreaIds = [...new Set((links ?? []).map((l) => l.practice_area_id as string))];
     const practiceAreaById = new Map<string, string>();
     if (practiceAreaIds.length > 0) {
-      // Error deliberately not checked here — matches this query's original inline behavior,
-      // preserved rather than silently "fixed" as part of this layering pass.
       const { data: areas } = await this.supabase.db.from('practice_areas').select('id, name').in('id', practiceAreaIds);
       for (const a of areas ?? []) practiceAreaById.set(a.id as string, a.name as string);
     }

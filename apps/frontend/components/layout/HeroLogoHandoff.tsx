@@ -2,23 +2,13 @@
 
 import { useEffect } from 'react';
 
-// Ported from design/static_html/index.html's own inline script (~line 1513, "Dark nav +
-// sidebar wordmark handoff while stellar hero is visible"): while a page's stellar hero
-// (StellarOrbitHero, id="hero-stellar") is in view, the sidebar's own collapsed "E" mark
-// hides (see globals.css's `html.in-hero` rules) and this component's fixed-position
-// "Expertly." wordmark takes its place over the dark hero instead — a straight opacity
-// crossfade with zero position jump, per the source's own comment. Safe to render on every
-// page: if no #hero-stellar element ever appears, `in-hero` never gets set, so the sidebar's
-// normal logo just stays visible as-is.
+// Crossfades the sidebar's collapsed logo mark with a floating wordmark while a stellar hero
+// is in view. Safe on any page — if no #hero-stellar element exists, this is a no-op.
 export function HeroLogoHandoff() {
   useEffect(() => {
     let intersectionObserver: IntersectionObserver | null = null;
 
-    // AppShell renders this component outside of the route's streamed {children} — on first
-    // paint, (shell)/loading.tsx's skeleton is in the DOM instead of the real page, so
-    // #hero-stellar doesn't exist yet at mount time. A MutationObserver picks it up the
-    // moment the real content streams in and replaces the skeleton (this effect has no
-    // dependency to react to otherwise, since it only runs once on mount).
+    // A MutationObserver waits for #hero-stellar to stream in, since it may not exist at mount.
     function attach(heroSection: Element) {
       intersectionObserver = new IntersectionObserver(
         ([entry]) => {

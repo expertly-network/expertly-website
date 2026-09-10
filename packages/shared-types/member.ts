@@ -85,10 +85,7 @@ export class MemberKeyClient {
   @ApiProperty({ nullable: true, type: String }) logoUrl!: string | null;
 }
 
-// List-view shape — GET /v1/members. No child arrays, no self-edit state. `bio` IS included
-// (unlike the child arrays) — the directory card shows a 2-line excerpt of it
-// (`line-clamp-2`), matching design/static_html/members.html's card exactly; truncation is
-// client-side, same as the design's own `-webkit-line-clamp` approach.
+// GET /v1/members list-view shape. No child arrays, no self-edit state.
 export class MemberListItemDto {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
@@ -109,8 +106,7 @@ export class MemberListItemDto {
   @ApiProperty({ nullable: true, type: String }) photoUrl!: string | null;
 }
 
-// Full detail — GET /v1/members/:id. A member's own published articles are fetched separately via
-// GET /v1/articles?authorId=, not embedded here.
+// GET /v1/members/:id full detail. A member's own articles are fetched separately.
 export class MemberDto extends MemberListItemDto {
   @ApiProperty({ nullable: true, type: String }) firmWebsite!: string | null;
   @ApiProperty({ nullable: true, type: String }) availabilityNotes!: string | null;
@@ -154,14 +150,8 @@ export class UploadResponse {
   @ApiProperty() path!: string;
 }
 
-// ---------------------------------------------------------------------------
-// Self-edit moderation queue.
-//
-// `payload`'s shape depends on `section` — a discriminated union rather than one loose `unknown`,
-// so a future frontend session gets real autocomplete/type-checking on each section's submission
-// shape instead of having to re-read docs/rest-api.md by hand.
-// ---------------------------------------------------------------------------
-
+// Self-edit moderation queue. `payload`'s shape depends on `section` — a discriminated union
+// rather than a loose `unknown`.
 export type MemberEditSection =
   | 'headline_bio'
   | 'contact'
@@ -186,15 +176,13 @@ export class ContactEditPayload {
   @ApiProperty({ nullable: true, type: String }) website!: string | null;
 }
 
-// Proof/asset lives per-item for these sections — embedded directly in each array element, not on
-// the edit row (see docs/database-erd.md's proof-requirement-varies-by-section note).
+// Proof/asset lives per-item for these sections, embedded in each array element.
 export type EngagementsEditPayload = (Omit<MemberEngagement, 'id'> & { proofFileUrl?: string; proofLink?: string })[];
 export type TestimonialsEditPayload = (Omit<MemberTestimonial, 'id' | 'isVerified'> & { proofFileUrl?: string; proofLink?: string })[];
 export type AwardsEditPayload = (Omit<MemberAward, 'id'> & { proofFileUrl?: string; proofLink?: string })[];
 export type KeyClientsEditPayload = (Omit<MemberKeyClient, 'id'> & { logoUploadPath?: string })[];
 
-// education / work_experiences: one shared proof for the whole batch — carried on the edit row's
-// own proofFileUrl/proofLink, not per item.
+// education / work_experiences: one shared proof for the whole batch, not per item.
 export type EducationEditPayload = Omit<MemberEducation, 'id'>[];
 export type WorkExperiencesEditPayload = Omit<MemberWorkExperience, 'id'>[];
 
@@ -230,8 +218,7 @@ export class MemberProfileEditDto {
     ],
   })
   section!: MemberEditSection;
-  // Shape depends on `section` (see MemberEditPayload above) — left untyped for Swagger/OpenAPI,
-  // same as the eslint exemption below for the same reason.
+  // Shape depends on `section`; left untyped for Swagger/OpenAPI.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   @ApiProperty({ type: 'object', additionalProperties: true }) payload: any;
   @ApiProperty({ nullable: true, type: String }) proofFileUrl!: string | null;

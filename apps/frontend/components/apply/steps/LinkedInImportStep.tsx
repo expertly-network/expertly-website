@@ -9,12 +9,7 @@ import type { WizardFormState } from '@/components/apply/types';
 import { importLinkedIn } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 
-// Real import: fetches normalized profile data from the backend's
-// LinkedInImportProvider (a deterministic mock today — see
-// docs/superpowers/specs/2026-08-23-member-application-form-design.md §5;
-// the real n8n-backed provider is a future swap with no UI change needed).
-// Fields the provider couldn't produce are left empty for the applicant to
-// fill in later steps, same as the manual-entry path.
+// Imports normalized profile data; fields it couldn't produce are left for manual entry.
 export function LinkedInImportStep({
   form,
   update,
@@ -26,18 +21,13 @@ export function LinkedInImportStep({
   update: (patch: Partial<WizardFormState>) => void;
   saving?: boolean;
   saveError?: string | null;
-  // Accepts the just-imported patch so the parent's save can use it directly instead of reading
-  // `form` — calling update() and then onNext() synchronously in the same handler races React's
-  // batched setState, so `form` here would still be pre-import at the time onNext runs otherwise.
+  // Accepts the just-imported patch since `form` may not be updated yet when this runs.
   onNext: (overrides?: Partial<WizardFormState>) => void;
 }) {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const canImport = form.linkedinUrl.trim().length > 0 && form.linkedinImportConsent && !importing;
-  // Stays "busy" across both the LinkedIn fetch (`importing`) and the subsequent save-and-advance
-  // call the parent makes right after (`saving`) — onNext() below kicks that save off but doesn't
-  // await it, so without this the loader would flicker off between the two phases even though
-  // nothing has actually finished from the applicant's point of view yet.
+  // Stays busy through both the import and the parent's save-and-advance call.
   const busy = importing || Boolean(saving);
 
   async function handleContinue() {
@@ -83,12 +73,9 @@ export function LinkedInImportStep({
         patch.city = result.city;
         importedFields.add('city');
       }
-      // update() would clear these same keys from importedFields (it treats every patched key as
-      // "just edited by the user") — set the tracked set directly, after update(), instead.
+      // Set after update(), which would otherwise clear these same keys.
       update(patch);
       update({ importedFields });
-      // Pass the patch straight through — see onNext's doc comment above for why `form` alone
-      // isn't safe to rely on here.
       onNext({ ...patch, importedFields });
     } catch (err) {
       setImportError(err instanceof ApiError ? err.message : 'Failed to import from LinkedIn — please try again.');

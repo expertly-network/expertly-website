@@ -3,9 +3,7 @@ import { SupabaseService } from '../auth/supabase.service';
 import type { EventDto } from '@shared/event';
 import { generateUniqueSlug } from '../common/slugify';
 
-// Every column aliased to its EventDto camelCase name — the query already produces the exact DTO
-// shape, so there's no separate Row type to hand-maintain here. Shared by every method below since
-// none of them need a narrower projection.
+// Every column aliased to its EventDto camelCase name.
 const EVENT_COLUMNS = [
   'id',
   'title',
@@ -105,9 +103,7 @@ export class EventsRepository {
     return updated as unknown as EventDto;
   }
 
-  // One round trip instead of a separate findByIdForAdmin() 404-check followed by the delete —
-  // `.select().maybeSingle()` on the delete itself returns the deleted row (or null) so a missing
-  // id and an actual delete failure stay distinguishable without a second query.
+  // Returns the deleted row so a missing id and a delete failure stay distinguishable.
   async deleteById(id: string): Promise<void> {
     const { data, error } = await this.supabase.db.from('events').delete().eq('id', id).select('id').maybeSingle();
 

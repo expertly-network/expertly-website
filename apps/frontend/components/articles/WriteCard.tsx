@@ -1,10 +1,6 @@
 import type { ReactNode } from 'react';
 
-// Matches design/static_html/assets/styles.css's `.anv-write-card` (+ `.anv-write-card-head`/
-// `.anv-write-card-body`) — the write flow's own card treatment, visually heavier than the app's
-// normal `Card` component (bigger radius, deeper shadow) since the prototype treats this flow as
-// its own elevated moment. `headerIcon`/`headerTitle` render the icon-chip + title header row;
-// omit both for a card with no header (e.g. the success screen, which builds its own layout).
+// Omit headerIcon/headerTitle for a card with no header.
 export function WriteCard({
   headerIcon,
   headerTitle,

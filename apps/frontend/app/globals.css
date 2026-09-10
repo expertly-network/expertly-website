@@ -2,10 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Expertly design tokens — default "Neon Mint" palette, ported from the design
-   repo's static_html/assets/theme.css. Keeping these as CSS custom properties
-   (rather than hardcoding hex values into tailwind.config.ts) keeps re-syncing
-   against the design repo a values-only diff. */
+/* Expertly design tokens — default "Neon Mint" palette. */
 :root {
   --bg: #ffffff;
   --bg-alt: #f2fbf7;
@@ -26,19 +23,12 @@
   --error: #dc2626;
   --nav-green: #0b3a2d;
 
-  /* "Write an Article" CTA — a distinct, more saturated green than --accent, ported verbatim
-     from design/static_html/assets/styles.css's .anv-write-cta-btn — the write flow is styled as
-     its own visual moment there, not like the rest of the app's buttons. Used at 2+ call sites
-     (articles tab row, My Articles empty state), so promoted to a real token per this file's own
-     "add it here first" convention. */
+  /* "Write an Article" CTA — a distinct, more saturated green than --accent. */
   --cta: #1b8a4b;
   --cta-hover: #156b3a;
 }
 
-/* Write-flow entrance/success animations, ported verbatim from
-   design/static_html/assets/styles.css (`anvIn`/`anvSuccessPulse`) — referenced via Tailwind's
-   arbitrary `animate-[...]` utility at each write-flow call site rather than duplicated inline,
-   since @keyframes can't be expressed as a Tailwind utility value itself. */
+/* Write-flow entrance/success animations. */
 @keyframes anvIn {
   from {
     opacity: 0;
@@ -60,18 +50,14 @@
   }
 }
 
-/* Base body typography — from theme.css's html/body rule. Everything else
-   (headings, labels, captions) is defined as a named Tailwind fontSize in
-   tailwind.config.ts, not here — see docs/design-system.md. */
+/* Base body typography. Headings/labels/captions are named Tailwind font sizes instead. */
 body {
   font-size: 16px;
   line-height: 1.5;
   letter-spacing: -0.005em;
 }
 
-/* Stellar Orbit hero keyframes — ported from design/static_html/assets/styles.css (the
-   "STELLAR ORBIT HERO" block, ~line 8927). Global keyframes, not a Tailwind token, since
-   they're single-purpose and only used by components/home/StellarOrbitHero.tsx. */
+/* Stellar Orbit hero keyframes, used only by components/home/StellarOrbitHero.tsx. */
 @keyframes hs-fade-up {
   from {
     opacity: 0;
@@ -121,17 +107,9 @@ body {
   }
 }
 
-/* Orbit ring border — ported verbatim from design/static_html/assets/styles.css's
-   .hs-orbit-ring::after (~line 9268): a 1px gradient "border" via the standard
-   padding-box + mask-composite:exclude trick, faded top-to-bottom rather than a flat
-   uniform-opacity border (which is what this app previously simplified it to — the
-   "not fully circled" look is intentional in the design, not a bug to smooth over).
-   No `position` rule here on purpose — the ring div already gets `position: absolute`
-   from its own Tailwind class in StellarOrbitHero.tsx, which is a valid positioning
-   context for this ::after already; redeclaring `position: relative` here would load
-   after Tailwind's utilities layer in the cascade (this file comes after the
-   `@tailwind utilities` directive) and silently win the specificity tie, overriding
-   that `absolute` and breaking every ring's layout. */
+/* Orbit ring border — a 1px gradient "border" via the padding-box + mask-composite:exclude
+   trick, faded top-to-bottom. No `position` rule here — the ring div already gets
+   `position: absolute` from its own Tailwind class in StellarOrbitHero.tsx. */
 .hs-orbit-ring::after {
   content: '';
   position: absolute;
@@ -157,16 +135,8 @@ body {
   }
 }
 
-/* Hero → sidebar wordmark handoff — ported from design/static_html/index.html's
-   `.d1-shell.in-hero` rules (~styles.css line 2664) and its own inline-script comment: while
-   a page's stellar hero is in view (HeroLogoHandoff's IntersectionObserver sets `in-hero` on
-   <html>), the sidebar's own collapsed "E." hides so HeroLogoHandoff's fixed-position
-   "Expertly." wordmark reads as the one true logo over the dark hero — a single logo at a
-   time, never both. Deliberately NOT re-revealed on sidebar hover while in-hero (an earlier
-   version did via `.group:hover`, which put both wordmarks at opacity 1 simultaneously,
-   nearly on top of each other — the bug this comment used to describe as intentional): the
-   fixed wordmark already reads fine over the hover-expanded rail's own dark background, so
-   there's nothing to hand back to the sidebar's own mark until in-hero clears. */
+/* Hero → sidebar wordmark handoff — only one logo shown at a time while a stellar hero is
+   in view. */
 html.in-hero .sidebar-logo-mark,
 html.in-hero .sidebar-logo-dot,
 html.in-hero .sidebar-logo-text {
@@ -183,10 +153,7 @@ html.in-hero .hero-logo-handoff {
   pointer-events: auto;
 }
 
-/* Article detail page's "AI Summary" callout — small pulsing dot next to the label, ported
-   verbatim from design/static_html/assets/styles.css's `@keyframes pulse` (~line 8598). Named
-   art-ai-pulse here since Tailwind's own `animate-pulse` only fades opacity, not this scale+
-   opacity combination. */
+/* Article detail page's "AI Summary" callout — small pulsing dot next to the label. */
 @keyframes art-ai-pulse {
   0% {
     transform: scale(0.8);
@@ -205,9 +172,7 @@ html.in-hero .hero-logo-handoff {
   animation: art-ai-pulse 2s infinite;
 }
 
-/* Infinite horizontal marquee — used by the Featured Members / Practice Areas / Firms
-   sections (ported from home.js's initFeaturedMembers/initPracticeAreas/initFirmsBand,
-   which duplicate each row's content and slide it -50% in a loop). */
+/* Infinite horizontal marquee, used by the Featured Members / Practice Areas / Firms sections. */
 @keyframes marquee-scroll {
   from {
     transform: translateX(0);

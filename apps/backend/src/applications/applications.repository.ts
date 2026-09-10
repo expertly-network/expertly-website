@@ -2,8 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { SupabaseService } from '../auth/supabase.service';
 import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
 
-// Every column on public.membership_applications (supabase/migrations/0004_tables.sql) — replaces
-// the old select('*')/bare select() calls scattered through this module.
+// Every column on membership_applications.
 const APPLICATION_ROW_COLUMNS = [
   'id',
   'applicant_id',
@@ -61,13 +60,6 @@ const ADMIN_LIST_COLUMNS = [
   'created_at',
 ] as const;
 
-// Deliberately kept as a loose bag, not a hand-typed interface like every other repository in
-// this backend — this table's rows flow through ApplicationsService's dynamic
-// WRITABLE_COLUMNS-driven patch/merge (`{...existing, ...patch}`), which by construction can't be
-// given a precise static shape without much larger changes to that logic. The named column list
-// above is still the fix for this file's actual select('*') problem; this is the one deliberate
-// exception to the "hand-written Row interface" convention (see the design spec's Row-typing
-// note for applications).
 export type ApplicationRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface MemberProfileInsert {
@@ -106,9 +98,7 @@ export class ApplicationsRepository {
     return data as unknown as ApplicationRow | null;
   }
 
-  // Same query as findLatestByApplicant, but a DB error here collapses into "no draft" rather
-  // than a 500 — matches uploadFile's original inline behavior (`existingError || !existing`
-  // led to the same BadRequestException either way), preserved rather than unified.
+  // Returns null on error, same as when no draft exists.
   async findLatestForUpload(userId: string): Promise<ApplicationRow | null> {
     const { data, error } = await this.supabase.db
       .from('membership_applications')
@@ -185,8 +175,7 @@ export class ApplicationsRepository {
     if (error) throw new InternalServerErrorException('Failed to finalize application status.');
   }
 
-  // 🛡️ manageApplications list view — deliberately lighter than APPLICATION_ROW_COLUMNS (no
-  // documents/work-experience/education resolution, which this list view doesn't render).
+  // 🛡️ manageApplications — lighter column set than APPLICATION_ROW_COLUMNS for the list view.
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
     let query = this.supabase.db
       .from('membership_applications')
@@ -200,9 +189,7 @@ export class ApplicationsRepository {
     return (data ?? []) as unknown as AdminApplicationListItemDto[];
   }
 
-  // Read path — deliberately NOT filtered by is_active — an already-saved reference keeps
-  // showing its real name even if since deactivated (see articles.practice_area_ids' identical
-  // convention on read).
+  // Resolves practice area names regardless of whether they're still active.
   async findPracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
     const practiceAreaById = new Map<string, string>();
     if (ids.length === 0) return practiceAreaById;
@@ -214,9 +201,7 @@ export class ApplicationsRepository {
     return practiceAreaById;
   }
 
-  // Write path — only ids that exist AND are currently active. No FK/CASCADE safety net on this
-  // jsonb column (see the migration's comment on it), so the caller (ApplicationsService) is
-  // responsible for rejecting any id missing from the returned map.
+  // Resolves practice area names for ids that are currently active only.
   async findActivePracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
     const practiceAreaById = new Map<string, string>();
     if (ids.length === 0) return practiceAreaById;
@@ -251,8 +236,7 @@ export class ApplicationsRepository {
     return saved as unknown as ApplicationRow;
   }
 
-  // No error check — matches the original inline call's behavior (a failed signed-URL mint
-  // silently degrades to null, same posture as ArticlesRepository.updateAiSummary).
+  // Returns null if the signed URL couldn't be minted.
   async createSignedUrl(path: string): Promise<string | null> {
     const { data } = await this.supabase.db.storage.from('application-assets').createSignedUrl(path, 60 * 60);
     return data?.signedUrl ?? null;

@@ -29,8 +29,6 @@ export const metadata = {
     'A specialist network of verified senior finance and legal practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
 };
 
-// Verbatim from design/static_html/index.html's FAQ section (confirmed against the actual
-// rendered copy, not summarized/shortened) — 7 questions per column, not 4.
 const FAQ_MEMBERSHIP = [
   {
     q: 'Who can join Expertly?',
@@ -93,10 +91,7 @@ const FAQ_CLIENTS = [
   },
 ];
 
-// Homepage data is genuinely independent per section — one service being down (or Articles'
-// table not existing yet, see docs/rest-api.md's drift note) shouldn't blank the whole page.
-// allSettled + per-section empty-state (each home component already returns null on []) keeps
-// the rest of the page usable instead of one failure taking down everything via error.tsx.
+// Each section loads independently, so one failing service doesn't blank the whole page.
 async function loadHomeData() {
   const [membersResult, practiceAreasResult, articlesResult, eventsResult] =
     await Promise.allSettled([
@@ -106,11 +101,7 @@ async function loadHomeData() {
           practiceAreaId: [],
           country: [],
           page: 1,
-          // 20, not 16: the hero orbit (StellarOrbitHero) has 17 avatar dot slots
-          // (3+4+4+6 across its 4 rings) and falls back to a plain accent-colored dot for
-          // any slot beyond however many real member photos it's given — fetching fewer
-          // than 17 here guarantees at least one fallback dot even when plenty of real
-          // members with photos exist, which is what was happening at 16.
+          // Covers the hero orbit's 17 avatar slots.
           pageSize: 20,
         })
       ),

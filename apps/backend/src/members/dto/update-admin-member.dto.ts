@@ -13,9 +13,7 @@ export class UpdateAdminMemberDto {
   @IsDateString()
   membershipStartedAt?: string;
 
-  // Nullable on purpose — admin can clear an override back to "compute the due-state normally"
-  // by sending null, not just switch between the three real values. class-validator's @IsIn
-  // rejects null unless included in the allowed set explicitly.
+  // null clears the override back to computed.
   @IsOptional()
   @IsIn([...RENEWAL_STATUSES, null])
   renewalPaymentStatus?: RenewalPaymentStatus | null;

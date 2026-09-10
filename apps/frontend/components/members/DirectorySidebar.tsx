@@ -30,11 +30,7 @@ const STATS = [
   },
 ];
 
-// Static trust-signal marketing copy, ported verbatim from
-// design/static_html/members.html's sidebar (`.mv4-sidebar`) — not data, no fetch needed.
-// `sticky top-6` matches `.mv4-sidebar { position: sticky; top: 24px }` exactly; each stat is
-// a horizontal row (accent-green number, fixed-width column + text alongside it), not a
-// stacked number-then-caption block.
+// Static trust-signal marketing copy, not data.
 export function DirectorySidebar() {
   return (
     <aside className="sticky top-6 flex flex-col gap-4 max-[1023px]:static max-[1023px]:order-first">

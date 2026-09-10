@@ -9,29 +9,23 @@ import { EventsRepository } from './events.repository';
 export class EventsService {
   constructor(private readonly repository: EventsRepository) {}
 
-  // Upcoming, published events — the only shape a caller needs today (the homepage's
-  // Upcoming Events section). Ordered soonest-first. A future Events-page session can extend
-  // this with pagination/past-events params once that page actually exists.
+  // Upcoming, published events, soonest first.
   async listUpcoming(): Promise<EventDto[]> {
     const startOfToday = new Date();
     startOfToday.setUTCHours(0, 0, 0, 0);
     return this.repository.findUpcomingPublished(startOfToday.toISOString());
   }
 
-  // Every published event, past or future, soonest-first among the full set
+  // Every published event, soonest first.
   async listAll(): Promise<EventDto[]> {
     return this.repository.findAllPublished();
   }
 
-  // Every event regardless of status, ordered the same way the public browse list is
-  // (chronological by start_date) — backs the admin list at /admin/events, which needs to show
-  // drafts too, unlike listAll() above.
+  // Every event regardless of status.
   async adminList(): Promise<EventDto[]> {
     return this.repository.findAllForAdmin();
   }
 
-  // Single event, any status — backs the admin edit page's prefill. No public equivalent exists:
-  // GET /v1/events never needed a by-id shape.
   async adminGetOne(id: string): Promise<EventDto> {
     return this.repository.findByIdForAdmin(id);
   }
@@ -59,18 +53,14 @@ export class EventsService {
       is_free: dto.isFree ?? false,
       registration_url: dto.registrationUrl ?? null,
       organiser_name: dto.organiserName ?? null,
-      // Matches the column's own default — see CreateEventDto.status's comment.
       status: dto.status ?? 'draft',
     });
   }
 
   async update(id: string, dto: UpdateEventDto): Promise<EventDto> {
-    const current = await this.repository.findByIdForAdmin(id); // 404s if missing before attempting the patch
+    const current = await this.repository.findByIdForAdmin(id);
 
-    // Resolved against the merged (patch-over-current) fields, not just this PATCH body — a
-    // status-less PATCH on an already-published event (e.g. {city: ''}) must not be able to
-    // sneak a required field back out to blank, and publishing a draft via {status:'published'}
-    // needs to see fields the draft already had, not just what's in this particular request.
+    // Checked against the merged (patch-over-current) fields, not just this request body.
     const status = dto.status ?? current.status;
     if (status === 'published') {
       assertPublishReady({
