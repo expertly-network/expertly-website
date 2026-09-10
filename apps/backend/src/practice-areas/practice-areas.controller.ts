@@ -5,7 +5,7 @@ import { PracticeAreaDto } from '@shared/practice-area';
 
 @Controller('practice-areas')
 export class PracticeAreasController {
-  constructor(private readonly service: PracticeAreasService) { }
+  constructor(private readonly service: PracticeAreasService) {}
 
   @Public()
   @Get()

@@ -1,17 +1,8 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import sanitizeHtml from 'sanitize-html';
-import { SupabaseService } from '../auth/supabase.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminArticleListItemDto,
-  ArticleCreationMode,
   ArticleDto,
   ArticleListItemDto,
   ArticlePracticeArea,
@@ -22,6 +13,7 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
 import { AiService } from '../ai/ai.service';
+import { ArticlesRepository, type ArticleRow, type AuthorInfo } from './articles.repository';
 
 const MIN_WORDS = 400;
 const MAX_WORDS = 2000;
@@ -35,45 +27,6 @@ function stripHtml(html: string): string {
   return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} });
 }
 
-// Raw shape of a row selected from public.articles. `creation_mode` now backs the AI-drafting
-// write flow (POST /v1/articles/ai-draft + CreateArticleDto.creationMode) — selected/exposed
-// below, no longer the dead column the old comment here described. `ai_summary` is populated by
-// generateSummaryIfNeeded() the first time an article is published (see docs/rest-api.md),
-// unrelated to creation_mode
-interface ArticleRow {
-  id: string;
-  slug: string;
-  author_id: string;
-  status: ArticleStatus;
-  title: string;
-  body: string;
-  excerpt: string;
-  read_time_minutes: number;
-  cover_image_url: string;
-  practice_area_ids: string[];
-  countries: string[];
-  state: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  updated_at: string;
-  ai_summary: string | null;
-  creation_mode: ArticleCreationMode;
-}
-
-const ARTICLE_COLUMNS =
-  'id, slug, author_id, status, title, body, excerpt, read_time_minutes, cover_image_url, practice_area_ids, countries, state, rejection_reason, created_at, updated_at, ai_summary, creation_mode';
-
-interface AuthorInfo {
-  name: string;
-  // `profiles.avatar_url` is used directly (not a private storage path needing a signed URL) —
-  // same posture as MembersService.toListDto's `photoUrl`.
-  photoUrl: string | null;
-  // headline/firmName mirror MemberListItemDto's fields — the article card's "designation"
-  // line (design/static_html/articles.html: `[title, firm].filter(Boolean).join(', ')`).
-  headline: string | null;
-  firmName: string | null;
-}
-
 @Injectable()
 export class ArticlesService {
   private readonly logger = new Logger(ArticlesService.name);
@@ -85,9 +38,9 @@ export class ArticlesService {
     process.env.ARTICLES_REVIEW_MODE === 'editorial' ? 'editorial' : 'instant';
 
   constructor(
-    private readonly supabase: SupabaseService,
+    private readonly repository: ArticlesRepository,
     private readonly ai: AiService
-  ) { }
+  ) {}
 
   // The one place a client-requested "make this live" ('published' on the DTO, meaning
   // "submit") gets resolved to the real resulting status — a client can never set
@@ -104,30 +57,23 @@ export class ArticlesService {
     // gets submitted/published, checked again in update() if/when a draft's status flips.
     if (status !== 'draft') assertWordCount(body);
     await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
-    const slug = await this.generateUniqueSlug(dto.title);
+    const slug = await this.repository.findUniqueSlug(dto.title);
 
-    const { data: inserted, error } = await this.supabase.db
-      .from('articles')
-      .insert({
-        slug,
-        author_id: user.id,
-        status,
-        title: dto.title,
-        body,
-        excerpt: deriveExcerpt(body),
-        read_time_minutes: deriveReadTimeMinutes(body),
-        cover_image_url: dto.coverImageUrl,
-        practice_area_ids: dto.practiceAreaIds,
-        countries: dto.countries,
-        state: dto.state ?? null,
-        creation_mode: dto.creationMode ?? 'manual',
-      })
-      .select(ARTICLE_COLUMNS)
-      .single();
+    const row = await this.repository.insert({
+      slug,
+      author_id: user.id,
+      status,
+      title: dto.title,
+      body,
+      excerpt: deriveExcerpt(body),
+      read_time_minutes: deriveReadTimeMinutes(body),
+      cover_image_url: dto.coverImageUrl,
+      practice_area_ids: dto.practiceAreaIds,
+      countries: dto.countries,
+      state: dto.state ?? null,
+      creation_mode: dto.creationMode ?? 'manual',
+    });
 
-    if (error || !inserted) throw new InternalServerErrorException('Failed to create article.');
-
-    const row = inserted as ArticleRow;
     this.generateSummaryIfNeeded(row);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(row.practice_area_ids),
@@ -137,29 +83,12 @@ export class ArticlesService {
   }
 
   async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
-    let query = this.supabase.db
-      .from('articles')
-      .select(ARTICLE_COLUMNS)
-      .eq('status', 'published')
-      .order('created_at', { ascending: false });
-
-    if (authorId) query = query.eq('author_id', authorId);
-
-    const { data, error } = await query;
-
-    if (error) throw new InternalServerErrorException('Failed to load articles.');
-    return this.toListDtos((data ?? []) as ArticleRow[]);
+    const rows = await this.repository.findPublished(authorId);
+    return this.toListDtos(rows);
   }
 
   async listMine(user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
-    const { data, error } = await this.supabase.db
-      .from('articles')
-      .select(ARTICLE_COLUMNS)
-      .eq('author_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new InternalServerErrorException('Failed to load your articles.');
-    const rows = (data ?? []) as ArticleRow[];
+    const rows = await this.repository.findAllByAuthor(user.id);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
       this.resolveAuthors([user.id]),
@@ -168,7 +97,7 @@ export class ArticlesService {
   }
 
   async findOne(id: string, user: AuthenticatedUser): Promise<ArticleDto> {
-    const row = await this.getRowOrThrow(id);
+    const row = await this.repository.findByIdOrThrow(id);
 
     if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
       throw new NotFoundException('Article not found.');
@@ -182,7 +111,7 @@ export class ArticlesService {
   }
 
   async update(id: string, user: AuthenticatedUser, dto: UpdateArticleDto): Promise<ArticleDto> {
-    const existing = await this.getRowOrThrow(id);
+    const existing = await this.repository.findByIdOrThrow(id);
     this.assertOwnerOrAdmin(existing, user);
     const body = dto.body !== undefined ? sanitizeArticleBody(dto.body) : undefined;
     const resultingStatus: ArticleStatus | undefined = dto.status === undefined ? undefined : dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
@@ -210,16 +139,8 @@ export class ArticlesService {
       if (resultingStatus !== 'draft') patch.rejection_reason = null;
     }
 
-    const { data: updated, error } = await this.supabase.db
-      .from('articles')
-      .update(patch)
-      .eq('id', id)
-      .select(ARTICLE_COLUMNS)
-      .single();
+    const row = await this.repository.updateById(id, patch);
 
-    if (error || !updated) throw new InternalServerErrorException('Failed to update article.');
-
-    const row = updated as ArticleRow;
     this.generateSummaryIfNeeded(row);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(row.practice_area_ids),
@@ -233,14 +154,7 @@ export class ArticlesService {
   // audit past decisions. Only ever non-empty when ARTICLES_REVIEW_MODE=editorial — in 'instant'
   // mode nothing reaches 'pending_review'. Lighter than toDto()'s full ArticleDto (no body).
   async listForReview(status?: ArticleStatus): Promise<AdminArticleListItemDto[]> {
-    const { data, error } = await this.supabase.db
-      .from('articles')
-      .select(ARTICLE_COLUMNS)
-      .eq('status', status ?? 'pending_review')
-      .order('created_at', { ascending: false });
-
-    if (error) throw new InternalServerErrorException('Failed to load articles for review.');
-    const rows = (data ?? []) as ArticleRow[];
+    const rows = await this.repository.findForReview(status);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
       this.resolveAuthors(rows.map((r) => r.author_id)),
@@ -263,7 +177,7 @@ export class ArticlesService {
   // 🛡️ manageArticles — approve publishes immediately; reject requires a reason and returns the
   // article to the author (visible only to them, same as any other non-published status).
   async review(id: string, dto: AdminArticleReviewDto): Promise<ArticleDto> {
-    const existing = await this.getRowOrThrow(id);
+    const existing = await this.repository.findByIdOrThrow(id);
     if (existing.status !== 'pending_review') {
       throw new BadRequestException('Only an article pending review can be approved or rejected.');
     }
@@ -271,19 +185,11 @@ export class ArticlesService {
       throw new BadRequestException('A rejection reason is required.');
     }
 
-    const { data: updated, error } = await this.supabase.db
-      .from('articles')
-      .update({
-        status: dto.status,
-        rejection_reason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null,
-      })
-      .eq('id', id)
-      .select(ARTICLE_COLUMNS)
-      .single();
+    const row = await this.repository.applyReview(id, {
+      status: dto.status,
+      rejection_reason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null,
+    });
 
-    if (error || !updated) throw new InternalServerErrorException('Failed to review article.');
-
-    const row = updated as ArticleRow;
     this.generateSummaryIfNeeded(row);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(row.practice_area_ids),
@@ -293,11 +199,9 @@ export class ArticlesService {
   }
 
   async remove(id: string, user: AuthenticatedUser): Promise<void> {
-    const existing = await this.getRowOrThrow(id);
+    const existing = await this.repository.findByIdOrThrow(id);
     this.assertOwnerOrAdmin(existing, user);
-
-    const { error } = await this.supabase.db.from('articles').delete().eq('id', id);
-    if (error) throw new InternalServerErrorException('Failed to delete article.');
+    await this.repository.deleteById(id);
   }
 
   private async toListDtos(rows: ArticleRow[]): Promise<ArticleListItemDto[]> {
@@ -306,18 +210,6 @@ export class ArticlesService {
       this.resolveAuthors(rows.map((r) => r.author_id)),
     ]);
     return rows.map((row) => omitBody(toDto(row, practiceAreaNames, authors)));
-  }
-
-  private async getRowOrThrow(id: string): Promise<ArticleRow> {
-    const { data, error } = await this.supabase.db
-      .from('articles')
-      .select(ARTICLE_COLUMNS)
-      .eq('id', id)
-      .maybeSingle();
-
-    if (error) throw new InternalServerErrorException('Failed to load article.');
-    if (!data) throw new NotFoundException('Article not found.');
-    return data as ArticleRow;
   }
 
   // Fires the first time an article becomes 'published' (ai_summary still null) — never on a
@@ -329,7 +221,7 @@ export class ArticlesService {
 
     void this.ai
       .summarizeArticle(row.title, row.body)
-      .then((summary) => this.supabase.db.from('articles').update({ ai_summary: summary }).eq('id', row.id))
+      .then((summary) => this.repository.updateAiSummary(row.id, summary))
       .catch((error) => {
         this.logger.error(
           `AI summary generation failed for article ${row.id}`,
@@ -344,20 +236,8 @@ export class ArticlesService {
     }
   }
 
-  // Write path: only ids that exist AND are currently active are accepted —
-  // same load-bearing check as ApplicationsService.create()'s practice-area
-  // validation (no FK, so this is the only thing enforcing referential
-  // integrity on write).
   private async assertActivePracticeAreaIds(ids: string[]): Promise<void> {
-    const { data, error } = await this.supabase.db
-      .from('practice_areas')
-      .select('id')
-      .eq('is_active', true)
-      .in('id', ids);
-
-    if (error) throw new InternalServerErrorException('Failed to validate practice areas.');
-
-    const validIds = new Set((data ?? []).map((p) => p.id as string));
+    const validIds = await this.repository.findActivePracticeAreaIds(ids);
     const invalidIds = ids.filter((id) => !validIds.has(id));
     if (invalidIds.length > 0) {
       throw new BadRequestException(`Invalid or inactive practice area id(s): ${invalidIds.join(', ')}`);
@@ -373,90 +253,13 @@ export class ArticlesService {
     return ids.map((id) => map.get(id)).filter((name): name is string => Boolean(name));
   }
 
-  // Read path: deliberately NOT filtered by is_active — an already-created
-  // article should keep showing the real name of a practice area even if
-  // it's since been deactivated, unlike the write-path check above.
   private async resolvePracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
-    const uniqueIds = [...new Set(ids)];
-    if (uniqueIds.length === 0) return new Map();
-
-    const { data, error } = await this.supabase.db
-      .from('practice_areas')
-      .select('id, name')
-      .in('id', uniqueIds);
-
-    if (error) throw new InternalServerErrorException('Failed to resolve practice areas.');
-    return new Map((data ?? []).map((p) => [p.id as string, p.name as string]));
+    return this.repository.findPracticeAreaNames(ids);
   }
 
-  // Every article author is a `member` — their real photo lives on `member_profiles.photo_url`
-  // (set from their application, see MembersService's identical fallback), not
-  // `profiles.avatar_url` (a separate, not-yet-built self-service-avatar column that's null for
-  // every seeded/real member today). Two queries rather than a join: supabase-js's embedded-
-  // resource syntax needs a declared FK relationship for this pair that doesn't exist here (see
-  // `member_profiles.profile_id`'s own comment in the migration), so a plain `.in()` + in-memory
-  // merge is simpler than fighting the query builder for one nullable column.
   private async resolveAuthors(ids: string[]): Promise<Map<string, AuthorInfo>> {
-    const uniqueIds = [...new Set(ids)];
-    if (uniqueIds.length === 0) return new Map();
-
-    const [{ data: profiles, error: profilesError }, { data: memberProfiles, error: memberError }] =
-      await Promise.all([
-        this.supabase.db.from('profiles').select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
-        this.supabase.db
-          .from('member_profiles')
-          .select('profile_id, photo_url, headline, firm_name')
-          .in('profile_id', uniqueIds),
-      ]);
-
-    if (profilesError || memberError) {
-      throw new InternalServerErrorException('Failed to resolve article authors.');
-    }
-
-    const memberByProfileId = new Map((memberProfiles ?? []).map((m) => [m.profile_id as string, m]));
-    return new Map(
-      (profiles ?? []).map((p) => {
-        const member = memberByProfileId.get(p.id as string);
-        return [
-          p.id as string,
-          {
-            name: `${p.first_name} ${p.last_name}`.trim(),
-            photoUrl: (member?.photo_url as string | null) ?? (p.avatar_url as string | null) ?? null,
-            headline: (member?.headline as string | null) ?? null,
-            firmName: (member?.firm_name as string | null) ?? null,
-          },
-        ];
-      })
-    );
+    return this.repository.findAuthorsInfo(ids);
   }
-
-  // Slugs are always generated server-side (root CLAUDE.md's non-negotiable rule) — kebab-case
-  // the title, then disambiguate against the table's real unique constraint by appending
-  // `-2`, `-3`, ... rather than trusting an in-memory check for a race-free guarantee.
-  private async generateUniqueSlug(title: string): Promise<string> {
-    const base = slugify(title);
-    let candidate = base;
-    for (let suffix = 2; ; suffix++) {
-      const { data, error } = await this.supabase.db
-        .from('articles')
-        .select('id')
-        .eq('slug', candidate)
-        .maybeSingle();
-
-      if (error) throw new InternalServerErrorException('Failed to generate article slug.');
-      if (!data) return candidate;
-      candidate = `${base}-${suffix}`;
-    }
-  }
-}
-
-function slugify(title: string): string {
-  const base = title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return base || 'article';
 }
 
 // `body` here is already-sanitised HTML — these all derive from its plain-text content so tags

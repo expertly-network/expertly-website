@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { SupabaseService } from '../supabase.service';
+import { ProfilesRepository } from '../profiles.repository';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { ROLE_RANK, type AuthenticatedUser, type Role } from '../types/auth.types';
 
@@ -21,7 +21,7 @@ import { ROLE_RANK, type AuthenticatedUser, type Role } from '../types/auth.type
 export class RolesGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly supabase: SupabaseService
+    private readonly profilesRepository: ProfilesRepository
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -61,13 +61,9 @@ export class RolesGuard implements CanActivate {
   }
 
   private async assertFreshAdmin(user: AuthenticatedUser): Promise<void> {
-    const { data: profile, error } = await this.supabase.db
-      .from('profiles')
-      .select('role, status')
-      .eq('id', user.id)
-      .single();
+    const profile = await this.profilesRepository.findById(user.id);
 
-    if (error || !profile || profile.status !== 'active' || profile.role !== 'admin') {
+    if (!profile || profile.status !== 'active' || profile.role !== 'admin') {
       throw new ForbiddenException('Admin access could not be freshly confirmed.');
     }
   }

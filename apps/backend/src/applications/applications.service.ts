@@ -3,10 +3,8 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { SupabaseService } from '../auth/supabase.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminApplicationListItemDto,
@@ -23,6 +21,7 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
+import { ApplicationsRepository, type ApplicationRow } from './applications.repository';
 
 // Pinned to file-type@16 deliberately — v17+ is pure ESM with an exports-map-only type layout
 // that this backend's CommonJS moduleResolution can't resolve (confirmed: TS2307 even via a
@@ -91,7 +90,7 @@ type Row = Record<string, any>;
 @Injectable()
 export class ApplicationsService {
   constructor(
-    private readonly supabase: SupabaseService,
+    private readonly repository: ApplicationsRepository,
     private readonly linkedInImportProvider: LinkedInImportProvider
   ) {}
 
@@ -103,14 +102,7 @@ export class ApplicationsService {
       throw new ForbiddenException('Only client accounts can manage a membership application.');
     }
 
-    const { data: latest, error: latestError } = await this.supabase.db
-      .from('membership_applications')
-      .select('*')
-      .eq('applicant_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (latestError) throw new InternalServerErrorException('Failed to load application.');
+    const latest = await this.repository.findLatestByApplicant(user.id);
 
     // 'rejected' deliberately does NOT block a new application — matches the frontend's
     // pre-existing intent (app/apply/page.tsx's redirect gate only blocks
@@ -171,19 +163,9 @@ export class ApplicationsService {
       patch.payment_status = amountDueCents === 0 ? 'waived' : 'pending';
     }
 
-    const { data: saved, error: saveError } = existing
-      ? await this.supabase.db
-          .from('membership_applications')
-          .update(patch)
-          .eq('id', existing.id)
-          .select()
-          .single()
-      : await this.supabase.db
-          .from('membership_applications')
-          .insert({ ...patch, applicant_id: user.id })
-          .select()
-          .single();
-    if (saveError || !saved) throw new InternalServerErrorException('Failed to save application.');
+    const saved = existing
+      ? await this.repository.updateById(existing.id, patch)
+      : await this.repository.insert({ ...patch, applicant_id: user.id });
 
     // If this call didn't touch service_preferences, resolve names from whatever the saved row
     // already carries (read path — no is_active filter, same "an already-saved reference keeps
@@ -197,15 +179,7 @@ export class ApplicationsService {
   }
 
   async findMine(userId: string): Promise<ApplicationDto> {
-    const { data, error } = await this.supabase.db
-      .from('membership_applications')
-      .select()
-      .eq('applicant_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw new InternalServerErrorException('Failed to load application.');
+    const data = await this.repository.findLatestByApplicant(userId);
     if (!data) throw new NotFoundException('No application found for this account.');
 
     const practiceAreaById = await this.resolvePracticeAreaNames(data.service_preferences ?? []);
@@ -238,14 +212,8 @@ export class ApplicationsService {
       throw new BadRequestException(`Unsupported file type for ${kind}.`);
     }
 
-    const { data: existing, error: existingError } = await this.supabase.db
-      .from('membership_applications')
-      .select('*')
-      .eq('applicant_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existingError || !existing || existing.status !== 'draft') {
+    const existing = await this.repository.findLatestForUpload(user.id);
+    if (!existing || existing.status !== 'draft') {
       throw new BadRequestException('No draft application to attach this file to.');
     }
 
@@ -255,10 +223,7 @@ export class ApplicationsService {
         ? `members/application/${user.id}/profile-photo.${sniffed.ext}`
         : `members/application/${user.id}/document-${existingDocuments.length + 1}.${sniffed.ext}`;
 
-    const { error: uploadError } = await this.supabase.db.storage
-      .from('application-assets')
-      .upload(path, file.buffer, { contentType: sniffed.mime, upsert: true });
-    if (uploadError) throw new InternalServerErrorException('Failed to store file.');
+    await this.repository.uploadFile(path, file.buffer, sniffed.mime);
 
     const patch: Row =
       kind === 'photo'
@@ -277,13 +242,7 @@ export class ApplicationsService {
             ],
           };
 
-    const { data: saved, error: saveError } = await this.supabase.db
-      .from('membership_applications')
-      .update(patch)
-      .eq('id', existing.id)
-      .select()
-      .single();
-    if (saveError || !saved) throw new InternalServerErrorException('Failed to save upload reference.');
+    const saved = await this.repository.saveUploadReference(existing.id, patch);
 
     const practiceAreaById = await this.resolvePracticeAreaNames(saved.service_preferences ?? []);
     return this.toDto(saved, practiceAreaById);
@@ -292,34 +251,9 @@ export class ApplicationsService {
   // 🛡️ manageApplications — the admin review queue's list view. Defaults to the two
   // reviewable statuses (draft/approved/rejected already have a decided or not-yet-actionable
   // outcome); pass `status` to look at a specific bucket instead, e.g. 'approved' to audit past
-  // decisions. Lighter than toDto()'s full ApplicationDto — no documents/work-experience/
-  // education resolution, which this list view doesn't render.
+  // decisions.
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
-    let query = this.supabase.db
-      .from('membership_applications')
-      .select(
-        'id, status, first_name, last_name, contact_email, country, selected_tier, billing_period, amount_due_cents, payment_status, created_at'
-      )
-      .order('created_at', { ascending: false });
-
-    query = status ? query.eq('status', status) : query.in('status', ['submitted', 'under_review']);
-
-    const { data, error } = await query;
-    if (error) throw new InternalServerErrorException('Failed to load applications.');
-
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      status: row.status,
-      firstName: row.first_name,
-      lastName: row.last_name,
-      contactEmail: row.contact_email,
-      country: row.country,
-      selectedTier: row.selected_tier,
-      billingPeriod: row.billing_period,
-      amountDueCents: row.amount_due_cents,
-      paymentStatus: row.payment_status,
-      createdAt: row.created_at,
-    }));
+    return this.repository.listForReview(status);
   }
 
   // Approve/reject a submitted application. Not a real DB transaction — supabase-js has no
@@ -333,13 +267,7 @@ export class ApplicationsService {
     reviewer: AuthenticatedUser,
     dto: ReviewApplicationDto
   ): Promise<{ status: 'approved' | 'rejected' }> {
-    const { data: application, error } = await this.supabase.db
-      .from('membership_applications')
-      .select('*')
-      .eq('id', applicationId)
-      .maybeSingle();
-    if (error) throw new InternalServerErrorException('Failed to load application.');
-    if (!application) throw new NotFoundException('Application not found.');
+    const application = await this.repository.findByIdForReview(applicationId);
     if (!['submitted', 'under_review'].includes(application.status)) {
       throw new ConflictException('Only a submitted or under-review application can be reviewed.');
     }
@@ -350,22 +278,18 @@ export class ApplicationsService {
     const reviewedAt = new Date().toISOString();
 
     if (dto.status === 'rejected') {
-      const { error: updateError } = await this.supabase.db
-        .from('membership_applications')
-        .update({
-          status: 'rejected',
-          reviewed_by: reviewer.id,
-          reviewed_at: reviewedAt,
-          rejection_reason: dto.rejectionReason,
-        })
-        .eq('id', applicationId);
-      if (updateError) throw new InternalServerErrorException('Failed to reject application.');
+      await this.repository.applyRejection(applicationId, {
+        status: 'rejected',
+        reviewed_by: reviewer.id,
+        reviewed_at: reviewedAt,
+        rejection_reason: dto.rejectionReason,
+      });
       return { status: 'rejected' };
     }
 
-    const photoUrl = application.photo_path ? await this.signedUrl(application.photo_path) : null;
+    const photoUrl = application.photo_path ? await this.repository.createSignedUrl(application.photo_path) : null;
 
-    const { error: profileError } = await this.supabase.db.from('member_profiles').insert({
+    await this.repository.insertMemberProfile({
       profile_id: application.applicant_id,
       bio: application.bio,
       region: application.region,
@@ -383,68 +307,36 @@ export class ApplicationsService {
       is_verified: true,
       status: 'active',
     });
-    if (profileError) throw new InternalServerErrorException('Failed to provision member profile.');
 
     const servicePreferences = (application.service_preferences ?? []) as { practiceAreaId: string }[];
     if (servicePreferences.length > 0) {
-      const { error: servicesError } = await this.supabase.db.from('member_services').insert(
+      await this.repository.insertMemberServices(
         servicePreferences.map((p) => ({
           member_id: application.applicant_id,
           practice_area_id: p.practiceAreaId,
         }))
       );
-      if (servicesError) throw new InternalServerErrorException('Failed to provision member services.');
     }
 
-    const { error: roleError } = await this.supabase.db
-      .from('profiles')
-      .update({ role: 'member' })
-      .eq('id', application.applicant_id);
-    if (roleError) throw new InternalServerErrorException('Failed to promote applicant to member.');
-
-    const { error: appUpdateError } = await this.supabase.db
-      .from('membership_applications')
-      .update({ status: 'approved', reviewed_by: reviewer.id, reviewed_at: reviewedAt })
-      .eq('id', applicationId);
-    if (appUpdateError) throw new InternalServerErrorException('Failed to finalize application status.');
+    await this.repository.promoteToMember(application.applicant_id);
+    await this.repository.markApproved(applicationId, reviewer.id, reviewedAt);
 
     return { status: 'approved' };
   }
 
   /** Read path — resolves names with no is_active filter (see findMine's comment). */
-  private async resolvePracticeAreaNames(
-    servicePreferences: { practiceAreaId: string }[]
-  ): Promise<Map<string, string>> {
-    const practiceAreaById = new Map<string, string>();
-    if (servicePreferences.length === 0) return practiceAreaById;
-
-    const ids = servicePreferences.map((p) => p.practiceAreaId);
-    const { data: practiceAreas, error } = await this.supabase.db
-      .from('practice_areas')
-      .select('id, name')
-      .in('id', ids);
-    if (error) throw new InternalServerErrorException('Failed to resolve service preferences.');
-
-    for (const p of practiceAreas ?? []) practiceAreaById.set(p.id, p.name);
-    return practiceAreaById;
+  private async resolvePracticeAreaNames(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
+    if (servicePreferences.length === 0) return new Map();
+    return this.repository.findPracticeAreaNames(servicePreferences.map((p) => p.practiceAreaId));
   }
 
   /** Write path — rejects any id that isn't a real, currently-active practice area. */
-  private async assertActiveAndResolve(
-    servicePreferences: { practiceAreaId: string }[]
-  ): Promise<Map<string, string>> {
-    const practiceAreaById = new Map<string, string>();
-    if (servicePreferences.length === 0) return practiceAreaById;
+  private async assertActiveAndResolve(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
+    if (servicePreferences.length === 0) return new Map();
 
     const ids = servicePreferences.map((p) => p.practiceAreaId);
-    const { data: practiceAreas, error } = await this.supabase.db
-      .from('practice_areas')
-      .select('id, name')
-      .eq('is_active', true)
-      .in('id', ids);
-    if (error) throw new InternalServerErrorException('Failed to validate service preferences.');
+    const practiceAreaById = await this.repository.findActivePracticeAreaNames(ids);
 
-    for (const p of practiceAreas ?? []) practiceAreaById.set(p.id, p.name);
     const invalidIds = ids.filter((id) => !practiceAreaById.has(id));
     if (invalidIds.length > 0) {
       throw new BadRequestException(`Invalid or inactive practice area id(s): ${invalidIds.join(', ')}`);
@@ -476,13 +368,6 @@ export class ApplicationsService {
     }
   }
 
-  private async signedUrl(path: string): Promise<string | null> {
-    const { data } = await this.supabase.db.storage
-      .from('application-assets')
-      .createSignedUrl(path, 60 * 60);
-    return data?.signedUrl ?? null;
-  }
-
   private async resolveDocuments(documents: Row[]): Promise<ApplicationDocumentDto[]> {
     return Promise.all(
       documents.map(async (doc) => ({
@@ -490,13 +375,13 @@ export class ApplicationsService {
         filename: doc.filename,
         mimeType: doc.mimeType,
         sizeBytes: doc.sizeBytes,
-        url: (await this.signedUrl(doc.path)) ?? '',
+        url: (await this.repository.createSignedUrl(doc.path)) ?? '',
         uploadedAt: doc.uploadedAt,
       }))
     );
   }
 
-  private async toDto(row: Row, practiceAreaById: Map<string, string>): Promise<ApplicationDto> {
+  private async toDto(row: ApplicationRow, practiceAreaById: Map<string, string>): Promise<ApplicationDto> {
     const servicePreferences: ServicePreference[] = (row.service_preferences ?? []).map(
       (p: { practiceAreaId: string; priority: 1 | 2 | 3 }) => ({
         practiceAreaId: p.practiceAreaId,
@@ -509,7 +394,7 @@ export class ApplicationsService {
       id: row.id,
       status: row.status,
       currentStep: row.current_step,
-      photoUrl: row.photo_path ? await this.signedUrl(row.photo_path) : null,
+      photoUrl: row.photo_path ? await this.repository.createSignedUrl(row.photo_path) : null,
       documents: await this.resolveDocuments(row.documents ?? []),
       firstName: row.first_name,
       lastName: row.last_name,
