@@ -3,40 +3,40 @@ import type { EventDto } from '@shared/event';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { assertPublishReady } from './publish-requirements';
-import { EventsRepository } from './events.repository';
+import { EventsRepository, type EventUpdate } from './events.repository';
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly repository: EventsRepository) {}
+  constructor(private readonly eventsRepository: EventsRepository) {}
 
   // Upcoming, published events, soonest first.
   async listUpcoming(): Promise<EventDto[]> {
     const startOfToday = new Date();
     startOfToday.setUTCHours(0, 0, 0, 0);
-    return this.repository.findUpcomingPublished(startOfToday.toISOString());
+    return this.eventsRepository.findUpcomingPublished(startOfToday.toISOString());
   }
 
   // Every published event, soonest first.
   async listAll(): Promise<EventDto[]> {
-    return this.repository.findAllPublished();
+    return this.eventsRepository.findAllPublished();
   }
 
   // Every event regardless of status.
   async adminList(): Promise<EventDto[]> {
-    return this.repository.findAllForAdmin();
+    return this.eventsRepository.findAllForAdmin();
   }
 
   async adminGetOne(id: string): Promise<EventDto> {
-    return this.repository.findByIdForAdmin(id);
+    return this.eventsRepository.findByIdForAdmin(id);
   }
 
   async create(dto: CreateEventDto): Promise<EventDto> {
     const status = dto.status ?? 'draft';
     if (status === 'published') assertPublishReady(dto as unknown as Record<string, unknown>);
 
-    const slug = await this.repository.findUniqueSlug(dto.title);
+    const slug = await this.eventsRepository.findUniqueSlug(dto.title);
 
-    return this.repository.insert({
+    return this.eventsRepository.insert({
       slug,
       title: dto.title,
       description: dto.description,
@@ -58,7 +58,7 @@ export class EventsService {
   }
 
   async update(id: string, dto: UpdateEventDto): Promise<EventDto> {
-    const current = await this.repository.findByIdForAdmin(id);
+    const current = await this.eventsRepository.findByIdForAdmin(id);
 
     // Checked against the merged (patch-over-current) fields, not just this request body.
     const status = dto.status ?? current.status;
@@ -77,7 +77,7 @@ export class EventsService {
       });
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: EventUpdate = {};
     if (dto.title !== undefined) patch.title = dto.title;
     if (dto.description !== undefined) patch.description = dto.description;
     if (dto.shortDescription !== undefined) patch.short_description = dto.shortDescription;
@@ -95,10 +95,10 @@ export class EventsService {
     if (dto.organiserName !== undefined) patch.organiser_name = dto.organiserName;
     if (dto.status !== undefined) patch.status = dto.status;
 
-    return this.repository.updateById(id, patch);
+    return this.eventsRepository.updateById(id, patch);
   }
 
   async remove(id: string): Promise<void> {
-    return this.repository.deleteById(id);
+    return this.eventsRepository.deleteById(id);
   }
 }

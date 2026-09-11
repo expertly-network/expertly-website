@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
+import type { Database } from '../supabase/database.types';
 import type { ApplicationRegion, MembershipTier } from '@shared/membership-application';
 import type {
   MemberAward,
@@ -154,13 +155,41 @@ export interface MemberListFilters {
   sort?: string;
 }
 
+export type MemberProfileUpdate = Database['public']['Tables']['member_profiles']['Update'];
+export type MemberProfileEditInsert = Database['public']['Tables']['member_profile_edits']['Insert'];
+export type MemberProfileEditUpdate = Database['public']['Tables']['member_profile_edits']['Update'];
+export type RenewalPolicyUpdate = Database['public']['Tables']['member_renewal_policy']['Update'];
+
 @Injectable()
 export class MembersRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  private memberProfiles() {
+    return this.supabase.db.from('member_profiles');
+  }
+
+  private memberProfileEdits() {
+    return this.supabase.db.from('member_profile_edits');
+  }
+
+  private memberServices() {
+    return this.supabase.db.from('member_services');
+  }
+
+  private practiceAreas() {
+    return this.supabase.db.from('practice_areas');
+  }
+
+  private memberRenewalPolicy() {
+    return this.supabase.db.from('member_renewal_policy');
+  }
+
+  private profiles() {
+    return this.supabase.db.from('profiles');
+  }
+
   async findActiveList(filters: MemberListFilters, range: { from: number; to: number }): Promise<MemberProfileRow[]> {
-    let dbQuery = this.supabase.db
-      .from('member_profiles')
+    let dbQuery = this.memberProfiles()
       .select(MEMBER_PROFILE_COLUMNS.join(', '))
       .eq('status', 'active');
 
@@ -193,17 +222,13 @@ export class MembersRepository {
   }
 
   async findMemberIdsByPracticeAreas(practiceAreaIds: string[]): Promise<Set<string>> {
-    const { data, error } = await this.supabase.db
-      .from('member_services')
-      .select('member_id')
-      .in('practice_area_id', practiceAreaIds);
+    const { data, error } = await this.memberServices().select('member_id').in('practice_area_id', practiceAreaIds);
     if (error) throw new InternalServerErrorException('Failed to filter by practice area.');
     return new Set((data ?? []).map((m) => m.member_id as string));
   }
 
   async findDetailByProfileId(id: string): Promise<MemberProfileDetailRow | null> {
-    const { data, error } = await this.supabase.db
-      .from('member_profiles')
+    const { data, error } = await this.memberProfiles()
       .select([...MEMBER_PROFILE_COLUMNS, ...MEMBER_DETAIL_JSONB_COLUMNS].join(', '))
       .eq('profile_id', id)
       .maybeSingle();
@@ -218,9 +243,8 @@ export class MembersRepository {
     return data;
   }
 
-  async insertEdit(row: Record<string, unknown>): Promise<MemberProfileEditRow> {
-    const { data: inserted, error } = await this.supabase.db
-      .from('member_profile_edits')
+  async insertEdit(row: MemberProfileEditInsert): Promise<MemberProfileEditRow> {
+    const { data: inserted, error } = await this.memberProfileEdits()
       .insert(row)
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
       .single();
@@ -230,8 +254,7 @@ export class MembersRepository {
   }
 
   async findEditsByMember(memberId: string): Promise<MemberProfileEditRow[]> {
-    const { data, error } = await this.supabase.db
-      .from('member_profile_edits')
+    const { data, error } = await this.memberProfileEdits()
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
       .eq('member_id', memberId)
       .order('submitted_at', { ascending: false });
@@ -241,17 +264,14 @@ export class MembersRepository {
   }
 
   async adminFindAllProfiles(): Promise<MemberProfileRow[]> {
-    const { data, error } = await this.supabase.db
-      .from('member_profiles')
-      .select(MEMBER_PROFILE_COLUMNS.join(', ') + ', status');
+    const { data, error } = await this.memberProfiles().select(MEMBER_PROFILE_COLUMNS.join(', ') + ', status');
 
     if (error) throw new InternalServerErrorException('Failed to load members.');
     return (data ?? []) as unknown as MemberProfileRow[];
   }
 
-  async adminUpdateProfile(id: string, patch: Record<string, unknown>): Promise<MemberProfileRow> {
-    const { data: updated, error } = await this.supabase.db
-      .from('member_profiles')
+  async adminUpdateProfile(id: string, patch: MemberProfileUpdate): Promise<MemberProfileRow> {
+    const { data: updated, error } = await this.memberProfiles()
       .update(patch)
       .eq('profile_id', id)
       .select(MEMBER_PROFILE_COLUMNS.join(', ') + ', status')
@@ -263,10 +283,9 @@ export class MembersRepository {
   }
 
   async findAllEditsByStatus(status: string): Promise<MemberProfileEditRow[]> {
-    const { data, error } = await this.supabase.db
-      .from('member_profile_edits')
+    const { data, error } = await this.memberProfileEdits()
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .eq('status', status)
+      .eq('status', status as MemberEditStatus)
       .order('submitted_at', { ascending: false });
 
     if (error) throw new InternalServerErrorException('Failed to load profile edits.');
@@ -274,8 +293,7 @@ export class MembersRepository {
   }
 
   async findEditById(id: string): Promise<MemberProfileEditRow> {
-    const { data, error } = await this.supabase.db
-      .from('member_profile_edits')
+    const { data, error } = await this.memberProfileEdits()
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
       .eq('id', id)
       .maybeSingle();
@@ -285,9 +303,8 @@ export class MembersRepository {
     return data as unknown as MemberProfileEditRow;
   }
 
-  async updateEditDecision(id: string, patch: Record<string, unknown>): Promise<MemberProfileEditRow> {
-    const { data: updated, error } = await this.supabase.db
-      .from('member_profile_edits')
+  async updateEditDecision(id: string, patch: MemberProfileEditUpdate): Promise<MemberProfileEditRow> {
+    const { data: updated, error } = await this.memberProfileEdits()
       .update(patch)
       .eq('id', id)
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
@@ -298,7 +315,7 @@ export class MembersRepository {
   }
 
   async applyHeadlineBioEdit(memberId: string, headline: string, bio: string): Promise<void> {
-    const { error } = await this.supabase.db.from('member_profiles').update({ headline, bio }).eq('profile_id', memberId);
+    const { error } = await this.memberProfiles().update({ headline, bio }).eq('profile_id', memberId);
     if (error) throw new InternalServerErrorException('Failed to apply headline/bio edit.');
   }
 
@@ -306,8 +323,7 @@ export class MembersRepository {
     memberId: string,
     contact: { contactEmail: string | null; contactPhone: string | null; linkedinUrl: string | null; website: string | null }
   ): Promise<void> {
-    const { error } = await this.supabase.db
-      .from('member_profiles')
+    const { error } = await this.memberProfiles()
       .update({
         contact_email: contact.contactEmail,
         contact_phone: contact.contactPhone,
@@ -319,27 +335,21 @@ export class MembersRepository {
   }
 
   async applySectionEdit(memberId: string, column: string, section: string, items: Record<string, unknown>[]): Promise<void> {
-    const { error } = await this.supabase.db
-      .from('member_profiles')
-      .update({ [column]: items })
+    const { error } = await this.memberProfiles()
+      .update({ [column]: items } as MemberProfileUpdate)
       .eq('profile_id', memberId);
     if (error) throw new InternalServerErrorException(`Failed to apply ${section} edit.`);
   }
 
   async findRenewalPolicy(): Promise<RenewalPolicyRow> {
-    const { data, error } = await this.supabase.db
-      .from('member_renewal_policy')
-      .select(RENEWAL_POLICY_COLUMNS.join(', '))
-      .eq('id', 1)
-      .single();
+    const { data, error } = await this.memberRenewalPolicy().select(RENEWAL_POLICY_COLUMNS.join(', ')).eq('id', 1).single();
 
     if (error || !data) throw new InternalServerErrorException('Failed to load renewal policy.');
     return data as unknown as RenewalPolicyRow;
   }
 
-  async updateRenewalPolicy(patch: Record<string, unknown>): Promise<RenewalPolicyRow> {
-    const { data, error } = await this.supabase.db
-      .from('member_renewal_policy')
+  async updateRenewalPolicy(patch: RenewalPolicyUpdate): Promise<RenewalPolicyRow> {
+    const { data, error } = await this.memberRenewalPolicy()
       .update(patch)
       .eq('id', 1)
       .select(RENEWAL_POLICY_COLUMNS.join(', '))
@@ -353,10 +363,7 @@ export class MembersRepository {
     const map = new Map<string, ProfileIdentityRow>();
     if (ids.length === 0) return map;
 
-    const { data, error } = await this.supabase.db
-      .from('profiles')
-      .select(PROFILE_IDENTITY_COLUMNS.join(', '))
-      .in('id', ids);
+    const { data, error } = await this.profiles().select(PROFILE_IDENTITY_COLUMNS.join(', ')).in('id', ids);
 
     if (error) throw new InternalServerErrorException('Failed to load member identity.');
     for (const p of (data ?? []) as unknown as ProfileIdentityRow[]) map.set(p.id, p);
@@ -367,8 +374,7 @@ export class MembersRepository {
     const map = new Map<string, { id: string; name: string }[]>();
     if (memberIds.length === 0) return map;
 
-    const { data: links, error } = await this.supabase.db
-      .from('member_services')
+    const { data: links, error } = await this.memberServices()
       .select('member_id, practice_area_id')
       .in('member_id', memberIds);
     if (error) throw new InternalServerErrorException('Failed to load member practice areas.');
@@ -376,7 +382,7 @@ export class MembersRepository {
     const practiceAreaIds = [...new Set((links ?? []).map((l) => l.practice_area_id as string))];
     const practiceAreaById = new Map<string, string>();
     if (practiceAreaIds.length > 0) {
-      const { data: areas } = await this.supabase.db.from('practice_areas').select('id, name').in('id', practiceAreaIds);
+      const { data: areas } = await this.practiceAreas().select('id, name').in('id', practiceAreaIds);
       for (const a of areas ?? []) practiceAreaById.set(a.id as string, a.name as string);
     }
 

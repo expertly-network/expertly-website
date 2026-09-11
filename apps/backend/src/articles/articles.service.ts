@@ -13,7 +13,7 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
 import { AiService } from '../ai/ai.service';
-import { ArticlesRepository, type ArticleRow, type AuthorInfo } from './articles.repository';
+import { ArticlesRepository, type ArticleRow, type ArticleUpdate, type AuthorInfo } from './articles.repository';
 
 const MIN_WORDS = 400;
 const MAX_WORDS = 2000;
@@ -35,8 +35,8 @@ export class ArticlesService {
     process.env.ARTICLES_REVIEW_MODE === 'editorial' ? 'editorial' : 'instant';
 
   constructor(
-    private readonly repository: ArticlesRepository,
-    private readonly ai: AiService
+    private readonly articlesRepository: ArticlesRepository,
+    private readonly aiService: AiService
   ) {}
 
   // Resolves a submission to 'published' or 'pending_review' based on the review mode.
@@ -49,9 +49,9 @@ export class ArticlesService {
     const body = sanitizeArticleBody(dto.body);
     if (status !== 'draft') assertWordCount(body);
     await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
-    const slug = await this.repository.findUniqueSlug(dto.title);
+    const slug = await this.articlesRepository.findUniqueSlug(dto.title);
 
-    const row = await this.repository.insert({
+    const row = await this.articlesRepository.insert({
       slug,
       author_id: user.id,
       status,
@@ -75,12 +75,12 @@ export class ArticlesService {
   }
 
   async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
-    const rows = await this.repository.findPublished(authorId);
+    const rows = await this.articlesRepository.findPublished(authorId);
     return this.toListDtos(rows);
   }
 
   async listMine(user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
-    const rows = await this.repository.findAllByAuthor(user.id);
+    const rows = await this.articlesRepository.findAllByAuthor(user.id);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
       this.resolveAuthors([user.id]),
@@ -89,7 +89,7 @@ export class ArticlesService {
   }
 
   async findOne(id: string, user: AuthenticatedUser): Promise<ArticleDto> {
-    const row = await this.repository.findByIdOrThrow(id);
+    const row = await this.articlesRepository.findByIdOrThrow(id);
 
     if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
       throw new NotFoundException('Article not found.');
@@ -103,7 +103,7 @@ export class ArticlesService {
   }
 
   async update(id: string, user: AuthenticatedUser, dto: UpdateArticleDto): Promise<ArticleDto> {
-    const existing = await this.repository.findByIdOrThrow(id);
+    const existing = await this.articlesRepository.findByIdOrThrow(id);
     this.assertOwnerOrAdmin(existing, user);
     const body = dto.body !== undefined ? sanitizeArticleBody(dto.body) : undefined;
     const resultingStatus: ArticleStatus | undefined = dto.status === undefined ? undefined : dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
@@ -113,7 +113,7 @@ export class ArticlesService {
       await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: ArticleUpdate = {};
     if (dto.title !== undefined) patch.title = dto.title;
     if (body !== undefined) {
       patch.body = body;
@@ -130,7 +130,7 @@ export class ArticlesService {
       if (resultingStatus !== 'draft') patch.rejection_reason = null;
     }
 
-    const row = await this.repository.updateById(id, patch);
+    const row = await this.articlesRepository.updateById(id, patch);
 
     this.generateSummaryIfNeeded(row);
     const [practiceAreaNames, authors] = await Promise.all([
@@ -142,7 +142,7 @@ export class ArticlesService {
 
   // 🛡️ manageArticles — defaults to the pending_review queue.
   async listForReview(status?: ArticleStatus): Promise<AdminArticleListItemDto[]> {
-    const rows = await this.repository.findForReview(status);
+    const rows = await this.articlesRepository.findForReview(status);
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
       this.resolveAuthors(rows.map((r) => r.author_id)),
@@ -164,7 +164,7 @@ export class ArticlesService {
 
   // 🛡️ manageArticles — approves or rejects a pending article.
   async review(id: string, dto: AdminArticleReviewDto): Promise<ArticleDto> {
-    const existing = await this.repository.findByIdOrThrow(id);
+    const existing = await this.articlesRepository.findByIdOrThrow(id);
     if (existing.status !== 'pending_review') {
       throw new BadRequestException('Only an article pending review can be approved or rejected.');
     }
@@ -172,7 +172,7 @@ export class ArticlesService {
       throw new BadRequestException('A rejection reason is required.');
     }
 
-    const row = await this.repository.applyReview(id, {
+    const row = await this.articlesRepository.applyReview(id, {
       status: dto.status,
       rejection_reason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null,
     });
@@ -186,9 +186,9 @@ export class ArticlesService {
   }
 
   async remove(id: string, user: AuthenticatedUser): Promise<void> {
-    const existing = await this.repository.findByIdOrThrow(id);
+    const existing = await this.articlesRepository.findByIdOrThrow(id);
     this.assertOwnerOrAdmin(existing, user);
-    await this.repository.deleteById(id);
+    await this.articlesRepository.deleteById(id);
   }
 
   private async toListDtos(rows: ArticleRow[]): Promise<ArticleListItemDto[]> {
@@ -204,9 +204,9 @@ export class ArticlesService {
   private generateSummaryIfNeeded(row: ArticleRow): void {
     if (row.status !== 'published' || row.ai_summary !== null) return;
 
-    void this.ai
+    void this.aiService
       .summarizeArticle(row.title, row.body)
-      .then((summary) => this.repository.updateAiSummary(row.id, summary))
+      .then((summary) => this.articlesRepository.updateAiSummary(row.id, summary))
       .catch((error) => {
         this.logger.error(
           `AI summary generation failed for article ${row.id}`,
@@ -222,7 +222,7 @@ export class ArticlesService {
   }
 
   private async assertActivePracticeAreaIds(ids: string[]): Promise<void> {
-    const validIds = await this.repository.findActivePracticeAreaIds(ids);
+    const validIds = await this.articlesRepository.findActivePracticeAreaIds(ids);
     const invalidIds = ids.filter((id) => !validIds.has(id));
     if (invalidIds.length > 0) {
       throw new BadRequestException(`Invalid or inactive practice area id(s): ${invalidIds.join(', ')}`);
@@ -236,11 +236,11 @@ export class ArticlesService {
   }
 
   private async resolvePracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
-    return this.repository.findPracticeAreaNames(ids);
+    return this.articlesRepository.findPracticeAreaNames(ids);
   }
 
   private async resolveAuthors(ids: string[]): Promise<Map<string, AuthorInfo>> {
-    return this.repository.findAuthorsInfo(ids);
+    return this.articlesRepository.findAuthorsInfo(ids);
   }
 }
 

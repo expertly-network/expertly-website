@@ -15,10 +15,13 @@ export interface ProfileRoleRow {
 export class ProfilesRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  private profiles() {
+    return this.supabase.db.from('profiles');
+  }
+
   // Looks up a profile's role/status/admin_role by id. Returns null if not found or on error.
   async findById(userId: string): Promise<ProfileRoleRow | null> {
-    const { data, error } = await this.supabase.db
-      .from('profiles')
+    const { data, error } = await this.profiles()
       .select(PROFILE_ROLE_COLUMNS.join(', '))
       .eq('id', userId)
       .single();

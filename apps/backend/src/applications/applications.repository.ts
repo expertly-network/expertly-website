@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
+import type { Database } from '../supabase/database.types';
 import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
 
 // Every column on membership_applications.
@@ -62,32 +63,40 @@ const ADMIN_LIST_COLUMNS = [
 
 export type ApplicationRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export interface MemberProfileInsert {
-  profile_id: string;
-  bio: string | null;
-  region: string | null;
-  country: string | null;
-  state: string | null;
-  city: string | null;
-  years_of_experience: number | null;
-  rate_min_cents: number | null;
-  rate_max_cents: number | null;
-  member_tier: string | null;
-  contact_email: string | null;
-  linkedin_url: string | null;
-  photo_url: string | null;
-  application_id: string;
-  is_verified: boolean;
-  status: string;
-}
+// membership_applications' write shape is built from a runtime column-name map
+// (WRITABLE_COLUMNS in applications.service.ts), not literal properties, so insert/update here
+// stay loosely typed and are cast to the generated shape at the Supabase call site instead.
+type MembershipApplicationInsert = Database['public']['Tables']['membership_applications']['Insert'];
+type MembershipApplicationUpdate = Database['public']['Tables']['membership_applications']['Update'];
+
+export type MemberProfileInsert = Database['public']['Tables']['member_profiles']['Insert'];
 
 @Injectable()
 export class ApplicationsRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  private membershipApplications() {
+    return this.supabase.db.from('membership_applications');
+  }
+
+  private memberProfiles() {
+    return this.supabase.db.from('member_profiles');
+  }
+
+  private memberServices() {
+    return this.supabase.db.from('member_services');
+  }
+
+  private profiles() {
+    return this.supabase.db.from('profiles');
+  }
+
+  private practiceAreas() {
+    return this.supabase.db.from('practice_areas');
+  }
+
   async findLatestByApplicant(userId: string): Promise<ApplicationRow | null> {
-    const { data, error } = await this.supabase.db
-      .from('membership_applications')
+    const { data, error } = await this.membershipApplications()
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .eq('applicant_id', userId)
       .order('created_at', { ascending: false })
@@ -100,8 +109,7 @@ export class ApplicationsRepository {
 
   // Returns null on error, same as when no draft exists.
   async findLatestForUpload(userId: string): Promise<ApplicationRow | null> {
-    const { data, error } = await this.supabase.db
-      .from('membership_applications')
+    const { data, error } = await this.membershipApplications()
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .eq('applicant_id', userId)
       .order('created_at', { ascending: false })
@@ -113,9 +121,8 @@ export class ApplicationsRepository {
   }
 
   async insert(row: Record<string, unknown>): Promise<ApplicationRow> {
-    const { data: saved, error } = await this.supabase.db
-      .from('membership_applications')
-      .insert(row)
+    const { data: saved, error } = await this.membershipApplications()
+      .insert(row as MembershipApplicationInsert)
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .single();
 
@@ -124,9 +131,8 @@ export class ApplicationsRepository {
   }
 
   async updateById(id: string, patch: Record<string, unknown>): Promise<ApplicationRow> {
-    const { data: saved, error } = await this.supabase.db
-      .from('membership_applications')
-      .update(patch)
+    const { data: saved, error } = await this.membershipApplications()
+      .update(patch as MembershipApplicationUpdate)
       .eq('id', id)
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .single();
@@ -136,8 +142,7 @@ export class ApplicationsRepository {
   }
 
   async findByIdForReview(id: string): Promise<ApplicationRow> {
-    const { data, error } = await this.supabase.db
-      .from('membership_applications')
+    const { data, error } = await this.membershipApplications()
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .eq('id', id)
       .maybeSingle();
@@ -148,28 +153,29 @@ export class ApplicationsRepository {
   }
 
   async applyRejection(id: string, patch: Record<string, unknown>): Promise<void> {
-    const { error } = await this.supabase.db.from('membership_applications').update(patch).eq('id', id);
+    const { error } = await this.membershipApplications()
+      .update(patch as MembershipApplicationUpdate)
+      .eq('id', id);
     if (error) throw new InternalServerErrorException('Failed to reject application.');
   }
 
   async insertMemberProfile(row: MemberProfileInsert): Promise<void> {
-    const { error } = await this.supabase.db.from('member_profiles').insert(row);
+    const { error } = await this.memberProfiles().insert(row);
     if (error) throw new InternalServerErrorException('Failed to provision member profile.');
   }
 
   async insertMemberServices(rows: { member_id: string; practice_area_id: string }[]): Promise<void> {
-    const { error } = await this.supabase.db.from('member_services').insert(rows);
+    const { error } = await this.memberServices().insert(rows);
     if (error) throw new InternalServerErrorException('Failed to provision member services.');
   }
 
   async promoteToMember(applicantId: string): Promise<void> {
-    const { error } = await this.supabase.db.from('profiles').update({ role: 'member' }).eq('id', applicantId);
+    const { error } = await this.profiles().update({ role: 'member' }).eq('id', applicantId);
     if (error) throw new InternalServerErrorException('Failed to promote applicant to member.');
   }
 
   async markApproved(id: string, reviewerId: string, reviewedAt: string): Promise<void> {
-    const { error } = await this.supabase.db
-      .from('membership_applications')
+    const { error } = await this.membershipApplications()
       .update({ status: 'approved', reviewed_by: reviewerId, reviewed_at: reviewedAt })
       .eq('id', id);
     if (error) throw new InternalServerErrorException('Failed to finalize application status.');
@@ -177,8 +183,7 @@ export class ApplicationsRepository {
 
   // 🛡️ manageApplications — lighter column set than APPLICATION_ROW_COLUMNS for the list view.
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
-    let query = this.supabase.db
-      .from('membership_applications')
+    let query = this.membershipApplications()
       .select(ADMIN_LIST_COLUMNS.join(', '))
       .order('created_at', { ascending: false });
 
@@ -194,7 +199,7 @@ export class ApplicationsRepository {
     const practiceAreaById = new Map<string, string>();
     if (ids.length === 0) return practiceAreaById;
 
-    const { data, error } = await this.supabase.db.from('practice_areas').select('id, name').in('id', ids);
+    const { data, error } = await this.practiceAreas().select('id, name').in('id', ids);
     if (error) throw new InternalServerErrorException('Failed to resolve service preferences.');
 
     for (const p of data ?? []) practiceAreaById.set(p.id, p.name);
@@ -206,11 +211,7 @@ export class ApplicationsRepository {
     const practiceAreaById = new Map<string, string>();
     if (ids.length === 0) return practiceAreaById;
 
-    const { data, error } = await this.supabase.db
-      .from('practice_areas')
-      .select('id, name')
-      .eq('is_active', true)
-      .in('id', ids);
+    const { data, error } = await this.practiceAreas().select('id, name').eq('is_active', true).in('id', ids);
     if (error) throw new InternalServerErrorException('Failed to validate service preferences.');
 
     for (const p of data ?? []) practiceAreaById.set(p.id, p.name);
@@ -225,9 +226,8 @@ export class ApplicationsRepository {
   }
 
   async saveUploadReference(id: string, patch: Record<string, unknown>): Promise<ApplicationRow> {
-    const { data: saved, error } = await this.supabase.db
-      .from('membership_applications')
-      .update(patch)
+    const { data: saved, error } = await this.membershipApplications()
+      .update(patch as MembershipApplicationUpdate)
       .eq('id', id)
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .single();

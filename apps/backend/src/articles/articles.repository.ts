@@ -1,6 +1,10 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
+import type { Database } from '../supabase/database.types';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
+
+export type ArticleInsert = Database['public']['Tables']['articles']['Insert'];
+export type ArticleUpdate = Database['public']['Tables']['articles']['Update'];
 
 // Raw shape of a row selected from public.articles.
 export interface ArticleRow {
@@ -64,9 +68,24 @@ function slugify(title: string): string {
 export class ArticlesRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async insert(row: Record<string, unknown>): Promise<ArticleRow> {
-    const { data: inserted, error } = await this.supabase.db
-      .from('articles')
+  private articles() {
+    return this.supabase.db.from('articles');
+  }
+
+  private practiceAreas() {
+    return this.supabase.db.from('practice_areas');
+  }
+
+  private profiles() {
+    return this.supabase.db.from('profiles');
+  }
+
+  private memberProfiles() {
+    return this.supabase.db.from('member_profiles');
+  }
+
+  async insert(row: ArticleInsert): Promise<ArticleRow> {
+    const { data: inserted, error } = await this.articles()
       .insert(row)
       .select(ARTICLE_COLUMNS.join(', '))
       .single();
@@ -76,8 +95,7 @@ export class ArticlesRepository {
   }
 
   async findPublished(authorId?: string): Promise<ArticleRow[]> {
-    let query = this.supabase.db
-      .from('articles')
+    let query = this.articles()
       .select(ARTICLE_COLUMNS.join(', '))
       .eq('status', 'published')
       .order('created_at', { ascending: false });
@@ -91,8 +109,7 @@ export class ArticlesRepository {
   }
 
   async findAllByAuthor(authorId: string): Promise<ArticleRow[]> {
-    const { data, error } = await this.supabase.db
-      .from('articles')
+    const { data, error } = await this.articles()
       .select(ARTICLE_COLUMNS.join(', '))
       .eq('author_id', authorId)
       .order('created_at', { ascending: false });
@@ -102,8 +119,7 @@ export class ArticlesRepository {
   }
 
   async findByIdOrThrow(id: string): Promise<ArticleRow> {
-    const { data, error } = await this.supabase.db
-      .from('articles')
+    const { data, error } = await this.articles()
       .select(ARTICLE_COLUMNS.join(', '))
       .eq('id', id)
       .maybeSingle();
@@ -113,9 +129,8 @@ export class ArticlesRepository {
     return data as unknown as ArticleRow;
   }
 
-  async updateById(id: string, patch: Record<string, unknown>): Promise<ArticleRow> {
-    const { data: updated, error } = await this.supabase.db
-      .from('articles')
+  async updateById(id: string, patch: ArticleUpdate): Promise<ArticleRow> {
+    const { data: updated, error } = await this.articles()
       .update(patch)
       .eq('id', id)
       .select(ARTICLE_COLUMNS.join(', '))
@@ -125,9 +140,8 @@ export class ArticlesRepository {
     return updated as unknown as ArticleRow;
   }
 
-  async applyReview(id: string, patch: Record<string, unknown>): Promise<ArticleRow> {
-    const { data: updated, error } = await this.supabase.db
-      .from('articles')
+  async applyReview(id: string, patch: ArticleUpdate): Promise<ArticleRow> {
+    const { data: updated, error } = await this.articles()
       .update(patch)
       .eq('id', id)
       .select(ARTICLE_COLUMNS.join(', '))
@@ -138,8 +152,7 @@ export class ArticlesRepository {
   }
 
   async findForReview(status?: ArticleStatus): Promise<ArticleRow[]> {
-    const { data, error } = await this.supabase.db
-      .from('articles')
+    const { data, error } = await this.articles()
       .select(ARTICLE_COLUMNS.join(', '))
       .eq('status', status ?? 'pending_review')
       .order('created_at', { ascending: false });
@@ -149,22 +162,18 @@ export class ArticlesRepository {
   }
 
   async deleteById(id: string): Promise<void> {
-    const { error } = await this.supabase.db.from('articles').delete().eq('id', id);
+    const { error } = await this.articles().delete().eq('id', id);
     if (error) throw new InternalServerErrorException('Failed to delete article.');
   }
 
   // Errors are not surfaced — a failed summary write shouldn't block the publish/approve response.
   async updateAiSummary(id: string, summary: string): Promise<void> {
-    await this.supabase.db.from('articles').update({ ai_summary: summary }).eq('id', id);
+    await this.articles().update({ ai_summary: summary }).eq('id', id);
   }
 
   // Only ids that exist and are currently active.
   async findActivePracticeAreaIds(ids: string[]): Promise<Set<string>> {
-    const { data, error } = await this.supabase.db
-      .from('practice_areas')
-      .select('id')
-      .eq('is_active', true)
-      .in('id', ids);
+    const { data, error } = await this.practiceAreas().select('id').eq('is_active', true).in('id', ids);
 
     if (error) throw new InternalServerErrorException('Failed to validate practice areas.');
     return new Set((data ?? []).map((p) => p.id as string));
@@ -175,7 +184,7 @@ export class ArticlesRepository {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
 
-    const { data, error } = await this.supabase.db.from('practice_areas').select('id, name').in('id', uniqueIds);
+    const { data, error } = await this.practiceAreas().select('id, name').in('id', uniqueIds);
 
     if (error) throw new InternalServerErrorException('Failed to resolve practice areas.');
     return new Map((data ?? []).map((p) => [p.id as string, p.name as string]));
@@ -188,11 +197,8 @@ export class ArticlesRepository {
 
     const [{ data: profiles, error: profilesError }, { data: memberProfiles, error: memberError }] =
       await Promise.all([
-        this.supabase.db.from('profiles').select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
-        this.supabase.db
-          .from('member_profiles')
-          .select('profile_id, photo_url, headline, firm_name')
-          .in('profile_id', uniqueIds),
+        this.profiles().select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
+        this.memberProfiles().select('profile_id, photo_url, headline, firm_name').in('profile_id', uniqueIds),
       ]);
 
     if (profilesError || memberError) {
@@ -220,11 +226,7 @@ export class ArticlesRepository {
     const base = slugify(title);
     let candidate = base;
     for (let suffix = 2; ; suffix++) {
-      const { data, error } = await this.supabase.db
-        .from('articles')
-        .select('id')
-        .eq('slug', candidate)
-        .maybeSingle();
+      const { data, error } = await this.articles().select('id').eq('slug', candidate).maybeSingle();
 
       if (error) throw new InternalServerErrorException('Failed to generate article slug.');
       if (!data) return candidate;

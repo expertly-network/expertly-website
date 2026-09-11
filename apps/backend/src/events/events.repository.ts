@@ -1,7 +1,11 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
+import type { Database } from '../supabase/database.types';
 import type { EventDto } from '@shared/event';
 import { generateUniqueSlug } from '../common/slugify';
+
+export type EventInsert = Database['public']['Tables']['events']['Insert'];
+export type EventUpdate = Database['public']['Tables']['events']['Update'];
 
 // Every column aliased to its EventDto camelCase name.
 const EVENT_COLUMNS = [
@@ -31,9 +35,12 @@ const EVENT_COLUMNS = [
 export class EventsRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  private events() {
+    return this.supabase.db.from('events');
+  }
+
   async findUpcomingPublished(sinceIso: string): Promise<EventDto[]> {
-    const { data, error } = await this.supabase.db
-      .from('events')
+    const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
       .eq('status', 'published')
       .or(`end_date.gte.${sinceIso},and(end_date.is.null,start_date.gte.${sinceIso})`)
@@ -44,8 +51,7 @@ export class EventsRepository {
   }
 
   async findAllPublished(): Promise<EventDto[]> {
-    const { data, error } = await this.supabase.db
-      .from('events')
+    const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
       .eq('status', 'published')
       .order('start_date', { ascending: true });
@@ -55,8 +61,7 @@ export class EventsRepository {
   }
 
   async findAllForAdmin(): Promise<EventDto[]> {
-    const { data, error } = await this.supabase.db
-      .from('events')
+    const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
       .order('start_date', { ascending: true });
 
@@ -65,8 +70,7 @@ export class EventsRepository {
   }
 
   async findByIdForAdmin(id: string): Promise<EventDto> {
-    const { data, error } = await this.supabase.db
-      .from('events')
+    const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
       .eq('id', id)
       .maybeSingle();
@@ -80,9 +84,8 @@ export class EventsRepository {
     return generateUniqueSlug(this.supabase.db, 'events', title, 'event');
   }
 
-  async insert(row: Record<string, unknown>): Promise<EventDto> {
-    const { data: inserted, error } = await this.supabase.db
-      .from('events')
+  async insert(row: EventInsert): Promise<EventDto> {
+    const { data: inserted, error } = await this.events()
       .insert(row)
       .select(EVENT_COLUMNS.join(', '))
       .single();
@@ -91,9 +94,8 @@ export class EventsRepository {
     return inserted as unknown as EventDto;
   }
 
-  async updateById(id: string, patch: Record<string, unknown>): Promise<EventDto> {
-    const { data: updated, error } = await this.supabase.db
-      .from('events')
+  async updateById(id: string, patch: EventUpdate): Promise<EventDto> {
+    const { data: updated, error } = await this.events()
       .update(patch)
       .eq('id', id)
       .select(EVENT_COLUMNS.join(', '))
@@ -105,7 +107,7 @@ export class EventsRepository {
 
   // Returns the deleted row so a missing id and a delete failure stay distinguishable.
   async deleteById(id: string): Promise<void> {
-    const { data, error } = await this.supabase.db.from('events').delete().eq('id', id).select('id').maybeSingle();
+    const { data, error } = await this.events().delete().eq('id', id).select('id').maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to delete event.');
     if (!data) throw new NotFoundException('Event not found.');

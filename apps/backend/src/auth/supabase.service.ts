@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../supabase/database.types';
 
 @Injectable()
 export class SupabaseService {
   // Service-role Supabase client. Bypasses RLS — never expose outside the backend.
-  readonly db: SupabaseClient;
+  readonly db: SupabaseClient<Database>;
 
   constructor() {
     const url = process.env.SUPABASE_URL;

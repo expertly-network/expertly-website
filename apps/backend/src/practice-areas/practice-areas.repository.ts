@@ -8,9 +8,12 @@ const ACTIVE_PRACTICE_AREA_COLUMNS = ['id', 'name', 'category', 'imageUrl:image_
 export class PracticeAreasRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  private practiceAreas() {
+    return this.supabase.db.from('practice_areas');
+  }
+
   async findAllActive(): Promise<PracticeAreaDto[]> {
-    const { data, error } = await this.supabase.db
-      .from('practice_areas')
+    const { data, error } = await this.practiceAreas()
       .select(ACTIVE_PRACTICE_AREA_COLUMNS.join(', '))
       .eq('is_active', true)
       .order('name');

@@ -19,7 +19,9 @@ import {
   MembersRepository,
   type MemberProfileEditRow,
   type MemberProfileRow,
+  type MemberProfileUpdate,
   type ProfileIdentityRow,
+  type RenewalPolicyUpdate,
 } from './members.repository';
 
 // Maps a self-edit section to its jsonb column on member_profiles.
@@ -34,7 +36,7 @@ const SECTION_TO_COLUMN = {
 
 @Injectable()
 export class MembersService {
-  constructor(private readonly repository: MembersRepository) {}
+  constructor(private readonly membersRepository: MembersRepository) {}
 
   async list(query: {
     q?: string;
@@ -49,19 +51,19 @@ export class MembersService {
     const page = query.page && query.page > 0 ? query.page : 1;
     const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : 8;
 
-    let rows = await this.repository.findActiveList(
+    let rows = await this.membersRepository.findActiveList(
       { country: query.country, rateMinCents: query.rateMinCents, rateMaxCents: query.rateMaxCents, q: query.q, sort: query.sort },
       { from: (page - 1) * pageSize, to: page * pageSize - 1 }
     );
 
     if (query.practiceAreaId && query.practiceAreaId.length > 0) {
-      const matchedIds = await this.repository.findMemberIdsByPracticeAreas(query.practiceAreaId);
+      const matchedIds = await this.membersRepository.findMemberIdsByPracticeAreas(query.practiceAreaId);
       rows = rows.filter((r) => matchedIds.has(r.profile_id));
     }
 
     const [profilesById, servicesByMember] = await Promise.all([
-      this.repository.findProfilesByIds(rows.map((r) => r.profile_id)),
-      this.repository.findMemberServicesByMemberIds(rows.map((r) => r.profile_id)),
+      this.membersRepository.findProfilesByIds(rows.map((r) => r.profile_id)),
+      this.membersRepository.findMemberServicesByMemberIds(rows.map((r) => r.profile_id)),
     ]);
 
     let items = rows.map((row) => this.toListDto(row, profilesById, servicesByMember));
@@ -80,15 +82,15 @@ export class MembersService {
   }
 
   async findOne(id: string, user: AuthenticatedUser): Promise<MemberDto> {
-    const row = await this.repository.findDetailByProfileId(id);
+    const row = await this.membersRepository.findDetailByProfileId(id);
 
     if (!row || (row.status !== 'active' && row.profile_id !== user.id)) {
       throw new NotFoundException('Member profile not found.');
     }
 
     const [profilesById, servicesByMember] = await Promise.all([
-      this.repository.findProfilesByIds([row.profile_id]),
-      this.repository.findMemberServicesByMemberIds([row.profile_id]),
+      this.membersRepository.findProfilesByIds([row.profile_id]),
+      this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
     ]);
 
     return {
@@ -115,7 +117,7 @@ export class MembersService {
     this.assertOwner(memberId, user);
 
     const path = `${memberId}/${Date.now()}-${dto.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const data = await this.repository.createSignedUploadUrl(path);
+    const data = await this.membersRepository.createSignedUploadUrl(path);
     return { uploadUrl: data.signedUrl, path: data.path };
   }
 
@@ -123,7 +125,7 @@ export class MembersService {
     this.assertOwner(memberId, user);
     this.validateEditPayloadShape(dto);
 
-    const inserted = await this.repository.insertEdit({
+    const inserted = await this.membersRepository.insertEdit({
       member_id: memberId,
       section: dto.section,
       payload: dto.payload,
@@ -137,7 +139,7 @@ export class MembersService {
   async listMyEdits(memberId: string, user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
     this.assertOwner(memberId, user);
 
-    const rows = await this.repository.findEditsByMember(memberId);
+    const rows = await this.membersRepository.findEditsByMember(memberId);
     return rows.map((row) => this.toEditDto(row, user.firstName + ' ' + user.lastName));
   }
 
@@ -146,11 +148,11 @@ export class MembersService {
   // ---------------------------------------------------------------------------------------------
 
   async adminList(): Promise<AdminMemberListItemDto[]> {
-    const [memberRows, policy] = await Promise.all([this.repository.adminFindAllProfiles(), this.getRenewalPolicy()]);
+    const [memberRows, policy] = await Promise.all([this.membersRepository.adminFindAllProfiles(), this.getRenewalPolicy()]);
 
     const [profilesById, servicesByMember] = await Promise.all([
-      this.repository.findProfilesByIds(memberRows.map((r) => r.profile_id)),
-      this.repository.findMemberServicesByMemberIds(memberRows.map((r) => r.profile_id)),
+      this.membersRepository.findProfilesByIds(memberRows.map((r) => r.profile_id)),
+      this.membersRepository.findMemberServicesByMemberIds(memberRows.map((r) => r.profile_id)),
     ]);
 
     return memberRows.map((row) => ({
@@ -164,16 +166,16 @@ export class MembersService {
   }
 
   async adminUpdateMember(id: string, dto: UpdateAdminMemberDto): Promise<AdminMemberListItemDto> {
-    const patch: Record<string, unknown> = {};
+    const patch: MemberProfileUpdate = {};
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.membershipStartedAt !== undefined) patch.membership_started_at = dto.membershipStartedAt;
     if (dto.renewalPaymentStatus !== undefined) patch.renewal_payment_status = dto.renewalPaymentStatus;
 
-    const updated = await this.repository.adminUpdateProfile(id, patch);
+    const updated = await this.membersRepository.adminUpdateProfile(id, patch);
 
     const [profilesById, servicesByMember, policy] = await Promise.all([
-      this.repository.findProfilesByIds([updated.profile_id]),
-      this.repository.findMemberServicesByMemberIds([updated.profile_id]),
+      this.membersRepository.findProfilesByIds([updated.profile_id]),
+      this.membersRepository.findMemberServicesByMemberIds([updated.profile_id]),
       this.getRenewalPolicy(),
     ]);
 
@@ -188,13 +190,13 @@ export class MembersService {
   }
 
   async adminListEdits(status?: string): Promise<MemberProfileEditDto[]> {
-    const rows = await this.repository.findAllEditsByStatus(status ?? 'pending');
-    const profilesById = await this.repository.findProfilesByIds(rows.map((r) => r.member_id));
+    const rows = await this.membersRepository.findAllEditsByStatus(status ?? 'pending');
+    const profilesById = await this.membersRepository.findProfilesByIds(rows.map((r) => r.member_id));
     return rows.map((row) => this.toEditDto(row, this.fullName(profilesById.get(row.member_id))));
   }
 
   async adminReviewEdit(id: string, admin: AuthenticatedUser, dto: ReviewMemberEditDto): Promise<MemberProfileEditDto> {
-    const edit = await this.repository.findEditById(id);
+    const edit = await this.membersRepository.findEditById(id);
     if (edit.status !== 'pending') {
       throw new ConflictException('This edit has already been reviewed.');
     }
@@ -203,28 +205,28 @@ export class MembersService {
       await this.applyEdit(edit);
     }
 
-    const updated = await this.repository.updateEditDecision(id, {
+    const updated = await this.membersRepository.updateEditDecision(id, {
       status: dto.status,
       review_note: dto.reviewNote ?? null,
       reviewed_by: admin.id,
       reviewed_at: new Date().toISOString(),
     });
 
-    const profilesById = await this.repository.findProfilesByIds([updated.member_id]);
+    const profilesById = await this.membersRepository.findProfilesByIds([updated.member_id]);
     return this.toEditDto(updated, this.fullName(profilesById.get(updated.member_id)));
   }
 
   async getRenewalPolicy(): Promise<RenewalPolicyDto> {
-    const row = await this.repository.findRenewalPolicy();
+    const row = await this.membersRepository.findRenewalPolicy();
     return { periodMonths: row.period_months, reminderDays: row.reminder_days, updatedAt: row.updated_at };
   }
 
   async updateRenewalPolicy(dto: UpdateRenewalPolicyDto): Promise<RenewalPolicyDto> {
-    const patch: Record<string, unknown> = {};
+    const patch: RenewalPolicyUpdate = {};
     if (dto.periodMonths !== undefined) patch.period_months = dto.periodMonths;
     if (dto.reminderDays !== undefined) patch.reminder_days = dto.reminderDays;
 
-    const row = await this.repository.updateRenewalPolicy(patch);
+    const row = await this.membersRepository.updateRenewalPolicy(patch);
     return { periodMonths: row.period_months, reminderDays: row.reminder_days, updatedAt: row.updated_at };
   }
 
@@ -244,7 +246,7 @@ export class MembersService {
 
     if (section === 'headline_bio') {
       const p = payload as { headline: string; bio: string };
-      await this.repository.applyHeadlineBioEdit(memberId, p.headline, p.bio);
+      await this.membersRepository.applyHeadlineBioEdit(memberId, p.headline, p.bio);
       return;
     }
 
@@ -255,7 +257,7 @@ export class MembersService {
         linkedinUrl: string | null;
         website: string | null;
       };
-      await this.repository.applyContactEdit(memberId, p);
+      await this.membersRepository.applyContactEdit(memberId, p);
       return;
     }
 
@@ -263,7 +265,7 @@ export class MembersService {
     if (!column) throw new BadRequestException(`Unknown edit section: ${section}`);
 
     const items = (payload as Record<string, unknown>[]).map((item) => ({ id: randomUUID(), ...item }));
-    await this.repository.applySectionEdit(memberId, column, section, items);
+    await this.membersRepository.applySectionEdit(memberId, column, section, items);
   }
 
   private validateEditPayloadShape(dto: CreateMemberEditDto): void {
