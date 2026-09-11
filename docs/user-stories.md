@@ -217,13 +217,14 @@ approve or reject each one, with its proof, before it goes live.
 - [ ] `GET /v1/admin/member-edits` and `PATCH /v1/admin/member-edits/:id` per `docs/rest-api.md`
 - [ ] Rejection doesn't silently discard the member's proposed change without a visible reason
 
-### US-09-02: Configuring the membership renewal policy
-As an admin with `manageMembers` permission, I want to set how long membership is valid and when
-to flag it as due-soon.
-- [ ] `GET`/`PATCH /v1/admin/renewal-policy` — global config, not per-member
-- [ ] Actual renewal **payment** flow is not built — this only sets thresholds, per
-      `docs/roadmap.md`'s open-decision note (now schema'd, payment still open — see
-      `docs/master-tdd.md` Section 8.4)
+**Renewal thresholds are not admin-configurable.** An earlier version of this story had a
+`GET`/`PATCH /v1/admin/renewal-policy` pair backing a sitewide settings row (12-month period,
+30-day due-soon window). Removed: nothing consumed a non-default value, no automation (reminder
+email, auto-suspension) acted on the computed due-state, and no one had asked to change the
+numbers — a settings table + admin API for two constants was speculative flexibility with no
+current use. The 12/30 values are now hardcoded in
+`apps/backend/src/members/members.service.ts`. Actual renewal **payment** flow is still not
+built — see `docs/master-tdd.md` Section 8.4.
 
 ---
 

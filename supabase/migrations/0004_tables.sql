@@ -594,7 +594,8 @@ create table public.member_profiles (
   application_id uuid references public.membership_applications (id),
 
   -- Renewal — deliberately minimal. Only two stored facts; everything else (due/due-soon/overdue)
-  -- is always computed at read time from these plus member_renewal_policy below, never persisted,
+  -- is always computed at read time from membership_started_at plus a hardcoded 12-month
+  -- period/30-day reminder window (apps/backend/src/members/members.service.ts), never persisted,
   -- so there's nothing to keep in sync. renewal_payment_status is a manual admin override,
   -- nullable — null means "no override, compute due-state normally."
   membership_started_at timestamptz not null default now(),
@@ -726,31 +727,6 @@ alter table public.member_profile_edits enable row level security;
 create policy member_profile_edits_select_own
   on public.member_profile_edits for select
   using (auth.uid() = member_id);
-
--- ============================================================================
--- member_renewal_policy — one sitewide row (not per-member, not versioned: the prototype and the
--- confirmed real policy both have exactly one active policy at a time). period_months=12,
--- reminder_days=30 are the confirmed real business values (not prototype placeholders left
--- unconfirmed). Due-state is always computed from this + member_profiles.membership_started_at,
--- never persisted.
--- ============================================================================
-
-create table public.member_renewal_policy (
-  id smallint primary key default 1 check (id = 1),
-  period_months smallint not null default 12 check (period_months > 0),
-  reminder_days smallint not null default 30 check (reminder_days >= 0),
-  updated_at timestamptz not null default now()
-);
-
-create trigger set_member_renewal_policy_updated_at
-  before update on public.member_renewal_policy
-  for each row execute function public.set_updated_at();
-
-insert into public.member_renewal_policy (id, period_months, reminder_days) values (1, 12, 30);
-
--- Locked down — no public/owner select policy. Only the service-role backend (admin endpoints,
--- and the due-state computation on every member read) touches this table.
-alter table public.member_renewal_policy enable row level security;
 
 -- ============================================================================
 -- Storage — member-proofs bucket, backing POST /v1/members/:id/uploads (signed-upload-URL flow;

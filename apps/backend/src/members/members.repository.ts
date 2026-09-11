@@ -76,8 +76,6 @@ const MEMBER_PROFILE_EDIT_COLUMNS = [
 
 const PROFILE_IDENTITY_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'avatar_url', 'initials'] as const;
 
-const RENEWAL_POLICY_COLUMNS = ['period_months', 'reminder_days', 'updated_at'] as const;
-
 export interface MemberProfileRow {
   profile_id: string;
   headline: string | null;
@@ -141,12 +139,6 @@ export interface ProfileIdentityRow {
   initials: string | null;
 }
 
-export interface RenewalPolicyRow {
-  period_months: number;
-  reminder_days: number;
-  updated_at: string;
-}
-
 export interface MemberListFilters {
   country?: string[];
   rateMinCents?: number;
@@ -158,7 +150,6 @@ export interface MemberListFilters {
 export type MemberProfileUpdate = Database['public']['Tables']['member_profiles']['Update'];
 export type MemberProfileEditInsert = Database['public']['Tables']['member_profile_edits']['Insert'];
 export type MemberProfileEditUpdate = Database['public']['Tables']['member_profile_edits']['Update'];
-export type RenewalPolicyUpdate = Database['public']['Tables']['member_renewal_policy']['Update'];
 
 @Injectable()
 export class MembersRepository {
@@ -178,10 +169,6 @@ export class MembersRepository {
 
   private practiceAreas() {
     return this.supabase.db.from('practice_areas');
-  }
-
-  private memberRenewalPolicy() {
-    return this.supabase.db.from('member_renewal_policy');
   }
 
   private profiles() {
@@ -339,24 +326,6 @@ export class MembersRepository {
       .update({ [column]: items } as MemberProfileUpdate)
       .eq('profile_id', memberId);
     if (error) throw new InternalServerErrorException(`Failed to apply ${section} edit.`);
-  }
-
-  async findRenewalPolicy(): Promise<RenewalPolicyRow> {
-    const { data, error } = await this.memberRenewalPolicy().select(RENEWAL_POLICY_COLUMNS.join(', ')).eq('id', 1).single();
-
-    if (error || !data) throw new InternalServerErrorException('Failed to load renewal policy.');
-    return data as unknown as RenewalPolicyRow;
-  }
-
-  async updateRenewalPolicy(patch: RenewalPolicyUpdate): Promise<RenewalPolicyRow> {
-    const { data, error } = await this.memberRenewalPolicy()
-      .update(patch)
-      .eq('id', 1)
-      .select(RENEWAL_POLICY_COLUMNS.join(', '))
-      .single();
-
-    if (error || !data) throw new InternalServerErrorException('Failed to update renewal policy.');
-    return data as unknown as RenewalPolicyRow;
   }
 
   async findProfilesByIds(ids: string[]): Promise<Map<string, ProfileIdentityRow>> {

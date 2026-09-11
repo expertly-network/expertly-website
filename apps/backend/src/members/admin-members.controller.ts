@@ -3,11 +3,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { AdminMemberListItemDto, MemberProfileEditDto, RenewalPolicyDto } from '@shared/member';
+import { AdminMemberListItemDto, MemberProfileEditDto } from '@shared/member';
 import { MembersService } from './members.service';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
-import { UpdateRenewalPolicyDto } from './dto/update-renewal-policy.dto';
 
 // 🛡️ manageMembers on every route here.
 @Roles('admin')
@@ -38,15 +37,5 @@ export class AdminMembersController {
     @Body() dto: ReviewMemberEditDto
   ): Promise<MemberProfileEditDto> {
     return this.membersService.adminReviewEdit(id, admin, dto);
-  }
-
-  @Get('renewal-policy')
-  getRenewalPolicy(): Promise<RenewalPolicyDto> {
-    return this.membersService.getRenewalPolicy();
-  }
-
-  @Patch('renewal-policy')
-  updateRenewalPolicy(@Body() dto: UpdateRenewalPolicyDto): Promise<RenewalPolicyDto> {
-    return this.membersService.updateRenewalPolicy(dto);
   }
 }

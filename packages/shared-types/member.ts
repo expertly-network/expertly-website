@@ -234,14 +234,3 @@ export class ReviewMemberEditRequest {
   @ApiProperty({ enum: ['verified', 'rejected'] }) status!: 'verified' | 'rejected';
   @ApiPropertyOptional() reviewNote?: string;
 }
-
-export class RenewalPolicyDto {
-  @ApiProperty() periodMonths!: number;
-  @ApiProperty() reminderDays!: number;
-  @ApiProperty() updatedAt!: string;
-}
-
-export class UpdateRenewalPolicyRequest {
-  @ApiPropertyOptional() periodMonths?: number;
-  @ApiPropertyOptional() reminderDays?: number;
-}

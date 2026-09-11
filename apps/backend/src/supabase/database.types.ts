@@ -417,27 +417,6 @@ export type Database = {
           },
         ]
       }
-      member_renewal_policy: {
-        Row: {
-          id: number
-          period_months: number
-          reminder_days: number
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          period_months?: number
-          reminder_days?: number
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          period_months?: number
-          reminder_days?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       member_services: {
         Row: {
           member_id: string

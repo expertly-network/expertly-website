@@ -599,7 +599,8 @@ constraint.
 
 **Response `200`:** `MemberListItemDto[]` plus `status`, `applicationId`,
 `membershipStartedAt`, `renewalPaymentStatus`, `renewalDueState` (computed
-`active`\|`due-soon`\|`overdue` from `member_renewal_policy` — see `docs/database-erd.md`).
+`active`\|`due-soon`\|`overdue` from `membershipStartedAt` plus a hardcoded 12-month period / 30-day
+reminder window — see `docs/database-erd.md`).
 
 ### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id`
 
@@ -627,12 +628,6 @@ wholesale with `payload`'s items; for `headline_bio`/`contact`, overwrites the c
 
 **Response `200`:** `MemberProfileEditDto`. **Errors:** `409` if the edit is no longer `pending`
 (already reviewed).
-
-### 🛡️ `manageMembers` `GET` / `PATCH /v1/admin/renewal-policy`
-
-The single sitewide renewal policy row. `PATCH` body: `{ periodMonths?, reminderDays? }`.
-
-**Response `200`:** `{ periodMonths: number, reminderDays: number, updatedAt: string }`.
 
 ## Member directory & profiles — not built yet (explicitly deferred)
 

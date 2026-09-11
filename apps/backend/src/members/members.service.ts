@@ -6,7 +6,6 @@ import type {
   MemberDto,
   MemberListItemDto,
   MemberProfileEditDto,
-  RenewalPolicyDto,
   RenewalDueState,
   UploadResponse,
 } from '@shared/member';
@@ -14,14 +13,12 @@ import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
-import { UpdateRenewalPolicyDto } from './dto/update-renewal-policy.dto';
 import {
   MembersRepository,
   type MemberProfileEditRow,
   type MemberProfileRow,
   type MemberProfileUpdate,
   type ProfileIdentityRow,
-  type RenewalPolicyUpdate,
 } from './members.repository';
 
 // Maps a self-edit section to its jsonb column on member_profiles.
@@ -33,6 +30,10 @@ const SECTION_TO_COLUMN = {
   awards: 'awards',
   key_clients: 'key_clients',
 } as const;
+
+// Membership runs 12 months from membership_started_at; flagged "due-soon" 30 days out.
+const RENEWAL_PERIOD_MONTHS = 12;
+const RENEWAL_REMINDER_DAYS = 30;
 
 @Injectable()
 export class MembersService {
@@ -148,7 +149,7 @@ export class MembersService {
   // ---------------------------------------------------------------------------------------------
 
   async adminList(): Promise<AdminMemberListItemDto[]> {
-    const [memberRows, policy] = await Promise.all([this.membersRepository.adminFindAllProfiles(), this.getRenewalPolicy()]);
+    const memberRows = await this.membersRepository.adminFindAllProfiles();
 
     const [profilesById, servicesByMember] = await Promise.all([
       this.membersRepository.findProfilesByIds(memberRows.map((r) => r.profile_id)),
@@ -161,7 +162,7 @@ export class MembersService {
       applicationId: row.application_id,
       membershipStartedAt: row.membership_started_at,
       renewalPaymentStatus: row.renewal_payment_status,
-      renewalDueState: this.computeDueState(row.membership_started_at, policy),
+      renewalDueState: this.computeDueState(row.membership_started_at),
     }));
   }
 
@@ -173,10 +174,9 @@ export class MembersService {
 
     const updated = await this.membersRepository.adminUpdateProfile(id, patch);
 
-    const [profilesById, servicesByMember, policy] = await Promise.all([
+    const [profilesById, servicesByMember] = await Promise.all([
       this.membersRepository.findProfilesByIds([updated.profile_id]),
       this.membersRepository.findMemberServicesByMemberIds([updated.profile_id]),
-      this.getRenewalPolicy(),
     ]);
 
     return {
@@ -185,7 +185,7 @@ export class MembersService {
       applicationId: updated.application_id,
       membershipStartedAt: updated.membership_started_at,
       renewalPaymentStatus: updated.renewal_payment_status,
-      renewalDueState: this.computeDueState(updated.membership_started_at, policy),
+      renewalDueState: this.computeDueState(updated.membership_started_at),
     };
   }
 
@@ -214,20 +214,6 @@ export class MembersService {
 
     const profilesById = await this.membersRepository.findProfilesByIds([updated.member_id]);
     return this.toEditDto(updated, this.fullName(profilesById.get(updated.member_id)));
-  }
-
-  async getRenewalPolicy(): Promise<RenewalPolicyDto> {
-    const row = await this.membersRepository.findRenewalPolicy();
-    return { periodMonths: row.period_months, reminderDays: row.reminder_days, updatedAt: row.updated_at };
-  }
-
-  async updateRenewalPolicy(dto: UpdateRenewalPolicyDto): Promise<RenewalPolicyDto> {
-    const patch: RenewalPolicyUpdate = {};
-    if (dto.periodMonths !== undefined) patch.period_months = dto.periodMonths;
-    if (dto.reminderDays !== undefined) patch.reminder_days = dto.reminderDays;
-
-    const row = await this.membersRepository.updateRenewalPolicy(patch);
-    return { periodMonths: row.period_months, reminderDays: row.reminder_days, updatedAt: row.updated_at };
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -284,14 +270,14 @@ export class MembersService {
     }
   }
 
-  private computeDueState(membershipStartedAt: string, policy: RenewalPolicyDto): RenewalDueState {
+  private computeDueState(membershipStartedAt: string): RenewalDueState {
     const start = new Date(membershipStartedAt);
     const due = new Date(start);
-    due.setMonth(due.getMonth() + policy.periodMonths);
+    due.setMonth(due.getMonth() + RENEWAL_PERIOD_MONTHS);
 
     const now = new Date();
     const reminderStart = new Date(due);
-    reminderStart.setDate(reminderStart.getDate() - policy.reminderDays);
+    reminderStart.setDate(reminderStart.getDate() - RENEWAL_REMINDER_DAYS);
 
     if (now >= due) return 'overdue';
     if (now >= reminderStart) return 'due-soon';
