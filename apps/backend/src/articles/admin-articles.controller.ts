@@ -10,16 +10,16 @@ import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 @RequiresPermission('manageArticles')
 @Controller('admin/articles')
 export class AdminArticlesController {
-  constructor(private readonly service: ArticlesService) {}
+  constructor(private readonly articlesService: ArticlesService) {}
 
   // Defaults to the review queue (pending_review) when status is omitted.
   @Get()
   list(@Query('status') status?: ArticleStatus): Promise<AdminArticleListItemDto[]> {
-    return this.service.listForReview(status);
+    return this.articlesService.listForReview(status);
   }
 
   @Patch(':id')
   review(@Param('id') id: string, @Body() dto: AdminArticleReviewDto): Promise<ArticleDto> {
-    return this.service.review(id, dto);
+    return this.articlesService.review(id, dto);
   }
 }

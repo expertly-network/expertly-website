@@ -13,7 +13,7 @@ import { UploadApplicationFileDto } from './dto/upload-application-file.dto';
 // 🔒 Auth — every route requires authentication; role is further restricted to 'client' in the service.
 @Controller('applications')
 export class ApplicationsController {
-  constructor(private readonly service: ApplicationsService) {}
+  constructor(private readonly applicationsService: ApplicationsService) {}
 
   // Creates or updates the caller's own application; may transition draft to submitted.
   @Post('me')
@@ -21,19 +21,19 @@ export class ApplicationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateApplicationDto
   ): Promise<ApplicationDto> {
-    return this.service.saveOrSubmit(user, dto);
+    return this.applicationsService.saveOrSubmit(user, dto);
   }
 
   // Returns the caller's most recent application.
   @Get('me')
   findMine(@CurrentUser() user: AuthenticatedUser): Promise<ApplicationDto> {
-    return this.service.findMine(user.id);
+    return this.applicationsService.findMine(user.id);
   }
 
   // Fetches and normalizes LinkedIn profile data; does not save it.
   @Post('me/linkedin-import')
   importLinkedIn(@Body() dto: LinkedInImportRequestDto): Promise<LinkedInImportResponse> {
-    return this.service.importFromLinkedIn(dto.linkedinUrl);
+    return this.applicationsService.importFromLinkedIn(dto.linkedinUrl);
   }
 
   // Uploads a photo or document file for the caller's draft application.
@@ -52,6 +52,6 @@ export class ApplicationsController {
 
     const buffer = await part.toBuffer();
     const file = { buffer, size: buffer.length, originalname: part.filename };
-    return this.service.uploadFile(user, dto.kind, file);
+    return this.applicationsService.uploadFile(user, dto.kind, file);
   }
 }

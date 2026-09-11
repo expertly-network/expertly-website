@@ -83,7 +83,7 @@ type Row = Record<string, any>;
 @Injectable()
 export class ApplicationsService {
   constructor(
-    private readonly repository: ApplicationsRepository,
+    private readonly applicationsRepository: ApplicationsRepository,
     private readonly linkedInImportProvider: LinkedInImportProvider
   ) {}
 
@@ -93,7 +93,7 @@ export class ApplicationsService {
       throw new ForbiddenException('Only client accounts can manage a membership application.');
     }
 
-    const latest = await this.repository.findLatestByApplicant(user.id);
+    const latest = await this.applicationsRepository.findLatestByApplicant(user.id);
 
     if (latest && ['submitted', 'under_review', 'approved'].includes(latest.status)) {
       throw new ConflictException('You already have an application in progress or decided.');
@@ -144,8 +144,8 @@ export class ApplicationsService {
     }
 
     const saved = existing
-      ? await this.repository.updateById(existing.id, patch)
-      : await this.repository.insert({ ...patch, applicant_id: user.id });
+      ? await this.applicationsRepository.updateById(existing.id, patch)
+      : await this.applicationsRepository.insert({ ...patch, applicant_id: user.id });
 
     // Resolve names from the saved row when this call didn't touch service_preferences.
     if (dto.servicePreferences === undefined) {
@@ -156,7 +156,7 @@ export class ApplicationsService {
   }
 
   async findMine(userId: string): Promise<ApplicationDto> {
-    const data = await this.repository.findLatestByApplicant(userId);
+    const data = await this.applicationsRepository.findLatestByApplicant(userId);
     if (!data) throw new NotFoundException('No application found for this account.');
 
     const practiceAreaById = await this.resolvePracticeAreaNames(data.service_preferences ?? []);
@@ -182,7 +182,7 @@ export class ApplicationsService {
       throw new BadRequestException(`Unsupported file type for ${kind}.`);
     }
 
-    const existing = await this.repository.findLatestForUpload(user.id);
+    const existing = await this.applicationsRepository.findLatestForUpload(user.id);
     if (!existing || existing.status !== 'draft') {
       throw new BadRequestException('No draft application to attach this file to.');
     }
@@ -193,7 +193,7 @@ export class ApplicationsService {
         ? `members/application/${user.id}/profile-photo.${sniffed.ext}`
         : `members/application/${user.id}/document-${existingDocuments.length + 1}.${sniffed.ext}`;
 
-    await this.repository.uploadFile(path, file.buffer, sniffed.mime);
+    await this.applicationsRepository.uploadFile(path, file.buffer, sniffed.mime);
 
     const patch: Row =
       kind === 'photo'
@@ -212,7 +212,7 @@ export class ApplicationsService {
             ],
           };
 
-    const saved = await this.repository.saveUploadReference(existing.id, patch);
+    const saved = await this.applicationsRepository.saveUploadReference(existing.id, patch);
 
     const practiceAreaById = await this.resolvePracticeAreaNames(saved.service_preferences ?? []);
     return this.toDto(saved, practiceAreaById);
@@ -220,7 +220,7 @@ export class ApplicationsService {
 
   // 🛡️ manageApplications — defaults to the two reviewable statuses (submitted, under_review).
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
-    return this.repository.listForReview(status);
+    return this.applicationsRepository.listForReview(status);
   }
 
   // Approves or rejects a submitted application, provisioning a member profile on approval.
@@ -229,7 +229,7 @@ export class ApplicationsService {
     reviewer: AuthenticatedUser,
     dto: ReviewApplicationDto
   ): Promise<{ status: 'approved' | 'rejected' }> {
-    const application = await this.repository.findByIdForReview(applicationId);
+    const application = await this.applicationsRepository.findByIdForReview(applicationId);
     if (!['submitted', 'under_review'].includes(application.status)) {
       throw new ConflictException('Only a submitted or under-review application can be reviewed.');
     }
@@ -240,7 +240,7 @@ export class ApplicationsService {
     const reviewedAt = new Date().toISOString();
 
     if (dto.status === 'rejected') {
-      await this.repository.applyRejection(applicationId, {
+      await this.applicationsRepository.applyRejection(applicationId, {
         status: 'rejected',
         reviewed_by: reviewer.id,
         reviewed_at: reviewedAt,
@@ -249,9 +249,9 @@ export class ApplicationsService {
       return { status: 'rejected' };
     }
 
-    const photoUrl = application.photo_path ? await this.repository.createSignedUrl(application.photo_path) : null;
+    const photoUrl = application.photo_path ? await this.applicationsRepository.createSignedUrl(application.photo_path) : null;
 
-    await this.repository.insertMemberProfile({
+    await this.applicationsRepository.insertMemberProfile({
       profile_id: application.applicant_id,
       bio: application.bio,
       region: application.region,
@@ -272,7 +272,7 @@ export class ApplicationsService {
 
     const servicePreferences = (application.service_preferences ?? []) as { practiceAreaId: string }[];
     if (servicePreferences.length > 0) {
-      await this.repository.insertMemberServices(
+      await this.applicationsRepository.insertMemberServices(
         servicePreferences.map((p) => ({
           member_id: application.applicant_id,
           practice_area_id: p.practiceAreaId,
@@ -280,15 +280,15 @@ export class ApplicationsService {
       );
     }
 
-    await this.repository.promoteToMember(application.applicant_id);
-    await this.repository.markApproved(applicationId, reviewer.id, reviewedAt);
+    await this.applicationsRepository.promoteToMember(application.applicant_id);
+    await this.applicationsRepository.markApproved(applicationId, reviewer.id, reviewedAt);
 
     return { status: 'approved' };
   }
 
   private async resolvePracticeAreaNames(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
     if (servicePreferences.length === 0) return new Map();
-    return this.repository.findPracticeAreaNames(servicePreferences.map((p) => p.practiceAreaId));
+    return this.applicationsRepository.findPracticeAreaNames(servicePreferences.map((p) => p.practiceAreaId));
   }
 
   // Resolves names and rejects any id that isn't a currently-active practice area.
@@ -296,7 +296,7 @@ export class ApplicationsService {
     if (servicePreferences.length === 0) return new Map();
 
     const ids = servicePreferences.map((p) => p.practiceAreaId);
-    const practiceAreaById = await this.repository.findActivePracticeAreaNames(ids);
+    const practiceAreaById = await this.applicationsRepository.findActivePracticeAreaNames(ids);
 
     const invalidIds = ids.filter((id) => !practiceAreaById.has(id));
     if (invalidIds.length > 0) {
@@ -334,7 +334,7 @@ export class ApplicationsService {
         filename: doc.filename,
         mimeType: doc.mimeType,
         sizeBytes: doc.sizeBytes,
-        url: (await this.repository.createSignedUrl(doc.path)) ?? '',
+        url: (await this.applicationsRepository.createSignedUrl(doc.path)) ?? '',
         uploadedAt: doc.uploadedAt,
       }))
     );
@@ -353,7 +353,7 @@ export class ApplicationsService {
       id: row.id,
       status: row.status,
       currentStep: row.current_step,
-      photoUrl: row.photo_path ? await this.repository.createSignedUrl(row.photo_path) : null,
+      photoUrl: row.photo_path ? await this.applicationsRepository.createSignedUrl(row.photo_path) : null,
       documents: await this.resolveDocuments(row.documents ?? []),
       firstName: row.first_name,
       lastName: row.last_name,

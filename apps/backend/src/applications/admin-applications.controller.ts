@@ -12,12 +12,12 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 @RequiresPermission('manageApplications')
 @Controller('admin')
 export class AdminApplicationsController {
-  constructor(private readonly service: ApplicationsService) {}
+  constructor(private readonly applicationsService: ApplicationsService) {}
 
   // Defaults to the review queue (submitted + under_review) when status is omitted.
   @Get('applications')
   list(@Query('status') status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
-    return this.service.listForReview(status);
+    return this.applicationsService.listForReview(status);
   }
 
   @Patch('applications/:id')
@@ -26,6 +26,6 @@ export class AdminApplicationsController {
     @CurrentUser() admin: AuthenticatedUser,
     @Body() dto: ReviewApplicationDto
   ) {
-    return this.service.reviewApplication(id, admin, dto);
+    return this.applicationsService.reviewApplication(id, admin, dto);
   }
 }

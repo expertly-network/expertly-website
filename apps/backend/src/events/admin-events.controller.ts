@@ -11,31 +11,31 @@ import { UpdateEventDto } from './dto/update-event.dto';
 @RequiresPermission('manageEvents')
 @Controller('admin')
 export class AdminEventsController {
-  constructor(private readonly service: EventsService) {}
+  constructor(private readonly eventsService: EventsService) {}
 
   @Get('events')
   list(): Promise<EventDto[]> {
-    return this.service.adminList();
+    return this.eventsService.adminList();
   }
 
   @Get('events/:id')
   findOne(@Param('id') id: string): Promise<EventDto> {
-    return this.service.adminGetOne(id);
+    return this.eventsService.adminGetOne(id);
   }
 
   @Post('events')
   create(@Body() dto: CreateEventDto): Promise<EventDto> {
-    return this.service.create(dto);
+    return this.eventsService.create(dto);
   }
 
   @Patch('events/:id')
   update(@Param('id') id: string, @Body() dto: UpdateEventDto): Promise<EventDto> {
-    return this.service.update(id, dto);
+    return this.eventsService.update(id, dto);
   }
 
   @Delete('events/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string): Promise<void> {
-    return this.service.remove(id);
+    return this.eventsService.remove(id);
   }
 }

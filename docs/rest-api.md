@@ -570,7 +570,7 @@ bytes. `@Roles('member')`, owner-only (`:id` must equal the caller's id).
 path: string }` — `path` is what gets sent back as `proofFileUrl`/`logoUrl` in a subsequent edit
 submission, not the raw `uploadUrl`.
 
-### 🔒 `PATCH /v1/members/:id/edits`
+### 🔒 `POST /v1/members/:id/edits`
 
 Submit a self-edit proposal for one section. `@Roles('member')`, owner-only (service-layer check,
 same pattern as `PATCH /v1/articles/:id`'s owner-or-admin check but stricter — no admin bypass

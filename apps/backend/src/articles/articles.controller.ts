@@ -25,38 +25,38 @@ const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
 @Controller('articles')
 export class ArticlesController {
   constructor(
-    private readonly service: ArticlesService,
-    private readonly ai: AiService,
-    private readonly unsplash: UnsplashService,
-    private readonly practiceAreas: PracticeAreasService
-  ) { }
+    private readonly articlesService: ArticlesService,
+    private readonly aiService: AiService,
+    private readonly unsplashService: UnsplashService,
+    private readonly practiceAreasService: PracticeAreasService
+  ) {}
 
   @Get(':id')
   findOne(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser
   ): Promise<ArticleDto> {
-    return this.service.findOne(id, user);
+    return this.articlesService.findOne(id, user);
   }
 
   // 🌐 Public — published articles, optionally filtered to one author.
   @Public()
   @Get()
   list(@Query('authorId') authorId?: string): Promise<ArticleListItemDto[]> {
-    return this.service.listPublished(authorId);
+    return this.articlesService.listPublished(authorId);
   }
 
   // 🔒 Owner — the caller's own articles regardless of status.
   @Get('me')
   listMe(@CurrentUser() user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
-    return this.service.listMine(user);
+    return this.articlesService.listMine(user);
   }
 
   // 🔒 member — searches Unsplash for cover image suggestions.
   @Roles('member')
   @Get('cover-images')
   async coverImages(@Query('query') query?: string): Promise<CoverImageSuggestionsResponse> {
-    const images = await this.unsplash.search(query?.trim() || DEFAULT_COVER_IMAGE_QUERY);
+    const images = await this.unsplashService.search(query?.trim() || DEFAULT_COVER_IMAGE_QUERY);
     return { images };
   }
 
@@ -91,15 +91,15 @@ export class ArticlesController {
     const errors = await validate(dto);
     if (errors.length > 0) throw new BadRequestException('Invalid AI draft request.');
 
-    const practiceAreaNames = await this.service.resolvePracticeAreaNamesList(dto.practiceAreaIds);
-    return this.ai.generateDraft(dto, practiceAreaNames, sourceFileTexts);
+    const practiceAreaNames = await this.articlesService.resolvePracticeAreaNamesList(dto.practiceAreaIds);
+    return this.aiService.generateDraft(dto, practiceAreaNames, sourceFileTexts);
   }
 
   // 🔒 member — revises the current draft based on requested changes.
   @Roles('member')
   @Post('ai-refine')
   aiRefine(@Body() dto: RefineDraftDto): Promise<AiDraftArticleResponse> {
-    return this.ai.refineDraft(dto);
+    return this.aiService.refineDraft(dto);
   }
 
   // 🔒 member — suggests article title ideas, sampling active practice areas if none are selected.
@@ -107,15 +107,15 @@ export class ArticlesController {
   @Post('suggest-topics')
   async suggestTopics(@Body() dto: SuggestTopicsDto): Promise<SuggestTopicsResponse> {
     const names = dto.practiceAreaIds?.length
-      ? await this.service.resolvePracticeAreaNamesList(dto.practiceAreaIds)
+      ? await this.articlesService.resolvePracticeAreaNamesList(dto.practiceAreaIds)
       : await this.sampleActivePracticeAreaNames(RANDOM_PRACTICE_AREA_SAMPLE_SIZE);
 
-    const topics = await this.ai.suggestTopics(names);
+    const topics = await this.aiService.suggestTopics(names);
     return { topics };
   }
 
   private async sampleActivePracticeAreaNames(count: number): Promise<string[]> {
-    const all = await this.practiceAreas.list();
+    const all = await this.practiceAreasService.list();
     const shuffled = [...all].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count).map((p) => p.name);
   }
@@ -126,7 +126,7 @@ export class ArticlesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateArticleDto
   ): Promise<ArticleDto> {
-    return this.service.create(user, dto);
+    return this.articlesService.create(user, dto);
   }
 
   @Roles('member')
@@ -136,13 +136,13 @@ export class ArticlesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateArticleDto
   ): Promise<ArticleDto> {
-    return this.service.update(id, user, dto);
+    return this.articlesService.update(id, user, dto);
   }
 
   @Roles('member')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<void> {
-    return this.service.remove(id, user);
+    return this.articlesService.remove(id, user);
   }
 }

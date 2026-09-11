@@ -4,9 +4,9 @@ import type { PracticeAreaDto } from '@shared/practice-area';
 
 @Injectable()
 export class PracticeAreasService {
-  constructor(private readonly repository: PracticeAreasRepository) {}
+  constructor(private readonly practiceAreasRepository: PracticeAreasRepository) {}
 
   async list(): Promise<PracticeAreaDto[]> {
-    return this.repository.findAllActive();
+    return this.practiceAreasRepository.findAllActive();
   }
 }

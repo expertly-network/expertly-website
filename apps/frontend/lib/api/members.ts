@@ -39,7 +39,7 @@ export function createMemberEdit(
   body: CreateMemberEditRequest
 ): Promise<MemberProfileEditDto> {
   return apiFetch<MemberProfileEditDto>(`/members/${id}/edits`, {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(body),
   });
 }
