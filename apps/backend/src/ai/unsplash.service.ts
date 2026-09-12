@@ -5,7 +5,7 @@ interface UnsplashSearchResult {
 }
 
 const SEARCH_URL = 'https://api.unsplash.com/search/photos';
-const RESULTS_PER_QUERY = 5;
+const RESULTS_PER_QUERY = 1;
 const TIMEOUT_MS = 8_000;
 
 // Searches Unsplash for cover image suggestions, keeping the access key server-side.

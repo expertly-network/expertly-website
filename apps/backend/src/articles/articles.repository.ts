@@ -66,7 +66,7 @@ function slugify(title: string): string {
 
 @Injectable()
 export class ArticlesRepository {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(private readonly supabase: SupabaseService) { }
 
   private articles() {
     return this.supabase.db.from('articles');
@@ -108,16 +108,6 @@ export class ArticlesRepository {
     return (data ?? []) as unknown as ArticleRow[];
   }
 
-  async findAllByAuthor(authorId: string): Promise<ArticleRow[]> {
-    const { data, error } = await this.articles()
-      .select(ARTICLE_COLUMNS.join(', '))
-      .eq('author_id', authorId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new InternalServerErrorException('Failed to load your articles.');
-    return (data ?? []) as unknown as ArticleRow[];
-  }
-
   async findByIdOrThrow(id: string): Promise<ArticleRow> {
     const { data, error } = await this.articles()
       .select(ARTICLE_COLUMNS.join(', '))
@@ -127,6 +117,16 @@ export class ArticlesRepository {
     if (error) throw new InternalServerErrorException('Failed to load article.');
     if (!data) throw new NotFoundException('Article not found.');
     return data as unknown as ArticleRow;
+  }
+
+  async findAllByAuthor(authorId: string): Promise<ArticleRow[]> {
+    const { data, error } = await this.articles()
+      .select(ARTICLE_COLUMNS.join(', '))
+      .eq('author_id', authorId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new InternalServerErrorException('Failed to load your articles.');
+    return (data ?? []) as unknown as ArticleRow[];
   }
 
   async updateById(id: string, patch: ArticleUpdate): Promise<ArticleRow> {

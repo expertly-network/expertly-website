@@ -37,11 +37,39 @@ export class ArticlesService {
   constructor(
     private readonly articlesRepository: ArticlesRepository,
     private readonly aiService: AiService
-  ) {}
+  ) { }
 
   // Resolves a submission to 'published' or 'pending_review' based on the review mode.
   private resolveSubmitStatus(): ArticleStatus {
     return this.reviewMode === 'editorial' ? 'pending_review' : 'published';
+  }
+
+  async findOne(id: string, user: AuthenticatedUser): Promise<ArticleDto> {
+    const row = await this.articlesRepository.findByIdOrThrow(id);
+
+    if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
+      throw new NotFoundException('Article not found.');
+    }
+
+    const [practiceAreaNames, authors] = await Promise.all([
+      this.resolvePracticeAreaNames(row.practice_area_ids),
+      this.resolveAuthors([row.author_id]),
+    ]);
+    return toDto(row, practiceAreaNames, authors);
+  }
+
+  async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
+    const rows = await this.articlesRepository.findPublished(authorId);
+    return this.toListDtos(rows);
+  }
+
+  async listMine(user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
+    const rows = await this.articlesRepository.findAllByAuthor(user.id);
+    const [practiceAreaNames, authors] = await Promise.all([
+      this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
+      this.resolveAuthors([user.id]),
+    ]);
+    return rows.map((row) => omitBody(toDto(row, practiceAreaNames, authors)));
   }
 
   async create(user: AuthenticatedUser, dto: CreateArticleDto): Promise<ArticleDto> {
@@ -70,34 +98,6 @@ export class ArticlesService {
     const [practiceAreaNames, authors] = await Promise.all([
       this.resolvePracticeAreaNames(row.practice_area_ids),
       this.resolveAuthors([user.id]),
-    ]);
-    return toDto(row, practiceAreaNames, authors);
-  }
-
-  async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
-    const rows = await this.articlesRepository.findPublished(authorId);
-    return this.toListDtos(rows);
-  }
-
-  async listMine(user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
-    const rows = await this.articlesRepository.findAllByAuthor(user.id);
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
-      this.resolveAuthors([user.id]),
-    ]);
-    return rows.map((row) => omitBody(toDto(row, practiceAreaNames, authors)));
-  }
-
-  async findOne(id: string, user: AuthenticatedUser): Promise<ArticleDto> {
-    const row = await this.articlesRepository.findByIdOrThrow(id);
-
-    if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
-      throw new NotFoundException('Article not found.');
-    }
-
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(row.practice_area_ids),
-      this.resolveAuthors([row.author_id]),
     ]);
     return toDto(row, practiceAreaNames, authors);
   }

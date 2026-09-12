@@ -29,7 +29,7 @@ export class ArticlesController {
     private readonly aiService: AiService,
     private readonly unsplashService: UnsplashService,
     private readonly practiceAreasService: PracticeAreasService
-  ) {}
+  ) { }
 
   @Get(':id')
   findOne(
@@ -39,20 +39,17 @@ export class ArticlesController {
     return this.articlesService.findOne(id, user);
   }
 
-  // 🌐 Public — published articles, optionally filtered to one author.
   @Public()
   @Get()
   list(@Query('authorId') authorId?: string): Promise<ArticleListItemDto[]> {
     return this.articlesService.listPublished(authorId);
   }
 
-  // 🔒 Owner — the caller's own articles regardless of status.
   @Get('me')
   listMe(@CurrentUser() user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
     return this.articlesService.listMine(user);
   }
 
-  // 🔒 member — searches Unsplash for cover image suggestions.
   @Roles('member')
   @Get('cover-images')
   async coverImages(@Query('query') query?: string): Promise<CoverImageSuggestionsResponse> {
@@ -60,10 +57,6 @@ export class ArticlesController {
     return { images };
   }
 
-
-
-  // 🔒 member — generates an AI draft from the wizard's brief and any uploaded source files.
-  // Returns the draft only; it's saved separately via create().
   @Roles('member')
   @Post('ai-draft')
   async aiDraft(@Req() request: FastifyRequest): Promise<AiDraftArticleResponse> {
