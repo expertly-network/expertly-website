@@ -7,7 +7,7 @@ import type {
   UpdateApplicationRequest,
 } from '@shared/membership-application';
 
-/** Saves or submits the caller's application — an upsert, see docs/rest-api.md. */
+/** Saves or submits the caller's application — an upsert. */
 export function saveApplication(patch: UpdateApplicationRequest): Promise<ApplicationDto> {
   return apiFetch<ApplicationDto>('/applications/me', {
     method: 'POST',
@@ -15,8 +15,7 @@ export function saveApplication(patch: UpdateApplicationRequest): Promise<Applic
   });
 }
 
-/** Returns null (not a thrown error) when the caller has no application yet — the common case
- * for a first-time visitor to /apply, not an exceptional one. */
+/** Returns null when the caller has no application yet. */
 export async function getMyApplication(): Promise<ApplicationDto | null> {
   try {
     return await apiFetch<ApplicationDto>('/applications/me');
@@ -43,8 +42,7 @@ export function uploadApplicationFile(kind: 'photo' | 'document', file: File): P
   });
 }
 
-/** Admin review action — approve provisions the member record and flips the applicant's role
- * server-side (ApplicationsService.reviewApplication); reject requires a reason. 🛡️ manageApplications. */
+/** Admin review action. 🛡️ manageApplications. */
 export function reviewApplication(
   id: string,
   payload: AdminApplicationReviewRequest

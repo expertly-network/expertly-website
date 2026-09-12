@@ -3,21 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui';
 
-// The homepage hero — design/static_html/index.html ships 4 hero variants in one file,
-// switched via `data-hero` on <html>; the file as configured (data-hero="orbit") activates
-// this one. Styling ported from assets/styles.css's "STELLAR ORBIT HERO" block (~line 8927)
-// since none of it lives in home.css despite the section's name; keyframes live in
-// globals.css (hs-fade-up/hs-fade-in/hs-scale-in/hs-spin-cw/hs-spin-ccw/hs-blink) since
-// they're single-purpose to this component.
-//
-// Deliberate simplifications vs. the prototype (documented, not silently skipped):
-// - The typewriter effect is a plain character-by-character type-in; the original
-//   pre-measures line breaks so the heading's height never shifts while typing. This
-//   version can reflow by one line on narrow viewports mid-type — a minor difference.
-// - Orbit avatars use real member photoUrls (passed down from the homepage's already-fetched
-//   members list) when available, falling back to a decorative gradient dot otherwise — no
-//   frontend-hardcoded hotlinking to a third-party placeholder service either way.
-
+// The homepage's animated hero section, with orbiting member-photo dots around a stat counter.
 const PART1 = "The Right Finance & Legal Expert\nIsn't Out of Reach,";
 const PART2 = "They're Already in Our Network.";
 
@@ -243,11 +229,7 @@ export function StellarOrbitHero({ avatarUrls = [] }: { avatarUrls?: string[] })
             </div>
           </div>
 
-          {/* Right: orbit — purely decorative, hidden from assistive tech. Shown at every
-              viewport (stacks below the text on mobile, per the flex-col layout above) —
-              a fixed-size 540px "design size" scaled down via CSS transform on narrow
-              viewports, since the ring radii/dot positions below are all literal px math
-              computed for that size, not something to re-derive per breakpoint. */}
+          {/* Right: orbit — purely decorative, hidden from assistive tech. */}
           <div
             className="flex flex-1 items-center justify-center"
             style={{ animation: 'hs-scale-in 1.2s cubic-bezier(0.22,1,0.36,1) 0.3s both' }}
@@ -291,16 +273,7 @@ export function StellarOrbitHero({ avatarUrls = [] }: { avatarUrls?: string[] })
                             className="absolute left-1/2 top-1/2"
                             style={{ transform: `rotate(${dot.deg}deg) translateX(${ring.radius}px)` }}
                           >
-                            {/* Counter-spin layer: animation-only, no static transform of its
-                                own. A CSS animation replaces an element's whole `transform`
-                                for its duration — composing it with a *static* transform on
-                                the same element (as this used to do) forces the browser to
-                                interpolate between mismatched transform-function lists via
-                                matrix decomposition, which is what caused the avatars to
-                                visibly tilt/wobble instead of staying upright, and to look
-                                like they "jumped" once per lap. Isolating the animation on
-                                its own element (rotating a bare 0-size box, so there's
-                                nothing for it to conflict with) fixes both. */}
+                            {/* Isolated on its own element so the animation doesn't conflict with a static transform. */}
                             <div style={{ animation: `${counterSpin} 40s linear infinite` }}>
                               {photoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element

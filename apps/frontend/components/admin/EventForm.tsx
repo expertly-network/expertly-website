@@ -8,9 +8,7 @@ import { createEvent, updateEvent } from '@/lib/api/events';
 import { ApiError } from '@/lib/api/client';
 import type { CreateEventRequest, EventDto, EventFormat } from '@shared/event';
 
-// The prototype's admin event form (design/static_html/admin-dashboard.html) offers this fixed
-// list as a <select>; events.event_type is free text, not an enum, so this form keeps the same
-// options as <datalist> suggestions instead of locking the field to them.
+// Suggestions only — event_type is free text, not an enum.
 const EVENT_TYPE_SUGGESTIONS = ['Tax', 'Legal', 'Audit', 'AI & Tech', 'Fintech', 'Law', 'Startup', 'General'];
 
 const FORMAT_OPTIONS: { value: EventFormat; label: string }[] = [
@@ -61,11 +59,7 @@ function toFormState(event?: EventDto): FormState {
   };
 }
 
-// Mirrors the backend's PUBLISH_REQUIRED_FIELDS (apps/backend/src/events/publish-requirements.ts)
-// exactly — draft saves only need title/description/startDate (native `required` below), but
-// publishing needs all of these. Kept in sync by hand since one's a DTO-shaped service check and
-// the other's this form's field-state keys; the backend remains the actual enforcement boundary,
-// this is just the same rule surfaced as inline errors instead of a round trip.
+// Mirrors the backend's publish requirements, surfaced here as inline errors.
 const PUBLISH_REQUIRED_FIELDS: { key: keyof FormState; label: string }[] = [
   { key: 'title', label: 'Event title' },
   { key: 'organiserName', label: 'Organizer' },
@@ -79,12 +73,8 @@ const PUBLISH_REQUIRED_FIELDS: { key: keyof FormState; label: string }[] = [
   { key: 'registrationUrl', label: 'Registration URL' },
 ];
 
-// `null` (not `undefined`) for a blanked-out optional field — this doubles as both the create
-// and edit request body, and on edit an omitted key means "leave unchanged" to the backend's
-// partial-update semantics (EventsService.update()), not "clear it". Sending `null` explicitly
-// is the only way to actually blank out a field an admin previously set (e.g. removing a venue
-// name). `undefined`/`null` are equivalent on create (EventsService.create() falls back to
-// `?? null` either way), so using `null` uniformly here is safe for both modes.
+// null (not undefined) for a blanked-out optional field — an omitted key means "leave unchanged"
+// on edit, so null is the only way to actually clear a field the admin previously set.
 function toRequestBody(state: FormState, status: 'draft' | 'published'): CreateEventRequest {
   return {
     title: state.title,
@@ -106,10 +96,7 @@ function toRequestBody(state: FormState, status: 'draft' | 'published'): CreateE
   };
 }
 
-// Shared by /admin/events/new and /admin/events/[id]/edit — `event` present means edit mode
-// (PATCH, prefilled), absent means create mode (POST, blank). Two explicit submit actions
-// (Save as draft / Publish) rather than a status dropdown, matching events.status's two real
-// states and the product decision made during design (draft-by-default, explicit publish).
+// Shared by the create and edit event pages — `event` present means edit mode.
 export function EventForm({ event }: { event?: EventDto }) {
   const router = useRouter();
   const [state, setState] = useState<FormState>(() => toFormState(event));
@@ -129,9 +116,6 @@ export function EventForm({ event }: { event?: EventDto }) {
       return;
     }
 
-    // Draft can still be saved with just the above — these 10 fields (mirroring the backend's
-    // publish-requirements.ts) are only enforced once an admin actually tries to publish, whether
-    // that's a brand-new event or clicking "Save changes" on one that's already live.
     if (status === 'published') {
       const missing = PUBLISH_REQUIRED_FIELDS.filter(({ key }) => !String(state[key] ?? '').trim());
       if (missing.length > 0) {

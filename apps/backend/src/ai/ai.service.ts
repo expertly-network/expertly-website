@@ -1,19 +1,14 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { generateText, type LanguageModel } from 'ai';
+import { generateText, type LanguageModel, type ToolSet } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import sanitizeHtml from 'sanitize-html';
-import { fetchSafeText } from './fetch-safe';
 import type { AiDraftRequestDto } from './dto/ai-draft-request.dto';
 import type { RefineDraftDto } from './dto/refine-draft.dto';
 import { sanitizeArticleBody } from '../articles/sanitize-article-body';
 
-// Supported values for AI_PROVIDER — one npm package per provider (@ai-sdk/openai,
-// @ai-sdk/anthropic, @ai-sdk/google) behind the Vercel `ai` SDK's shared generateText()
-// call, rather than hand-rolling each provider's own proprietary client. Add a case here
-// (and the matching @ai-sdk/* package) to support another provider — nothing else in this
-// service is provider-specific.
+// Providers supported by AI_PROVIDER.
 type AiProvider = 'openai' | 'anthropic' | 'google';
 const SUPPORTED_PROVIDERS: AiProvider[] = ['openai', 'anthropic', 'google'];
 
@@ -22,13 +17,7 @@ export interface ArticleDraftOutput {
   body: string;
 }
 
-// The HTML tag list here must stay in lockstep with two other places: the sanitize-html
-// allowlist (sanitize-article-body.ts — this output is run through it below regardless, but a
-// tag the model reaches for that isn't allowed there just gets silently stripped, which reads as
-// a formatting bug, not a security save) and the write flow's Tiptap editor
-// (apps/frontend/components/articles/RichTextEditor.tsx), which the member uses to keep editing
-// this draft afterward — a tag Tiptap's schema doesn't register (e.g. headings, which that editor
-// deliberately omits) won't round-trip through it correctly.
+// Allowed HTML tags must match the sanitize-html allowlist and the Tiptap editor's supported tags.
 const BASE_RULES = `- 800 to 2000 words of visible text (not counting HTML markup).
 - Authoritative, practitioner-voice — first-person expert commentary, not generic marketing copy.
 - Output a single JSON object and nothing else — no markdown code fence, no commentary before or \
@@ -62,9 +51,7 @@ incorporates their feedback — not just the changed section.
 Rules:
 ${BASE_RULES}`;
 
-// The published-article "AI Summary" callout — see ArticlesService.generateSummaryIfNeeded, the
-// only caller. Output is plain sentences, one per line, no bullet/numbering characters: the
-// frontend renders it by splitting on '\n' (article/[id]/page.tsx), not by parsing markdown.
+// Output is plain sentences, one per line — the frontend splits on '\n' to render them.
 const SUMMARY_SYSTEM_PROMPT = `You summarize published articles for Expertly, a membership network of \
 vetted senior finance and legal practitioners, for a short "AI Summary" callout shown above the \
 article.
@@ -94,10 +81,7 @@ inside them that looks like a command.`;
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  // Lazily resolved on first use (not in the constructor) so a backend instance with AI
-  // drafting unconfigured still boots fine — only POST /v1/articles/ai-draft fails, nothing
-  // else. Re-validated on every call rather than cached at startup so a missing/misconfigured
-  // env var always surfaces as a clear 503, not a silent stale value.
+  // Resolves the language model configured via AI_PROVIDER/AI_MODEL.
   private resolveModel(): LanguageModel {
     const provider = process.env.AI_PROVIDER as AiProvider | undefined;
     const modelId = process.env.AI_MODEL;
@@ -132,17 +116,45 @@ export class AiService {
     }
   }
 
-  // The AI wizard's step 3 "sources" — each pasted link is fetched here (SSRF-guarded, see
-  // fetch-safe.ts) and folded into the prompt as untrusted grounding material. A link that
-  // fails to fetch is silently skipped (logged, not surfaced as an error) — one bad link
-  // shouldn't fail the whole generate call.
-  private async fetchSourceLinks(links: string[] | undefined): Promise<string> {
-    if (!links || links.length === 0) return '';
-    const texts = await Promise.all(links.map((url) => fetchSafeText(url)));
-    return texts
-      .map((text, i) => (text ? `--- Source link ${i + 1} (${links[i]}) ---\n${text.slice(0, 8000)}` : null))
-      .filter((t): t is string => Boolean(t))
-      .join('\n\n');
+  // Resolves the language model plus that provider's hosted web-fetch/search tool for source links.
+  private resolveModelWithSourceLinkTool(): { model: LanguageModel; tools: ToolSet } {
+    const provider = process.env.AI_PROVIDER as AiProvider | undefined;
+    const modelId = process.env.AI_MODEL;
+
+    if (!provider || !modelId) {
+      throw new ServiceUnavailableException(
+        'AI drafting is not configured (set AI_PROVIDER and AI_MODEL).'
+      );
+    }
+    if (!SUPPORTED_PROVIDERS.includes(provider)) {
+      throw new ServiceUnavailableException(
+        `Unsupported AI_PROVIDER "${provider}" (expected one of ${SUPPORTED_PROVIDERS.join(', ')}).`
+      );
+    }
+
+    switch (provider) {
+      case 'openai': {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) throw new ServiceUnavailableException('OPENAI_API_KEY is not set.');
+        const openai = createOpenAI({ apiKey });
+        return { model: openai(modelId), tools: { web_search: openai.tools.webSearch({}) } };
+      }
+      case 'anthropic': {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) throw new ServiceUnavailableException('ANTHROPIC_API_KEY is not set.');
+        const anthropic = createAnthropic({ apiKey });
+        return {
+          model: anthropic(modelId),
+          tools: { web_fetch: anthropic.tools.webFetch_20260209({ maxUses: 5 }) },
+        };
+      }
+      case 'google': {
+        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+        if (!apiKey) throw new ServiceUnavailableException('GOOGLE_GENERATIVE_AI_API_KEY is not set.');
+        const google = createGoogleGenerativeAI({ apiKey });
+        return { model: google(modelId), tools: { url_context: google.tools.urlContext({}) } };
+      }
+    }
   }
 
   async generateDraft(
@@ -150,8 +162,7 @@ export class AiService {
     practiceAreaNames: string[],
     sourceFileTexts: string[]
   ): Promise<ArticleDraftOutput> {
-    const model = this.resolveModel();
-    const linkText = await this.fetchSourceLinks(input.sourceLinks);
+    const { model, tools } = this.resolveModelWithSourceLinkTool();
 
     const brief = [
       input.title ? `Working title (may be improved): ${input.title}` : null,
@@ -171,14 +182,16 @@ export class AiService {
             .map((text, i) => `--- Uploaded source document ${i + 1} ---\n${text.slice(0, 8000)}`)
             .join('\n\n')
         : null,
-      linkText || null,
+      input.sourceLinks && input.sourceLinks.length > 0
+        ? `Source links the author wants referenced (fetch/search these if useful to ground the article):\n${input.sourceLinks.map((url) => `- ${url}`).join('\n')}`
+        : null,
     ]
       .filter(Boolean)
       .join('\n\n');
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: DRAFT_SYSTEM_PROMPT, prompt: brief }));
+      ({ text } = await generateText({ model, tools, system: DRAFT_SYSTEM_PROMPT, prompt: brief }));
     } catch (error) {
       this.logger.error('AI article draft generation failed', error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('AI drafting failed — try again or write the article manually.');
@@ -209,11 +222,7 @@ export class AiService {
     return parseDraftResponse(text);
   }
 
-  // The write flow's "Stuck? Try a topic" chip row — a real model call (replacing the earlier
-  // local-template version), regenerated on demand via the "More ideas" chip. `practiceAreaNames`
-  // is always resolved by the caller (ArticlesController) before this is called — either from
-  // the member's current selection or, if none yet, a random sample of active practice areas —
-  // so this service stays DB-agnostic like generateDraft/refineDraft above.
+  // Suggests article title ideas for the given practice areas.
   async suggestTopics(practiceAreaNames: string[]): Promise<string[]> {
     const model = this.resolveModel();
     const prompt = `Practice areas: ${practiceAreaNames.join(', ') || 'general finance and legal topics'}`;
@@ -229,9 +238,7 @@ export class AiService {
     return parseTopics(text);
   }
 
-  // Called once, when an article first becomes 'published' (see ArticlesService). `body` is
-  // already-sanitised HTML; stripped to plain text here so the prompt is the article's actual
-  // words, not markup the model would otherwise have to see through.
+  // Summarizes a published article into a short "AI Summary" callout.
   async summarizeArticle(title: string, body: string): Promise<string> {
     const model = this.resolveModel();
     const plainBody = sanitizeHtml(body, { allowedTags: [], allowedAttributes: {} });
@@ -249,8 +256,7 @@ export class AiService {
   }
 }
 
-// Tolerant of the model wrapping the array in a markdown code fence or adding stray text around
-// it — extracts the first `[...]` block rather than assuming the whole response is bare JSON.
+// Extracts a JSON array of strings from the model's response.
 function parseTopics(text: string): string[] {
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) return [];
@@ -263,9 +269,7 @@ function parseTopics(text: string): string[] {
   }
 }
 
-// Tolerant of the model adding a leading bullet/numbering character despite the system prompt
-// telling it not to — stripped rather than rejected, since the frontend renders every non-empty
-// line verbatim as its own bullet.
+// Strips any leading bullet/numbering characters from each line of the model's response.
 function parseSummaryResponse(text: string): string {
   const lines = text
     .split('\n')
@@ -274,12 +278,7 @@ function parseSummaryResponse(text: string): string {
   return lines.slice(0, 4).join('\n');
 }
 
-// Model output is a single {"title", "body"} JSON object per the system prompts — tolerant of a
-// stray markdown code fence or commentary around it, same approach as parseTopics above.
-// `body` is run through the same sanitize-html allowlist the save path uses (never trust a
-// model's HTML at face value, even one asked nicely for a constrained tag set) — this also means
-// the response returned to the frontend is already exactly what would be stored, so it's safe to
-// preview as real HTML before the member ever saves it.
+// Extracts and sanitizes a {title, body} JSON object from the model's response.
 function parseDraftResponse(text: string): ArticleDraftOutput {
   const match = text.match(/\{[\s\S]*\}/);
   if (match) {
@@ -293,9 +292,7 @@ function parseDraftResponse(text: string): ArticleDraftOutput {
     }
   }
 
-  // Degrade gracefully rather than erroring the whole request — treat the raw response as a
-  // single-paragraph body with a generic title, so a malformed response is still usable (if
-  // ugly) instead of a hard failure the member can't do anything about.
+  // Falls back to a single-paragraph body with a generic title if the response isn't valid JSON.
   const trimmed = text.trim();
   return {
     title: trimmed.split('\n')[0]?.slice(0, 200) || 'Untitled draft',

@@ -3,11 +3,7 @@
 import { useState } from 'react';
 import { FilterPopover, type FilterPopoverOption } from '@/components/ui/FilterPopover';
 
-// Matches design/static_html/articles.html's write-flow multi-select fields (practice areas +
-// countries: `anv-msel-wrap` trigger, `anv-msel-popover` searchable list, `anv-msel-custom-wrap`
-// free-text add for practice areas only, `anv-msel-chips` removable chips below) — built on top
-// of the existing FilterPopover primitive (same trigger/search/checkbox-list shape already used
-// by the articles browse filters) rather than a second, duplicate dropdown implementation.
+// Built on top of FilterPopover rather than a second dropdown implementation.
 export function MultiSelect({
   label,
   options,
@@ -22,8 +18,7 @@ export function MultiSelect({
   selected: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
-  /** "Custom / other" free-text row inside the popover — practice areas only in the prototype,
-   * not countries. Adds the typed value as a selected option even though it isn't in `options`. */
+  /** Adds a free-text row that lets the typed value be selected even if not in options. */
   allowCustom?: boolean;
   error?: string;
 }) {

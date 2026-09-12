@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-// Real (not `import type`) import — Swagger's @ApiResponse needs the actual classes at runtime.
 import { MemberDto, MemberListItemDto, MemberProfileEditDto, UploadResponse } from '@shared/member';
 import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
@@ -16,9 +15,8 @@ function toArray(value?: string | string[]): string[] | undefined {
 
 @Controller('members')
 export class MembersController {
-  constructor(private readonly service: MembersService) {}
+  constructor(private readonly membersService: MembersService) {}
 
-  // 🌐 Public — the directory list, active members only.
   @Public()
   @Get()
   list(
@@ -31,7 +29,7 @@ export class MembersController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string
   ): Promise<MemberListItemDto[]> {
-    return this.service.list({
+    return this.membersService.list({
       q,
       practiceAreaId: toArray(practiceAreaId),
       country: toArray(country),
@@ -43,14 +41,11 @@ export class MembersController {
     });
   }
 
-  // 🔒 full detail requires sign-in (any role) — a deliberate product decision, see
-  // docs/database-erd.md. No @Public() here is deliberate, same posture as articles' findOne.
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberDto> {
-    return this.service.findOne(id, user);
+    return this.membersService.findOne(id, user);
   }
 
-  // member, owner-only (checked in service — :id must equal the caller's own id).
   @Roles('member')
   @Post(':id/uploads')
   requestUpload(
@@ -58,25 +53,21 @@ export class MembersController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateUploadDto
   ): Promise<UploadResponse> {
-    return this.service.requestUpload(id, user, dto);
+    return this.membersService.requestUpload(id, user, dto);
   }
 
-  // member, owner-only. Never touches the live profile — only creates a pending edit request;
-  // admin approval (see AdminMembersController) applies it.
   @Roles('member')
-  @Patch(':id/edits')
+  @Post(':id/edits')
   createEdit(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateMemberEditDto
   ): Promise<MemberProfileEditDto> {
-    return this.service.createEdit(id, user, dto);
+    return this.membersService.createEdit(id, user, dto);
   }
 
-  // 🔒 Owner — no @Roles() needed, same as GET /articles/me; the service's ownership check is
-  // what actually scopes this.
   @Get(':id/edits')
   listMyEdits(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
-    return this.service.listMyEdits(id, user);
+    return this.membersService.listMyEdits(id, user);
   }
 }

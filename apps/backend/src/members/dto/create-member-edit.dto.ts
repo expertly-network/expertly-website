@@ -12,10 +12,7 @@ const SECTIONS: MemberEditSection[] = [
   'awards',
 ];
 
-// `payload`'s per-section shape is a discriminated union in packages/shared-types/member.ts —
-// class-validator can't express "validate differently depending on the value of another field"
-// cleanly for one call site, so the DTO only checks the envelope; MembersService.createEdit()
-// validates payload's shape against `section` before insert.
+// Payload shape depends on section; validated in MembersService.createEdit().
 export class CreateMemberEditDto {
   @IsIn(SECTIONS)
   section!: MemberEditSection;
@@ -24,8 +21,7 @@ export class CreateMemberEditDto {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload!: any;
 
-  // Storage object path returned as `path` from POST /v1/members/:id/uploads
-  // (e.g. `member-proofs/<memberId>/<timestamp>-<filename>`) — not a fully-qualified URL.
+  // Storage object path from POST /v1/members/:id/uploads, not a fully-qualified URL.
   @IsOptional()
   @IsString()
   proofFileUrl?: string;

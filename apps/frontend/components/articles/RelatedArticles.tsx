@@ -8,8 +8,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Matches design/static_html/article.html's "More in {category}" sidebar list — same
-// practice area first, backfilled with other published articles, capped at 4.
+// Same practice area first, backfilled with other published articles, capped at 4.
 export function RelatedArticles({
   current,
   articles,

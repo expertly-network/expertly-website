@@ -6,11 +6,7 @@ export type EmailAuthResult =
   | { status: 'check_email'; email: string }
   | { status: 'error'; message: string };
 
-/**
- * Explicit sign-in — the User tab's Sign In screen. No fallback to sign-up:
- * a failed sign-in is just a failed sign-in, with a link back to "Become one"
- * for someone who doesn't have an account yet.
- */
+// No fallback to sign-up on failure.
 export async function signInWithEmail(params: {
   email: string;
   password: string;
@@ -28,12 +24,7 @@ export async function signInWithEmail(params: {
   }
 }
 
-/**
- * Explicit sign-up — the User tab's "Become one" screen. `city` is optional
- * and, like `firstName`/`lastName`, stored only as auth user metadata for now
- * (no `profiles.city` column exists yet) — promote it to a real column later
- * if a feature actually needs to query on it.
- */
+// `city` is stored only as auth user metadata for now.
 export async function signUpWithEmail(params: {
   firstName: string;
   lastName: string;
@@ -67,8 +58,7 @@ export async function signUpWithEmail(params: {
     }
 
     if (data.user && data.user.identities?.length === 0) {
-      // Supabase's documented signal for "this email is already registered and
-      // confirmed" — no error is thrown, to avoid leaking existence via error text.
+      // Signals the email is already registered; no error is thrown to avoid leaking existence.
       return {
         status: 'error',
         message:

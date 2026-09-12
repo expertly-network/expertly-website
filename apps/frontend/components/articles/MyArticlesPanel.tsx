@@ -8,12 +8,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Matches design/static_html/articles.html's `#anv-my-panel`/`.anv-status-badge` — own articles
-// regardless of status, newest first (already the order GET /v1/articles/me returns), each with
-// a pill badge overlaid on the cover image's top-left corner. 'draft'/'pending_review'/'rejected'
-// are only ever visible here (and via direct link), never on the public Browse tab — see
-// ArticlesService.findOne/listPublished. The prototype only modeled a generic/`.pending` badge;
-// `draft`/`rejected` extend that same treatment with their own colors.
+// Own articles regardless of status, each with a status badge overlaid on the cover image.
 const STATUS_BADGE: Record<ArticleStatus, { label: string; className: string }> = {
   draft: { label: 'Draft', className: 'bg-ink-3' },
   pending_review: { label: 'Pending review', className: 'bg-[#B08A2E]' },

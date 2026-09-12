@@ -7,13 +7,7 @@ import type { PracticeAreaDto } from '@shared/practice-area';
 import type { AdminArticleListItemDto, ArticleDto, ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
 
-/**
- * Server Component variant of getMyApplication — used for the /apply page's
- * pre-render gate (redirect to the status page if an application already
- * exists, before showing the wizard at all). Returns null on 404 (no
- * application yet) instead of throwing, since that's the expected/common
- * case here, not an error.
- */
+// Returns the caller's current application, or null if none exists.
 export async function getMyApplicationServer(): Promise<ApplicationDto | null> {
   const supabase = createClient();
   const {
@@ -35,11 +29,7 @@ export async function getMyApplicationServer(): Promise<ApplicationDto | null> {
   return res.json();
 }
 
-/**
- * Server Component variant for the admin review-queue page (apps/frontend/app/(shell)/admin/
- * applications). 🛡️ manageApplications on the backend — an admin without that permission gets
- * a 403 from the API, which the page surfaces rather than silently showing an empty list.
- */
+// Returns applications for the admin review queue.
 export async function getAdminApplicationsServer(status?: string): Promise<AdminApplicationListItemDto[]> {
   const supabase = createClient();
   const {
@@ -61,13 +51,7 @@ export async function getAdminApplicationsServer(status?: string): Promise<Admin
   return res.json();
 }
 
-/**
- * Server Component variant for the /members directory's initial page. Public
- * endpoint — no auth header needed. `queryString` is the already-built
- * `?q=...&sort=...` string (see lib/members/search-params.ts, Task 3) so this
- * function has no filter-shape knowledge of its own, same division of
- * responsibility as the client-side getMembers().
- */
+// Returns the member directory list for the given query string.
 export async function getMembersServer(queryString: string): Promise<MemberListItemDto[]> {
   const res = await fetch(`${getApiBaseUrlServer()}/v1/members${queryString}`, {
     cache: 'no-store',
@@ -81,12 +65,7 @@ export async function getMembersServer(queryString: string): Promise<MemberListI
   return res.json();
 }
 
-/**
- * Server Component variant for /members/[id]'s full detail fetch. Returns
- * null on no-session or 404 — the page decides what null means in each case
- * (no session → auth wall, 404 → notFound()), mirroring getMyApplicationServer's
- * "null is the expected case, not an error" convention.
- */
+// Returns a member's full profile, or null if signed out or not found.
 export async function getMemberServer(id: string): Promise<MemberDto | null> {
   const supabase = createClient();
   const {
@@ -108,11 +87,7 @@ export async function getMemberServer(id: string): Promise<MemberDto | null> {
   return res.json();
 }
 
-/**
- * Owner's own edit requests, for section pending-badge state. Only ever
- * called when the page has already established the viewer owns this
- * profile — an empty array on no-session is a safe default, not a real path.
- */
+// Returns the caller's own pending profile edit requests.
 export async function getMyMemberEditsServer(id: string): Promise<MemberProfileEditDto[]> {
   const supabase = createClient();
   const {
@@ -129,11 +104,7 @@ export async function getMyMemberEditsServer(id: string): Promise<MemberProfileE
   return res.json();
 }
 
-/**
- * Server-safe variant of lib/api/practice-areas.ts's getPracticeAreas() —
- * see the note above the imports for why the client one can't be called
- * from a Server Component. Public endpoint, no session needed.
- */
+// Returns the list of active practice areas.
 export async function getPracticeAreasServer(): Promise<PracticeAreaDto[]> {
   const res = await fetch(`${getApiBaseUrlServer()}/v1/practice-areas`, { cache: 'no-store' });
   if (!res.ok) {
@@ -143,11 +114,7 @@ export async function getPracticeAreasServer(): Promise<PracticeAreaDto[]> {
   return res.json();
 }
 
-/**
- * Server Component variant of lib/api/articles.ts's getArticles() — public
- * endpoint (published articles only), no session needed. First caller is the
- * homepage's Latest Articles section.
- */
+// Returns published articles, optionally filtered by author.
 export async function getArticlesServer(
   params: { authorId?: string } = {}
 ): Promise<ArticleListItemDto[]> {
@@ -164,12 +131,7 @@ export async function getArticlesServer(
   return res.json();
 }
 
-/**
- * Server Component variant for the articles page's "My Articles" tab — the signed-in member's
- * own articles regardless of status (draft/pending_review/published/rejected), via
- * GET /v1/articles/me. Returns [] when signed out rather than throwing, since the tab itself is
- * already hidden for a signed-out visitor — this is a defensive fallback, not the real gate.
- */
+// Returns the caller's own articles regardless of status.
 export async function getMyArticlesServer(): Promise<ArticleListItemDto[]> {
   const supabase = createClient();
   const {
@@ -188,11 +150,7 @@ export async function getMyArticlesServer(): Promise<ArticleListItemDto[]> {
   return res.json();
 }
 
-/**
- * Server Component variant for the admin article-review-queue page
- * (apps/frontend/app/(shell)/admin/articles). 🛡️ manageArticles on the backend — only ever
- * non-empty when ARTICLES_REVIEW_MODE=editorial.
- */
+// Returns articles for the admin review queue.
 export async function getAdminArticlesServer(status?: string): Promise<AdminArticleListItemDto[]> {
   const supabase = createClient();
   const {
@@ -214,13 +172,7 @@ export async function getAdminArticlesServer(status?: string): Promise<AdminArti
   return res.json();
 }
 
-/**
- * Server Component variant for /articles/[id]'s full detail fetch (body included). Mirrors
- * getMemberServer's convention exactly: null on no-session or 404, since reading a full
- * article requires being signed in (any role) — a deliberate product decision, see
- * docs/database-erd.md's Articles "Design decisions" note — not something this function
- * decides, just relays.
- */
+// Returns a single article's full detail, or null if signed out or not found.
 export async function getArticleServer(id: string): Promise<ArticleDto | null> {
   const supabase = createClient();
   const {
@@ -242,11 +194,7 @@ export async function getArticleServer(id: string): Promise<ArticleDto | null> {
   return res.json();
 }
 
-/**
- * Server Component variant — public endpoint, no session needed. Default (upcoming: true)
- * is the homepage's Upcoming Events section's original behaviour; the standalone /events page
- * passes upcoming: false for the full past+future set.
- */
+// Returns events, upcoming-only by default.
 export async function getEventsServer(params: { upcoming?: boolean } = {}): Promise<EventDto[]> {
   const qs = params.upcoming === false ? '?upcoming=false' : '';
   const res = await fetch(`${getApiBaseUrlServer()}/v1/events${qs}`, { cache: 'no-store' });
@@ -257,13 +205,7 @@ export async function getEventsServer(params: { upcoming?: boolean } = {}): Prom
   return res.json();
 }
 
-/**
- * Server Component variant for the admin events list (apps/frontend/app/(shell)/admin/events).
- * 🛡️ manageEvents on the backend — returns every event regardless of status, unlike the public
- * getEventsServer above. Empty array (not a throw) when there's no session, matching
- * getMyMemberEditsServer's convention — the page itself already redirects non-admins before this
- * is ever called with no session.
- */
+// Returns every event for the admin list, regardless of status.
 export async function getAdminEventsServer(): Promise<EventDto[]> {
   const supabase = createClient();
   const {
@@ -284,11 +226,7 @@ export async function getAdminEventsServer(): Promise<EventDto[]> {
   return res.json();
 }
 
-/**
- * Server Component variant for the admin edit page's prefill (apps/frontend/app/(shell)/admin/
- * events/[id]/edit). Returns null on no-session or 404 — same convention as getMemberServer —
- * the page turns a null into notFound().
- */
+// Returns a single event for the admin edit page, or null if not found.
 export async function getAdminEventServer(id: string): Promise<EventDto | null> {
   const supabase = createClient();
   const {

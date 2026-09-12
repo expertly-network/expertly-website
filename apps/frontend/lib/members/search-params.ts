@@ -1,18 +1,9 @@
-// Single source of truth for the directory's filter shape, shared between:
-// - the Server Component's initial searchParams read (Task 10)
-// - the client filter bar's URL sync (Task 8)
-// - getMembers()'s query-string construction (this file, below)
-// Keeping parse/serialize together means the URL's shape can only drift in
-// one place, not three.
-
+// Single source of truth for the directory's filter shape — parse and serialize live together here.
 export type MemberSort = 'featured' | 'tenure' | 'rate_asc' | 'rate_desc';
 
 export const DEFAULT_SORT: MemberSort = 'featured';
 
-// Shared between the initial server-rendered page (Task 10) and the client
-// infinite-scroll list (Task 8/MemberDirectoryList) — both must agree on the
-// page size for `hasMore` (`results.length === MEMBER_LIST_PAGE_SIZE`) to
-// stay correct; defining it once here prevents the two from drifting apart.
+// Shared with the client-side infinite-scroll list so both agree on page size.
 export const MEMBER_LIST_PAGE_SIZE = 8;
 
 export interface MemberFilters {

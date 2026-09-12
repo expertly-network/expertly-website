@@ -1,5 +1,4 @@
-// Matches design/static_html/apply.html's .apply-progress / .apply-progress-bar exactly — a
-// single continuous track with an animated-width fill, not a segmented indicator.
+// A single continuous progress track with an animated-width fill.
 export function WizardProgress({
   currentStep,
   totalSteps,

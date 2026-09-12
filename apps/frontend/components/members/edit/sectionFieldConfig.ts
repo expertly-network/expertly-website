@@ -1,10 +1,6 @@
 import type { MemberEditSection } from '@shared/member';
 
-// One structured field per real payload property — the deliberate
-// alternative to the prototype's single-textarea `·`-split shortcut (see
-// docs/rest-api.md and the design spec §7). SectionEditModal (Task 19)
-// renders one <input>/<textarea> per FieldSpec, for each row in a list
-// section.
+// One structured field per real payload property, rendered by SectionEditModal.
 export type FieldSpec =
   | { key: string; label: string; type: 'text' | 'url' | 'email' | 'tel'; required?: boolean }
   | { key: string; label: string; type: 'textarea'; required?: boolean }
@@ -112,9 +108,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
   },
 };
 
-// Empty-row factories — one per list/clients section, used by "+ Add
-// another" in SectionEditModal. Kept here (not inlined) so their shape stays
-// next to the FieldSpec list it must match.
+// Empty-row factories for "+ Add another" in SectionEditModal.
 export const EMPTY_ROW: Record<string, Record<string, unknown>> = {
   engagements: { title: '', organization: '', year: undefined, url: '' },
   education: { degree: '', institution: '', field: '', endYear: undefined },

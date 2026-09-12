@@ -1,7 +1,4 @@
-// GET /v1/members intentionally omits display strings ("18y", "$420/hr") —
-// docs/rest-api.md: format them client-side from the numeric fields. These
-// two functions are that formatting, used by MemberCard and ProfileSidebar.
-
+// Client-side display formatting for numeric rate/tenure fields.
 export function formatTenure(years: number): string {
   return `${years}y`;
 }

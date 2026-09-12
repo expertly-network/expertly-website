@@ -26,17 +26,14 @@ export function ApplicationWizard() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Fetched once here (not per-step) so navigating back and forth through
-  // the wizard doesn't re-fetch — only Step 4 (selection) and Step 5
-  // (name resolution for review) need this.
+  // Fetched once; steps 4 and 5 are the only consumers.
   useEffect(() => {
     getPracticeAreas()
       .then(setPracticeAreas)
       .catch(() => setPracticeAreas([]));
   }, []);
 
-  // Resume an in-progress draft. A non-draft application (already submitted/decided) means this
-  // applicant has no business seeing an empty wizard — redirect to the status page instead.
+  // Redirects to the status page if the application is already submitted/decided.
   useEffect(() => {
     let cancelled = false;
     getMyApplication()
@@ -61,8 +58,7 @@ export function ApplicationWizard() {
   function update(patch: Partial<WizardFormState>) {
     setForm((prev) => {
       const next = { ...prev, ...patch };
-      // Any field this call actually changes stops counting as "imported" — an edited value is
-      // the applicant's own now, regardless of where it started.
+      // A field edited here stops counting as imported.
       const importedFields = new Set(prev.importedFields);
       for (const key of Object.keys(patch)) importedFields.delete(key);
       next.importedFields = importedFields;
@@ -74,11 +70,7 @@ export function ApplicationWizard() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // `overrides` exists for callers (LinkedInImportStep) that call update() and then immediately
-  // advance in the same handler — setState from update() hasn't been applied to `form` yet at
-  // that point (React batches it for the next render), so without this, the save request would
-  // go out with the pre-import `form` and silently drop whatever was just imported. Passing the
-  // same patch as `overrides` here guarantees the save sees it regardless of render timing.
+  // Lets callers that advance immediately after update() pass the pending patch explicitly.
   async function handleAdvance(targetStep: number, overrides?: Partial<WizardFormState>) {
     setSaving(true);
     setSaveError(null);
@@ -119,10 +111,6 @@ export function ApplicationWizard() {
     }
   }
 
-  // Full-bleed two-column layout matching design/static_html/apply.html's actual CSS
-  // (.apply-grid: grid-template-columns: 360px 1fr; min-height: 100vh — a real split-screen
-  // filling the viewport, not a boxed card centered in a narrow column). The step content itself
-  // gets the card treatment (.apply-form: border + shadow + rounded-2xl), not the whole page.
   if (resuming) {
     return (
       <div className="grid min-h-screen grid-cols-[360px_1fr] bg-bg-alt max-[900px]:grid-cols-1">

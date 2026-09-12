@@ -1,19 +1,15 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { EventsService } from './events.service';
-// Real (not `import type`) import — Swagger's @ApiResponse needs the actual class at runtime.
 import { EventDto } from '@shared/event';
 
-// 🌐 Public — the browse list. `upcoming` (optional, default `true`) preserves the homepage's
-// exact original behaviour for every existing caller; the standalone /events page passes
-// `upcoming=false` to get the full past+future set for its month-grouped browse list.
 @Controller('events')
 export class EventsController {
-  constructor(private readonly service: EventsService) {}
+  constructor(private readonly eventsService: EventsService) {}
 
   @Public()
   @Get()
   list(@Query('upcoming') upcoming?: string): Promise<EventDto[]> {
-    return upcoming === 'false' ? this.service.listAll() : this.service.listUpcoming();
+    return upcoming === 'false' ? this.eventsService.listAll() : this.eventsService.listUpcoming();
   }
 }

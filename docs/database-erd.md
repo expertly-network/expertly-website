@@ -431,11 +431,14 @@ format them in the API/frontend, don't persist a second, parallel string represe
 fact. Same for the "Budding" tier badge (`years_of_experience < 12`, purely derived from
 `member_tier`).
 
-**Renewal is deliberately minimal** — just `membership_started_at` + `renewal_payment_status` here,
-plus one sitewide `member_renewal_policy` row (below). Due-state (`active`/`due-soon`/`overdue`) is
-always computed (`due_date = membership_started_at + period_months`; `overdue` past due, `due-soon`
-within `reminder_days` of it), never persisted — nothing to keep in sync. **Confirmed real policy
-values, not prototype placeholders left unconfirmed:** 12 months validity, 30-day due-soon window.
+**Renewal is deliberately minimal** — just `membership_started_at` + `renewal_payment_status` here.
+Due-state (`active`/`due-soon`/`overdue`) is always computed (`due_date = membership_started_at +
+12 months`; `overdue` past due, `due-soon` within 30 days of it), never persisted — nothing to keep
+in sync. The 12-month/30-day numbers are hardcoded constants in
+`apps/backend/src/members/members.service.ts`, not an admin-configurable setting — nothing consumes
+them differently at other values, and no automation (reminder emails, auto-suspension) acts on the
+due-state today, so a settings table + admin API would have been speculative flexibility with no
+current consumer.
 
 ### `member_services`
 
@@ -517,13 +520,6 @@ literally `{ description: text }` for everything except testimonials/awards), lo
 fields on edit. The backend contract here accepts the same structured payload the base data already
 uses — a future frontend session should build a real structured edit UI, not carry the flattened
 one forward.
-
-### `member_renewal_policy`
-
-One sitewide settings row (`id` fixed at `1`) — `period_months` (12), `reminder_days` (30). Not
-per-member, not versioned, not exposed to any public/owner-scoped endpoint (locked down by RLS,
-only the service-role backend touches it) — matches how consultations/renewal read logic computes
-due-state from this plus each member's own `membership_started_at`.
 
 ### Design decisions — divergences from the static prototype
 

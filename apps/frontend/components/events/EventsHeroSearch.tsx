@@ -6,9 +6,7 @@ import type { MemberListItemDto } from '@shared/member';
 import type { ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
 
-// Same call as ArticlesHeroSearch: matches design/static_html/events.html's hero search bar
-// visually, but made genuinely functional via the shared SearchModal instead of reproducing
-// its decorative rotating-placeholder-only behavior.
+// Opens the same cross-entity search modal used elsewhere.
 export function EventsHeroSearch({
   members,
   articles,

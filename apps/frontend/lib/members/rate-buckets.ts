@@ -1,9 +1,4 @@
-// Prototype's own price buckets (design/static_html/members.html's
-// PRICE_RANGES), converted to the contract's rateMinCents/rateMaxCents
-// (×100). The '600 and up' bucket omits rateMaxCents entirely rather than
-// sending an arbitrary ceiling — GET /v1/members treats a missing param as
-// "no upper bound", which is the correct semantics here, not the
-// prototype's internal 999999 sentinel.
+// The top bucket omits rateMaxCents entirely for "no upper bound", rather than an arbitrary ceiling.
 export interface RateBucket {
   label: string;
   rateMinCents?: number;

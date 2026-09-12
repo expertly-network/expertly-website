@@ -8,10 +8,7 @@ const CHECK_ICON = (
   </svg>
 );
 
-// Matches design/static_html/assets/styles.css's `.anv-write-success`/`.anv-success-badge` — a
-// horizontal icon-left, text-right layout (not centered/stacked), with the badge's pulsing
-// double-ring animation. Copy adapts to the actual status the API returned (published vs.
-// pending_review) rather than the frontend needing to know which ARTICLES_REVIEW_MODE is active.
+// Copy adapts to whether the article was published or sent for review.
 export function WriteSuccess({ status, articleId }: { status: ArticleStatus; articleId: string }) {
   const isPublished = status === 'published';
 

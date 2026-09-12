@@ -1,10 +1,6 @@
 import type { ReactNode } from 'react';
 
-// A small-caps label with a short accent dash before it — design/static_html's `.eyebrow`
-// (theme.css): `::before { width:22px; height:2px; background:var(--accent) }`, `gap:9px`.
-// Present before literally every section eyebrow in the design and was missing everywhere in
-// this app (plain text only) — centralized here instead of re-adding the dash markup at each
-// call site.
+// A small-caps label with a short accent dash before it.
 export function Eyebrow({
   children,
   className = '',

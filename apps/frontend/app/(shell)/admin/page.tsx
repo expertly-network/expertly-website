@@ -32,13 +32,7 @@ const ARTICLES_ICON = (
   </>
 );
 
-// The three admin destinations this hub links out to, each its own separately-gated route —
-// this page itself only checks the plain `admin` role (see the redirect below); the finer-grained
-// manageApplications/manageEvents/manageArticles permission is re-checked fresh by the backend
-// guard chain once you're actually on one of these pages, same "UX-only gate" posture every other
-// admin page already uses. A `reviewer`-only admin_role would still see all three cards here and
-// only hit a 403 clicking into Events/Articles — pre-existing behavior, not something this hub
-// introduces.
+// Each destination is separately permission-gated by the backend.
 const ADMIN_SECTIONS = [
   {
     href: '/admin/applications',
@@ -60,10 +54,7 @@ const ADMIN_SECTIONS = [
   },
 ];
 
-// No mockup exists for this hub in design/static_html — the prototype's admin-dashboard.html is a
-// single-page tabbed dashboard (client-side data-tab switching), not a landing page linking out to
-// separately-routed sections the way this app actually builds admin features. Styled to match the
-// dark-hero + PageContainer pattern every other admin page already uses instead.
+// No design mockup exists for this hub; styled to match other admin pages.
 export default async function AdminPage() {
   const profile = await getSessionUser();
   if (!profile) {
@@ -91,11 +82,6 @@ export default async function AdminPage() {
               <Link
                 key={section.href}
                 href={section.href}
-                // Visible hover (lift + shadow + border/icon color) and a distinct pressed state on
-                // click (settles back down with a lighter shadow) — a plain border-color change
-                // (Card's default hover) wasn't a strong enough signal that these are clickable.
-                // Matches the lift+shadow language WriteOptionCard already uses for its own
-                // clickable option cards, toned down for a plain nav card rather than a hero choice.
                 className="group block rounded-card border border-line bg-bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-150 hover:-translate-y-1 hover:border-accent hover:shadow-[0_16px_32px_-18px_rgba(0,0,0,0.22)] active:translate-y-0 active:shadow-[0_2px_6px_-2px_rgba(0,0,0,0.15)] active:duration-75"
               >
                 <svg

@@ -2,12 +2,7 @@ import Link from 'next/link';
 import { Marquee } from '@/components/home/Marquee';
 import type { MemberListItemDto } from '@shared/member';
 
-// Ported from design/static_html/assets/home.js's initFeaturedMembers (4 rows, alternating
-// direction, per-row speed). Data comes from the real GET /v1/members (public, sort=featured)
-// via the homepage's server-side fetch — no seed/mock data, this endpoint already exists.
-// Compact tile, not the full components/members/MemberCard — that card's rate/tenure footer
-// doesn't fit a 280px marquee row item; this is a genuinely different layout context, not a
-// duplicate of that component.
+// A compact tile distinct from MemberCard, sized to fit a marquee row.
 export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
   if (members.length === 0) return null;
 

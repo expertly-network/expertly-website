@@ -1,8 +1,5 @@
 import type { ReactNode } from 'react';
 
-// The 3 chip/badge treatments docs/design-system.md documents under "Color
-// combination rules" — 'brand' matches MemberBenefitsPanel's inline badge
-// verbatim (same color-mix expression), now available without re-deriving it.
 export type BadgeVariant = 'neutral' | 'emphasis' | 'brand';
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {

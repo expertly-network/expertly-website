@@ -3,10 +3,6 @@ import { formatRate } from '@/lib/members/format';
 import { computeCompletionPct } from '@/lib/members/completion';
 import type { MemberDto } from '@shared/member';
 
-// Matches design/static_html/member-profile.html's `.mp-sidebar` order exactly: profile
-// completeness (owner-only) → consultation fee + CTA → "Expertly Verified" card (bg-ink,
-// glow blob — same dark-card language used elsewhere: DirectorySidebar's second card,
-// Newsletter, Testimonials).
 export function ProfileSidebar({
   member,
   isOwnProfile,

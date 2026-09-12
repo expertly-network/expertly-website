@@ -9,9 +9,7 @@ import type {
   WorkExperienceInput,
 } from '@shared/membership-application';
 
-// Wizard's working state — a superset of UpdateApplicationRequest with a few
-// fields kept as strings for controlled inputs (numbers, dollars not cents)
-// until save/submit, when toUpdateRequest() converts the final shape.
+// The application wizard's working form state.
 export interface WizardFormState {
   linkedinUrl: string;
   linkedinImportConsent: boolean;
@@ -28,8 +26,7 @@ export interface WizardFormState {
   yearsOfExperience: string;
   workExperiences: WorkExperienceInput[];
   educations: EducationInput[];
-  /** Always exactly 2 entries in the wizard's own state (unlike work/education, which grow) —
-   * see EMPTY_PEER_REFERENCE / INITIAL_WIZARD_STATE. */
+  /** Always exactly 2 entries. */
   peerReferences: PeerReferenceInput[];
   servicePreferences: ServicePreferenceInput[];
   rateMinDollars: string;
@@ -39,20 +36,11 @@ export interface WizardFormState {
   backgroundCheckConsent: boolean;
   /** Signed URL for the uploaded profile photo, if any — set by IdentityStep's upload. */
   photoUrl?: string;
-  /**
-   * Field names (matching this interface's own keys) whose current value came from LinkedIn
-   * import and hasn't been edited since. Client-side only, never sent to the backend — purely
-   * drives the "imported" badge. A field is removed from this set the moment `update()` changes
-   * it, regardless of source.
-   */
+  /** Field names whose value came from LinkedIn import and hasn't been edited since. */
   importedFields: Set<string>;
 }
 
-/** Converts the wizard's controlled-input state into the request shape POST /v1/applications/me
- * expects. Sends the complete current form on every save (not just the fields for "this step") —
- * simpler and safer than a per-step subset: the backend upsert merges fields idempotently, so
- * re-sending unchanged values is harmless, and there's no risk of a field silently never being
- * persisted because it belonged to an earlier step. */
+// Returns the array if non-empty, otherwise undefined.
 function nonEmptyOrUndefined<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined;
 }
@@ -74,16 +62,7 @@ export function toUpdateRequest(
     linkedinUrl: form.linkedinUrl || undefined,
     bio: form.bio || undefined,
     yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
-    // Both arrays start as a single untouched blank template entry (INITIAL_WIZARD_STATE) until
-    // the applicant reaches Background — sending that placeholder as-is 400s on the very first
-    // save (title/company/institution/degree are @IsNotEmpty() per-entry on the backend even
-    // though the array itself is optional). Filter out entries with no real content, and omit
-    // the field entirely once nothing's left, so an early save on step 1/2 doesn't trip
-    // Background's own validation before the applicant has gotten there.
-    //
-    // companyUrl is IsOptional + IsUrl on the backend — class-validator's IsOptional only skips
-    // null/undefined, not '', so the empty-string default from EMPTY_WORK_EXPERIENCE must be
-    // scrubbed here.
+    // Filters out blank template entries; omits the field entirely if none remain.
     workExperiences: nonEmptyOrUndefined(
       form.workExperiences
         .filter((w) => w.title.trim() || w.company.trim())
@@ -92,8 +71,7 @@ export function toUpdateRequest(
     educations: nonEmptyOrUndefined(
       form.educations.filter((e) => e.institution.trim() || e.degree.trim())
     ),
-    // Same "filter out the still-blank template" reasoning as work/education above — an early
-    // save before the applicant reaches this section shouldn't send two empty reference objects.
+    // Filters out blank template entries.
     peerReferences: nonEmptyOrUndefined(
       form.peerReferences.filter((r) => r.name.trim() || r.email.trim())
     ),
@@ -104,17 +82,13 @@ export function toUpdateRequest(
     couponCode: form.couponCode || undefined,
     linkedinImportConsent: form.linkedinImportConsent,
     backgroundCheckConsent: form.backgroundCheckConsent || undefined,
-    // Fixed current-version constants — same value on every save, harmless to send early; the
-    // backend only actually requires them once status: 'submitted' is sent (see assertComplete).
     termsVersionAgreed: TERMS_VERSION,
     privacyVersionAgreed: PRIVACY_VERSION,
     ...extra,
   };
 }
 
-/** Inverse of toUpdateRequest — seeds WizardFormState from a resumed draft. Null/absent DTO
- * fields fall back to the same empty defaults INITIAL_WIZARD_STATE uses, not undefined, so every
- * input stays a controlled component. */
+// Seeds wizard state from a resumed draft application.
 export function fromDto(app: ApplicationDto): Partial<WizardFormState> {
   return {
     linkedinUrl: app.linkedinUrl ?? '',
@@ -214,12 +188,8 @@ export const COUNTRIES = [
   'Brazil', 'China', 'Ghana', 'Nigeria', 'Egypt', 'South Africa', 'Other',
 ];
 
-// Deliberately not a smaller "common codes" shortlist per 2026-08-31 client feedback ("the
-// dropdown should include all country codes") — every ITU-assigned calling code, one entry per
-// country/territory, sorted by country name. Several countries share a calling code (e.g. +1
-// for the US/Canada/Caribbean, +7 for Russia/Kazakhstan) — the form only ever stores the bare
-// code (`phoneCountryCode`), same as before this change, so those still collapse to the same
-// value; only the option label disambiguates which country the applicant picked.
+// Every ITU-assigned calling code, one entry per country/territory. Several countries share a
+// code (e.g. +1 for the US/Canada/Caribbean); the option label disambiguates which was picked.
 export const PHONE_COUNTRY_CODES: { country: string; code: string }[] = [
   { country: 'Afghanistan', code: '+93' },
   { country: 'Albania', code: '+355' },

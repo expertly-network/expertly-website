@@ -7,9 +7,7 @@ import { ArticleCard } from '@/components/articles/ArticleCard';
 import type { ArticleListItemDto } from '@shared/article';
 import type { PracticeAreaDto } from '@shared/practice-area';
 
-// Client-side filtering over the full published set — matches design/static_html/articles.html's
-// own behavior (it filters client-side too, not a paginated query), a reasonable fit given the
-// dataset size (a handful of published articles, not thousands).
+// Client-side filtering over the full published set.
 export function ArticlesGrid({
   articles,
   practiceAreas,

@@ -4,13 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui';
 import type { MemberDto } from '@shared/member';
 
-// Matches design/static_html/member-profile.html's `.mp-header-card` exactly: a dark
-// gradient cover band (`.mp-header-band`, 112px, two soft radial glows) with a 144px
-// rounded-square avatar pulled up to overlap it (`margin-top:-64px`), a circular verified
-// badge at the avatar's bottom-right corner, a star-shaped verified icon next to the name
-// (yes, both — the design shows verification twice), and a tier badge that reads
-// "Seasoned Professional" (amber) for that tier or plainly "Member" (grey) otherwise — not
-// "Budding Entrepreneur", confirmed from the design's own JS.
+// Tier badge reads "Seasoned Professional" for that tier, plainly "Member" otherwise.
 export function ProfileHeader({ member }: { member: MemberDto }) {
   async function share() {
     const url = window.location.href;

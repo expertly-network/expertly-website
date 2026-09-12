@@ -11,9 +11,6 @@ export function AppShell({ user, children }: { user: Profile | null; children: R
       <Sidebar user={user} />
       <MobileDrawer user={user} />
       <HeroLogoHandoff />
-      {/* pl-14 (56px) matches the sidebar's collapsed rail width — the hover-expanded
-          248px state floats over content as an overlay (box-shadow), it never pushes
-          this offset, matching design/static_html's behavior. */}
       <div className="flex min-h-screen flex-col min-[1024px]:pl-14">
         <main className="flex-1">{children}</main>
         <Footer />

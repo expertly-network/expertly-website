@@ -1,8 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-// Matches design/static_html/assets/styles.css's `.anv-write-submit`/`.anv-ai-generate-btn` — the
-// write flow's own primary-action button, visually distinct from the app's normal `Button`
-// component (dark gradient that shifts to the accent gradient on hover, deeper shadow, small lift).
 export function WriteSubmitButton({
   children,
   className = '',

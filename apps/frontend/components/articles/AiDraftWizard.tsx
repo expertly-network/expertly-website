@@ -55,11 +55,7 @@ function WizardNextButton({ onClick, children }: { onClick: () => void; children
   );
 }
 
-// Matches design/static_html/articles.html's `#anv-write-ai` 3-sub-step wizard: basics -> your
-// input -> sources & style -> generate -> inline draft shown in the same card -> a "refine" box
-// that re-prompts against the current draft before the member continues to the shared preview
-// step (WriteArticleFlow.tsx). Progress dots, card chrome, and nav buttons all match
-// `.anv-wizard-*`/`.anv-write-card`/`.anv-dropzone` in design/static_html/assets/styles.css.
+// Basics -> input -> sources & style -> generate -> inline draft -> refine.
 export function AiDraftWizard({
   practiceAreas,
   onDrafted,
@@ -160,11 +156,7 @@ export function AiDraftWizard({
             AI DRAFT
           </div>
           <h3 className="mb-3.5 text-xl font-semibold tracking-[-0.02em] text-ink">{draft.title}</h3>
-          {/* Safe: draft.body already went through the backend's sanitize-html allowlist (same
-              one the save path uses) before this response was returned — see
-              apps/backend/src/ai/ai.service.ts's parseDraftResponse. Full body shown, not
-              truncated — this is the member's one chance to actually read the draft before
-              deciding whether to refine or continue. */}
+          {/* Safe — draft.body is already sanitized by the backend. */}
           <div
             className="prose-article text-sm leading-[1.7] text-ink-2 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:text-ink [&_u]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:rounded [&_code]:bg-bg-card [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_a]:text-accent [&_a]:underline"
             dangerouslySetInnerHTML={{ __html: draft.body }}

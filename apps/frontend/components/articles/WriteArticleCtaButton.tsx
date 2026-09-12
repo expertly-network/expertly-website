@@ -6,11 +6,6 @@ const STAR_ICON = (
   </svg>
 );
 
-// Matches design/static_html/assets/styles.css's `.anv-write-cta-btn` exactly — a distinct,
-// more saturated green (see globals.css's `--cta` token) than the rest of the app's buttons,
-// used only for this one call to action. Two call sites: the articles page's tab row and the
-// My Articles empty state (design/static_html/articles.html's `#anv-write-btn` /
-// `#anv-my-empty-write-btn`, same class on both).
 export function WriteArticleCtaButton({ className = '' }: { className?: string }) {
   return (
     <Link

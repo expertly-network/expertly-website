@@ -3,19 +3,12 @@
 import { useState } from 'react';
 import { Button, Card } from '@/components/ui';
 
-// Compact sidebar variant of components/home/Newsletter.tsx's pattern — same "not live yet"
-// honesty on submit (see that file's note: newsletter subscriptions are 📋 roadmap, no
-// backend), different copy/size matching design/static_html/article.html's sidebar box
-// rather than reusing the home page's full-width card.
+// No backend yet — submitting shows a "not live" message instead of faking success.
 export function ArticleNewsletterCard() {
   const [submitted, setSubmitted] = useState(false);
 
   return (
     <Card padding="md" className="relative overflow-hidden bg-ink">
-      {/* Matches design's `.art-newsletter::before` — a soft accent-tinted circle bleeding off
-          the top-right corner. Every other dark card in this codebase (AuthRightPanel, etc.)
-          uses this same radial-gradient-over-flat-`--ink` technique — this card was previously
-          missing it, rendering as flat near-black instead. */}
       <div
         className="pointer-events-none absolute -right-11 -top-11 h-[220px] w-[220px] rounded-full"
         style={{

@@ -2,18 +2,10 @@
 
 import { useState } from 'react';
 
-// Real share-URL-based sharing, matching design/static_html/article.html's `.art-share-chip`
-// row — icons ported verbatim (brand-colored LinkedIn/Reddit SVGs, Quora's own glyph tile, a
-// link/checkmark swap for copy) rather than the placeholder "in"/"r/"/🔗 text this previously
-// showed, which is what the "icons aren't appropriate" feedback was about.
 export function ArticleShareBar({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
 
-  // `onClick` + `window.open`, not a static `href` — an `<a href={...}>` computed at render time
-  // has to fall back to something (previously '#') for the server-rendered pass, where `window`
-  // doesn't exist yet; a click landing on that pre-hydration value opened a new tab to the
-  // article's own URL instead of the share dialog. onClick only ever runs client-side, so the
-  // real URL is always computed fresh at the moment of the click — no fallback value needed.
+  // onClick, not a static href, since the real URL only exists client-side.
   function openShare(network: 'linkedin' | 'reddit' | 'quora') {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(title);

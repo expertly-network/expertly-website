@@ -10,7 +10,8 @@
     "start": "node dist/apps/backend/src/main.js",
     "dev": "node scripts/dev.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"{src,scripts}/**/*.ts\""
+    "lint": "eslint \"{src,scripts}/**/*.ts\"",
+    "gen:types": "npx --yes supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" > src/supabase/database.types.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.46",

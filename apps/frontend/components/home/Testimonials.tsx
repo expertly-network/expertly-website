@@ -4,13 +4,7 @@ import { useState } from 'react';
 import { Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
-// MARKETING PLACEHOLDER — not real testimonials (there's no backend concept of a curated
-// homepage testimonial; MemberTestimonial is a client review *about* a member, embedded in
-// MemberDto, not editorial homepage copy). Names/roles/quotes/photos here are verbatim from
-// design/static_html/index.html's own `.testimonial-card` markup — the design uses full
-// fictional names + stock (randomuser.me) photos for this illustrative copy throughout, the
-// same convention this app already uses for every other seeded person (members, article
-// authors), so reproducing that exactly is consistent rather than a new kind of fabrication.
+// Marketing placeholder — not real testimonials.
 const TESTIMONIALS = {
   members: [
     {
@@ -63,9 +57,6 @@ const TESTIMONIALS = {
   ],
 } as const;
 
-// Full section (heading + tabs + cards) — the real design renders this on a dark bg-ink
-// section with a faint accent glow, matching the dual-CTA card's treatment, not a plain
-// white section.
 export function Testimonials() {
   const [tab, setTab] = useState<'members' | 'clients'>('members');
   const items = TESTIMONIALS[tab];
@@ -109,10 +100,7 @@ export function Testimonials() {
               <blockquote className="text-lede text-ink-2">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
-              {/* mt-auto: within a grid row, a card paired with a longer quote stretches
-                  taller than its own content needs — anchoring the attribution to the
-                  bottom (instead of leaving it packed right under a short quote) keeps
-                  every card's photo/name row at the same height across a row. */}
+              {/* Anchors attribution to the bottom so every card's photo/name row lines up. */}
               <figcaption className="mt-auto flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

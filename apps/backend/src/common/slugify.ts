@@ -1,8 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Kebab-cases a title for use as the base of a slug. Shared by every resource that generates
-// slugs server-side (root CLAUDE.md's non-negotiable rule) — articles and events today.
+// Kebab-cases a title for use as the base of a slug.
 export function slugify(title: string, fallback: string): string {
   const base = title
     .toLowerCase()
@@ -12,8 +11,7 @@ export function slugify(title: string, fallback: string): string {
   return base || fallback;
 }
 
-// Disambiguates against the table's real unique constraint by appending `-2`, `-3`, ... rather
-// than trusting an in-memory check for a race-free guarantee.
+// Generates a slug for a title, appending `-2`, `-3`, ... until it's unique in the given table.
 export async function generateUniqueSlug(
   db: SupabaseClient,
   table: string,

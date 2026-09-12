@@ -3,10 +3,6 @@ import { Card } from '@/components/ui';
 import { formatRate, formatTenure } from '@/lib/members/format';
 import type { MemberDto } from '@shared/member';
 
-// Matches design/static_html/article.html's "About the Author" box — but sourced from the
-// real member profile (GET /v1/members/:id) rather than the prototype's separate hardcoded
-// per-author bio object (docs/database-erd.md flags that duplication as a corner not to
-// reproduce: the bio already lives on member_profiles, no second copy).
 export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
   const location = [author.city, author.country].filter(Boolean).join(', ');
   const primaryPracticeArea = author.practiceAreas[0];

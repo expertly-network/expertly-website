@@ -217,7 +217,7 @@ What to read for a given task. "Docs" lists what to open; "User stories" points 
 | Member directory & profiles (read) | `docs/database-erd.md`, `docs/rest-api.md` | US-01, US-06 |
 | Member profile self-edit workflow | `docs/database-erd.md`, `docs/rest-api.md`, Section 7 | US-06 |
 | Admin: applications | `docs/rest-api.md`, Section 4 | US-08 |
-| Admin: members / edit review / renewal policy | `docs/rest-api.md`, Section 4 | US-09 |
+| Admin: members / edit review | `docs/rest-api.md`, Section 4 | US-09 |
 | Admin: articles / admin permission management | `docs/rest-api.md`, Section 4 | US-10 |
 | Consultations (new session) | `docs/roadmap.md` §Consultations, Section 6 | US-11 |
 | Peer Connect (new session) | `docs/roadmap.md` §Peer Connect, Section 6 | US-12 |

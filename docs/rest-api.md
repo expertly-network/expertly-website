@@ -268,10 +268,15 @@ alongside real file uploads in one request, same reasoning as the membership-app
 upload endpoint. Source files are extracted to text server-side (`pdf-parse` for PDF, `mammoth`
 for DOCX, raw UTF-8 for TXT; magic-byte checked via `file-type` first, per root CLAUDE.md's
 non-negotiable upload rule) and **never persisted** — used once to build this one prompt, then
-discarded. `sourceLinks` (max 5) are fetched server-side with SSRF guards
-(`apps/backend/src/ai/fetch-safe.ts`: http(s)-only, DNS-resolved IP re-checked against
-private/loopback/link-local ranges before and after every redirect hop, 8s timeout, 3MB cap) — a
-link that fails to fetch is silently skipped, not a whole-request error. Same `@Roles('member')`
+discarded. `sourceLinks` (max 5) are **not fetched by this backend at all** — they're listed as
+plain text in the prompt, and the model itself decides whether/when to fetch or search a given one
+using the currently-configured `AI_PROVIDER`'s own hosted web tool (`anthropic.tools.
+webFetch_20260209`, `google.tools.urlContext`, or `openai.tools.webSearch` — see `AiService.
+resolveModelWithSourceLinkTool`). This replaced an earlier server-side fetch
+(`apps/backend/src/ai/fetch-safe.ts`, since deleted) that had a DNS-rebinding SSRF gap — moving the
+fetch to the provider's own infrastructure removes that vulnerability class outright rather than
+patching it. OpenAI's tool is search-based, not a guaranteed exact-URL fetch like Anthropic/
+Google's — source-link grounding quality can differ by configured provider. Same `@Roles('member')`
 posture as `POST /v1/articles`.
 
 **Response `201`:** `AiDraftArticleResponse`. **Errors:** `401` · `403` client account · `400`
@@ -565,7 +570,7 @@ bytes. `@Roles('member')`, owner-only (`:id` must equal the caller's id).
 path: string }` — `path` is what gets sent back as `proofFileUrl`/`logoUrl` in a subsequent edit
 submission, not the raw `uploadUrl`.
 
-### 🔒 `PATCH /v1/members/:id/edits`
+### 🔒 `POST /v1/members/:id/edits`
 
 Submit a self-edit proposal for one section. `@Roles('member')`, owner-only (service-layer check,
 same pattern as `PATCH /v1/articles/:id`'s owner-or-admin check but stricter — no admin bypass
@@ -594,7 +599,8 @@ constraint.
 
 **Response `200`:** `MemberListItemDto[]` plus `status`, `applicationId`,
 `membershipStartedAt`, `renewalPaymentStatus`, `renewalDueState` (computed
-`active`\|`due-soon`\|`overdue` from `member_renewal_policy` — see `docs/database-erd.md`).
+`active`\|`due-soon`\|`overdue` from `membershipStartedAt` plus a hardcoded 12-month period / 30-day
+reminder window — see `docs/database-erd.md`).
 
 ### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id`
 
@@ -622,12 +628,6 @@ wholesale with `payload`'s items; for `headline_bio`/`contact`, overwrites the c
 
 **Response `200`:** `MemberProfileEditDto`. **Errors:** `409` if the edit is no longer `pending`
 (already reviewed).
-
-### 🛡️ `manageMembers` `GET` / `PATCH /v1/admin/renewal-policy`
-
-The single sitewide renewal policy row. `PATCH` body: `{ periodMonths?, reminderDays? }`.
-
-**Response `200`:** `{ periodMonths: number, reminderDays: number, updatedAt: string }`.
 
 ## Member directory & profiles — not built yet (explicitly deferred)
 

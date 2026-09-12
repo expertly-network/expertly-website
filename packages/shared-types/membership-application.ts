@@ -23,17 +23,13 @@ const APPLICATION_REGIONS = [
 
 export type FirmSize = 'solo' | '2_10' | '11_50' | '51_200' | '200_plus';
 
-// Auto-derived server-side from yearsOfExperience at submission — never
-// accepted from the client. See POST /v1/applications/me in docs/rest-api.md.
+// Derived server-side from years of experience at submission; never accepted from the client.
 export type MembershipTier = 'budding_entrepreneur' | 'seasoned_professional';
 
-// Annual-only — the client decided against offering a monthly plan (2026-08-31 feedback).
-// Kept as a single-member union rather than a bare literal so every existing
-// `Record<BillingPeriod, ...>` call site and the DB column's `text` shape stay unchanged.
+// Annual-only for now.
 export type BillingPeriod = 'annual';
 
-// Only 'waived' is reachable without a real payment gateway; 'paid' is
-// reserved for when one gets integrated.
+// 'paid' is reserved for a future real payment gateway.
 export type PaymentStatus = 'pending' | 'waived' | 'paid';
 
 export class WorkExperienceInput {
@@ -67,9 +63,7 @@ export class ServicePreference extends ServicePreferenceInput {
   @ApiProperty() practiceAreaName!: string;
 }
 
-/** A peer reference for the verification process (2026-08-31 client feedback: exactly two
- * required to submit — cardinality enforced server-side in ApplicationsService.assertComplete,
- * not expressible on this shape alone since a draft may have 0 or 1). */
+/** A peer reference for the verification process. Exactly two required to submit. */
 export class PeerReferenceInput {
   @ApiProperty() name!: string;
   @ApiProperty() relationship!: string;
@@ -77,13 +71,7 @@ export class PeerReferenceInput {
   @ApiPropertyOptional() phone?: string;
 }
 
-/**
- * POST /v1/applications/me request body — an upsert. Every field is optional: a draft can be
- * arbitrarily incomplete, and each call only needs to carry the fields that changed. Set
- * `status: 'submitted'` to attempt the draft -> submitted transition (the backend then requires
- * every field below except couponCode to be present, on the merged row, not just this call's
- * body).
- */
+/** POST /v1/applications/me request body — an upsert; every field is optional. */
 export class UpdateApplicationRequest {
   @ApiPropertyOptional() firstName?: string;
   @ApiPropertyOptional() lastName?: string;
@@ -167,13 +155,7 @@ export class LinkedInImportRequest {
   @ApiProperty() linkedinUrl!: string;
 }
 
-/**
- * Normalized LinkedIn-import result — every field optional, since anything that couldn't be
- * extracted is simply omitted (the applicant fills it manually). Backed by the real n8n-backed
- * provider (apps/backend/src/applications/linkedin-import/n8n-linkedin-import.provider.ts) when
- * configured, the deterministic mock provider otherwise — see that module for which fields each
- * one actually populates.
- */
+/** Normalized LinkedIn-import result — fields are omitted when extraction fails. */
 export class LinkedInImportResponse {
   @ApiPropertyOptional() firstName?: string;
   @ApiPropertyOptional() lastName?: string;
@@ -193,11 +175,7 @@ export class AdminApplicationReviewRequest {
   @ApiPropertyOptional() rejectionReason?: string;
 }
 
-/**
- * GET /v1/admin/applications response row — the review-queue table's shape, deliberately
- * lighter than the full ApplicationDto (no documents/workExperiences/educations, which the
- * list view doesn't render). 🛡️ manageApplications, same guard chain as the PATCH above.
- */
+/** GET /v1/admin/applications response row — lighter than the full ApplicationDto. */
 export class AdminApplicationListItemDto {
   @ApiProperty() id!: string;
   @ApiProperty({ enum: ['draft', 'submitted', 'under_review', 'approved', 'rejected'] })

@@ -7,11 +7,8 @@ import { SearchModal } from '@/components/home/SearchModal';
 import type { MemberListItemDto } from '@shared/member';
 import type { ArticleListItemDto } from '@shared/article';
 
-// Real cross-entity search is 📋 roadmap with no backend (docs/master-tdd.md §8.3) — this
-// panel itself is a static preview (matching the design's own demo-box look), but clicking
-// it opens a genuinely-functional full-screen search modal (SearchModal) over the members/
-// articles the homepage already fetched — matches design/static_html's `.d1-gsearch-overlay`
-// click-to-open pattern, not an inline-filtering box.
+// No real search backend yet — this panel is a static preview, but clicking it opens a
+// functional search modal over already-fetched data.
 export function AiSearchTeaser({
   members,
   articles,

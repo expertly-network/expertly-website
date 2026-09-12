@@ -29,14 +29,10 @@ const REGIONS: ApplicationRegion[] = [
   'south_asia',
   'africa',
 ];
-// Annual-only per 2026-08-31 client feedback — 'monthly' is no longer an accepted value.
 const BILLING_PERIODS: BillingPeriod[] = ['annual'];
 
-// Every field optional — a draft can be arbitrarily incomplete, and a single save-on-advance call
-// only carries the fields for the step just completed. Completeness for `status: 'submitted'` is
-// checked in ApplicationsService.assertComplete against the *merged* row, not here — same
-// "cross-field rules live in the service" convention the old CreateApplicationDto followed for
-// rateMaxCents > rateMinCents.
+// Every field optional — a draft may be incomplete; completeness for `status: 'submitted'` is
+// validated server-side.
 export class UpdateApplicationDto {
   @IsOptional()
   @IsString()
@@ -103,9 +99,7 @@ export class UpdateApplicationDto {
   @Type(() => EducationDto)
   educations?: EducationDto[];
 
-  // Exactly 2 required to submit (checked in ApplicationsService.assertComplete against the
-  // merged row, same convention as workExperiences/educations above) — this cap only guards
-  // against sending more than the form ever collects.
+  // Exactly 2 required to submit.
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(2)
@@ -125,8 +119,7 @@ export class UpdateApplicationDto {
   @Min(0)
   rateMinCents?: number;
 
-  // rateMaxCents > rateMinCents is a cross-field rule, checked in ApplicationsService against the
-  // merged row (both fields might arrive across different calls).
+  // Must be greater than rateMinCents.
   @IsOptional()
   @IsInt()
   rateMaxCents?: number;

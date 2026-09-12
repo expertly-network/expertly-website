@@ -9,10 +9,7 @@ export const metadata = {
   title: 'Articles — Admin — Expertly',
 };
 
-// UX-only gate — the real authorization boundary is the backend's @Roles('admin') +
-// @RequiresPermission('manageArticles') guard chain (docs/auth.md), re-checked fresh against
-// the DB on every request, not trusted from this JWT-derived role. Only ever shows anything when
-// ARTICLES_REVIEW_MODE=editorial — in the default 'instant' mode nothing reaches pending_review.
+// UX-only gate; the backend re-checks permissions fresh on every request.
 export default async function AdminArticlesPage() {
   const profile = await getSessionUser();
   if (!profile) {

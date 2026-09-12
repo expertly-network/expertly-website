@@ -4,10 +4,7 @@ import { Eyebrow } from '@/components/ui';
 import type { ArticleListItemDto } from '@shared/article';
 import type { MemberListItemDto } from '@shared/member';
 
-// The dark hero band + search, matching design/static_html/articles.html — persistent chrome at
-// the top of the whole articles experience (browse, my articles, AND the write flow all sit
-// below it on the same page in the prototype). Shared by /articles and /articles/write so the
-// write flow doesn't lose this header when it's a separate Next.js route.
+// Shared by /articles and /articles/write so the write flow keeps this header.
 export function ArticlesHero({
   members,
   articles,

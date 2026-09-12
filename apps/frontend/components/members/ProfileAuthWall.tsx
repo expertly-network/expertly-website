@@ -1,10 +1,6 @@
 import { Button } from '@/components/ui';
 
-// Generic copy, not personalized with the member's name — a deliberate
-// deviation from the prototype (see design spec §3): the real
-// GET /v1/members/:id 401s for guests entirely, so there's no way to source
-// a name to personalize this with without a public by-id endpoint that
-// doesn't exist in the contract.
+// Not personalized with the member's name — there's no public by-id endpoint to source one from.
 export function ProfileAuthWall() {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-24 text-center">

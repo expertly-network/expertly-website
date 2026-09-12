@@ -5,10 +5,7 @@ import { SearchModal } from '@/components/home/SearchModal';
 import type { MemberListItemDto } from '@shared/member';
 import type { ArticleListItemDto } from '@shared/article';
 
-// Matches design/static_html/articles.html's hero search bar visually, but — same call as
-// AiSearchTeaser on the home page — made genuinely functional instead of reproducing its
-// decorative rotating-placeholder-only behavior: clicking opens the same real cross-entity
-// SearchModal the home page uses, rather than a second non-functional decoration.
+// Opens the same cross-entity search modal the home page uses.
 export function ArticlesHeroSearch({
   members,
   articles,

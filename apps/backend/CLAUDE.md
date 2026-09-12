@@ -11,9 +11,10 @@ One module per resource, mirroring `applications/`, `articles/`, `practice-areas
 
 ```
 <resource>/
-  <resource>.module.ts       — imports AuthModule, wires controller + service
+  <resource>.module.ts       — imports AuthModule, wires controller + service + repository
   <resource>.controller.ts   — routes, auth/role decorators, nothing else
-  <resource>.service.ts      — business logic, Supabase queries
+  <resource>.service.ts      — business logic, orchestration, DTO mapping — no Supabase calls
+  <resource>.repository.ts   — every Supabase call for this resource, nothing else
   dto/
     create-<resource>.dto.ts
     update-<resource>.dto.ts
@@ -21,6 +22,8 @@ One module per resource, mirroring `applications/`, `articles/`, `practice-areas
 
 Keep the controller thin — request/response shape and auth annotations only. Business logic
 (including the "computed fields never come from the client" rule below) belongs in the service.
+The service never touches `SupabaseService` directly — every query or mutation is a named method
+on that resource's repository (see "Data access" below).
 
 ## Auth on every route
 
@@ -49,7 +52,34 @@ Validation `class-validator` can't express (word-count ranges, cross-field check
 service with a comment saying so, not bolted onto the DTO with a custom decorator for a
 one-call-site rule.
 
-## Data access: service-role bypasses RLS — the API is the authorization boundary
+## Data access: repository is the only Supabase consumer, RLS is defense-in-depth
+
+`<resource>.repository.ts` is the **only** place in a module that imports `SupabaseService` — one
+method per query/mutation intent (e.g. `findLatestByApplicant`, not a generic `findOne(table)`),
+each owning its own `if (error) throw new XException('...')`. Guards that need a fresh DB read
+(`roles.guard.ts`, `admin-permission.guard.ts`) use `auth/profiles.repository.ts` the same way.
+Services orchestrate repository calls and map rows to DTOs; they never call `.from(...)` or
+`.storage` themselves.
+
+Every table a repository touches gets a private accessor method (e.g. `private events() { return
+this.supabase.db.from('events'); }`) — methods call `this.events()`, never
+`this.supabase.db.from('events')` inline. One accessor per table, not per resource: a repository
+spanning several tables (e.g. `MembersRepository` covering `member_profiles`,
+`member_profile_edits`, `member_services`, ...) gets one accessor per table it touches.
+
+Never `select('*')` or a bare `select()`. Every query names its columns via a `const
+X_COLUMNS = [...] as const` colocated in the repository file, paired with a hand-written row
+`interface` (not a class-validator DTO — those are for request bodies) instead of
+`Record<string, any>`. One constant+interface pair per distinct query shape, not one per table —
+a narrow list view and a full-detail load are different shapes even on the same table.
+
+`src/supabase/database.types.ts` is generated (`pnpm gen:types`, see that script for the
+`SUPABASE_DB_URL` it needs) from the live schema, never hand-edited, and `SupabaseService.db` is
+typed as `SupabaseClient<Database>` — this catches a wrong table/column name in `.from()`,
+`.eq()`, `.insert()`, `.update()` at compile time. It does not replace the column-list-plus-
+interface pattern above: a `.select(COLUMNS.join(', '))` string is built at runtime, so Supabase's
+type inference still can't parse it into a row shape — the hand-written interface is still what
+the `as unknown as X` cast returns. Regenerate after any migration changes the schema.
 
 The backend's Supabase client uses the service-role key, which bypasses RLS entirely. That's
 intentional (see root CLAUDE.md and `docs/auth.md`): **RLS on every table is defense-in-depth, not

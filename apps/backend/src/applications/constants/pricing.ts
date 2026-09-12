@@ -1,18 +1,11 @@
 import type { BillingPeriod, MembershipTier } from '@shared/membership-application';
 
-// Flat pricing — from design/static_html/membership.html ("$499/year or
-// $49/month", "All Professionals", no tier-based pricing shown anywhere in
-// the current design). Confirmed explicitly: price does NOT vary by tier —
-// tier is computed and stored for other purposes, not pricing.
-// Monthly removed 2026-08-31 per client feedback — annual only going forward.
+// Membership price by billing period. Price does not vary by tier.
 export const MEMBERSHIP_PRICE_CENTS: Record<BillingPeriod, number> = {
   annual: 49900,
 };
 
-// >12 years -> seasoned_professional, else budding_entrepreneur. Confirmed
-// product rule; the operations team can override the final tier at approval
-// time (a later feature) — this is only the auto-computed starting value
-// stamped onto the immutable application record.
+// Returns the membership tier for a given years of experience.
 export function computeTier(yearsOfExperience: number): MembershipTier {
   return yearsOfExperience > 12 ? 'seasoned_professional' : 'budding_entrepreneur';
 }

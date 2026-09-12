@@ -2,9 +2,7 @@ import { SectionBadge } from '@/components/members/SectionBadge';
 import { getSectionEditBadge } from '@/lib/members/edit-badge';
 import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
-// design/static_html/member-profile.html's populateProfile(): the Website row shows the bare
-// host (protocol + trailing slash stripped) as display text while the link still points at the
-// full URL; LinkedIn always shows the static label "View Profile" rather than the raw URL.
+// Website shows the bare host, not the full URL.
 function stripUrlDisplay(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }

@@ -4,11 +4,7 @@ import { Button } from '@/components/ui';
 import type { Profile } from '@/lib/auth/types';
 import { SignOutButton } from '@/components/layout/SignOutButton';
 
-// 'rail' = the desktop collapsed-by-default, hover-to-expand icon rail (Sidebar below —
-// matches design/static_html's .d1-sidebar, 56px collapsed / 248px on hover, an Instagram-
-// style floating overlay per its own inline comment). 'full' = always fully expanded, no
-// hover behavior (MobileDrawer, which is already a full-width slide-out with nothing to
-// collapse into).
+// 'rail' = collapsed icon rail that expands on hover. 'full' = always expanded.
 type SidebarVariant = 'rail' | 'full';
 
 function navLinkClasses(variant: SidebarVariant) {
@@ -45,12 +41,8 @@ const ADMIN_ICON = (
   <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />
 );
 
-// Matches design/static_html's guest sidebar nav: Articles, Events, Members, Membership
-// Benefits, in that order. Articles/Events/Members are real destinations; "Expertly Benefits"
-// doesn't exist yet in this app, so it still renders inert (dimmed, non-navigating) with the
-// same "Soon" pill treatment the source design itself uses for its own not-yet-live nav
-// items (`.nav-soon`/`.soon`), rather than linking to a 404. Reused (in its always-expanded
-// 'full' form) inside MobileDrawer too — see that file.
+// Articles, Events, Members are real destinations; Expertly Benefits doesn't exist yet, so it
+// renders inert with a "Soon" pill instead of linking to a 404.
 export function SidebarNav({
   user,
   variant = 'full',
@@ -153,10 +145,7 @@ export function SidebarFooter({
   }
 
   const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`;
-  // A signed-in `client` hasn't applied for membership yet — the CTA stays relevant and
-  // shouldn't disappear just because they've created an account. `member`/`admin` already
-  // have membership (or more), so it's dropped for them rather than showing a CTA that
-  // doesn't apply to their account anymore.
+  // Only shown for a client who hasn't applied for membership yet.
   const showApplyNow = user.role === 'client';
   const fullInfo = (
     <div className="flex flex-col gap-3">
@@ -190,12 +179,7 @@ export function SidebarFooter({
   );
 }
 
-// Collapsed-by-default (56px) icon rail that expands to 248px as a floating overlay on
-// hover — matches design/static_html's .d1-sidebar/.d1-shell.revealed behavior exactly
-// (including its own "Instagram-style" framing), reimplemented as pure CSS (`group`/
-// `group-hover:`) instead of the source's JS mouseenter/mouseleave listener toggling a
-// class — same effect, no JS needed. Background is `bg-ink` (`var(--ink)` in the source),
-// not `nav-green` — that token belongs to an older, unrelated top-nav variant.
+// Collapsed icon rail that expands to a floating overlay on hover.
 export function Sidebar({ user }: { user: Profile | null }) {
   return (
     <aside

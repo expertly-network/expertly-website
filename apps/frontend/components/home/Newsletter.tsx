@@ -6,15 +6,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { REGIONS } from '@/components/apply/types';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 
-// Newsletter subscriptions are 📋 roadmap, no backend (docs/master-tdd.md) — submitting shows
-// an inline "not live yet" message rather than faking success or leaving the button visibly
-// disabled/greyed (the real design shows it fully styled; a disabled look reads as broken).
-// The region/country jurisdiction pickers (design's own `.nl-juris-pickers`, "All regions" /
-// "All countries") are reproduced with the same FilterPopover used for the directory/articles/
-// events filters — reusing real app data (REGIONS from the application wizard, ALL_COUNTRIES
-// from the member directory) rather than a third hardcoded list. Selection only narrows what a
-// real subscription would eventually receive; there's nothing to submit it to yet, same as the
-// email field itself.
+// No backend yet — submitting shows a "not live" message instead of faking success.
 export function Newsletter() {
   const [submitted, setSubmitted] = useState(false);
   const [regions, setRegions] = useState<string[]>([]);
@@ -27,9 +19,6 @@ export function Newsletter() {
           padding="lg"
           className="relative overflow-hidden bg-ink"
           style={{
-            // Accent-tinted radial glow at 20%, matching design's `.newsletter-card` recipe
-            // verbatim (`radial-gradient(1200px 600px at 15% -10%, color-mix(...) 20%, ...)`) —
-            // previously an 8% linear tint, weak enough to read as plain black.
             backgroundImage:
               'radial-gradient(1200px 600px at 15% -10%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 60%), repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 32px), repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 32px)',
           }}

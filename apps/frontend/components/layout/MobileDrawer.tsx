@@ -6,10 +6,7 @@ import { Logo } from '@/components/Logo';
 import { SidebarNav, SidebarFooter } from '@/components/layout/Sidebar';
 import type { Profile } from '@/lib/auth/types';
 
-// Mobile-only (below 1024px, matching Sidebar's own breakpoint and the
-// profile page's mobile CTA bar breakpoint — one number for the whole
-// shell). No prototype reference for this collapse; built fresh per
-// CLAUDE.md's mobile-first mandate.
+// Mobile-only, below 1024px.
 export function MobileDrawer({ user }: { user: Profile | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();

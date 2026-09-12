@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../supabase/database.types';
 
 @Injectable()
 export class SupabaseService {
-  // Service-role client: bypasses RLS. Used only for the fresh `profiles.role`
-  // re-check that RolesGuard performs on 🛡️ Admin routes (see roles.guard.ts) —
-  // every other route trusts the JWT's claims (see verify-token.ts) without
-  // touching the DB at all. Never expose this client or its key outside this
-  // backend.
-  readonly db: SupabaseClient;
+  // Service-role Supabase client. Bypasses RLS — never expose outside the backend.
+  readonly db: SupabaseClient<Database>;
 
   constructor() {
     const url = process.env.SUPABASE_URL;
