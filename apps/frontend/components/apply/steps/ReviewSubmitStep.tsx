@@ -67,8 +67,22 @@ export function ReviewSubmitStep({
       <p className="mt-2 text-lede text-ink-3">Review your details, then choose your membership plan.</p>
 
       <div className="mt-7 rounded-2xl border border-line bg-bg-card divide-y divide-line">
-        <ReviewRow label="Name" value={`${form.firstName} ${form.lastName}`} />
-        <ReviewRow label="Email" value={form.contactEmail} />
+        <div className="flex items-center gap-[18px] px-6 py-5">
+          <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
+            {form.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-xs">No photo</span>
+            )}
+          </div>
+          <div>
+            <div className="text-title text-ink">
+              {form.firstName} {form.lastName}
+            </div>
+            <div className="mt-1 text-xs text-ink-3">{form.contactEmail}</div>
+          </div>
+        </div>
         <ReviewRow label="Phone" value={form.phone ? `${form.phoneCountryCode} ${form.phone}` : '—'} />
         <ReviewRow label="Location" value={[location, regionLabel].filter(Boolean).join(' · ') || '—'} />
         <ReviewRow label="LinkedIn" value={form.linkedinUrl} />
