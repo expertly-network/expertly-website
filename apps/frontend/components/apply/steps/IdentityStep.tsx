@@ -36,6 +36,7 @@ export function IdentityStep({
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
+    if (!form.photoUrl) e.photo = 'Profile photo is required.';
     if (!form.firstName.trim()) e.firstName = 'First name is required.';
     if (!form.lastName.trim()) e.lastName = 'Last name is required.';
     if (!form.contactEmail.trim()) e.contactEmail = 'Contact email is required.';
@@ -91,8 +92,12 @@ export function IdentityStep({
       </p>
 
       <div className="mt-7 flex flex-col gap-5">
-        <div className="flex items-center gap-5">
-          <div className="flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-full border border-line bg-bg-alt text-ink-3">
+        <div id="photo" tabIndex={-1} className="flex items-center gap-5">
+          <div
+            className={`flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-full border bg-bg-alt text-ink-3 ${
+              errors.photo ? 'border-error' : 'border-line'
+            }`}
+          >
             {form.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -111,6 +116,7 @@ export function IdentityStep({
               {uploading ? 'Uploading…' : form.photoUrl ? 'Change photo' : 'Upload photo'}
             </button>
             <span className="text-xs text-ink-3">JPEG or PNG, up to 5MB.</span>
+            {errors.photo && <span className="text-xs text-error">{errors.photo}</span>}
             <input
               ref={fileInputRef}
               type="file"

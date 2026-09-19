@@ -268,7 +268,9 @@ nav links to show, and how `/apply` or `/login` redirect you before the page eve
    - Verifies the JWT's signature via `verifySupabaseToken()` (`lib/auth/verify-token.ts`) against
      Supabase's JWKS (`jose`'s `createRemoteJWKSet`, public keys cached in-process).
    - Reads `role` off the `app_role` claim (defaulting to `'client'` if missing/unrecognized —
-     fails closed) and name off `user_metadata.given_name`/`family_name`.
+     fails closed) and name off `user_metadata`, checking `first_name`/`last_name` (email signup)
+     then falling back to `given_name`/`family_name` (LinkedIn/Google OAuth) — same dual-key read
+     as `handle_new_user()`'s coalesce, so this fast path agrees with what's in `profiles`.
    - Wrapped in React's `cache()` so multiple call sites in one request (e.g. the shell layout's nav
      *and* the page itself) dedupe to a single verification.
 3. **`AppShell`/`Sidebar`/`MobileDrawer`** (`components/layout/`) receive the resulting `Profile |
