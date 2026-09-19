@@ -8,11 +8,10 @@
 -- repo ships to production; from that point on, changes are additive migrations, never edits to
 -- this file.
 --
--- Practice-area taxonomy is a single `practice_areas` table (id, name, category, is_active) —
--- an earlier draft split this into `categories` + `services`, but that was never applied to any
--- real database and every backend module (`practice-areas/`, `articles/`, `applications/`,
--- `members/`) already queries `practice_areas`. `practice_areas` is correct; don't reintroduce
--- categories/services.
+-- Practice-area taxonomy is a real two-level `categories` + `services` split (see the sections
+-- below) — a client-supplied taxonomy (17 categories, 138 services) replaced the old flat
+-- `practice_areas` table outright; no production data existed to preserve. See
+-- docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md for the full rationale.
 --
 -- Apply via the Supabase SQL Editor or `supabase db push`.
 
@@ -128,6 +127,241 @@ insert into public.practice_areas (name, category, image_url) values
   ('Restructuring', 'finance_advisory', 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=200&q=70'),
   ('Compliance', 'finance_advisory', 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=200&q=70'),
   ('Antitrust', 'finance_advisory', 'https://images.unsplash.com/photo-1593115057322-e94b77572f20?auto=format&fit=crop&w=200&q=70');
+
+-- ============================================================================
+-- categories / services — the two-level service taxonomy. `services.category_id` has no ON
+-- DELETE clause (default restrict): deleting a category that still has services fails with a
+-- foreign-key violation (23503), caught in CategoriesRepository and turned into a 409 — an admin
+-- must delete/move a category's services first. Referenced by a real FK from member_services
+-- (same restrict-by-default posture) and consultation_requests (on delete set null, since a
+-- consultation request shouldn't be blocked from ever deleting a service); referenced by id with
+-- no FK from articles.service_ids and membership_applications.service_preferences — same
+-- array/JSONB trade-off practice_areas already had, see those sections.
+-- ============================================================================
+
+create table public.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order smallint not null,
+  -- Same decorative-only, nullable, not-user-facing-until-admin-sets-it role practice_areas.image_url had.
+  image_url text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.categories enable row level security;
+
+create policy categories_select_all
+  on public.categories for select
+  using (true);
+
+create table public.services (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid not null references public.categories (id),
+  name text not null,
+  sort_order smallint not null,
+  -- One placeholder "Other (please specify)" row per category that has one — selecting it in the
+  -- UI reveals a free-text input, stored in a custom-label sidecar column on whichever table
+  -- references this service id (see member_services/articles/membership_applications/
+  -- consultation_requests below).
+  is_custom boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (category_id, name)
+);
+
+create index services_category_id_idx on public.services (category_id);
+
+alter table public.services enable row level security;
+
+create policy services_select_all
+  on public.services for select
+  using (true);
+
+-- Seed data: 17 categories, 138 services, transcribed verbatim from the client-supplied taxonomy
+-- (docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md §2), except one typo fix
+-- ("Gfit" -> "Gift" under Direct Tax) and the numbering gap at #4 closed (categories are keyed by
+-- name, not the client's original S.No). sort_order is source order within each category.
+insert into public.categories (name, sort_order) values
+  ('Direct Tax', 1),
+  ('Indirect Tax', 2),
+  ('Other taxes', 3),
+  ('Corporate compliances & Secretarial assistance', 4),
+  ('Accounting & related compliances', 5),
+  ('Audit & Assurance', 6),
+  ('Legal - Corporate, M&A & Capital Markets', 7),
+  ('Legal - Banking, Finance & Insolvency', 8),
+  ('Legal - Dispute Resolution & Investigations', 9),
+  ('Legal - Regulatory, Competition & Public Law', 10),
+  ('Legal - Data Protection, Technology & IP', 11),
+  ('Legal - Employment & Immigration', 12),
+  ('Legal - Real Estate, Infrastructure & Environment', 13),
+  ('Legal - Private Client, Family & Wealth', 14),
+  ('Legal - Sector-Specific Practices', 15),
+  ('Notarial & Admin Services', 16),
+  ('Others', 17);
+
+insert into public.services (category_id, name, sort_order, is_custom)
+select c.id, s.name, s.sort_order, s.is_custom
+from public.categories c
+join (values
+  ('Direct Tax', 'Individual & Expat tax', 1, false),
+  ('Direct Tax', 'Corporate Income tax / Federal Tax', 2, false),
+  ('Direct Tax', 'Partnership & Pass-Through Tax', 3, false),
+  ('Direct Tax', 'Fund & Investment Management Tax', 4, false),
+  ('Direct Tax', 'State Income Tax / State And Local Tax (SALT)', 5, false),
+  ('Direct Tax', 'International / Cross Border tax', 6, false),
+  ('Direct Tax', 'M&A / Transaction Tax', 7, false),
+  ('Direct Tax', 'Transfer pricing', 8, false),
+  ('Direct Tax', 'Income Tax Compliances', 9, false),
+  ('Direct Tax', 'Tax Litigation & Dispute Resolutions', 10, false),
+  ('Direct Tax', 'Gift, Estate, Wealth & succession planning', 11, false),
+  ('Direct Tax', 'Non-profit / Charity Tax', 12, false),
+  ('Direct Tax', 'Equity Compensation & Benefits Tax (ESOPs / RSUs / SARs)', 13, false),
+  ('Direct Tax', 'Tax policy and process documentation.', 14, false),
+  ('Direct Tax', 'Tax control framework and tax-risk review.', 15, false),
+  ('Direct Tax', 'Tax due diligence.', 16, false),
+  ('Direct Tax', 'ERP and tax-technology implementation.', 17, false),
+  ('Direct Tax', 'Tax investigations and forensic support.', 18, false),
+  ('Direct Tax', 'Tax data analytics and dashboarding.', 19, false),
+  ('Direct Tax', 'Other (please specify)', 20, true),
+
+  ('Indirect Tax', 'Customs advisory', 1, false),
+  ('Indirect Tax', 'Customs compliance', 2, false),
+  ('Indirect Tax', 'Excise Duty Advisory & Compliance', 3, false),
+  ('Indirect Tax', 'GST / VAT / Sales Tax advisory', 4, false),
+  ('Indirect Tax', 'GST / VAT / Sales Tax compliances', 5, false),
+  ('Indirect Tax', 'GST / VAT/ Sales Tax litigation & dispute resolutions', 6, false),
+  ('Indirect Tax', 'GST / VAT/ Sales Tax Refund', 7, false),
+  ('Indirect Tax', 'Indirect Tax Incentives', 8, false),
+  ('Indirect Tax', 'R&D Tax Credits & Incentives', 9, false),
+  ('Indirect Tax', 'Tax Technology & Automation', 10, false),
+  ('Indirect Tax', 'Tax policy and process documentation.', 11, false),
+  ('Indirect Tax', 'Tax control framework and tax-risk review.', 12, false),
+  ('Indirect Tax', 'Tax due diligence.', 13, false),
+  ('Indirect Tax', 'ERP and tax-technology implementation.', 14, false),
+  ('Indirect Tax', 'Tax investigations and forensic support.', 15, false),
+  ('Indirect Tax', 'Tax data analytics and dashboarding.', 16, false),
+  ('Indirect Tax', 'Other (please specify)', 17, true),
+
+  ('Other taxes', 'Property tax', 1, false),
+  ('Other taxes', 'Stamp Duty advisory & compliances', 2, false),
+  ('Other taxes', 'Other (please specify)', 3, true),
+
+  ('Corporate compliances & Secretarial assistance', 'Banking & KYC Setup', 1, false),
+  ('Corporate compliances & Secretarial assistance', 'Beneficial Ownership (UBO) & KYC Filings', 2, false),
+  ('Corporate compliances & Secretarial assistance', 'Corporate Governance/ ESG Advisory', 3, false),
+  ('Corporate compliances & Secretarial assistance', 'Entity Formation & Setup', 4, false),
+  ('Corporate compliances & Secretarial assistance', 'Exchange control laws', 5, false),
+  ('Corporate compliances & Secretarial assistance', 'Secretarial compliances', 6, false),
+  ('Corporate compliances & Secretarial assistance', 'Statutory mergers / amalgamations', 7, false),
+  ('Corporate compliances & Secretarial assistance', 'Stock exchange regulations', 8, false),
+  ('Corporate compliances & Secretarial assistance', 'Other (please specify)', 9, true),
+
+  ('Accounting & related compliances', 'Book keeping services', 1, false),
+  ('Accounting & related compliances', 'CFO Services', 2, false),
+  ('Accounting & related compliances', 'Payroll compliances', 3, false),
+  ('Accounting & related compliances', 'Strategic business planning & financial consulting', 4, false),
+  ('Accounting & related compliances', 'Preparation of sustainability, CSR, ESG integrated reports', 5, false),
+  ('Accounting & related compliances', 'Financial forecasting, capital allocation, investment analysis', 6, false),
+  ('Accounting & related compliances', 'Accounting advisory', 7, false),
+  ('Accounting & related compliances', 'Financial Statement Preparation & Compilation', 8, false),
+  ('Accounting & related compliances', 'Management Reporting / MIS', 9, false),
+  ('Accounting & related compliances', 'Fixed Asset & Depreciation Accounting', 10, false),
+  ('Accounting & related compliances', 'Multi-GAAP Conversion (US GAAP / IFRS / Ind AS)', 11, false),
+  ('Accounting & related compliances', 'Consolidation Accounting', 12, false),
+  ('Accounting & related compliances', 'Treasury & Cash Flow Management', 13, false),
+  ('Accounting & related compliances', 'Accounts Receivable / Payable Management', 14, false),
+  ('Accounting & related compliances', 'Accounting Systems & ERP Implementation Support', 15, false),
+
+  ('Audit & Assurance', 'Statutory audit', 1, false),
+  ('Audit & Assurance', 'Internal audit/ risk management', 2, false),
+  ('Audit & Assurance', 'System audit', 3, false),
+  ('Audit & Assurance', 'Due diligence', 4, false),
+  ('Audit & Assurance', 'Valuation services', 5, false),
+  ('Audit & Assurance', 'Forensic audit/ investigation', 6, false),
+  ('Audit & Assurance', 'ESG/sustainability assurance', 7, false),
+  ('Audit & Assurance', 'SOC (System and Organization Controls) reporting', 8, false),
+  ('Audit & Assurance', 'Tax Audit', 9, false),
+  ('Audit & Assurance', 'Internal Financial Controls (IFC) / SOX Compliance Audit', 10, false),
+  ('Audit & Assurance', 'Special Purpose Audit / Agreed-Upon Procedures', 11, false),
+  ('Audit & Assurance', 'Regulatory Compliance Audit', 12, false),
+  ('Audit & Assurance', 'Group / Component Audit', 13, false),
+  ('Audit & Assurance', 'Other (please specify)', 14, true),
+
+  ('Legal - Corporate, M&A & Capital Markets', 'Capital Markets', 1, false),
+  ('Legal - Corporate, M&A & Capital Markets', 'Contractual Laws', 2, false),
+  ('Legal - Corporate, M&A & Capital Markets', 'Corporate Laws', 3, false),
+  ('Legal - Corporate, M&A & Capital Markets', 'Mergers & Acquisitions', 4, false),
+  ('Legal - Corporate, M&A & Capital Markets', 'Private Equity', 5, false),
+  ('Legal - Corporate, M&A & Capital Markets', 'Startups & Emerging Companies', 6, false),
+  ('Legal - Corporate, M&A & Capital Markets', 'Venture Capital', 7, false),
+
+  ('Legal - Banking, Finance & Insolvency', 'Banking & Finance', 1, false),
+  ('Legal - Banking, Finance & Insolvency', 'Bankruptcy/Restructuring', 2, false),
+  ('Legal - Banking, Finance & Insolvency', 'Fintech & Payments Regulation', 3, false),
+  ('Legal - Banking, Finance & Insolvency', 'Insolvency and bankruptcy', 4, false),
+  ('Legal - Banking, Finance & Insolvency', 'Private Banks', 5, false),
+  ('Legal - Banking, Finance & Insolvency', 'Restructuring/Insolvency', 6, false),
+  ('Legal - Banking, Finance & Insolvency', 'Structured Finance & Securitization', 7, false),
+
+  ('Legal - Dispute Resolution & Investigations', 'Alternative Dispute Resolution', 1, false),
+  ('Legal - Dispute Resolution & Investigations', 'Class Actions / Group Litigation', 2, false),
+  ('Legal - Dispute Resolution & Investigations', 'International Arbitration', 3, false),
+  ('Legal - Dispute Resolution & Investigations', 'Litigation: General Commercial', 4, false),
+  ('Legal - Dispute Resolution & Investigations', 'Product Liability & Mass Torts', 5, false),
+  ('Legal - Dispute Resolution & Investigations', 'White-Collar Crime & Corporate Investigations', 6, false),
+
+  ('Legal - Regulatory, Competition & Public Law', 'Anti-Bribery & Corruption Compliance', 1, false),
+  ('Legal - Regulatory, Competition & Public Law', 'Antitrust', 2, false),
+  ('Legal - Regulatory, Competition & Public Law', 'Competition Law', 3, false),
+  ('Legal - Regulatory, Competition & Public Law', 'Exchange control regulations/ Foreign investments', 4, false),
+  ('Legal - Regulatory, Competition & Public Law', 'Government & Public Policy / Administrative Law', 5, false),
+  ('Legal - Regulatory, Competition & Public Law', 'Public Finance', 6, false),
+  ('Legal - Regulatory, Competition & Public Law', 'Sanctions & Export Controls', 7, false),
+
+  ('Legal - Data Protection, Technology & IP', 'Artificial Intelligence', 1, false),
+  ('Legal - Data Protection, Technology & IP', 'Cybersecurity Law', 2, false),
+  ('Legal - Data Protection, Technology & IP', 'Data Protection & IT Laws', 3, false),
+  ('Legal - Data Protection, Technology & IP', 'Intellectual property (IP) Laws', 4, false),
+  ('Legal - Data Protection, Technology & IP', 'Patents & Trademark Prosecution', 5, false),
+  ('Legal - Data Protection, Technology & IP', 'Privacy & Data Security: Privacy', 6, false),
+  ('Legal - Data Protection, Technology & IP', 'Technology, Media, and Telecommunications', 7, false),
+
+  ('Legal - Employment & Immigration', 'Employment / Labour laws / Social Security', 1, false),
+  ('Legal - Employment & Immigration', 'Immigration', 2, false),
+
+  ('Legal - Real Estate, Infrastructure & Environment', 'Energy & Natural Resources', 1, false),
+  ('Legal - Real Estate, Infrastructure & Environment', 'Environmental / ESG compliance', 2, false),
+  ('Legal - Real Estate, Infrastructure & Environment', 'Projects, Infrastructure & Energy', 3, false),
+  ('Legal - Real Estate, Infrastructure & Environment', 'Real Estate - Property registration & compliances', 4, false),
+  ('Legal - Real Estate, Infrastructure & Environment', 'Real Estate Advisory & Structuring', 5, false),
+  ('Legal - Real Estate, Infrastructure & Environment', 'Real Estate Litigation', 6, false),
+
+  ('Legal - Private Client, Family & Wealth', 'Civil Laws', 1, false),
+  ('Legal - Private Client, Family & Wealth', 'Family Laws', 2, false),
+  ('Legal - Private Client, Family & Wealth', 'Inheritance Law & Succession Planning', 3, false),
+  ('Legal - Private Client, Family & Wealth', 'Private Wealth Law', 4, false),
+  ('Legal - Private Client, Family & Wealth', 'Trusts & Estate Litigation', 5, false),
+  ('Legal - Private Client, Family & Wealth', 'Wealth Managers', 6, false),
+
+  ('Legal - Sector-Specific Practices', 'Aviation', 1, false),
+  ('Legal - Sector-Specific Practices', 'Healthcare', 2, false),
+  ('Legal - Sector-Specific Practices', 'Insurance', 3, false),
+  ('Legal - Sector-Specific Practices', 'Life Sciences', 4, false),
+  ('Legal - Sector-Specific Practices', 'Maritime/Admiralty', 5, false),
+  ('Legal - Sector-Specific Practices', 'Notary', 6, false),
+  ('Legal - Sector-Specific Practices', 'Private Aircraft', 7, false),
+  ('Legal - Sector-Specific Practices', 'Startups & Emerging Companies', 8, false),
+  ('Legal - Sector-Specific Practices', 'Transportation: Road (Carriage/Logistics)', 9, false),
+
+  ('Notarial & Admin Services', 'Document Legalization & Apostille', 1, false),
+  ('Notarial & Admin Services', 'Regulatory Filings & Licensing (legal support)', 2, false),
+
+  ('Others', 'Other (please specify)', 1, true)
+) as s(category_name, name, sort_order, is_custom) on s.category_name = c.name;
 
 -- ============================================================================
 -- membership_applications — a client applies to become a member. Rows start as an in-place-

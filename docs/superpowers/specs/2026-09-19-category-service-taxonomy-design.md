@@ -5,7 +5,7 @@ Status: pending user review
 
 ## 1. Motivation
 
-The client supplied a real, two-level service taxonomy (17 categories, 136 services) covering
+The client supplied a real, two-level service taxonomy (17 categories, 138 services) covering
 tax, legal, accounting, audit, and corporate-compliance service lines. This replaces the site's
 current flat `practice_areas` table (12 areas tagged with a 3-value `category` enum:
 `taxation`/`legal`/`finance_advisory`).
@@ -88,7 +88,7 @@ Tax, Indirect Tax, Other taxes, Corporate compliances & Secretarial assistance, 
 Others). The other 11 don't get one — no custom/free-text option is added where the source didn't
 ask for one. "Others" (category 18) is exactly one row: the custom placeholder, no fixed services.
 
-Full seed list (136 service rows across 17 categories) is transcribed in the implementation plan,
+Full seed list (138 service rows across 17 categories) is transcribed in the implementation plan,
 not duplicated here — the table above defines the shape, the plan carries the literal data.
 
 No images are seeded for the new categories (the old 12 practice areas had per-name Unsplash
@@ -152,7 +152,7 @@ confirmed: "everywhere we have service and category"):
 | `components/articles/ArticlesGrid.tsx`, `ArticlesTabsSection.tsx`, `RelatedArticles.tsx` | Filter/matching logic keys off `serviceIds` instead of `practiceAreaIds`. |
 | `components/articles/ArticleAuthorSidebar.tsx` | Shows author's primary service + its category. |
 | `components/admin/AdminArticlesTable.tsx` | Column joins service (+ category) names. |
-| `lib/cover-images.ts` | Re-keyed by **category** name (17 buckets) instead of the old 12 practice-area names — one cover image per category, not per service (136 images is impractical and wasn't asked for). |
+| `lib/cover-images.ts` | Re-keyed by **category** name (17 buckets) instead of the old 12 practice-area names — one cover image per category, not per service (138 images is impractical and wasn't asked for). |
 | New: admin taxonomy management page | Not present today (practice areas had no admin CRUD at all). New page under the admin dashboard: list categories (expandable to services), create/edit/deactivate/delete both levels, per §3's endpoints. Needs its own `design/static_html/admin-dashboard.html` check for closest existing admin-table pattern to follow, since no prototype page covers this. |
 
 Consultation booking is **not** wired in — no booking UI exists yet (`consultation_requests` is
