@@ -16,10 +16,6 @@ create type public.auth_provider as enum ('email', 'linkedin_oidc', 'google');
 -- coupons (see docs/database-erd.md). Only the role tag itself is real column data.
 create type public.admin_role as enum ('super_admin', 'content_manager', 'reviewer');
 
--- ── practice_areas ───────────────────────────────────────────────────────────
-
-create type public.practice_area_category as enum ('taxation', 'legal', 'finance_advisory');
-
 -- ── membership_applications ──────────────────────────────────────────────────
 
 -- 'draft' added for the resumable application wizard — a client's in-progress application lives

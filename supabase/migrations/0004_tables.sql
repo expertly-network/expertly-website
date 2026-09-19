@@ -82,53 +82,6 @@ create policy profiles_select_auth_admin
   using (true);
 
 -- ============================================================================
--- practice_areas — the practice-area taxonomy. One flat table: `category` groups areas for the
--- category-pill filter, `name` is what's picked in the application wizard / article write flow
--- / member services. Referenced by id (no FK) from membership_applications.service_preferences
--- and articles.practice_area_ids — see those sections for why; referenced by a real FK from
--- member_services and consultation_requests, which do need one.
--- ============================================================================
-
-create table public.practice_areas (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  category practice_area_category not null,
-  -- Decorative-only representative image for directory/homepage chip art — not a member
-  -- photo, not user-editable. Nullable: a missing image degrades to a plain chip, it never
-  -- blocks a practice area from existing.
-  image_url text,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
-create index practice_areas_category_idx on public.practice_areas (category);
-
-alter table public.practice_areas enable row level security;
-
-create policy practice_areas_select_all
-  on public.practice_areas for select
-  using (true);
-
--- Seed data, sourced from design/static_html/assets/members.js's EXPERTLY_PRACTICE_AREAS and
--- assets/onboarding-form.js's category-per-practice-area mapping — notably not a naive
--- legal-vs-finance split: Banking & Finance is `legal`, while Antitrust and Compliance are
--- `finance_advisory`. image_url values are the same per-name Unsplash URLs
--- EXPERTLY_PRACTICE_AREAS itself uses (dev/placeholder imagery, not member data).
-insert into public.practice_areas (name, category, image_url) values
-  ('M&A Tax', 'taxation', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=200&q=70'),
-  ('Transfer Pricing', 'taxation', 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=200&q=70'),
-  ('Indirect Tax', 'taxation', 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=200&q=70'),
-  ('Corporate Law', 'legal', 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=200&q=70'),
-  ('IP & Technology', 'legal', 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=200&q=70'),
-  ('Banking & Finance', 'legal', 'https://images.unsplash.com/photo-1501167786227-4cba60f6d58f?auto=format&fit=crop&w=200&q=70'),
-  ('Dispute Resolution', 'legal', 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=200&q=70'),
-  ('Capital Markets', 'finance_advisory', 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=200&q=70'),
-  ('Private Equity', 'finance_advisory', 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=70'),
-  ('Restructuring', 'finance_advisory', 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=200&q=70'),
-  ('Compliance', 'finance_advisory', 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=200&q=70'),
-  ('Antitrust', 'finance_advisory', 'https://images.unsplash.com/photo-1593115057322-e94b77572f20?auto=format&fit=crop&w=200&q=70');
-
--- ============================================================================
 -- categories / services — the two-level service taxonomy. `services.category_id` has no ON
 -- DELETE clause (default restrict): deleting a category that still has services fails with a
 -- foreign-key violation (23503), caught in CategoriesRepository and turned into a 409 — an admin
@@ -429,11 +382,11 @@ create table public.membership_applications (
   -- in the initial iteration, but future document types don't need another migration.
   documents jsonb not null default '[]' check (jsonb_typeof(documents) = 'array'),
 
-  -- Services & rates (step 4). service_preferences: [{ practiceAreaId, priority }, ...], up to
-  -- 3 entries. JSONB, not a join table with a real FK to practice_areas — a deliberate
-  -- trade-off: the backend MUST validate every practiceAreaId against a live practice_areas
+  -- Services & rates (step 4). service_preferences: [{ serviceId, customLabel?, priority }, ...], up to
+  -- 3 entries. JSONB, not a join table with a real FK to services — a deliberate
+  -- trade-off: the backend MUST validate every serviceId against a live services
   -- lookup before insert, since nothing at the database level will catch a dangling/invalid
-  -- reference (e.g. to a practice area later renamed or deactivated). Do not skip that check in
+  -- reference (e.g. to a service later renamed or deactivated). Do not skip that check in
   -- any write path — there is no FK/CASCADE safety net here the way there is elsewhere in this
   -- schema.
   service_preferences jsonb not null default '[]'
@@ -508,15 +461,17 @@ create table public.articles (
   creation_mode text not null default 'manual',
   -- No FK — arrays can't reference a table. Same load-bearing trade-off as
   -- membership_applications.service_preferences: the backend MUST validate every id against
-  -- a live, is_active-filtered practice_areas query before insert/update. Unlike the write
-  -- path, *reading* an article's practice areas back deliberately does not filter by
-  -- is_active — an already-published article should keep showing the real name of a practice
-  -- area even if it's since been deactivated.
-  practice_area_ids uuid[] not null default '{}',
-  -- Same array/no-FK trade-off as practice_area_ids above, not a join table — the write form's
+  -- a live, is_active-filtered services query before insert/update. Unlike the write
+  -- path, *reading* an article's services back deliberately does not filter by
+  -- is_active — an already-published article should keep showing the real name of a service
+  -- even if it's since been deactivated.
+  service_ids uuid[] not null default '{}',
+  -- Set only for ids in service_ids that reference an is_custom service: { [serviceId]: label }.
+  custom_service_labels jsonb not null default '{}',
+  -- Same array/no-FK trade-off as service_ids above, not a join table — the write form's
   -- country picker is genuinely multi-select (an article can apply to more than one country),
-  -- same as practice areas. Free-form country names, not ids, so no live-validation query is
-  -- needed on write (unlike practice_area_ids).
+  -- same as services. Free-form country names, not ids, so no live-validation query is
+  -- needed on write (unlike service_ids).
   countries text[] not null default '{}',
   state text,
   -- Set when status = 'rejected' in editorial review mode; null otherwise. Same shape as
@@ -594,7 +549,9 @@ create table public.consultation_requests (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references public.profiles (id) on delete cascade,
   member_id uuid not null references public.profiles (id) on delete cascade,
-  practice_area_id uuid references public.practice_areas (id) on delete set null,
+  service_id uuid references public.services (id) on delete set null,
+  -- Set only when service_id references an is_custom service.
+  custom_service_label text,
   subject text,
   message text not null,
   description text,
@@ -607,7 +564,7 @@ create table public.consultation_requests (
 
 create index consultation_requests_requester_id_idx on public.consultation_requests (requester_id);
 create index consultation_requests_member_id_idx on public.consultation_requests (member_id);
-create index consultation_requests_practice_area_id_idx on public.consultation_requests (practice_area_id);
+create index consultation_requests_service_id_idx on public.consultation_requests (service_id);
 create index consultation_requests_status_idx on public.consultation_requests (status);
 
 create trigger set_consultation_requests_updated_at
@@ -677,7 +634,7 @@ create table public.peer_connect_matches (
   -- [{ id, description, createdBy, createdAt }, ...] — shared, either participant can add/
   -- remove an item. No FK (arrays/JSONB can't reference a table) — createdBy is validated
   -- against a live profiles query by the backend, same load-bearing trade-off already
-  -- documented on membership_applications.service_preferences and articles.practice_area_ids.
+  -- documented on membership_applications.service_preferences and articles.service_ids.
   action_items jsonb not null default '[]'
     check (jsonb_typeof(action_items) = 'array'),
   -- Current reschedule proposal only (no history table) — status is inferred from which of
@@ -712,8 +669,10 @@ create table public.peer_connect_member_preferences (
   -- Preferences (step: "Set Preferences"). Entirely optional — a member can skip the form
   -- entirely, in which case matching falls back to their profile defaults; there's no
   -- separate "skipped" flag since the outcome (no explicit preference) is identical either
-  -- way. No FK on practice_area_ids — same trade-off as articles.practice_area_ids.
-  practice_area_ids uuid[] not null default '{}',
+  -- way. No FK on service_ids — same trade-off as articles.service_ids.
+  service_ids uuid[] not null default '{}',
+  -- Set only for ids in service_ids that reference an is_custom service.
+  custom_service_labels jsonb not null default '{}',
   preferred_countries text[] not null default '{}',
   preferred_hours_start numeric(4,2) check (preferred_hours_start between 0 and 24),
   preferred_hours_end numeric(4,2) check (preferred_hours_end between 0 and 24),
@@ -841,7 +800,7 @@ create table public.member_profiles (
   -- (one UPDATE) better than delete+insert across a child table. Per-item id is assigned by
   -- the application layer (there's no DB-generated id here, unlike a real table's uuid PK).
   -- member_services below stays a real join table, not jsonb — it needs a real FK to
-  -- practice_areas and is filtered on directly by the directory's practice-area search, which
+  -- services and is filtered on directly by the directory's service search, which
   -- these sections are not. member_credentials/member_testimonials keep a per-item is_verified
   -- flag inside their jsonb objects; there's no per-item admin query/index need for it today
   -- (only ever read back as part of the whole member profile), so this doesn't need a real
@@ -887,19 +846,21 @@ create policy member_profiles_select_own
   using (auth.uid() = profile_id);
 
 -- ============================================================================
--- member_services — practice areas a member is approved/listed for. A real join table (not a
--- jsonb array like member_profiles' sections above): the directory search filters by practice
--- area, and this needs a real FK the jsonb sections don't. References member_profiles(profile_id)
+-- member_services — services a member is approved/listed for. A real join table (not a
+-- jsonb array like member_profiles' sections above): the directory search filters by service,
+-- and this needs a real FK the jsonb sections don't. References member_profiles(profile_id)
 -- rather than member_profiles(id) — same reasoning as member_profile_edits below.
 -- ============================================================================
 
 create table public.member_services (
   member_id uuid not null references public.member_profiles (profile_id) on delete cascade,
-  practice_area_id uuid not null references public.practice_areas (id),
-  primary key (member_id, practice_area_id)
+  service_id uuid not null references public.services (id),
+  -- Set only when the referenced service is_custom — the member's free-text entry.
+  custom_label text,
+  primary key (member_id, service_id)
 );
 
-create index member_services_practice_area_id_idx on public.member_services (practice_area_id);
+create index member_services_service_id_idx on public.member_services (service_id);
 
 alter table public.member_services enable row level security;
 
