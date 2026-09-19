@@ -21,7 +21,8 @@ export class MembersController {
   @Get()
   list(
     @Query('q') q?: string,
-    @Query('practiceAreaId') practiceAreaId?: string | string[],
+    @Query('serviceId') serviceId?: string | string[],
+    @Query('categoryId') categoryId?: string,
     @Query('country') country?: string | string[],
     @Query('rateMinCents') rateMinCents?: string,
     @Query('rateMaxCents') rateMaxCents?: string,
@@ -31,7 +32,8 @@ export class MembersController {
   ): Promise<MemberListItemDto[]> {
     return this.membersService.list({
       q,
-      practiceAreaId: toArray(practiceAreaId),
+      serviceId: toArray(serviceId),
+      categoryId,
       country: toArray(country),
       rateMinCents: rateMinCents ? Number(rateMinCents) : undefined,
       rateMaxCents: rateMaxCents ? Number(rateMaxCents) : undefined,

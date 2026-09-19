@@ -5,7 +5,7 @@ import type {
   AdminArticleListItemDto,
   ArticleDto,
   ArticleListItemDto,
-  ArticlePracticeArea,
+  ArticleService,
   ArticleStatus,
 } from '@shared/article';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -13,7 +13,13 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
 import { AiService } from '../ai/ai.service';
-import { ArticlesRepository, type ArticleRow, type ArticleUpdate, type AuthorInfo } from './articles.repository';
+import {
+  ArticlesRepository,
+  type ArticleRow,
+  type ArticleUpdate,
+  type AuthorInfo,
+  type ServiceDetail,
+} from './articles.repository';
 
 const MIN_WORDS = 400;
 const MAX_WORDS = 2000;
@@ -51,11 +57,11 @@ export class ArticlesService {
       throw new NotFoundException('Article not found.');
     }
 
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(row.practice_area_ids),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([row.author_id]),
     ]);
-    return toDto(row, practiceAreaNames, authors);
+    return toDto(row, serviceDetails, authors);
   }
 
   async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
@@ -65,18 +71,18 @@ export class ArticlesService {
 
   async listMine(user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
     const rows = await this.articlesRepository.findAllByAuthor(user.id);
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(rows.flatMap((r) => r.service_ids)),
       this.resolveAuthors([user.id]),
     ]);
-    return rows.map((row) => omitBody(toDto(row, practiceAreaNames, authors)));
+    return rows.map((row) => omitBody(toDto(row, serviceDetails, authors)));
   }
 
   async create(user: AuthenticatedUser, dto: CreateArticleDto): Promise<ArticleDto> {
     const status: ArticleStatus = dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
     const body = sanitizeArticleBody(dto.body);
     if (status !== 'draft') assertWordCount(body);
-    await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
+    await this.assertActiveServiceIds(dto.serviceIds, dto.customServiceLabels);
     const slug = await this.articlesRepository.findUniqueSlug(dto.title);
 
     const row = await this.articlesRepository.insert({
@@ -88,18 +94,19 @@ export class ArticlesService {
       excerpt: deriveExcerpt(body),
       read_time_minutes: deriveReadTimeMinutes(body),
       cover_image_url: dto.coverImageUrl,
-      practice_area_ids: dto.practiceAreaIds,
+      service_ids: dto.serviceIds,
+      custom_service_labels: dto.customServiceLabels ?? {},
       countries: dto.countries,
       state: dto.state ?? null,
       creation_mode: dto.creationMode ?? 'manual',
     });
 
     this.generateSummaryIfNeeded(row);
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(row.practice_area_ids),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([user.id]),
     ]);
-    return toDto(row, practiceAreaNames, authors);
+    return toDto(row, serviceDetails, authors);
   }
 
   async update(id: string, user: AuthenticatedUser, dto: UpdateArticleDto): Promise<ArticleDto> {
@@ -109,8 +116,8 @@ export class ArticlesService {
     const resultingStatus: ArticleStatus | undefined = dto.status === undefined ? undefined : dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
     const effectiveStatus = resultingStatus ?? existing.status;
     if (effectiveStatus !== 'draft') assertWordCount(body ?? existing.body);
-    if (dto.practiceAreaIds !== undefined) {
-      await this.assertActivePracticeAreaIds(dto.practiceAreaIds);
+    if (dto.serviceIds !== undefined) {
+      await this.assertActiveServiceIds(dto.serviceIds, dto.customServiceLabels);
     }
 
     const patch: ArticleUpdate = {};
@@ -121,7 +128,8 @@ export class ArticlesService {
       patch.read_time_minutes = deriveReadTimeMinutes(body);
     }
     if (dto.coverImageUrl !== undefined) patch.cover_image_url = dto.coverImageUrl;
-    if (dto.practiceAreaIds !== undefined) patch.practice_area_ids = dto.practiceAreaIds;
+    if (dto.serviceIds !== undefined) patch.service_ids = dto.serviceIds;
+    if (dto.serviceIds !== undefined) patch.custom_service_labels = dto.customServiceLabels ?? {};
     if (dto.countries !== undefined) patch.countries = dto.countries;
     if (dto.state !== undefined) patch.state = dto.state;
     if (resultingStatus !== undefined) {
@@ -133,18 +141,18 @@ export class ArticlesService {
     const row = await this.articlesRepository.updateById(id, patch);
 
     this.generateSummaryIfNeeded(row);
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(row.practice_area_ids),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([row.author_id]),
     ]);
-    return toDto(row, practiceAreaNames, authors);
+    return toDto(row, serviceDetails, authors);
   }
 
   // 🛡️ manageArticles — defaults to the pending_review queue.
   async listForReview(status?: ArticleStatus): Promise<AdminArticleListItemDto[]> {
     const rows = await this.articlesRepository.findForReview(status);
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(rows.flatMap((r) => r.service_ids)),
       this.resolveAuthors(rows.map((r) => r.author_id)),
     ]);
 
@@ -154,9 +162,12 @@ export class ArticlesService {
       title: row.title,
       authorId: row.author_id,
       authorName: authors.get(row.author_id)?.name ?? 'Expertly Member',
-      practiceAreas: row.practice_area_ids
-        .filter((id) => practiceAreaNames.has(id))
-        .map((id) => ({ id, name: practiceAreaNames.get(id)! })),
+      services: row.service_ids
+        .filter((id) => serviceDetails.has(id))
+        .map((id) => {
+          const d = serviceDetails.get(id)!;
+          return { id, name: d.name, categoryId: d.categoryId, categoryName: d.categoryName };
+        }),
       countries: row.countries,
       createdAt: row.created_at,
     }));
@@ -178,11 +189,11 @@ export class ArticlesService {
     });
 
     this.generateSummaryIfNeeded(row);
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(row.practice_area_ids),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([row.author_id]),
     ]);
-    return toDto(row, practiceAreaNames, authors);
+    return toDto(row, serviceDetails, authors);
   }
 
   async remove(id: string, user: AuthenticatedUser): Promise<void> {
@@ -192,11 +203,11 @@ export class ArticlesService {
   }
 
   private async toListDtos(rows: ArticleRow[]): Promise<ArticleListItemDto[]> {
-    const [practiceAreaNames, authors] = await Promise.all([
-      this.resolvePracticeAreaNames(rows.flatMap((r) => r.practice_area_ids)),
+    const [serviceDetails, authors] = await Promise.all([
+      this.resolveServiceDetails(rows.flatMap((r) => r.service_ids)),
       this.resolveAuthors(rows.map((r) => r.author_id)),
     ]);
-    return rows.map((row) => omitBody(toDto(row, practiceAreaNames, authors)));
+    return rows.map((row) => omitBody(toDto(row, serviceDetails, authors)));
   }
 
   // Generates an AI summary the first time an article is published. Not awaited — errors are
@@ -221,22 +232,26 @@ export class ArticlesService {
     }
   }
 
-  private async assertActivePracticeAreaIds(ids: string[]): Promise<void> {
-    const validIds = await this.articlesRepository.findActivePracticeAreaIds(ids);
-    const invalidIds = ids.filter((id) => !validIds.has(id));
+  private async assertActiveServiceIds(ids: string[], customLabels?: Record<string, string>): Promise<void> {
+    const details = await this.articlesRepository.findServiceDetails(ids);
+    const invalidIds = ids.filter((id) => !details.get(id)?.isActive);
     if (invalidIds.length > 0) {
-      throw new BadRequestException(`Invalid or inactive practice area id(s): ${invalidIds.join(', ')}`);
+      throw new BadRequestException(`Invalid or inactive service id(s): ${invalidIds.join(', ')}`);
+    }
+    const missingCustomLabels = ids.filter((id) => details.get(id)?.isCustom && !customLabels?.[id]?.trim());
+    if (missingCustomLabels.length > 0) {
+      throw new BadRequestException(`customServiceLabels required for custom service id(s): ${missingCustomLabels.join(', ')}`);
     }
   }
 
-  // Resolves practice area ids to their names, for use in a natural-language prompt.
-  async resolvePracticeAreaNamesList(ids: string[]): Promise<string[]> {
-    const map = await this.resolvePracticeAreaNames(ids);
-    return ids.map((id) => map.get(id)).filter((name): name is string => Boolean(name));
+  private async resolveServiceDetails(ids: string[]): Promise<Map<string, ServiceDetail>> {
+    return this.articlesRepository.findServiceDetails(ids);
   }
 
-  private async resolvePracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
-    return this.articlesRepository.findPracticeAreaNames(ids);
+  // Resolves service ids to their names, for use in a natural-language prompt.
+  async resolveServiceNamesList(ids: string[]): Promise<string[]> {
+    const map = await this.resolveServiceDetails(ids);
+    return ids.map((id) => map.get(id)?.name).filter((name): name is string => Boolean(name));
   }
 
   private async resolveAuthors(ids: string[]): Promise<Map<string, AuthorInfo>> {
@@ -277,14 +292,13 @@ function omitBody(dto: ArticleDto): ArticleListItemDto {
   return rest;
 }
 
-function toDto(
-  row: ArticleRow,
-  practiceAreaNames: Map<string, string>,
-  authors: Map<string, AuthorInfo>
-): ArticleDto {
-  const practiceAreas: ArticlePracticeArea[] = row.practice_area_ids
-    .filter((id) => practiceAreaNames.has(id))
-    .map((id) => ({ id, name: practiceAreaNames.get(id)! }));
+function toDto(row: ArticleRow, serviceDetails: Map<string, ServiceDetail>, authors: Map<string, AuthorInfo>): ArticleDto {
+  const services: ArticleService[] = row.service_ids
+    .filter((id) => serviceDetails.has(id))
+    .map((id) => {
+      const d = serviceDetails.get(id)!;
+      return { id, name: d.name, categoryId: d.categoryId, categoryName: d.categoryName };
+    });
   const author = authors.get(row.author_id);
 
   return {
@@ -303,7 +317,8 @@ function toDto(
     creationMode: row.creation_mode,
     readTimeMinutes: row.read_time_minutes,
     coverImageUrl: row.cover_image_url,
-    practiceAreas,
+    services,
+    customServiceLabels: row.custom_service_labels ?? {},
     countries: row.countries,
     state: row.state,
     rejectionReason: row.rejection_reason,

@@ -54,13 +54,16 @@ export class EducationInput {
 }
 
 export class ServicePreferenceInput {
-  @ApiProperty() practiceAreaId!: string;
+  @ApiProperty() serviceId!: string;
   @ApiProperty({ enum: [1, 2, 3] }) priority!: 1 | 2 | 3;
+  @ApiPropertyOptional() customLabel?: string;
 }
 
 export class ServicePreference extends ServicePreferenceInput {
   /** Resolved server-side for display — not required on input. */
-  @ApiProperty() practiceAreaName!: string;
+  @ApiProperty() serviceName!: string;
+  @ApiProperty() categoryId!: string;
+  @ApiProperty() categoryName!: string;
 }
 
 /** A peer reference for the verification process. Exactly two required to submit. */

@@ -10,7 +10,8 @@ export type AdminPermission =
   | 'manageAdmins'
   | 'manageMembers'
   | 'manageConsultations'
-  | 'manageResources';
+  | 'manageResources'
+  | 'manageTaxonomy';
 
 const ALL_PERMISSIONS: AdminPermission[] = [
   'viewDashboard',
@@ -23,6 +24,7 @@ const ALL_PERMISSIONS: AdminPermission[] = [
   'manageMembers',
   'manageConsultations',
   'manageResources',
+  'manageTaxonomy',
 ];
 
 // Maps each admin role to its allowed permissions.
@@ -35,6 +37,7 @@ export const ADMIN_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     'writeArticles',
     'manageEvents',
     'manageResources',
+    'manageTaxonomy',
   ],
   reviewer: ['viewDashboard', 'manageApplications'],
 };

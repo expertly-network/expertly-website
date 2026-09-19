@@ -1,4 +1,4 @@
-import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl, IsUUID, MaxLength } from 'class-validator';
+import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID, MaxLength } from 'class-validator';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
 
 const ARTICLE_STATUSES: ArticleStatus[] = ['draft', 'published'];
@@ -21,7 +21,11 @@ export class CreateArticleDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
-  practiceAreaIds!: string[];
+  serviceIds!: string[];
+
+  @IsOptional()
+  @IsObject()
+  customServiceLabels?: Record<string, string>;
 
   // Free-form country names, not ids.
   @IsArray()

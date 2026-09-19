@@ -17,7 +17,8 @@ export interface ArticleRow {
   excerpt: string;
   read_time_minutes: number;
   cover_image_url: string;
-  practice_area_ids: string[];
+  service_ids: string[];
+  custom_service_labels: Record<string, string>;
   countries: string[];
   state: string | null;
   rejection_reason: string | null;
@@ -37,7 +38,8 @@ const ARTICLE_COLUMNS = [
   'excerpt',
   'read_time_minutes',
   'cover_image_url',
-  'practice_area_ids',
+  'service_ids',
+  'custom_service_labels',
   'countries',
   'state',
   'rejection_reason',
@@ -46,6 +48,14 @@ const ARTICLE_COLUMNS = [
   'ai_summary',
   'creation_mode',
 ] as const;
+
+export interface ServiceDetail {
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  isCustom: boolean;
+  isActive: boolean;
+}
 
 export interface AuthorInfo {
   name: string;
@@ -72,8 +82,12 @@ export class ArticlesRepository {
     return this.supabase.db.from('articles');
   }
 
-  private practiceAreas() {
-    return this.supabase.db.from('practice_areas');
+  private services() {
+    return this.supabase.db.from('services');
+  }
+
+  private categories() {
+    return this.supabase.db.from('categories');
   }
 
   private profiles() {
@@ -171,23 +185,35 @@ export class ArticlesRepository {
     await this.articles().update({ ai_summary: summary }).eq('id', id);
   }
 
-  // Only ids that exist and are currently active.
-  async findActivePracticeAreaIds(ids: string[]): Promise<Set<string>> {
-    const { data, error } = await this.practiceAreas().select('id').eq('is_active', true).in('id', ids);
-
-    if (error) throw new InternalServerErrorException('Failed to validate practice areas.');
-    return new Set((data ?? []).map((p) => p.id as string));
-  }
-
-  // Resolves practice area names regardless of whether they're still active.
-  async findPracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
+  async findServiceDetails(ids: string[]): Promise<Map<string, ServiceDetail>> {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
 
-    const { data, error } = await this.practiceAreas().select('id, name').in('id', uniqueIds);
+    const { data: services, error: servicesError } = await this.services()
+      .select('id, name, category_id, is_custom, is_active')
+      .in('id', uniqueIds);
+    if (servicesError) throw new InternalServerErrorException('Failed to resolve services.');
 
-    if (error) throw new InternalServerErrorException('Failed to resolve practice areas.');
-    return new Map((data ?? []).map((p) => [p.id as string, p.name as string]));
+    const categoryIds = [...new Set((services ?? []).map((s) => s.category_id as string))];
+    const categoryNameById = new Map<string, string>();
+    if (categoryIds.length > 0) {
+      const { data: categories, error: categoriesError } = await this.categories().select('id, name').in('id', categoryIds);
+      if (categoriesError) throw new InternalServerErrorException('Failed to resolve categories.');
+      for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
+    }
+
+    return new Map(
+      (services ?? []).map((s) => [
+        s.id as string,
+        {
+          name: s.name as string,
+          categoryId: s.category_id as string,
+          categoryName: categoryNameById.get(s.category_id as string) ?? 'Unknown',
+          isCustom: s.is_custom as boolean,
+          isActive: s.is_active as boolean,
+        },
+      ])
+    );
   }
 
   // Resolves author name/photo/headline/firm from profiles and member_profiles.

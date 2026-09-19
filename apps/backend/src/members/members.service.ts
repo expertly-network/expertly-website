@@ -41,7 +41,8 @@ export class MembersService {
 
   async list(query: {
     q?: string;
-    practiceAreaId?: string[];
+    serviceId?: string[];
+    categoryId?: string;
     country?: string[];
     rateMinCents?: number;
     rateMaxCents?: number;
@@ -57,8 +58,11 @@ export class MembersService {
       { from: (page - 1) * pageSize, to: page * pageSize - 1 }
     );
 
-    if (query.practiceAreaId && query.practiceAreaId.length > 0) {
-      const matchedIds = await this.membersRepository.findMemberIdsByPracticeAreas(query.practiceAreaId);
+    if (query.serviceId && query.serviceId.length > 0) {
+      const matchedIds = await this.membersRepository.findMemberIdsByServices(query.serviceId);
+      rows = rows.filter((r) => matchedIds.has(r.profile_id));
+    } else if (query.categoryId) {
+      const matchedIds = await this.membersRepository.findMemberIdsByCategory(query.categoryId);
       rows = rows.filter((r) => matchedIds.has(r.profile_id));
     }
 
@@ -292,7 +296,7 @@ export class MembersService {
   private toListDto(
     row: MemberProfileRow,
     profilesById: Map<string, ProfileIdentityRow>,
-    servicesByMember: Map<string, { id: string; name: string }[]>
+    servicesByMember: Map<string, { id: string; name: string; categoryId: string; categoryName: string }[]>
   ): MemberListItemDto {
     const profile = profilesById.get(row.profile_id);
     const initials =
@@ -308,7 +312,7 @@ export class MembersService {
       region: row.region,
       country: row.country,
       city: row.city,
-      practiceAreas: servicesByMember.get(row.profile_id) ?? [],
+      services: servicesByMember.get(row.profile_id) ?? [],
       isVerified: row.is_verified,
       memberTier: row.member_tier,
       yearsOfExperience: row.years_of_experience,

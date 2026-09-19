@@ -20,7 +20,7 @@ export class AiDraftRequestDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsString({ each: true })
-  practiceAreaIds!: string[];
+  serviceIds!: string[];
 
   @IsArray()
   @ArrayMinSize(1)

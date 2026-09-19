@@ -6,9 +6,11 @@ export type ArticleStatus = 'draft' | 'pending_review' | 'published' | 'rejected
 // Which authoring path produced an article. Descriptive only.
 export type ArticleCreationMode = 'manual' | 'ai';
 
-export class ArticlePracticeArea {
+export class ArticleService {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
+  @ApiProperty() categoryId!: string;
+  @ApiProperty() categoryName!: string;
 }
 
 export class ArticleDto {
@@ -31,7 +33,8 @@ export class ArticleDto {
   @ApiProperty({ enum: ['manual', 'ai'] }) creationMode!: ArticleCreationMode;
   @ApiProperty() readTimeMinutes!: number;
   @ApiProperty() coverImageUrl!: string;
-  @ApiProperty({ type: () => ArticlePracticeArea, isArray: true }) practiceAreas!: ArticlePracticeArea[];
+  @ApiProperty({ type: () => ArticleService, isArray: true }) services!: ArticleService[];
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } }) customServiceLabels!: Record<string, string>;
   // An article can apply to more than one country.
   @ApiProperty({ type: String, isArray: true }) countries!: string[];
   @ApiProperty({ nullable: true, type: String }) state!: string | null;
@@ -47,7 +50,8 @@ export class CreateArticleRequest {
   @ApiProperty() title!: string;
   @ApiProperty() body!: string;
   @ApiProperty() coverImageUrl!: string;
-  @ApiProperty({ type: String, isArray: true }) practiceAreaIds!: string[];
+  @ApiProperty({ type: String, isArray: true }) serviceIds!: string[];
+  @ApiPropertyOptional({ type: 'object', additionalProperties: { type: 'string' } }) customServiceLabels?: Record<string, string>;
   @ApiProperty({ type: String, isArray: true }) countries!: string[];
   @ApiPropertyOptional() state?: string;
   // Omit to publish (or submit for review); 'draft' skips the word-count check.
@@ -61,7 +65,7 @@ export type UpdateArticleRequest = Partial<CreateArticleRequest & { status: Arti
 // POST /v1/articles/ai-draft — 🔒 member. Generates a draft; does not save it.
 export interface AiDraftArticleRequest {
   title?: string;
-  practiceAreaIds: string[];
+  serviceIds: string[];
   countries: string[];
   state?: string;
   notes?: string;
@@ -90,7 +94,7 @@ export interface RefineArticleDraftRequest {
 
 // POST /v1/articles/suggest-topics — 🔒 member. Suggests article title ideas.
 export interface SuggestTopicsRequest {
-  practiceAreaIds?: string[];
+  serviceIds?: string[];
 }
 
 export class SuggestTopicsResponse {
@@ -109,7 +113,7 @@ export class AdminArticleListItemDto {
   @ApiProperty() title!: string;
   @ApiProperty() authorId!: string;
   @ApiProperty() authorName!: string;
-  @ApiProperty({ type: () => ArticlePracticeArea, isArray: true }) practiceAreas!: ArticlePracticeArea[];
+  @ApiProperty({ type: () => ArticleService, isArray: true }) services!: ArticleService[];
   @ApiProperty({ type: String, isArray: true }) countries!: string[];
   @ApiProperty() createdAt!: string;
 }

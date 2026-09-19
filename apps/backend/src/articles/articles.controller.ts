@@ -17,9 +17,9 @@ import { RefineDraftDto } from '../ai/dto/refine-draft.dto';
 import { SuggestTopicsDto } from '../ai/dto/suggest-topics.dto';
 import { extractSourceFileText } from '../ai/extract-text';
 import { UnsplashService } from '../ai/unsplash.service';
-import { PracticeAreasService } from '../practice-areas/practice-areas.service';
+import { CategoriesService } from '../categories/categories.service';
 
-const RANDOM_PRACTICE_AREA_SAMPLE_SIZE = 3;
+const RANDOM_SERVICE_SAMPLE_SIZE = 3;
 const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
 
 @Controller('articles')
@@ -28,7 +28,7 @@ export class ArticlesController {
     private readonly articlesService: ArticlesService,
     private readonly aiService: AiService,
     private readonly unsplashService: UnsplashService,
-    private readonly practiceAreasService: PracticeAreasService
+    private readonly categoriesService: CategoriesService
   ) { }
 
   @Get(':id')
@@ -84,8 +84,8 @@ export class ArticlesController {
     const errors = await validate(dto);
     if (errors.length > 0) throw new BadRequestException('Invalid AI draft request.');
 
-    const practiceAreaNames = await this.articlesService.resolvePracticeAreaNamesList(dto.practiceAreaIds);
-    return this.aiService.generateDraft(dto, practiceAreaNames, sourceFileTexts);
+    const serviceNames = await this.articlesService.resolveServiceNamesList(dto.serviceIds);
+    return this.aiService.generateDraft(dto, serviceNames, sourceFileTexts);
   }
 
   // 🔒 member — revises the current draft based on requested changes.
@@ -95,22 +95,23 @@ export class ArticlesController {
     return this.aiService.refineDraft(dto);
   }
 
-  // 🔒 member — suggests article title ideas, sampling active practice areas if none are selected.
+  // 🔒 member — suggests article title ideas, sampling active services if none are selected.
   @Roles('member')
   @Post('suggest-topics')
   async suggestTopics(@Body() dto: SuggestTopicsDto): Promise<SuggestTopicsResponse> {
-    const names = dto.practiceAreaIds?.length
-      ? await this.articlesService.resolvePracticeAreaNamesList(dto.practiceAreaIds)
-      : await this.sampleActivePracticeAreaNames(RANDOM_PRACTICE_AREA_SAMPLE_SIZE);
+    const names = dto.serviceIds?.length
+      ? await this.articlesService.resolveServiceNamesList(dto.serviceIds)
+      : await this.sampleActiveServiceNames(RANDOM_SERVICE_SAMPLE_SIZE);
 
     const topics = await this.aiService.suggestTopics(names);
     return { topics };
   }
 
-  private async sampleActivePracticeAreaNames(count: number): Promise<string[]> {
-    const all = await this.practiceAreasService.list();
-    const shuffled = [...all].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count).map((p) => p.name);
+  private async sampleActiveServiceNames(count: number): Promise<string[]> {
+    const categories = await this.categoriesService.list();
+    const allServices = categories.flatMap((c) => c.services);
+    const shuffled = [...allServices].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count).map((s) => s.name);
   }
 
   @Roles('member')

@@ -21,7 +21,7 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
-import { ApplicationsRepository, type ApplicationRow } from './applications.repository';
+import { ApplicationsRepository, type ApplicationRow, type ServiceDetail } from './applications.repository';
 
 type UploadKind = 'photo' | 'document';
 
@@ -118,10 +118,10 @@ export class ApplicationsService {
       throw new BadRequestException('rateMaxCents must be greater than rateMinCents.');
     }
 
-    // Validates practiceAreaIds only when this call touches service_preferences.
-    let practiceAreaById = new Map<string, string>();
+    // Validates serviceIds only when this call touches service_preferences.
+    let serviceDetails = new Map<string, ServiceDetail>();
     if (dto.servicePreferences !== undefined) {
-      practiceAreaById = await this.assertActiveAndResolve(dto.servicePreferences);
+      serviceDetails = await this.assertActiveAndResolveServices(dto.servicePreferences);
     }
 
     if (dto.status === 'submitted') {
@@ -147,20 +147,20 @@ export class ApplicationsService {
       ? await this.applicationsRepository.updateById(existing.id, patch)
       : await this.applicationsRepository.insert({ ...patch, applicant_id: user.id });
 
-    // Resolve names from the saved row when this call didn't touch service_preferences.
+    // Resolve details from the saved row when this call didn't touch service_preferences.
     if (dto.servicePreferences === undefined) {
-      practiceAreaById = await this.resolvePracticeAreaNames(saved.service_preferences ?? []);
+      serviceDetails = await this.resolveServiceDetails(saved.service_preferences ?? []);
     }
 
-    return this.toDto(saved, practiceAreaById);
+    return this.toDto(saved, serviceDetails);
   }
 
   async findMine(userId: string): Promise<ApplicationDto> {
     const data = await this.applicationsRepository.findLatestByApplicant(userId);
     if (!data) throw new NotFoundException('No application found for this account.');
 
-    const practiceAreaById = await this.resolvePracticeAreaNames(data.service_preferences ?? []);
-    return this.toDto(data, practiceAreaById);
+    const serviceDetails = await this.resolveServiceDetails(data.service_preferences ?? []);
+    return this.toDto(data, serviceDetails);
   }
 
   async importFromLinkedIn(linkedinUrl: string) {
@@ -214,8 +214,8 @@ export class ApplicationsService {
 
     const saved = await this.applicationsRepository.saveUploadReference(existing.id, patch);
 
-    const practiceAreaById = await this.resolvePracticeAreaNames(saved.service_preferences ?? []);
-    return this.toDto(saved, practiceAreaById);
+    const serviceDetails = await this.resolveServiceDetails(saved.service_preferences ?? []);
+    return this.toDto(saved, serviceDetails);
   }
 
   // 🛡️ manageApplications — defaults to the two reviewable statuses (submitted, under_review).
@@ -270,12 +270,13 @@ export class ApplicationsService {
       status: 'active',
     });
 
-    const servicePreferences = (application.service_preferences ?? []) as { practiceAreaId: string }[];
+    const servicePreferences = (application.service_preferences ?? []) as { serviceId: string; customLabel?: string }[];
     if (servicePreferences.length > 0) {
       await this.applicationsRepository.insertMemberServices(
         servicePreferences.map((p) => ({
           member_id: application.applicant_id,
-          practice_area_id: p.practiceAreaId,
+          service_id: p.serviceId,
+          custom_label: p.customLabel ?? null,
         }))
       );
     }
@@ -286,23 +287,30 @@ export class ApplicationsService {
     return { status: 'approved' };
   }
 
-  private async resolvePracticeAreaNames(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
+  private async resolveServiceDetails(servicePreferences: { serviceId: string }[]): Promise<Map<string, ServiceDetail>> {
     if (servicePreferences.length === 0) return new Map();
-    return this.applicationsRepository.findPracticeAreaNames(servicePreferences.map((p) => p.practiceAreaId));
+    return this.applicationsRepository.findServiceDetails(servicePreferences.map((p) => p.serviceId));
   }
 
-  // Resolves names and rejects any id that isn't a currently-active practice area.
-  private async assertActiveAndResolve(servicePreferences: { practiceAreaId: string }[]): Promise<Map<string, string>> {
+  private async assertActiveAndResolveServices(
+    servicePreferences: { serviceId: string; customLabel?: string }[]
+  ): Promise<Map<string, ServiceDetail>> {
     if (servicePreferences.length === 0) return new Map();
 
-    const ids = servicePreferences.map((p) => p.practiceAreaId);
-    const practiceAreaById = await this.applicationsRepository.findActivePracticeAreaNames(ids);
+    const ids = servicePreferences.map((p) => p.serviceId);
+    const details = await this.applicationsRepository.findServiceDetails(ids);
 
-    const invalidIds = ids.filter((id) => !practiceAreaById.has(id));
+    const invalidIds = ids.filter((id) => !details.get(id)?.isActive);
     if (invalidIds.length > 0) {
-      throw new BadRequestException(`Invalid or inactive practice area id(s): ${invalidIds.join(', ')}`);
+      throw new BadRequestException(`Invalid or inactive service id(s): ${invalidIds.join(', ')}`);
     }
-    return practiceAreaById;
+    const missingCustomLabels = servicePreferences
+      .filter((p) => details.get(p.serviceId)?.isCustom && !p.customLabel?.trim())
+      .map((p) => p.serviceId);
+    if (missingCustomLabels.length > 0) {
+      throw new BadRequestException(`customLabel required for custom service id(s): ${missingCustomLabels.join(', ')}`);
+    }
+    return details;
   }
 
   private assertComplete(row: Row) {
@@ -340,13 +348,19 @@ export class ApplicationsService {
     );
   }
 
-  private async toDto(row: ApplicationRow, practiceAreaById: Map<string, string>): Promise<ApplicationDto> {
+  private async toDto(row: ApplicationRow, serviceDetails: Map<string, ServiceDetail>): Promise<ApplicationDto> {
     const servicePreferences: ServicePreference[] = (row.service_preferences ?? []).map(
-      (p: { practiceAreaId: string; priority: 1 | 2 | 3 }) => ({
-        practiceAreaId: p.practiceAreaId,
-        priority: p.priority,
-        practiceAreaName: practiceAreaById.get(p.practiceAreaId) ?? 'Unknown',
-      })
+      (p: { serviceId: string; priority: 1 | 2 | 3; customLabel?: string }) => {
+        const detail = serviceDetails.get(p.serviceId);
+        return {
+          serviceId: p.serviceId,
+          priority: p.priority,
+          customLabel: p.customLabel,
+          serviceName: detail?.name ?? 'Unknown',
+          categoryId: detail?.categoryId ?? '',
+          categoryName: detail?.categoryName ?? 'Unknown',
+        };
+      }
     );
 
     return {

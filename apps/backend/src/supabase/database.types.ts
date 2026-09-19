@@ -18,11 +18,12 @@ export type Database = {
           cover_image_url: string
           created_at: string
           creation_mode: string
+          custom_service_labels: Json
           excerpt: string
           id: string
-          practice_area_ids: string[]
           read_time_minutes: number
           rejection_reason: string | null
+          service_ids: string[]
           slug: string
           state: string | null
           status: Database["public"]["Enums"]["article_status"]
@@ -37,11 +38,12 @@ export type Database = {
           cover_image_url: string
           created_at?: string
           creation_mode?: string
+          custom_service_labels?: Json
           excerpt: string
           id?: string
-          practice_area_ids?: string[]
           read_time_minutes: number
           rejection_reason?: string | null
+          service_ids?: string[]
           slug: string
           state?: string | null
           status?: Database["public"]["Enums"]["article_status"]
@@ -56,11 +58,12 @@ export type Database = {
           cover_image_url?: string
           created_at?: string
           creation_mode?: string
+          custom_service_labels?: Json
           excerpt?: string
           id?: string
-          practice_area_ids?: string[]
           read_time_minutes?: number
           rejection_reason?: string | null
+          service_ids?: string[]
           slug?: string
           state?: string | null
           status?: Database["public"]["Enums"]["article_status"]
@@ -77,45 +80,78 @@ export type Database = {
           },
         ]
       }
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       consultation_requests: {
         Row: {
           created_at: string
+          custom_service_label: string | null
           description: string | null
           id: string
           member_id: string
           message: string
-          practice_area_id: string | null
           requester_id: string
           response_message: string | null
           scheduled_at: string | null
+          service_id: string | null
           status: Database["public"]["Enums"]["consultation_status"]
           subject: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          custom_service_label?: string | null
           description?: string | null
           id?: string
           member_id: string
           message: string
-          practice_area_id?: string | null
           requester_id: string
           response_message?: string | null
           scheduled_at?: string | null
+          service_id?: string | null
           status?: Database["public"]["Enums"]["consultation_status"]
           subject?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          custom_service_label?: string | null
           description?: string | null
           id?: string
           member_id?: string
           message?: string
-          practice_area_id?: string | null
           requester_id?: string
           response_message?: string | null
           scheduled_at?: string | null
+          service_id?: string | null
           status?: Database["public"]["Enums"]["consultation_status"]
           subject?: string | null
           updated_at?: string
@@ -129,17 +165,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "consultation_requests_practice_area_id_fkey"
-            columns: ["practice_area_id"]
-            isOneToOne: false
-            referencedRelation: "practice_areas"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "consultation_requests_requester_id_fkey"
             columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_requests_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
         ]
@@ -419,16 +455,19 @@ export type Database = {
       }
       member_services: {
         Row: {
+          custom_label: string | null
           member_id: string
-          practice_area_id: string
+          service_id: string
         }
         Insert: {
+          custom_label?: string | null
           member_id: string
-          practice_area_id: string
+          service_id: string
         }
         Update: {
+          custom_label?: string | null
           member_id?: string
-          practice_area_id?: string
+          service_id?: string
         }
         Relationships: [
           {
@@ -439,10 +478,10 @@ export type Database = {
             referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "member_services_practice_area_id_fkey"
-            columns: ["practice_area_id"]
+            foreignKeyName: "member_services_service_id_fkey"
+            columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "practice_areas"
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
         ]
@@ -470,6 +509,7 @@ export type Database = {
           linkedin_url: string | null
           list_price_cents: number | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
+          peer_references: Json
           phone: string | null
           phone_country_code: string | null
           photo_path: string | null
@@ -511,6 +551,7 @@ export type Database = {
           linkedin_url?: string | null
           list_price_cents?: number | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
+          peer_references?: Json
           phone?: string | null
           phone_country_code?: string | null
           photo_path?: string | null
@@ -552,6 +593,7 @@ export type Database = {
           linkedin_url?: string | null
           list_price_cents?: number | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
+          peer_references?: Json
           phone?: string | null
           phone_country_code?: string | null
           photo_path?: string | null
@@ -656,17 +698,18 @@ export type Database = {
       peer_connect_member_preferences: {
         Row: {
           created_at: string
+          custom_service_labels: Json
           cycle_month: string
           feedback: string | null
           id: string
           match_id: string | null
           member_id: string
           note: string | null
-          practice_area_ids: string[]
           preferred_countries: string[]
           preferred_hours_end: number | null
           preferred_hours_start: number | null
           rating: number | null
+          service_ids: string[]
           unmatched_note: string | null
           unmatched_reason:
             | Database["public"]["Enums"]["peer_connect_unmatched_reason"]
@@ -675,17 +718,18 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_service_labels?: Json
           cycle_month: string
           feedback?: string | null
           id?: string
           match_id?: string | null
           member_id: string
           note?: string | null
-          practice_area_ids?: string[]
           preferred_countries?: string[]
           preferred_hours_end?: number | null
           preferred_hours_start?: number | null
           rating?: number | null
+          service_ids?: string[]
           unmatched_note?: string | null
           unmatched_reason?:
             | Database["public"]["Enums"]["peer_connect_unmatched_reason"]
@@ -694,17 +738,18 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_service_labels?: Json
           cycle_month?: string
           feedback?: string | null
           id?: string
           match_id?: string | null
           member_id?: string
           note?: string | null
-          practice_area_ids?: string[]
           preferred_countries?: string[]
           preferred_hours_end?: number | null
           preferred_hours_start?: number | null
           rating?: number | null
+          service_ids?: string[]
           unmatched_note?: string | null
           unmatched_reason?:
             | Database["public"]["Enums"]["peer_connect_unmatched_reason"]
@@ -727,33 +772,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      practice_areas: {
-        Row: {
-          category: Database["public"]["Enums"]["practice_area_category"]
-          created_at: string
-          id: string
-          image_url: string | null
-          is_active: boolean
-          name: string
-        }
-        Insert: {
-          category: Database["public"]["Enums"]["practice_area_category"]
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          name: string
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["practice_area_category"]
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          name?: string
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
@@ -821,6 +839,47 @@ export type Database = {
         }
         Relationships: []
       }
+      services: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_custom: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_custom?: boolean
+          name: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_custom?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -868,7 +927,6 @@ export type Database = {
         | "no_compatible_peer"
         | "inactive_member"
         | "other"
-      practice_area_category: "taxation" | "legal" | "finance_advisory"
       profile_role: "client" | "member" | "admin"
       profile_status: "active" | "suspended" | "deleted"
       renewal_payment_status: "paid" | "pending" | "overdue"
@@ -1042,7 +1100,6 @@ export const Constants = {
         "inactive_member",
         "other",
       ],
-      practice_area_category: ["taxation", "legal", "finance_advisory"],
       profile_role: ["client", "member", "admin"],
       profile_status: ["active", "suspended", "deleted"],
       renewal_payment_status: ["paid", "pending", "overdue"],

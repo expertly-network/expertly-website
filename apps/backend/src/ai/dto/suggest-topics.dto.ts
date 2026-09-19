@@ -4,5 +4,5 @@ export class SuggestTopicsDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  practiceAreaIds?: string[];
+  serviceIds?: string[];
 }

@@ -71,6 +71,14 @@ type MembershipApplicationUpdate = Database['public']['Tables']['membership_appl
 
 export type MemberProfileInsert = Database['public']['Tables']['member_profiles']['Insert'];
 
+export interface ServiceDetail {
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  isCustom: boolean;
+  isActive: boolean;
+}
+
 @Injectable()
 export class ApplicationsRepository {
   constructor(private readonly supabase: SupabaseService) {}
@@ -91,8 +99,12 @@ export class ApplicationsRepository {
     return this.supabase.db.from('profiles');
   }
 
-  private practiceAreas() {
-    return this.supabase.db.from('practice_areas');
+  private services() {
+    return this.supabase.db.from('services');
+  }
+
+  private categories() {
+    return this.supabase.db.from('categories');
   }
 
   async findLatestByApplicant(userId: string): Promise<ApplicationRow | null> {
@@ -164,7 +176,7 @@ export class ApplicationsRepository {
     if (error) throw new InternalServerErrorException('Failed to provision member profile.');
   }
 
-  async insertMemberServices(rows: { member_id: string; practice_area_id: string }[]): Promise<void> {
+  async insertMemberServices(rows: { member_id: string; service_id: string; custom_label: string | null }[]): Promise<void> {
     const { error } = await this.memberServices().insert(rows);
     if (error) throw new InternalServerErrorException('Failed to provision member services.');
   }
@@ -194,28 +206,35 @@ export class ApplicationsRepository {
     return (data ?? []) as unknown as AdminApplicationListItemDto[];
   }
 
-  // Resolves practice area names regardless of whether they're still active.
-  async findPracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
-    const practiceAreaById = new Map<string, string>();
-    if (ids.length === 0) return practiceAreaById;
+  async findServiceDetails(ids: string[]): Promise<Map<string, ServiceDetail>> {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return new Map();
 
-    const { data, error } = await this.practiceAreas().select('id, name').in('id', ids);
-    if (error) throw new InternalServerErrorException('Failed to resolve service preferences.');
+    const { data: services, error: servicesError } = await this.services()
+      .select('id, name, category_id, is_custom, is_active')
+      .in('id', uniqueIds);
+    if (servicesError) throw new InternalServerErrorException('Failed to resolve services.');
 
-    for (const p of data ?? []) practiceAreaById.set(p.id, p.name);
-    return practiceAreaById;
-  }
+    const categoryIds = [...new Set((services ?? []).map((s) => s.category_id as string))];
+    const categoryNameById = new Map<string, string>();
+    if (categoryIds.length > 0) {
+      const { data: categories, error: categoriesError } = await this.categories().select('id, name').in('id', categoryIds);
+      if (categoriesError) throw new InternalServerErrorException('Failed to resolve categories.');
+      for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
+    }
 
-  // Resolves practice area names for ids that are currently active only.
-  async findActivePracticeAreaNames(ids: string[]): Promise<Map<string, string>> {
-    const practiceAreaById = new Map<string, string>();
-    if (ids.length === 0) return practiceAreaById;
-
-    const { data, error } = await this.practiceAreas().select('id, name').eq('is_active', true).in('id', ids);
-    if (error) throw new InternalServerErrorException('Failed to validate service preferences.');
-
-    for (const p of data ?? []) practiceAreaById.set(p.id, p.name);
-    return practiceAreaById;
+    return new Map(
+      (services ?? []).map((s) => [
+        s.id as string,
+        {
+          name: s.name as string,
+          categoryId: s.category_id as string,
+          categoryName: categoryNameById.get(s.category_id as string) ?? 'Unknown',
+          isCustom: s.is_custom as boolean,
+          isActive: s.is_active as boolean,
+        },
+      ])
+    );
   }
 
   async uploadFile(path: string, buffer: Buffer, contentType: string): Promise<void> {

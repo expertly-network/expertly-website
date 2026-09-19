@@ -167,8 +167,12 @@ export class MembersRepository {
     return this.supabase.db.from('member_services');
   }
 
-  private practiceAreas() {
-    return this.supabase.db.from('practice_areas');
+  private services() {
+    return this.supabase.db.from('services');
+  }
+
+  private categories() {
+    return this.supabase.db.from('categories');
   }
 
   private profiles() {
@@ -208,10 +212,18 @@ export class MembersRepository {
     return (data ?? []) as unknown as MemberProfileRow[];
   }
 
-  async findMemberIdsByPracticeAreas(practiceAreaIds: string[]): Promise<Set<string>> {
-    const { data, error } = await this.memberServices().select('member_id').in('practice_area_id', practiceAreaIds);
-    if (error) throw new InternalServerErrorException('Failed to filter by practice area.');
+  async findMemberIdsByServices(serviceIds: string[]): Promise<Set<string>> {
+    const { data, error } = await this.memberServices().select('member_id').in('service_id', serviceIds);
+    if (error) throw new InternalServerErrorException('Failed to filter by service.');
     return new Set((data ?? []).map((m) => m.member_id as string));
+  }
+
+  async findMemberIdsByCategory(categoryId: string): Promise<Set<string>> {
+    const { data: services, error: servicesError } = await this.services().select('id').eq('category_id', categoryId);
+    if (servicesError) throw new InternalServerErrorException('Failed to filter by category.');
+    const serviceIds = (services ?? []).map((s) => s.id as string);
+    if (serviceIds.length === 0) return new Set();
+    return this.findMemberIdsByServices(serviceIds);
   }
 
   async findDetailByProfileId(id: string): Promise<MemberProfileDetailRow | null> {
@@ -339,27 +351,40 @@ export class MembersRepository {
     return map;
   }
 
-  async findMemberServicesByMemberIds(memberIds: string[]): Promise<Map<string, { id: string; name: string }[]>> {
-    const map = new Map<string, { id: string; name: string }[]>();
+  async findMemberServicesByMemberIds(
+    memberIds: string[]
+  ): Promise<Map<string, { id: string; name: string; categoryId: string; categoryName: string }[]>> {
+    const map = new Map<string, { id: string; name: string; categoryId: string; categoryName: string }[]>();
     if (memberIds.length === 0) return map;
 
-    const { data: links, error } = await this.memberServices()
-      .select('member_id, practice_area_id')
-      .in('member_id', memberIds);
-    if (error) throw new InternalServerErrorException('Failed to load member practice areas.');
+    const { data: links, error } = await this.memberServices().select('member_id, service_id').in('member_id', memberIds);
+    if (error) throw new InternalServerErrorException('Failed to load member services.');
 
-    const practiceAreaIds = [...new Set((links ?? []).map((l) => l.practice_area_id as string))];
-    const practiceAreaById = new Map<string, string>();
-    if (practiceAreaIds.length > 0) {
-      const { data: areas } = await this.practiceAreas().select('id, name').in('id', practiceAreaIds);
-      for (const a of areas ?? []) practiceAreaById.set(a.id as string, a.name as string);
+    const serviceIds = [...new Set((links ?? []).map((l) => l.service_id as string))];
+    const serviceById = new Map<string, { name: string; categoryId: string }>();
+    if (serviceIds.length > 0) {
+      const { data: services } = await this.services().select('id, name, category_id').in('id', serviceIds);
+      for (const s of services ?? []) serviceById.set(s.id as string, { name: s.name as string, categoryId: s.category_id as string });
+    }
+
+    const categoryIds = [...new Set([...serviceById.values()].map((s) => s.categoryId))];
+    const categoryNameById = new Map<string, string>();
+    if (categoryIds.length > 0) {
+      const { data: categories } = await this.categories().select('id, name').in('id', categoryIds);
+      for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
     }
 
     for (const link of links ?? []) {
       const memberId = link.member_id as string;
-      const practiceAreaId = link.practice_area_id as string;
+      const serviceId = link.service_id as string;
+      const service = serviceById.get(serviceId);
       const list = map.get(memberId) ?? [];
-      list.push({ id: practiceAreaId, name: practiceAreaById.get(practiceAreaId) ?? 'Unknown' });
+      list.push({
+        id: serviceId,
+        name: service?.name ?? 'Unknown',
+        categoryId: service?.categoryId ?? '',
+        categoryName: service ? categoryNameById.get(service.categoryId) ?? 'Unknown' : 'Unknown',
+      });
       map.set(memberId, list);
     }
     return map;

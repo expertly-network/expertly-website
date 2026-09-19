@@ -15,9 +15,11 @@ export type MemberProfileStatus = 'active' | 'deactivated';
 export type RenewalPaymentStatus = 'paid' | 'pending' | 'overdue';
 export type RenewalDueState = 'active' | 'due-soon' | 'overdue';
 
-export class MemberPracticeArea {
+export class MemberService {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
+  @ApiProperty() categoryId!: string;
+  @ApiProperty() categoryName!: string;
 }
 
 export class MemberWorkExperience {
@@ -96,7 +98,7 @@ export class MemberListItemDto {
   @ApiProperty({ nullable: true, enum: APPLICATION_REGIONS }) region!: ApplicationRegion | null;
   @ApiProperty() country!: string;
   @ApiProperty({ nullable: true, type: String }) city!: string | null;
-  @ApiProperty({ type: () => MemberPracticeArea, isArray: true }) practiceAreas!: MemberPracticeArea[];
+  @ApiProperty({ type: () => MemberService, isArray: true }) services!: MemberService[];
   @ApiProperty() isVerified!: boolean;
   @ApiProperty({ enum: ['budding_entrepreneur', 'seasoned_professional'] }) memberTier!: MembershipTier;
   @ApiProperty() yearsOfExperience!: number;
