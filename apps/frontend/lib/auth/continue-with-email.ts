@@ -45,6 +45,7 @@ export async function signUpWithEmail(params: {
           last_name: lastName,
           ...(city ? { city } : {}),
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback?intent=user`,
       },
     });
 
