@@ -258,9 +258,10 @@ export class ApplicationsRepository {
     return saved as unknown as ApplicationRow;
   }
 
-  // Returns null if the signed URL couldn't be minted.
-  async createSignedUrl(path: string): Promise<string | null> {
-    const { data } = await this.supabase.db.storage.from('application-assets').createSignedUrl(path, 60 * 60);
-    return data?.signedUrl ?? null;
+  // application-assets is a public bucket — this is a plain, permanent URL, not a signed one.
+  // No network call, no expiry, safe to call on every read.
+  getPublicUrl(path: string): string {
+    const { data } = this.supabase.db.storage.from('application-assets').getPublicUrl(path);
+    return data.publicUrl;
   }
 }

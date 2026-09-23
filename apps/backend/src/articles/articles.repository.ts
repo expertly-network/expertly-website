@@ -224,7 +224,7 @@ export class ArticlesRepository {
     const [{ data: profiles, error: profilesError }, { data: memberProfiles, error: memberError }] =
       await Promise.all([
         this.profiles().select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
-        this.memberProfiles().select('profile_id, photo_url, headline, firm_name').in('profile_id', uniqueIds),
+        this.memberProfiles().select('profile_id, photo_path, headline, firm_name').in('profile_id', uniqueIds),
       ]);
 
     if (profilesError || memberError) {
@@ -235,17 +235,27 @@ export class ArticlesRepository {
     return new Map(
       (profiles ?? []).map((p) => {
         const member = memberByProfileId.get(p.id as string);
+        const photoPath = member?.photo_path as string | null;
         return [
           p.id as string,
           {
             name: `${p.first_name} ${p.last_name}`.trim(),
-            photoUrl: (member?.photo_url as string | null) ?? (p.avatar_url as string | null) ?? null,
+            photoUrl: photoPath ? this.buildPhotoUrl(photoPath) : ((p.avatar_url as string | null) ?? null),
             headline: (member?.headline as string | null) ?? null,
             firmName: (member?.firm_name as string | null) ?? null,
           },
         ];
       })
     );
+  }
+
+  // photo_path holds either a bucket-relative path (real uploads, application-assets — public,
+  // so this is a plain permanent URL, not signed) or a legacy/seed full external URL — pass those
+  // through unchanged.
+  private buildPhotoUrl(path: string): string {
+    if (/^https?:\/\//i.test(path)) return path;
+    const { data } = this.supabase.db.storage.from('application-assets').getPublicUrl(path);
+    return data.publicUrl;
   }
 
   async findUniqueSlug(title: string): Promise<string> {

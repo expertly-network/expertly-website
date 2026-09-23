@@ -319,7 +319,7 @@ export class MembersService {
       rateMinCents: row.rate_min_cents,
       rateMaxCents: row.rate_max_cents,
       rateCurrency: row.rate_currency,
-      photoUrl: row.photo_url ?? profile?.avatar_url ?? null,
+      photoUrl: row.photo_path ? this.membersRepository.buildPhotoUrl(row.photo_path) : (profile?.avatar_url ?? null),
     };
   }
 

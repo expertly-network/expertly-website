@@ -266,7 +266,7 @@ insert into public.member_profiles (
   profile_id, headline, bio, firm_name, firm_website, region, country, state, city,
   years_of_experience, rate_min_cents, rate_max_cents, rate_currency, member_tier,
   is_available, availability_notes, contact_email, contact_phone, linkedin_url, website,
-  is_verified, photo_url, status,
+  is_verified, photo_path, status,
   work_experiences, educations, engagements, qualifications, credentials, testimonials, awards, key_clients
 )
 select

@@ -249,8 +249,6 @@ export class ApplicationsService {
       return { status: 'rejected' };
     }
 
-    const photoUrl = application.photo_path ? await this.applicationsRepository.createSignedUrl(application.photo_path) : null;
-
     await this.applicationsRepository.insertMemberProfile({
       profile_id: application.applicant_id,
       bio: application.bio,
@@ -264,7 +262,9 @@ export class ApplicationsService {
       member_tier: application.selected_tier,
       contact_email: application.contact_email,
       linkedin_url: application.linkedin_url,
-      photo_url: photoUrl,
+      // Same bucket, same path as the source application — application-assets is public now, so
+      // no file copy and no signing is needed, just carry the path forward as-is.
+      photo_path: application.photo_path,
       application_id: application.id,
       is_verified: true,
       status: 'active',
@@ -335,17 +335,15 @@ export class ApplicationsService {
     }
   }
 
-  private async resolveDocuments(documents: Row[]): Promise<ApplicationDocumentDto[]> {
-    return Promise.all(
-      documents.map(async (doc) => ({
-        id: doc.id,
-        filename: doc.filename,
-        mimeType: doc.mimeType,
-        sizeBytes: doc.sizeBytes,
-        url: (await this.applicationsRepository.createSignedUrl(doc.path)) ?? '',
-        uploadedAt: doc.uploadedAt,
-      }))
-    );
+  private resolveDocuments(documents: Row[]): ApplicationDocumentDto[] {
+    return documents.map((doc) => ({
+      id: doc.id,
+      filename: doc.filename,
+      mimeType: doc.mimeType,
+      sizeBytes: doc.sizeBytes,
+      url: this.applicationsRepository.getPublicUrl(doc.path),
+      uploadedAt: doc.uploadedAt,
+    }));
   }
 
   private async toDto(row: ApplicationRow, serviceDetails: Map<string, ServiceDetail>): Promise<ApplicationDto> {
@@ -367,8 +365,8 @@ export class ApplicationsService {
       id: row.id,
       status: row.status,
       currentStep: row.current_step,
-      photoUrl: row.photo_path ? await this.applicationsRepository.createSignedUrl(row.photo_path) : null,
-      documents: await this.resolveDocuments(row.documents ?? []),
+      photoUrl: row.photo_path ? this.applicationsRepository.getPublicUrl(row.photo_path) : null,
+      documents: this.resolveDocuments(row.documents ?? []),
       firstName: row.first_name,
       lastName: row.last_name,
       contactEmail: row.contact_email,

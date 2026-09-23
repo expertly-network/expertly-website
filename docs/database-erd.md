@@ -55,7 +55,7 @@ immutable snapshot again, same as the original design. Approving an application
 | `applicant_id` | uuid FK → `profiles.id` | |
 | `status` | enum `draft`\|`submitted`\|`under_review`\|`approved`\|`rejected` | default `draft` |
 | `current_step` | smallint, default `1` | which wizard step to resume on; only meaningful while `status = 'draft'` |
-| `photo_path` | text, nullable | **private Storage path** (`application-assets` bucket), not a public URL — a signed URL is minted at read time by `ApplicationsService.toDto()`. Replaces the old `photo_url` column. |
+| `photo_path` | text, nullable | Storage path within the `application-assets` bucket. That bucket is **public**, so this resolves to a plain, permanent URL at read time (`ApplicationsRepository.getPublicUrl()`) — never a signed URL. |
 | `first_name`, `last_name` | text, nullable | nullable so a draft can be incomplete; required by the time `status` becomes `submitted` (enforced in `ApplicationsService`, not the DB) |
 | `contact_email` | citext, nullable | deliberately separate from `profiles.email` (work vs. login email) |
 | `phone_country_code`, `phone` | text | optional, always |
@@ -163,13 +163,16 @@ service like "M&A Tax" means the same thing everywhere, so regional filtering be
 - **`country` is free text**, matching the design's fixed-but-not-database-backed option list —
   not normalized into its own table for this feature; revisit if a future feature needs to query/
   filter by country as a first-class entity.
-- **`application-assets` Storage bucket** — private, same RLS-scoped-to-`auth.uid()` posture as
-  `member-proofs`, keyed `members/application/<applicantId>/profile-photo.<ext>` or
-  `document-<n>.<ext>`. Unlike `member-proofs`' signed-upload-URL flow, uploads here are proxied
-  through the backend (`POST /v1/applications/me/uploads`) so magic-byte MIME validation is
-  actually possible — a signed-URL flow never puts the file's bytes through the API. See
-  `docs/rest-api.md` for the endpoint and root `CLAUDE.md`'s non-negotiable file-upload rule for
-  why this diverges from the `member-proofs` pattern.
+- **`application-assets` Storage bucket** — **public** (unlike `member-proofs`, which stays
+  private/owner-scoped), keyed `members/application/<applicantId>/profile-photo.<ext>` or
+  `document-<n>.<ext>`. Every file here — an applicant's photo and their other documents alike —
+  resolves to a plain, permanent URL at read time, no signing, no expiry. `member_profiles.photo_path`
+  reuses the exact same path once an application is approved (same bucket, same file, nothing to
+  move). Uploads are proxied through the backend (`POST /v1/applications/me/uploads`, unlike
+  `member-proofs`' client-side signed-upload-URL flow) so magic-byte MIME validation is actually
+  possible before the object is written. See `docs/rest-api.md` for the endpoint and root
+  `CLAUDE.md`'s non-negotiable file-upload rule for why this diverges from the `member-proofs`
+  pattern.
 - Migration verified end-to-end against a real (throwaway, local) Postgres instance before being
   considered final — three separate passes as the schema was revised (child tables → JSONB, then
   service preferences relational → JSONB): migrations apply cleanly in sequence each time, the
@@ -414,7 +417,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `availability_notes` | text, nullable | |
 | `contact_email`, `contact_phone`, `linkedin_url`, `website` | nullable | editable via the `contact` self-edit section |
 | `is_verified` | bool, default `false` | the overall "Expertly Verified" badge — distinct from the per-item `is_verified` flags on credentials/testimonials |
-| `photo_url` | text, nullable | |
+| `photo_path` | text, nullable | Same convention as `membership_applications.photo_path`: a Storage path within the (public) `application-assets` bucket, copied verbatim from the source application's `photo_path` on approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL. Resolved to a plain, permanent URL at read time (`MembersService`/`ArticlesRepository`) — **never a signed URL**, since this column is read back directly with no read-time refresh. (An earlier version of this column, named `photo_url`, held a baked-in 1-hour signed URL that went dead an hour after approval — that was the original bug this design fixes.) |
 | `status` | enum `active`\|`deactivated` | admin-controlled; deactivating does not delete the row |
 | `application_id` | uuid FK → `membership_applications.id`, nullable | set when provisioned via an approved application (that approval endpoint is still deferred — see `docs/rest-api.md`); null for a member added directly by an admin |
 | `membership_started_at` | timestamptz, default `now()` | |
