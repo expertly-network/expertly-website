@@ -1,5 +1,6 @@
 import { getArticlesServer, getEventsServer, getMembersServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
+import { EventsHeroOrbit } from '@/components/events/EventsHeroOrbit';
 import { EventsHeroSearch } from '@/components/events/EventsHeroSearch';
 import { EventsList } from '@/components/events/EventsList';
 import { EventsSidebar } from '@/components/events/EventsSidebar';
@@ -16,14 +17,14 @@ export default async function EventsPage() {
   const [events, members, articles] = await Promise.all([
     getEventsServer({ upcoming: false }),
     getMembersServer(
-      buildMembersQueryString({ sort: 'featured', practiceAreaId: [], country: [], page: 1, pageSize: 50 })
+      buildMembersQueryString({ sort: 'featured', serviceId: [], country: [], page: 1, pageSize: 50 })
     ),
     getArticlesServer(),
   ]);
 
   return (
     <div>
-      <section className="relative overflow-hidden bg-ink py-16">
+      <section className="relative overflow-hidden bg-ink pb-12 pt-14">
         {/* Matches design's `.env-hero::before` — a soft accent-tinted glow bleeding off the
             top-right corner. This was completely flat `--ink` before, which is what read as
             "bolder/blackish" compared to the design — every other dark hero/card in this app
@@ -34,13 +35,14 @@ export default async function EventsPage() {
           style={{ background: 'radial-gradient(circle, rgba(0,165,130,0.16) 0%, transparent 65%)' }}
           aria-hidden="true"
         />
+        <EventsHeroOrbit />
         <PageContainer className="relative">
           <Eyebrow dark>Global Calendar</Eyebrow>
           {/* `.env-hero-heading`'s own clamp(30px,3.8vw,50px) — smaller top-end than the shared
               `text-headline` token (up to 56px), which is why this heading previously read as
               heavier than the design at wide viewports. */}
           <h1 className="mt-[18px] text-[clamp(30px,3.8vw,50px)] font-medium leading-[1.04] tracking-[-0.03em] text-bg-card">
-            Be part of what&apos;s <span className="text-accent">next.</span>
+            Be part of what&apos;s <span className="font-normal text-accent">next.</span>
           </h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
             Conferences, summits, and professional meetings curated for the Expertly network: in

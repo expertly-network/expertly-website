@@ -56,12 +56,12 @@ export function EventRow({
     <div
       className={
         isMonthFirst
-          ? 'grid grid-cols-[140px_1fr_180px_auto] items-center gap-x-9 rounded-xl bg-[color-mix(in_oklab,var(--accent)_6%,var(--bg-card))] px-5 py-7 max-[900px]:grid-cols-1 max-[900px]:gap-y-3 max-[900px]:px-4'
+          ? 'grid grid-cols-[140px_1fr_180px_auto] items-center gap-x-9 rounded-xl bg-[color-mix(in_oklab,var(--accent)_6%,var(--bg-card))] px-5 py-7 -mx-5 my-2 max-[900px]:grid-cols-1 max-[900px]:gap-y-3 max-[900px]:px-4 max-[900px]:-mx-4'
           : 'grid grid-cols-[140px_1fr_180px_auto] items-center gap-x-9 border-b border-line py-7 max-[900px]:grid-cols-1 max-[900px]:gap-y-3'
       }
     >
       <div>
-        <span className="mb-1 block font-mono text-[10px] tracking-[0.12em] text-ink-4">Date</span>
+        <span className="mb-[5px] block font-mono text-[10px] tracking-[0.12em] text-ink-4">Date</span>
         <span className="text-[17px] font-medium leading-[1.2] tracking-[-0.02em] text-ink">
           {formatDateRange(event.startDate, event.endDate)}
         </span>
@@ -87,7 +87,7 @@ export function EventRow({
 
       {location && (
         <div>
-          <span className="mb-1 block font-mono text-[10px] tracking-[0.12em] text-ink-4">Location</span>
+          <span className="mb-[5px] block font-mono text-[10px] tracking-[0.12em] text-ink-4">Location</span>
           <div className="text-[13px] font-medium text-ink-2">{event.city}</div>
           <div className="mt-0.5 font-mono text-[11px] tracking-[0.04em] text-ink-4">{event.country}</div>
         </div>

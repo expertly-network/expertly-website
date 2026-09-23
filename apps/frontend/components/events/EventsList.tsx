@@ -84,9 +84,15 @@ export function EventsList({
 
   const hasFilters = datePreset !== defaultDatePreset || countryFilter.length > 0 || formatFilter.length > 0;
 
+  const resetFilters = () => {
+    setDatePreset(defaultDatePreset);
+    setCountryFilter([]);
+    setFormatFilter([]);
+  };
+
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-[18px] pt-3.5">
         <FilterPopover
           label="Date range"
           multi={false}
@@ -114,8 +120,8 @@ export function EventsList({
                   active ? prev.filter((f) => f !== opt.value) : [...prev, opt.value]
                 )
               }
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
-                active ? '' : 'border-line text-ink-2 hover:border-line-2'
+              className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] bg-bg-card px-3.5 py-2 font-mono text-[12px] font-semibold tracking-[0.04em] transition-colors ${
+                active ? '' : 'border-line-2 text-ink-3 hover:border-ink-3 hover:text-ink'
               }`}
               style={
                 active
@@ -137,6 +143,18 @@ export function EventsList({
           );
         })}
       </div>
+
+      {hasFilters && (
+        <div className="flex justify-end pt-4">
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="font-mono text-[11px] font-semibold tracking-[0.05em] text-accent"
+          >
+            Clear all filters ✕
+          </button>
+        </div>
+      )}
 
       {groups.length > 0 ? (
         <div className="mt-5">
@@ -167,22 +185,17 @@ export function EventsList({
           <p className="text-sm text-ink-3">{emptyMessage}</p>
         </Card>
       ) : (
-        <Card padding="lg" className="mt-8 flex flex-col items-center gap-3 text-center">
-          <p className="font-mono text-xs tracking-[0.04em] text-ink-3">No results</p>
-          <p className="text-sm text-ink-3">No events match these filters yet.</p>
+        <div className="py-16 text-center">
+          <div className="font-mono text-[11px] tracking-[0.12em] text-ink-4">No results</div>
+          <h3 className="mb-5 mt-2.5 text-[22px] font-medium tracking-[-0.02em] text-ink">
+            No events match these filters.
+          </h3>
           {hasFilters && (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setDatePreset(defaultDatePreset);
-                setCountryFilter([]);
-                setFormatFilter([]);
-              }}
-            >
-              Reset filters
+            <Button variant="secondary" onClick={resetFilters}>
+              Clear all filters
             </Button>
           )}
-        </Card>
+        </div>
       )}
     </div>
   );
