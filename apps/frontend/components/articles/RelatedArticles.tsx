@@ -8,7 +8,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Same practice area first, backfilled with other published articles, capped at 4.
+// Same service first, backfilled with other published articles, capped at 4.
 export function RelatedArticles({
   current,
   articles,
@@ -16,15 +16,15 @@ export function RelatedArticles({
   current: ArticleListItemDto;
   articles: ArticleListItemDto[];
 }) {
-  const currentAreaIds = new Set(current.practiceAreas.map((p) => p.id));
+  const currentServiceIds = new Set(current.services.map((s) => s.id));
   const others = articles.filter((a) => a.id !== current.id);
-  const sameArea = others.filter((a) => a.practiceAreas.some((p) => currentAreaIds.has(p.id)));
-  const rest = others.filter((a) => !sameArea.includes(a));
-  const related = [...sameArea, ...rest].slice(0, 4);
+  const sameService = others.filter((a) => a.services.some((s) => currentServiceIds.has(s.id)));
+  const rest = others.filter((a) => !sameService.includes(a));
+  const related = [...sameService, ...rest].slice(0, 4);
 
   if (related.length === 0) return null;
 
-  const label = current.practiceAreas[0]?.name;
+  const label = current.services[0]?.name;
 
   return (
     <Card padding="md">

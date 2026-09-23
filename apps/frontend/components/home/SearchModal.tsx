@@ -12,7 +12,7 @@ function matchesMember(m: MemberListItemDto, q: string) {
   return (
     m.name.toLowerCase().includes(q) ||
     (m.headline ?? '').toLowerCase().includes(q) ||
-    m.practiceAreas.some((p) => p.name.toLowerCase().includes(q)) ||
+    m.services.some((s) => s.name.toLowerCase().includes(q)) ||
     (m.firmName ?? '').toLowerCase().includes(q) ||
     (m.city ?? '').toLowerCase().includes(q) ||
     m.country.toLowerCase().includes(q)
@@ -21,7 +21,7 @@ function matchesMember(m: MemberListItemDto, q: string) {
 
 function matchesArticle(a: ArticleListItemDto, q: string) {
   return (
-    a.title.toLowerCase().includes(q) || a.practiceAreas.some((p) => p.name.toLowerCase().includes(q))
+    a.title.toLowerCase().includes(q) || a.services.some((s) => s.name.toLowerCase().includes(q))
   );
 }
 

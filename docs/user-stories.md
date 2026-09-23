@@ -16,8 +16,8 @@ Design source for every story is the matching `design/static_html/*.html` page, 
 ### US-01-01: Discovering Expertly for the first time
 As a visitor, I want to understand what Expertly is and see credible signals (featured members,
 articles, practice areas) so I can decide whether to sign up or apply.
-- [ ] Homepage renders without auth, with featured members, latest articles, and practice-area
-      marquee sourced from the real APIs (`GET /v1/members`, `GET /v1/articles`, `GET /v1/practice-areas`)
+- [ ] Homepage renders without auth, with featured members, latest articles, and categories
+      marquee sourced from the real APIs (`GET /v1/members`, `GET /v1/articles`, `GET /v1/categories`)
 - [ ] No login-walled content is visible in a guest session
 - [ ] Primary CTAs ("Apply as a member", client signup) are visible above the fold
 
@@ -277,7 +277,7 @@ As a client or member, I want to see the status of consultation requests I've se
 ## US-12 — Peer Connect 🧱
 
 ### US-12-01: Setting my monthly matching preferences
-As a member, I want to optionally set practice-area/country/hours preferences for this cycle's
+As a member, I want to optionally set service/country/hours preferences for this cycle's
 peer match.
 - [ ] Preferences are optional and skippable
 - [ ] This is **not** a member-search/connect directory — no self-serve "pick your own peer" flow

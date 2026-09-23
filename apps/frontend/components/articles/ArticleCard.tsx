@@ -11,7 +11,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
 
 // Cover image, meta row, title, then an author row.
 export function ArticleCard({ article }: { article: ArticleListItemDto }) {
-  const primaryPracticeArea = article.practiceAreas[0];
+  const primaryService = article.services[0];
   const designation = formatAuthorDesignation(article.authorHeadline, article.authorFirmName);
 
   return (
@@ -25,7 +25,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            {primaryPracticeArea && <Badge variant="brand">{primaryPracticeArea.name}</Badge>}
+            {primaryService && <Badge variant="brand">{primaryService.name}</Badge>}
             <span className="truncate text-xs text-ink-3">{article.countries.join(', ')}</span>
           </div>
           <span className="flex-none text-xs text-ink-3">

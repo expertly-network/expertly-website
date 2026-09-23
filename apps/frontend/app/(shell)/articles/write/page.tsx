@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getArticleServer, getArticlesServer, getMembersServer, getPracticeAreasServer } from '@/lib/api/server';
+import { getArticleServer, getArticlesServer, getMembersServer, getCategoriesServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { ArticlesHero } from '@/components/articles/ArticlesHero';
 import { ArticlesTabsNav } from '@/components/articles/ArticlesTabsNav';
@@ -27,11 +27,11 @@ export default async function WriteArticlePage({
     redirect('/articles');
   }
 
-  const [practiceAreas, articles, members, editArticle] = await Promise.all([
-    getPracticeAreasServer(),
+  const [categories, articles, members, editArticle] = await Promise.all([
+    getCategoriesServer(),
     getArticlesServer(),
     getMembersServer(
-      buildMembersQueryString({ sort: 'featured', practiceAreaId: [], country: [], page: 1, pageSize: 50 })
+      buildMembersQueryString({ sort: 'featured', serviceId: [], country: [], page: 1, pageSize: 50 })
     ),
     searchParams.edit ? getArticleServer(searchParams.edit) : Promise.resolve(null),
   ]);
@@ -58,7 +58,7 @@ export default async function WriteArticlePage({
             </Link>
           </div>
           <WriteArticleFlow
-            practiceAreas={practiceAreas}
+            categories={categories}
             authorName={`${profile.first_name} ${profile.last_name}`.trim()}
             editArticle={editArticle}
           />

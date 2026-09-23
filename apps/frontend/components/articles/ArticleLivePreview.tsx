@@ -19,7 +19,7 @@ export function ArticleLivePreview({
   title,
   body,
   coverImageUrl,
-  practiceAreaName,
+  serviceName,
   countries,
   authorName,
   onBack,
@@ -30,7 +30,7 @@ export function ArticleLivePreview({
   title: string;
   body: string;
   coverImageUrl: string;
-  practiceAreaName?: string;
+  serviceName?: string;
   countries: string[];
   authorName: string;
   onBack: () => void;
@@ -56,9 +56,9 @@ export function ArticleLivePreview({
           <img src={coverImageUrl} alt="" className="h-full w-full object-cover opacity-60" />
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(11,11,12,0.88)_0%,rgba(11,11,12,0.25)_55%,transparent_100%)]" />
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-3 px-7 py-5">
-            {practiceAreaName && (
+            {serviceName && (
               <span className="rounded-full border border-white/[0.18] bg-white/10 px-3 py-1 text-[10.5px] font-bold tracking-[0.1em] text-accent">
-                {practiceAreaName.toUpperCase()}
+                {serviceName.toUpperCase()}
               </span>
             )}
           </div>

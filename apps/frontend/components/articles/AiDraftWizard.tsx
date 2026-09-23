@@ -8,7 +8,7 @@ import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
 import { generateArticleDraft, refineArticleDraft } from '@/lib/api/articles';
 import { ApiError } from '@/lib/api/client';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 
 type SubStep = 1 | 2 | 3;
 
@@ -30,7 +30,7 @@ const STEP_LABELS: Record<SubStep, string> = { 1: 'The basics', 2: 'Your input',
 export interface AiDraftedArticle {
   title: string;
   body: string;
-  practiceAreaIds: string[];
+  serviceIds: string[];
   countries: string[];
   state: string;
 }
@@ -57,15 +57,16 @@ function WizardNextButton({ onClick, children }: { onClick: () => void; children
 
 // Basics -> input -> sources & style -> generate -> inline draft -> refine.
 export function AiDraftWizard({
-  practiceAreas,
+  categories,
   onDrafted,
 }: {
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   onDrafted: (draft: AiDraftedArticle) => void;
 }) {
+  const services = categories.flatMap((c) => c.services);
   const [subStep, setSubStep] = useState<SubStep>(1);
   const [title, setTitle] = useState('');
-  const [practiceAreaIds, setPracticeAreaIds] = useState<string[]>([]);
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
   const [state, setState] = useState('');
   const [notes, setNotes] = useState('');
@@ -87,8 +88,8 @@ export function AiDraftWizard({
   const [refining, setRefining] = useState(false);
 
   function goToStep2() {
-    if (practiceAreaIds.length === 0 || countries.length === 0) {
-      setStepError('Select at least one practice area and one country to continue.');
+    if (serviceIds.length === 0 || countries.length === 0) {
+      setStepError('Select at least one service and one country to continue.');
       return;
     }
     setStepError(null);
@@ -102,7 +103,7 @@ export function AiDraftWizard({
       const result = await generateArticleDraft(
         {
           title: title || undefined,
-          practiceAreaIds,
+          serviceIds,
           countries,
           state: state || undefined,
           notes: notes || undefined,
@@ -194,7 +195,7 @@ export function AiDraftWizard({
 
         <div className="flex justify-end">
           <WriteSubmitButton
-            onClick={() => onDrafted({ title: draft.title, body: draft.body, practiceAreaIds, countries, state })}
+            onClick={() => onDrafted({ title: draft.title, body: draft.body, serviceIds, countries, state })}
           >
             Continue to preview {ARROW_ICON}
           </WriteSubmitButton>
@@ -255,12 +256,11 @@ export function AiDraftWizard({
               />
               <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
                 <MultiSelect
-                  label="Practice area(s)"
-                  placeholder="Select practice areas"
-                  options={practiceAreas.map((p) => ({ value: p.id, label: p.name }))}
-                  selected={practiceAreaIds}
-                  onChange={setPracticeAreaIds}
-                  allowCustom
+                  label="Service(s)"
+                  placeholder="Select services"
+                  options={services.map((s) => ({ value: s.id, label: s.name }))}
+                  selected={serviceIds}
+                  onChange={setServiceIds}
                 />
                 <MultiSelect
                   label="Country"

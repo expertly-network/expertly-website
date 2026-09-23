@@ -7,7 +7,7 @@ assumes it and only adds what's specific to writing backend code here.
 
 ## Module shape
 
-One module per resource, mirroring `applications/`, `articles/`, `practice-areas/`:
+One module per resource, mirroring `applications/`, `articles/`, `categories/`:
 
 ```
 <resource>/
@@ -88,7 +88,7 @@ Never reason "RLS will catch it" when writing a query here; write the `WHERE` cl
 check as if RLS didn't exist, because for this client it doesn't.
 
 For any array/JSONB column that references another table by id with no real FK (documented
-per-column in `docs/database-erd.md` — `practice_area_ids`, `service_preferences`, etc.):
+per-column in `docs/database-erd.md` — `service_ids`, `service_preferences`, etc.):
 **validate every id against a live query before insert/update.** There is no CASCADE/RESTRICT
 safety net on these; skipping the check is a data-integrity bug, not a shortcut.
 

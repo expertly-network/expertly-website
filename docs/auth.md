@@ -146,7 +146,7 @@ read the session too.)
 `getArticleServer:148-167`) calls `getSession()` to grab `session.access_token`, then attaches it
 verbatim as `headers: { Authorization: \`Bearer ${session.access_token}\` }` on the `fetch()` call
 to the NestJS API. Public endpoints (`getMembersServer`, `getEventsServer`,
-`getPracticeAreasServer`) send no header at all, matching the backend's `@Public()` routes.
+`getCategoriesServer`) send no header at all, matching the backend's `@Public()` routes.
 
 **Backend validation.** `SupabaseAuthGuard.canActivate()` (`apps/backend/src/auth/guards/supabase-auth.guard.ts:29-49`)
 does `extractBearerToken(request.headers.authorization)` (`:52-57`, just a `split(' ')` on the
@@ -316,7 +316,7 @@ that same token itself, every time.
 2. That function reads the session (`supabase.auth.getSession()`) to grab `session.access_token`,
    and sends it as `Authorization: Bearer <token>` to the NestJS API — `fetch(...,{ headers: {
    Authorization: \`Bearer ${session.access_token}\` } })`.
-3. **Public endpoints** (e.g. `getMembersServer`, `getPracticeAreasServer`, `getEventsServer`) skip
+3. **Public endpoints** (e.g. `getMembersServer`, `getCategoriesServer`, `getEventsServer`) skip
    this — no session, no header, matching the backend's `@Public()` routes.
 4. The backend's guard chain (Part 4) verifies the token independently and resolves `request.user`.
 

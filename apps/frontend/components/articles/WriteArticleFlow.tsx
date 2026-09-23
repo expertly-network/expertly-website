@@ -11,7 +11,7 @@ import { ArticleLivePreview } from '@/components/articles/ArticleLivePreview';
 import { WriteSuccess } from '@/components/articles/WriteSuccess';
 import { createArticle, updateArticle, getCoverImageSuggestions } from '@/lib/api/articles';
 import { ApiError } from '@/lib/api/client';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 import type { ArticleDto } from '@shared/article';
 
 type Step = 'choose' | 'manual' | 'ai' | 'preview' | 'success';
@@ -19,7 +19,8 @@ type Step = 'choose' | 'manual' | 'ai' | 'preview' | 'success';
 function toManualFormState(article: ArticleDto): ManualArticleFormState {
   return {
     title: article.title,
-    practiceAreaIds: article.practiceAreas.map((p) => p.id),
+    serviceIds: article.services.map((s) => s.id),
+    customServiceLabels: article.customServiceLabels,
     countries: article.countries,
     state: article.state ?? '',
     body: article.body,
@@ -42,14 +43,15 @@ const AI_ICON = (
 
 // Choose a path, fill out that path's form, preview, then confirm.
 export function WriteArticleFlow({
-  practiceAreas,
+  categories,
   authorName,
   editArticle,
 }: {
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   authorName: string;
   editArticle?: ArticleDto | null;
 }) {
+  const services = categories.flatMap((c) => c.services);
   const router = useRouter();
   const isEditing = Boolean(editArticle);
   const [step, setStep] = useState<Step>(editArticle ? 'manual' : 'choose');
@@ -73,7 +75,8 @@ export function WriteArticleFlow({
         title: manual.title,
         body: manual.body,
         coverImageUrl: manual.coverImageUrl,
-        practiceAreaIds: manual.practiceAreaIds,
+        serviceIds: manual.serviceIds,
+        customServiceLabels: manual.customServiceLabels,
         countries: manual.countries,
         state: manual.state || undefined,
         status: 'draft' as const,
@@ -101,7 +104,8 @@ export function WriteArticleFlow({
         title: manual.title,
         body: manual.body,
         coverImageUrl: manual.coverImageUrl,
-        practiceAreaIds: manual.practiceAreaIds,
+        serviceIds: manual.serviceIds,
+        customServiceLabels: manual.customServiceLabels,
         countries: manual.countries,
         state: manual.state || undefined,
       };
@@ -191,7 +195,7 @@ export function WriteArticleFlow({
       {step === 'manual' && (
         <div className="mx-auto max-w-[760px]">
           <ManualArticleForm
-            practiceAreas={practiceAreas}
+            categories={categories}
             value={manual}
             onChange={updateManual}
             onPreview={() => setStep('preview')}
@@ -204,11 +208,11 @@ export function WriteArticleFlow({
       {step === 'ai' && (
         <div className="mx-auto max-w-[760px]">
           <AiDraftWizard
-            practiceAreas={practiceAreas}
+            categories={categories}
             onDrafted={async (draft) => {
-              const names = practiceAreas
-                .filter((p) => draft.practiceAreaIds.includes(p.id))
-                .map((p) => p.name);
+              const names = services
+                .filter((s) => draft.serviceIds.includes(s.id))
+                .map((s) => s.name);
               // Best-effort; falls back to no image if the search fails.
               const coverImageUrl = await getCoverImageSuggestions(names.join(' '))
                 .then((res) => res.images[0] ?? '')
@@ -217,7 +221,7 @@ export function WriteArticleFlow({
                 ...prev,
                 title: draft.title,
                 body: draft.body,
-                practiceAreaIds: draft.practiceAreaIds,
+                serviceIds: draft.serviceIds,
                 countries: draft.countries,
                 state: draft.state,
                 coverImageUrl,
@@ -234,7 +238,7 @@ export function WriteArticleFlow({
             title={manual.title}
             body={manual.body}
             coverImageUrl={manual.coverImageUrl}
-            practiceAreaName={practiceAreas.find((p) => p.id === manual.practiceAreaIds[0])?.name}
+            serviceName={services.find((s) => s.id === manual.serviceIds[0])?.name}
             countries={manual.countries}
             authorName={authorName}
             onBack={() => setStep(manual.body ? 'manual' : 'ai')}

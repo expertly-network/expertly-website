@@ -20,7 +20,7 @@ export function ProfileHeader({ member }: { member: MemberDto }) {
     member.headline && member.firmName && member.firmName !== 'Independent'
       ? `${member.headline} at ${member.firmName}`
       : member.headline || (member.firmName !== 'Independent' ? member.firmName : '');
-  const primaryPractice = member.practiceAreas[0]?.name;
+  const primaryPractice = member.services[0]?.name;
   const isSeasoned = member.memberTier === 'seasoned_professional';
 
   return (

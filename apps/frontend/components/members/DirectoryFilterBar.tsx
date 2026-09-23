@@ -5,7 +5,7 @@ import { FilterPopover } from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { RATE_BUCKETS } from '@/lib/members/rate-buckets';
 import { filtersToSearchParams, type MemberFilters, type MemberSort } from '@/lib/members/search-params';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 
 const SORT_OPTIONS: { value: MemberSort; label: string }[] = [
   { value: 'featured', label: 'Featured' },
@@ -22,10 +22,10 @@ function rateBucketValue(filters: MemberFilters): string[] {
 }
 
 export function DirectoryFilterBar({
-  practiceAreas,
+  categories,
   filters,
 }: {
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   filters: MemberFilters;
 }) {
   const router = useRouter();
@@ -36,13 +36,26 @@ export function DirectoryFilterBar({
     router.replace(`${pathname}${params.toString() ? `?${params.toString()}` : ''}`);
   }
 
+  // Narrows the service list to the selected category; falls back to every service when no
+  // category is picked, matching the two-level pill+dropdown UI from the taxonomy design.
+  const visibleServices = filters.categoryId
+    ? categories.find((c) => c.id === filters.categoryId)?.services ?? []
+    : categories.flatMap((c) => c.services);
+
   return (
     <div className="flex flex-wrap gap-2.5">
       <FilterPopover
-        label="All practices"
-        options={practiceAreas.map((p) => ({ value: p.id, label: p.name }))}
-        selected={filters.practiceAreaId}
-        onChange={(practiceAreaId) => apply({ ...filters, practiceAreaId })}
+        label="All categories"
+        multi={false}
+        options={categories.map((c) => ({ value: c.id, label: c.name }))}
+        selected={filters.categoryId ? [filters.categoryId] : []}
+        onChange={(values) => apply({ ...filters, categoryId: values[0], serviceId: [] })}
+      />
+      <FilterPopover
+        label="All services"
+        options={visibleServices.map((s) => ({ value: s.id, label: s.name }))}
+        selected={filters.serviceId}
+        onChange={(serviceId) => apply({ ...filters, serviceId })}
       />
       <FilterPopover
         label="All countries"

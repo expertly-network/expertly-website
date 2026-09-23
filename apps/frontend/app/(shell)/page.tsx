@@ -1,6 +1,6 @@
 import {
   getMembersServer,
-  getPracticeAreasServer,
+  getCategoriesServer,
   getArticlesServer,
   getEventsServer,
 } from '@/lib/api/server';
@@ -8,7 +8,7 @@ import { buildMembersQueryString } from '@/lib/api/members';
 import { StellarOrbitHero } from '@/components/home/StellarOrbitHero';
 import { AiSearchTeaser } from '@/components/home/AiSearchTeaser';
 import { FeaturedMembers } from '@/components/home/FeaturedMembers';
-import { PracticeAreasMarquee } from '@/components/home/PracticeAreasMarquee';
+import { CategoriesMarquee } from '@/components/home/CategoriesMarquee';
 import { FirmsBand } from '@/components/home/FirmsBand';
 import { LatestArticles } from '@/components/home/LatestArticles';
 import { EventsTeaser } from '@/components/home/EventsTeaser';
@@ -19,7 +19,7 @@ import { FaqGroup } from '@/components/home/Faq';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Button, Eyebrow } from '@/components/ui';
 import type { MemberListItemDto } from '@shared/member';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 import type { ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
 
@@ -93,36 +93,36 @@ const FAQ_CLIENTS = [
 
 // Each section loads independently, so one failing service doesn't blank the whole page.
 async function loadHomeData() {
-  const [membersResult, practiceAreasResult, articlesResult, eventsResult] =
+  const [membersResult, categoriesResult, articlesResult, eventsResult] =
     await Promise.allSettled([
       getMembersServer(
         buildMembersQueryString({
           sort: 'featured',
-          practiceAreaId: [],
+          serviceId: [],
           country: [],
           page: 1,
           // Covers the hero orbit's 17 avatar slots.
           pageSize: 20,
         })
       ),
-      getPracticeAreasServer(),
+      getCategoriesServer(),
       getArticlesServer(),
       getEventsServer(),
     ]);
 
   const members: MemberListItemDto[] =
     membersResult.status === 'fulfilled' ? membersResult.value : [];
-  const practiceAreas: PracticeAreaDto[] =
-    practiceAreasResult.status === 'fulfilled' ? practiceAreasResult.value : [];
+  const categories: CategoryDto[] =
+    categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
   const articles: ArticleListItemDto[] =
     articlesResult.status === 'fulfilled' ? articlesResult.value.slice(0, 5) : [];
   const events: EventDto[] = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
 
-  return { members, practiceAreas, articles, events };
+  return { members, categories, articles, events };
 }
 
 export default async function HomePage() {
-  const { members, practiceAreas, articles, events } = await loadHomeData();
+  const { members, categories, articles, events } = await loadHomeData();
 
   const heroAvatarUrls = members
     .map((m) => m.photoUrl)
@@ -160,8 +160,8 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Practice areas — split layout, panel on the right */}
-      {practiceAreas.length > 0 && (
+      {/* Categories — split layout, panel on the right */}
+      {categories.length > 0 && (
         <section className="border-b border-line py-24">
           <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
             <div>
@@ -176,11 +176,11 @@ export default async function HomePage() {
                 counts, not a generalist who&apos;s close enough.
               </p>
               <Button href="/members" className="mt-7">
-                Explore all practice areas
+                Explore all categories
               </Button>
             </div>
             <div className="overflow-hidden rounded-3xl bg-bg-alt py-6">
-              <PracticeAreasMarquee practiceAreas={practiceAreas} />
+              <CategoriesMarquee categories={categories} />
             </div>
           </PageContainer>
         </section>

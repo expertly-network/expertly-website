@@ -44,9 +44,9 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
               className="absolute inset-0 h-full w-full object-cover"
             />
           ) : null}
-          {featured.practiceAreas[0] && (
+          {featured.services[0] && (
             <div className="absolute left-4 top-4">
-              <Badge variant="emphasis">{featured.practiceAreas[0].name}</Badge>
+              <Badge variant="emphasis">{featured.services[0].name}</Badge>
             </div>
           )}
         </div>
@@ -75,7 +75,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
               <div className="font-mono text-sm text-ink-4">0{i + 2}</div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  {a.practiceAreas[0] && <Badge variant="neutral">{a.practiceAreas[0].name}</Badge>}
+                  {a.services[0] && <Badge variant="neutral">{a.services[0].name}</Badge>}
                   <span className="font-mono text-[10px] tracking-[0.08em] text-ink-3">
                     {formatReadTime(a.readTimeMinutes)} · {formatArticleDate(a.createdAt)}
                   </span>

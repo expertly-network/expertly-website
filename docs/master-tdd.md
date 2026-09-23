@@ -66,7 +66,7 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | Table | Status | Backend module |
 |---|---|---|
 | `profiles` | ✅ Built | `auth/` |
-| `categories`, `services` | ✅ Built | `practice-areas/` |
+| `categories`, `services` | ✅ Built | `categories/`, `services/` |
 | `membership_applications` | ✅ Built | `applications/` |
 | `articles` | ✅ Built — restored from `main-backup`'s `763bf75` (dropped in a prior rewrite; docs/shared-types had stayed current the whole time) plus `authorId` query-param filtering added for the profile page's Articles tab | `articles/` |
 | `member_profiles` + 7 child tables, `member_profile_edits`, `member_renewal_policy` | ✅ Built | `members/` |

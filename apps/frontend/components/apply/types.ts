@@ -111,8 +111,9 @@ export function fromDto(app: ApplicationDto): Partial<WizardFormState> {
         ? app.peerReferences
         : [{ ...EMPTY_PEER_REFERENCE }, { ...EMPTY_PEER_REFERENCE }],
     servicePreferences: app.servicePreferences.map((p) => ({
-      practiceAreaId: p.practiceAreaId,
+      serviceId: p.serviceId,
       priority: p.priority,
+      customLabel: p.customLabel,
     })),
     rateMinDollars: app.rateMinCents != null ? String(app.rateMinCents / 100) : '',
     rateMaxDollars: app.rateMaxCents != null ? String(app.rateMaxCents / 100) : '',

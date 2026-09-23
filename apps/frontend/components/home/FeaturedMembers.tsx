@@ -51,9 +51,9 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
             </div>
             {m.headline && <div className="truncate text-xs text-ink-3">{m.headline}</div>}
             <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
-              {m.practiceAreas[0] && (
+              {m.services[0] && (
                 <span className="rounded-full bg-bg-alt px-2 py-0.5 font-medium text-ink-2">
-                  {m.practiceAreas[0].name}
+                  {m.services[0].name}
                 </span>
               )}
               <span className="truncate text-ink-3">

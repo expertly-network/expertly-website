@@ -5,17 +5,17 @@ import { ArticlesGrid } from '@/components/articles/ArticlesGrid';
 import { MyArticlesPanel } from '@/components/articles/MyArticlesPanel';
 import { ArticlesTabsNav, type ArticlesTab } from '@/components/articles/ArticlesTabsNav';
 import type { ArticleListItemDto } from '@shared/article';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 
 export function ArticlesTabsSection({
   articles,
-  practiceAreas,
+  categories,
   myArticles,
   canWrite,
   initialTab = 'browse',
 }: {
   articles: ArticleListItemDto[];
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   myArticles: ArticleListItemDto[];
   canWrite: boolean;
   /** Set from ?tab=mine so a link straight to "My Articles" (e.g. from /articles/write's nav)
@@ -31,7 +31,7 @@ export function ArticlesTabsSection({
       <div className="mt-8">
         {tab === 'browse' ? (
           articles.length > 0 ? (
-            <ArticlesGrid articles={articles} practiceAreas={practiceAreas} />
+            <ArticlesGrid articles={articles} categories={categories} />
           ) : (
             <p className="py-16 text-center text-sm text-ink-3">
               No articles published yet — check back soon.

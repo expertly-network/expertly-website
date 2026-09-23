@@ -3,7 +3,7 @@ import { ApiError } from '@/lib/api/client';
 import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
 import type { AdminApplicationListItemDto, ApplicationDto } from '@shared/membership-application';
 import type { MemberDto, MemberListItemDto, MemberProfileEditDto } from '@shared/member';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 import type { AdminArticleListItemDto, ArticleDto, ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
 
@@ -104,12 +104,12 @@ export async function getMyMemberEditsServer(id: string): Promise<MemberProfileE
   return res.json();
 }
 
-// Returns the list of active practice areas.
-export async function getPracticeAreasServer(): Promise<PracticeAreaDto[]> {
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/practice-areas`, { cache: 'no-store' });
+// Returns the active category→service taxonomy tree.
+export async function getCategoriesServer(): Promise<CategoryDto[]> {
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/categories`, { cache: 'no-store' });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load practice areas.', res.status);
+    throw new ApiError(body?.message ?? 'Failed to load categories.', res.status);
   }
   return res.json();
 }

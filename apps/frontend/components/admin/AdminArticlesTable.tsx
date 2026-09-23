@@ -59,7 +59,7 @@ function AdminArticleRow({
         <div className="mt-1 text-xs text-ink-3">by {article.authorName}</div>
       </td>
       <td className="px-6 py-4 text-sm text-ink-2">
-        {article.practiceAreas.map((p) => p.name).join(', ') || '—'}
+        {article.services.map((s) => s.name).join(', ') || '—'}
       </td>
       <td className="px-6 py-4 text-sm text-ink-2">{article.countries.join(', ') || '—'}</td>
       <td className="px-6 py-4 text-xs text-ink-3">
@@ -119,7 +119,7 @@ export function AdminArticlesTable({ initialArticles }: { initialArticles: Admin
         <thead>
           <tr className="border-b border-line bg-bg-alt text-left text-xs font-medium text-ink-3">
             <th className="px-6 py-3">Article</th>
-            <th className="px-6 py-3">Practice area(s)</th>
+            <th className="px-6 py-3">Service(s)</th>
             <th className="px-6 py-3">Countries</th>
             <th className="px-6 py-3">Submitted</th>
             <th className="px-6 py-3">Decision</th>

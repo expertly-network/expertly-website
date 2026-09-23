@@ -90,8 +90,8 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
           <Link href="/articles" className="text-sm font-medium text-white/80 hover:text-white">
             ← Articles
           </Link>
-          {article.practiceAreas[0] && (
-            <Badge variant="emphasis">{article.practiceAreas[0].name}</Badge>
+          {article.services[0] && (
+            <Badge variant="emphasis">{article.services[0].name}</Badge>
           )}
         </PageContainer>
       </div>

@@ -1,4 +1,4 @@
-import { getMembersServer, getPracticeAreasServer } from '@/lib/api/server';
+import { getMembersServer, getCategoriesServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { MEMBER_LIST_PAGE_SIZE, parseMemberFilters } from '@/lib/members/search-params';
 import { DirectoryHeroSearch } from '@/components/members/DirectoryHeroSearch';
@@ -24,9 +24,9 @@ export default async function MembersPage({
   const filters = parseMemberFilters(searchParams);
   const query = buildMembersQueryString({ ...filters, page: 1, pageSize: PAGE_SIZE });
 
-  const [members, practiceAreas] = await Promise.all([
+  const [members, categories] = await Promise.all([
     getMembersServer(query),
-    getPracticeAreasServer(),
+    getCategoriesServer(),
   ]);
 
   return (
@@ -76,7 +76,7 @@ export default async function MembersPage({
       <PageContainer className="py-10">
         <div className="grid grid-cols-[1fr_320px] items-start gap-8 max-[1023px]:grid-cols-1">
           <div>
-            <DirectoryFilterBar practiceAreas={practiceAreas} filters={filters} />
+            <DirectoryFilterBar categories={categories} filters={filters} />
             <div className="mt-6">
               <MemberDirectoryList initialMembers={members} filters={filters} />
             </div>

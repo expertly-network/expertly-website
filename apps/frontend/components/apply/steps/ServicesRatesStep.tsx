@@ -7,18 +7,12 @@ import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import type { WizardFormState } from '@/components/apply/types';
-import type { PracticeAreaCategory, PracticeAreaDto } from '@shared/practice-area';
-
-const CATEGORY_LABELS: Record<PracticeAreaCategory, string> = {
-  taxation: 'Taxation',
-  legal: 'Legal',
-  finance_advisory: 'Finance & Advisory',
-};
+import type { CategoryDto } from '@shared/category';
 
 export function ServicesRatesStep({
   form,
   update,
-  practiceAreas,
+  categories,
   saving,
   saveError,
   onBack,
@@ -26,28 +20,39 @@ export function ServicesRatesStep({
 }: {
   form: WizardFormState;
   update: (patch: Partial<WizardFormState>) => void;
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   saving?: boolean;
   saveError?: string | null;
   onBack: () => void;
   onNext: () => void;
 }) {
-  const [categoryFilter, setCategoryFilter] = useState<PracticeAreaCategory | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const visibleAreas =
-    categoryFilter === 'all' ? practiceAreas : practiceAreas.filter((a) => a.category === categoryFilter);
+  const allServices = categories.flatMap((c) => c.services);
+  const visibleServices =
+    categoryFilter === 'all'
+      ? allServices
+      : categories.find((c) => c.id === categoryFilter)?.services ?? [];
 
   const prefs = form.servicePreferences;
-  const setPreference = (priority: 1 | 2 | 3, practiceAreaId: string) => {
+  const setPreference = (priority: 1 | 2 | 3, serviceId: string) => {
     const withoutThis = prefs.filter((p) => p.priority !== priority);
     update({
-      servicePreferences: practiceAreaId
-        ? [...withoutThis, { practiceAreaId, priority }].sort((a, b) => a.priority - b.priority)
+      servicePreferences: serviceId
+        ? [...withoutThis, { serviceId, priority }].sort((a, b) => a.priority - b.priority)
         : withoutThis,
     });
   };
   const preferenceFor = (priority: 1 | 2 | 3) =>
-    prefs.find((p) => p.priority === priority)?.practiceAreaId ?? '';
+    prefs.find((p) => p.priority === priority)?.serviceId ?? '';
+  const setCustomLabel = (priority: 1 | 2 | 3, customLabel: string) => {
+    update({
+      servicePreferences: prefs.map((p) => (p.priority === priority ? { ...p, customLabel } : p)),
+    });
+  };
+  const customLabelFor = (priority: 1 | 2 | 3) =>
+    prefs.find((p) => p.priority === priority)?.customLabel ?? '';
+  const isCustomService = (serviceId: string) => allServices.find((s) => s.id === serviceId)?.isCustom ?? false;
 
   const minDollars = Number(form.rateMinDollars);
   const maxDollars = Number(form.rateMaxDollars);
@@ -88,18 +93,29 @@ export function ServicesRatesStep({
         </span>
 
         <div className="mb-4 flex flex-wrap gap-2">
-          {(['all', 'taxation', 'legal', 'finance_advisory'] as const).map((cat) => (
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('all')}
+            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+              categoryFilter === 'all'
+                ? 'border-ink bg-ink text-bg'
+                : 'border-line text-ink-3 hover:border-ink-3'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((c) => (
             <button
-              key={cat}
+              key={c.id}
               type="button"
-              onClick={() => setCategoryFilter(cat)}
+              onClick={() => setCategoryFilter(c.id)}
               className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                categoryFilter === cat
+                categoryFilter === c.id
                   ? 'border-ink bg-ink text-bg'
                   : 'border-line text-ink-3 hover:border-ink-3'
               }`}
             >
-              {cat === 'all' ? 'All' : CATEGORY_LABELS[cat]}
+              {c.name}
             </button>
           ))}
         </div>
@@ -114,12 +130,19 @@ export function ServicesRatesStep({
             required
           >
             <option value="">Select service…</option>
-            {visibleAreas.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
+            {visibleServices.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </Select>
+          {preferenceFor(1) && isCustomService(preferenceFor(1)) && (
+            <Input
+              label="Describe this custom service"
+              value={customLabelFor(1)}
+              onChange={(e) => setCustomLabel(1, e.target.value)}
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
             <Select
@@ -128,9 +151,9 @@ export function ServicesRatesStep({
               onChange={(e) => setPreference(2, e.target.value)}
             >
               <option value="">Select service…</option>
-              {visibleAreas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
+              {visibleServices.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </Select>
@@ -140,13 +163,27 @@ export function ServicesRatesStep({
               onChange={(e) => setPreference(3, e.target.value)}
             >
               <option value="">Select service…</option>
-              {visibleAreas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
+              {visibleServices.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </Select>
           </div>
+          {preferenceFor(2) && isCustomService(preferenceFor(2)) && (
+            <Input
+              label="Describe this custom service (2nd preference)"
+              value={customLabelFor(2)}
+              onChange={(e) => setCustomLabel(2, e.target.value)}
+            />
+          )}
+          {preferenceFor(3) && isCustomService(preferenceFor(3)) && (
+            <Input
+              label="Describe this custom service (3rd preference)"
+              value={customLabelFor(3)}
+              onChange={(e) => setCustomLabel(3, e.target.value)}
+            />
+          )}
         </div>
       </div>
 

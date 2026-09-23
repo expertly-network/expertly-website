@@ -8,7 +8,9 @@ export const MEMBER_LIST_PAGE_SIZE = 8;
 
 export interface MemberFilters {
   q?: string;
-  practiceAreaId: string[];
+  /** Narrows to "any service in this category" — combined with serviceId, both must match. */
+  categoryId?: string;
+  serviceId: string[];
   country: string[];
   rateMinCents?: number;
   rateMaxCents?: number;
@@ -20,7 +22,8 @@ type RawSearchParams = Record<string, string | string[] | undefined>;
 export function parseMemberFilters(searchParams: RawSearchParams): MemberFilters {
   return {
     q: toSingleTrimmed(searchParams.q),
-    practiceAreaId: toArray(searchParams.practiceAreaId),
+    categoryId: toSingleTrimmed(searchParams.categoryId),
+    serviceId: toArray(searchParams.serviceId),
     country: toArray(searchParams.country),
     rateMinCents: toNumber(searchParams.rateMinCents),
     rateMaxCents: toNumber(searchParams.rateMaxCents),
@@ -31,7 +34,8 @@ export function parseMemberFilters(searchParams: RawSearchParams): MemberFilters
 export function filtersToSearchParams(filters: MemberFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.q) params.set('q', filters.q);
-  for (const id of filters.practiceAreaId) params.append('practiceAreaId', id);
+  if (filters.categoryId) params.set('categoryId', filters.categoryId);
+  for (const id of filters.serviceId) params.append('serviceId', id);
   for (const country of filters.country) params.append('country', country);
   if (filters.rateMinCents !== undefined) params.set('rateMinCents', String(filters.rateMinCents));
   if (filters.rateMaxCents !== undefined) params.set('rateMaxCents', String(filters.rateMaxCents));

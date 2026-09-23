@@ -2,7 +2,7 @@ import {
   getArticlesServer,
   getMembersServer,
   getMyArticlesServer,
-  getPracticeAreasServer,
+  getCategoriesServer,
 } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { getSessionUser } from '@/lib/auth/session-claims';
@@ -21,11 +21,11 @@ export default async function ArticlesPage({
 }: {
   searchParams: { tab?: string };
 }) {
-  const [articles, practiceAreas, members, profile] = await Promise.all([
+  const [articles, categories, members, profile] = await Promise.all([
     getArticlesServer(),
-    getPracticeAreasServer(),
+    getCategoriesServer(),
     getMembersServer(
-      buildMembersQueryString({ sort: 'featured', practiceAreaId: [], country: [], page: 1, pageSize: 50 })
+      buildMembersQueryString({ sort: 'featured', serviceId: [], country: [], page: 1, pageSize: 50 })
     ),
     getSessionUser(),
   ]);
@@ -43,7 +43,7 @@ export default async function ArticlesPage({
         <PageContainer>
           <ArticlesTabsSection
             articles={articles}
-            practiceAreas={practiceAreas}
+            categories={categories}
             myArticles={myArticles}
             canWrite={canWrite}
             initialTab={searchParams.tab === 'mine' ? 'mine' : 'browse'}

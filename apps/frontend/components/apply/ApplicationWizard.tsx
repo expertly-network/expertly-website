@@ -10,10 +10,10 @@ import { BackgroundStep } from '@/components/apply/steps/BackgroundStep';
 import { ServicesRatesStep } from '@/components/apply/steps/ServicesRatesStep';
 import { ReviewSubmitStep } from '@/components/apply/steps/ReviewSubmitStep';
 import { INITIAL_WIZARD_STATE, fromDto, toUpdateRequest, type WizardFormState } from '@/components/apply/types';
-import { getPracticeAreas } from '@/lib/api/practice-areas';
+import { getCategories } from '@/lib/api/categories';
 import { getMyApplication, saveApplication } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 
 const TOTAL_STEPS = 5;
 
@@ -21,16 +21,16 @@ export function ApplicationWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<WizardFormState>(INITIAL_WIZARD_STATE);
-  const [practiceAreas, setPracticeAreas] = useState<PracticeAreaDto[]>([]);
+  const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [resuming, setResuming] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Fetched once; steps 4 and 5 are the only consumers.
   useEffect(() => {
-    getPracticeAreas()
-      .then(setPracticeAreas)
-      .catch(() => setPracticeAreas([]));
+    getCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
   }, []);
 
   // Redirects to the status page if the application is already submitted/decided.
@@ -172,7 +172,7 @@ export function ApplicationWizard() {
             <ServicesRatesStep
               form={form}
               update={update}
-              practiceAreas={practiceAreas}
+              categories={categories}
               saving={saving}
               saveError={saveError}
               onBack={() => goBack(3)}
@@ -183,7 +183,7 @@ export function ApplicationWizard() {
             <ReviewSubmitStep
               form={form}
               update={update}
-              practiceAreas={practiceAreas}
+              categories={categories}
               saving={saving}
               saveError={saveError}
               onBack={() => goBack(4)}

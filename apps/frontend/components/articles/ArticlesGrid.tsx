@@ -5,31 +5,31 @@ import { Button, Card, FilterPopover } from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { ArticleCard } from '@/components/articles/ArticleCard';
 import type { ArticleListItemDto } from '@shared/article';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 
 // Client-side filtering over the full published set.
 export function ArticlesGrid({
   articles,
-  practiceAreas,
+  categories,
 }: {
   articles: ArticleListItemDto[];
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
 }) {
+  const services = categories.flatMap((c) => c.services);
   const [countryFilter, setCountryFilter] = useState<string[]>([]);
-  const [practiceAreaFilter, setPracticeAreaFilter] = useState<string[]>([]);
+  const [serviceFilter, setServiceFilter] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     return articles.filter((a) => {
       const matchesCountry =
         countryFilter.length === 0 || a.countries.some((c) => countryFilter.includes(c));
-      const matchesPracticeArea =
-        practiceAreaFilter.length === 0 ||
-        a.practiceAreas.some((p) => practiceAreaFilter.includes(p.id));
-      return matchesCountry && matchesPracticeArea;
+      const matchesService =
+        serviceFilter.length === 0 || a.services.some((s) => serviceFilter.includes(s.id));
+      return matchesCountry && matchesService;
     });
-  }, [articles, countryFilter, practiceAreaFilter]);
+  }, [articles, countryFilter, serviceFilter]);
 
-  const hasFilters = countryFilter.length > 0 || practiceAreaFilter.length > 0;
+  const hasFilters = countryFilter.length > 0 || serviceFilter.length > 0;
 
   return (
     <div>
@@ -41,10 +41,10 @@ export function ArticlesGrid({
           onChange={setCountryFilter}
         />
         <FilterPopover
-          label="All categories"
-          options={practiceAreas.map((p) => ({ value: p.id, label: p.name }))}
-          selected={practiceAreaFilter}
-          onChange={setPracticeAreaFilter}
+          label="All services"
+          options={services.map((s) => ({ value: s.id, label: s.name }))}
+          selected={serviceFilter}
+          onChange={setServiceFilter}
         />
       </div>
 
@@ -67,7 +67,7 @@ export function ArticlesGrid({
               variant="secondary"
               onClick={() => {
                 setCountryFilter([]);
-                setPracticeAreaFilter([]);
+                setServiceFilter([]);
               }}
             >
               View all

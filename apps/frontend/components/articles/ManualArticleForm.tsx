@@ -6,7 +6,7 @@ import { WriteCard } from '@/components/articles/WriteCard';
 import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
 import { RichTextEditor } from '@/components/articles/RichTextEditor';
 import { getCoverImageSuggestions, suggestTopics } from '@/lib/api/articles';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 
 const DOCUMENT_ICON = (
@@ -21,7 +21,9 @@ const MAX_WORDS = 2000;
 
 export interface ManualArticleFormState {
   title: string;
-  practiceAreaIds: string[];
+  serviceIds: string[];
+  /** Free-text label for any selected `isCustom` service, keyed by that service's id. */
+  customServiceLabels: Record<string, string>;
   countries: string[];
   state: string;
   body: string;
@@ -30,7 +32,8 @@ export interface ManualArticleFormState {
 
 const EMPTY: ManualArticleFormState = {
   title: '',
-  practiceAreaIds: [],
+  serviceIds: [],
+  customServiceLabels: {},
   countries: [],
   state: '',
   body: '',
@@ -49,26 +52,26 @@ function wordCount(html: string): number {
   return text ? text.split(/\s+/).length : 0;
 }
 
-// Cosmetic only, never persisted — derived from selected practice areas and the title.
-function suggestTags(title: string, practiceAreaNames: string[]): string[] {
+// Cosmetic only, never persisted — derived from selected services and the title.
+function suggestTags(title: string, serviceNames: string[]): string[] {
   const titleWords = title
     .split(/\s+/)
     .map((w) => w.replace(/[^a-zA-Z]/g, ''))
     .filter((w) => w.length > 4)
     .slice(0, 3);
-  return [...new Set([...practiceAreaNames, ...titleWords])].slice(0, 5);
+  return [...new Set([...serviceNames, ...titleWords])].slice(0, 5);
 }
 
-// Title, practice areas/countries, content, auto-selected cover image, and suggested tags.
+// Title, service(s)/countries, content, auto-selected cover image, and suggested tags.
 export function ManualArticleForm({
-  practiceAreas,
+  categories,
   value,
   onChange,
   onPreview,
   onSaveDraft,
   savingDraft,
 }: {
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   value: ManualArticleFormState;
   onChange: (patch: Partial<ManualArticleFormState>) => void;
   onPreview: () => void;
@@ -76,6 +79,7 @@ export function ManualArticleForm({
   onSaveDraft?: () => void;
   savingDraft: boolean;
 }) {
+  const services = categories.flatMap((c) => c.services);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [topics, setTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(true);
@@ -84,14 +88,13 @@ export function ManualArticleForm({
   const [coverImageLoading, setCoverImageLoading] = useState(true);
   const words = wordCount(value.body);
 
-  const selectedPracticeAreaNames = practiceAreas
-    .filter((p) => value.practiceAreaIds.includes(p.id))
-    .map((p) => p.name);
+  const selectedServices = services.filter((s) => value.serviceIds.includes(s.id));
+  const selectedCustomServices = selectedServices.filter((s) => s.isCustom);
 
-  async function loadTopics(practiceAreaIds: string[]) {
+  async function loadTopics(serviceIds: string[]) {
     setTopicsLoading(true);
     try {
-      const { topics: result } = await suggestTopics({ practiceAreaIds });
+      const { topics: result } = await suggestTopics({ serviceIds });
       setTopics(result);
     } catch {
       setTopics([]);
@@ -134,7 +137,7 @@ export function ManualArticleForm({
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
     if (!value.title.trim()) e.title = 'Title is required.';
-    if (value.practiceAreaIds.length === 0) e.practiceAreaIds = 'Select at least one practice area.';
+    if (value.serviceIds.length === 0) e.serviceIds = 'Select at least one service.';
     if (value.countries.length === 0) e.countries = 'Select at least one country.';
     if (words < MIN_WORDS || words > MAX_WORDS) {
       e.body = `Article content must be between ${MIN_WORDS} and ${MAX_WORDS} words (currently ${words}).`;
@@ -182,7 +185,7 @@ export function ManualArticleForm({
             <button
               type="button"
               title="Show other ideas"
-              onClick={() => loadTopics(value.practiceAreaIds)}
+              onClick={() => loadTopics(value.serviceIds)}
               className="rounded-full border border-transparent px-[13px] py-1.5 text-[12.5px] text-ink-3 transition-colors hover:border-line-2 hover:text-accent"
             >
               ↻ More ideas
@@ -193,17 +196,16 @@ export function ManualArticleForm({
 
       <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
         <MultiSelect
-          label="Practice area(s)"
-          placeholder="Select practice areas"
-          options={practiceAreas.map((p) => ({ value: p.id, label: p.name }))}
-          selected={value.practiceAreaIds}
+          label="Service(s)"
+          placeholder="Select services"
+          options={services.map((s) => ({ value: s.id, label: s.name }))}
+          selected={value.serviceIds}
           onChange={(ids) => {
-            onChange({ practiceAreaIds: ids });
-            const names = practiceAreas.filter((p) => ids.includes(p.id)).map((p) => p.name);
+            onChange({ serviceIds: ids });
+            const names = services.filter((s) => ids.includes(s.id)).map((s) => s.name);
             loadCoverImages(names.join(' '));
           }}
-          allowCustom
-          error={errors.practiceAreaIds}
+          error={errors.serviceIds}
         />
         <MultiSelect
           label="Country"
@@ -214,6 +216,24 @@ export function ManualArticleForm({
           error={errors.countries}
         />
       </div>
+
+      {selectedCustomServices.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {selectedCustomServices.map((s) => (
+            <Input
+              key={s.id}
+              label={`Custom label for "${s.name}"`}
+              value={value.customServiceLabels[s.id] ?? ''}
+              onChange={(e) =>
+                onChange({
+                  customServiceLabels: { ...value.customServiceLabels, [s.id]: e.target.value },
+                })
+              }
+              placeholder="Describe this custom service"
+            />
+          ))}
+        </div>
+      )}
 
       <Input
         label="State / province"
@@ -254,7 +274,7 @@ export function ManualArticleForm({
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold text-ink">Auto-selected cover image</div>
           <p className="mt-0.5 text-xs text-ink-4">
-            Picked to match your practice area — swap it any time before submitting.
+            Picked to match your service(s) — swap it any time before submitting.
           </p>
           <button
             type="button"
@@ -267,11 +287,11 @@ export function ManualArticleForm({
         </div>
       </div>
 
-      {selectedPracticeAreaNames.length > 0 && (
+      {selectedServices.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-ink-2">Suggested tags</span>
           <div className="flex flex-wrap gap-2">
-            {suggestTags(value.title, selectedPracticeAreaNames).map((tag) => (
+            {suggestTags(value.title, selectedServices.map((s) => s.name)).map((tag) => (
               <span
                 key={tag}
                 className="rounded-full border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-1.5 text-[11.5px] font-semibold tracking-[0.02em] text-accent"
@@ -291,7 +311,7 @@ export function ManualArticleForm({
             disabled={
               savingDraft ||
               !value.title.trim() ||
-              value.practiceAreaIds.length === 0 ||
+              value.serviceIds.length === 0 ||
               value.countries.length === 0
             }
             className="rounded-[9px] border-[1.5px] border-line-2 bg-bg-card px-[18px] py-2.5 text-[13.5px] font-semibold text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"

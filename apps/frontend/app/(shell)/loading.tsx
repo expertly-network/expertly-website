@@ -1,7 +1,7 @@
 import { PageContainer } from '@/components/layout/PageContainer';
 
 // Generic skeleton fallback for the (shell) route group while a Server Component page fetches
-// data — e.g. the homepage's members/practice-areas/articles fetch. Deliberately simple/generic
+// data — e.g. the homepage's members/categories/articles fetch. Deliberately simple/generic
 // (not homepage-specific) since this is the fallback for any nested (shell) route without its
 // own loading.tsx. Uses the same PageContainer width as the real pages so there's no layout
 // shift when the skeleton is replaced by real content.

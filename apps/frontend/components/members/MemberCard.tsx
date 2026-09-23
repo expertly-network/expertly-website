@@ -16,7 +16,7 @@ export function MemberCard({ member }: { member: MemberListItemDto }) {
     ? `${member.headline ?? 'Member'} at ${member.firmName}`
     : `${member.headline ?? 'Member'} as an independent practitioner`;
   const tierBadge = TIER_BADGE_LABEL[member.memberTier];
-  const visiblePracticeAreas = member.practiceAreas.slice(0, 2);
+  const visibleServices = member.services.slice(0, 2);
 
   return (
     <Link
@@ -93,9 +93,9 @@ export function MemberCard({ member }: { member: MemberListItemDto }) {
         {member.bio && <p className="mb-[18px] line-clamp-2 text-sm leading-relaxed text-ink-3">{member.bio}</p>}
 
         <div className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-line pt-4">
-          {visiblePracticeAreas.map((area) => (
-            <Badge key={area.id} variant="neutral" className="font-bold">
-              {area.name}
+          {visibleServices.map((service) => (
+            <Badge key={service.id} variant="neutral" className="font-bold">
+              {service.name}
             </Badge>
           ))}
           <Button

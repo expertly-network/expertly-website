@@ -30,21 +30,35 @@ once that tradeoff is worth revisiting — not done yet, a deliberate deferral, 
 
 ## Membership applications
 
-Backing `apps/backend/src/applications/`, `apps/backend/src/practice-areas/`. Schema:
-`docs/database-erd.md`. Shared types: `packages/shared-types/membership-application.ts`,
-`packages/shared-types/practice-area.ts`.
+Backing `apps/backend/src/applications/`, `apps/backend/src/categories/`,
+`apps/backend/src/services/`. Schema: `docs/database-erd.md`. Shared types:
+`packages/shared-types/membership-application.ts`, `packages/shared-types/category.ts`,
+`packages/shared-types/service.ts`.
 
-### 🌐 `GET /v1/practice-areas`
+### 🌐 `GET /v1/categories`
 
-Returns active practice areas for the application wizard's service-preference dropdowns (and,
-later, the member directory's filter).
+Returns the active category→service taxonomy tree for the application wizard's service-preference
+picker, the member directory's filter, and the article authoring flow's service tagging.
+`practice_areas`/`GET /v1/practice-areas` (a flat, 12-row list with a 3-value `category` enum) was
+replaced outright by a real two-level `categories`→`services` taxonomy (17 categories, 138
+services) — see `docs/database-erd.md`'s `categories`/`services` section and
+`docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md` for the full rationale.
 
-**Response `200`:** `PracticeAreaDto[]` — `{ id: string, name: string, category:
-'taxation'|'legal'|'finance_advisory', imageUrl: string | null }[]`. `category` backs the
-pill-filter UI in the design (`onboarding_form.html`'s service-preference step) — see
-`docs/database-erd.md`'s `practice_areas` section for the full mapping. `imageUrl` is
-decorative-only representative art (the homepage's Practice Areas marquee) — nullable, never
-blocks rendering when absent.
+**Response `200`:** `CategoryDto[]` — `{ id: string, name: string, sortOrder: number, imageUrl:
+string | null, isActive: boolean, services: ServiceDto[] }[]`. `ServiceDto` — `{ id: string,
+categoryId: string, name: string, sortOrder: number, isCustom: boolean, isActive: boolean }`.
+`isCustom` marks the one "<<Custom Field>>" placeholder service some categories have — selecting it
+in the UI reveals a free-text input whose value is persisted as a `customLabel`/
+`customServiceLabels` sidecar on whichever table references the service id (see below). `imageUrl`
+is decorative-only representative art (the homepage's Categories marquee) — nullable, never blocks
+rendering when absent; unlike the old `practice_areas` seed, no images are seeded for the 17
+categories today.
+
+**🛡️ Admin CRUD** (`manageTaxonomy` permission): `GET/POST/PATCH/DELETE
+/v1/admin/categories[/:id]` and `POST /v1/admin/categories/:categoryId/services`,
+`PATCH`/`DELETE /v1/admin/services/:id`. Deleting a category with services, or a service still
+referenced by a member/article/application, returns `409` (`CATEGORY_HAS_SERVICES` /
+`SERVICE_IN_USE`) rather than cascading.
 
 The wizard persists to the backend as the applicant moves through it — there is no
 frontend-only-until-submit state anymore (see `docs/superpowers/specs/2026-08-23-member-application-form-design.md`
@@ -96,10 +110,11 @@ wizard step to resume on, pure UX convenience, not validated).
   `'annual'` union); `'monthly'` is rejected by validation, not silently accepted.
 - `peerReferences` — up to 2 entries while a draft, exactly 2 required to submit; each is
   `{ name, relationship, email, phone? }`.
-- `servicePreferences[].practiceAreaId` is validated against a live, `is_active` `practice_areas`
-  query whenever a call actually includes `servicePreferences` — the DB has no FK to catch an
-  invalid id (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field
-  (a previously-valid, now-deactivated selection isn't retroactively rejected mid-draft).
+- `servicePreferences[].serviceId` is validated against a live, `is_active` `services` query
+  whenever a call actually includes `servicePreferences` — the DB has no FK to catch an invalid id
+  (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field (a
+  previously-valid, now-deactivated selection isn't retroactively rejected mid-draft). When the
+  referenced service is `isCustom`, `customLabel` becomes required on that entry.
 - `selectedTier`, `listPriceCents`, `discountAmountCents`, `amountDueCents`, `paymentStatus`,
   `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
   from the client** — computed server-side exactly as before:
@@ -110,8 +125,9 @@ wizard step to resume on, pure UX convenience, not validated).
   - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`.
 
 **Response `200`:** `ApplicationDto` — the full current record (draft or submitted), including
-resolved `servicePreferences[].practiceAreaName`, a freshly-signed `photoUrl` (private Storage
-path, not a public URL — see the uploads endpoint below), and `documents[]`.
+resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`, a freshly-signed
+`photoUrl` (private Storage path, not a public URL — see the uploads endpoint below), and
+`documents[]`.
 
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
 already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
@@ -262,7 +278,7 @@ client-side, then saves it via `POST /v1/articles` below (typically with `creati
 **Request:** `multipart/form-data`, not JSON — a `payload` field carrying the
 `AiDraftArticleRequest` shape (see `packages/shared-types/article.ts`) as a JSON string, plus zero
 or more `files` parts (the wizard's source-document dropzone; PDF/DOCX/TXT). Why multipart: the
-JSON-only fields (`practiceAreaIds`, `countries`, `state`, `notes`, `recentDevelopments`, `advice`,
+JSON-only fields (`serviceIds`, `countries`, `state`, `notes`, `recentDevelopments`, `advice`,
 `sourceLinks`, `includeVisual`, `tone`, `extraInstructions`, optional `title`) needed to travel
 alongside real file uploads in one request, same reasoning as the membership-application photo
 upload endpoint. Source files are extracted to text server-side (`pdf-parse` for PDF, `mammoth`
@@ -302,9 +318,9 @@ call via the same fixed `AI_PROVIDER`/`AI_MODEL`), regenerated on demand via the
 "More ideas" action. Not the AI wizard's draft flow — this only ever returns title ideas, never a
 body.
 
-**Request:** `SuggestTopicsRequest` — `practiceAreaIds` optional. With none given (the form's
-first render, before any practice area is selected), the backend samples 3 random active practice
-areas itself rather than requiring a selection first.
+**Request:** `SuggestTopicsRequest` — `serviceIds` optional. With none given (the form's first
+render, before any service is selected), the backend samples 3 random active services itself
+rather than requiring a selection first.
 
 **Response `201`:** `SuggestTopicsResponse` — `{ topics: string[] }`, up to 6 ideas. **Errors:**
 `401` · `403` client account · `503` AI drafting not configured or the provider call failed (same
@@ -349,13 +365,13 @@ check — "member or admin" fits the ranked model directly.
 - `body` must be 800–2000 words (from the design's own "Write it yourself" validation copy) —
   only enforced when the resulting status isn't `'draft'` — checked in `ArticlesService`, not
   expressible as a class-validator decorator for a single field.
-- `practiceAreaIds` validated against a live, `is_active`-filtered `practice_areas` query before
-  insert — same load-bearing check as applications' `servicePreferences`; see
-  `docs/database-erd.md`.
+- `serviceIds` validated against a live, `is_active`-filtered `services` query before insert — same
+  load-bearing check as applications' `servicePreferences`; see `docs/database-erd.md`. Any id that
+  resolves to an `isCustom` service requires a matching entry in `customServiceLabels`.
 
 **Response `201`:** `ArticleDto`. **Errors:** `401` no/invalid token · `403` client account · `400`
-validation failure (malformed body, word count out of range, invalid/inactive practice area id,
-empty `countries`).
+validation failure (malformed body, word count out of range, invalid/inactive service id, empty
+`countries`).
 
 ### 🔒 `PATCH /v1/articles/:id`
 
@@ -367,7 +383,7 @@ clears any earlier `rejectionReason`). There's no separate moderation endpoint f
 reject only happens via `GET`/`PATCH /v1/admin/articles` below, in `editorial` review mode.
 
 **Request:** `UpdateArticleRequest` — all fields optional; only provided fields change. `body`,
-`practiceAreaIds`, `countries` re-validated the same way as `POST` if present; `excerpt`/
+`serviceIds`, `countries` re-validated the same way as `POST` if present; `excerpt`/
 `readTimeMinutes` re-derived if `body` changes.
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not the owner and not admin · `404` not
@@ -534,14 +550,16 @@ forward should get an explicit `admin_role`.
 
 The directory list — published/active members only.
 
-**Query params:** `q` (search across name/practice/location/firm/title), `practiceAreaId`
-(repeatable), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
+**Query params:** `q` (search across name/practice/location/firm/title), `serviceId` (repeatable),
+`categoryId` (single — broadens to "any service in this category"; combined with `serviceId`, both
+must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
 (`featured`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
 `pageSize=8`, matching the prototype's infinite-scroll page size).
 
 **Response `200`:** `MemberListItemDto[]` — id, name, initials, headline, bio, firmName, region,
-country, city, practiceAreas (`{id, name}[]`, from `member_services`), isVerified, memberTier,
-yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl. Tenure/rate display strings
+country, city, services (`{id, name, categoryId, categoryName}[]`, from `member_services`),
+isVerified, memberTier, yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl.
+Tenure/rate display strings
 (`"18y"`, `"$420/hr"`) are **not** returned — format them client-side from the numeric fields.
 `bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
 `line-clamp-2`, matching the design's own approach, so no separate excerpt field was added.
@@ -554,7 +572,7 @@ prototype itself consistently enforces; see `docs/database-erd.md`'s "Design dec
 
 A member's own published articles are **not** embedded here — fetch
 `GET /v1/articles?authorId=:id` separately (see that endpoint's note above). `memberServices`
-resolves practice area names the same way `ArticlePracticeArea` does.
+resolves service (and category) names the same way `ArticleService` does.
 
 **Response `200`:** `MemberDto`. **Errors:** `401` no/invalid token · `404` not found, not
 `status='active'`, or the caller isn't its owner (same "don't leak existence" posture as a draft

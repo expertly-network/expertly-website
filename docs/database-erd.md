@@ -112,52 +112,47 @@ from multiple paths.
   `assertComplete()` requires exactly 2 entries to submit, not just "at least 1" like
   `work_experiences`/`educations`.
 
-**`service_preferences` is JSONB too**, not a join table — `[{ practiceAreaId, priority }, ...]`,
-up to 3 entries. This was reconsidered a second time: the original relational design had a real
-justification (a genuine FK to `practice_areas`, guaranteeing every preference points at a real,
-existing row) versus a weak one ("might want to query 'who wants M&A Tax' someday" — speculative,
-nothing in the current build needs it, retracted). The FK-integrity argument was real, but the
-decision was made to accept that trade-off for schema simplicity anyway.
+**`service_preferences` is JSONB too**, not a join table — `[{ serviceId, priority, customLabel?
+}, ...]`, up to 3 entries. This was reconsidered a second time: the original relational design had
+a real justification (a genuine FK to the taxonomy table, guaranteeing every preference points at
+a real, existing row) versus a weak one ("might want to query 'who wants M&A Tax' someday" —
+speculative, nothing in the current build needs it, retracted). The FK-integrity argument was real,
+but the decision was made to accept that trade-off for schema simplicity anyway.
 
 **This is a load-bearing trade-off, not a shortcut to forget about**: with no FK, nothing at the
-database level stops a `service_preferences` entry from referencing a `practiceAreaId` that
-doesn't exist (or no longer does — the referenced practice area is later renamed or deactivated).
-**Every write path must validate each `practiceAreaId` against a live query of `practice_areas`
-before insert/update** — there is no CASCADE/RESTRICT safety net here the way there is elsewhere
-in this schema. `practice_areas` itself is still a real table specifically so this validation (and
-the frontend's dropdown options) has something to check against.
+database level stops a `service_preferences` entry from referencing a `serviceId` that doesn't
+exist (or no longer does — the referenced service is later renamed or deactivated). **Every write
+path must validate each `serviceId` against a live query of `services` before insert/update** —
+there is no CASCADE/RESTRICT safety net here the way there is elsewhere in this schema. `services`
+itself is still a real table specifically so this validation (and the frontend's dropdown options)
+has something to check against. `customLabel` is required when the referenced service `is_custom`.
 
-### `practice_areas`
+### `categories` / `services`
 
-`id`, `name` (unique), `is_active`, `category`, `image_url` (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`).
-Seeded with the 12 real practice areas
-from `design/static_html/assets/members.js`'s `EXPERTLY_PRACTICE_AREAS` (M&A Tax, Transfer
-Pricing, Corporate Law, Capital Markets, IP & Technology, Banking & Finance, Dispute Resolution,
-Private Equity, Antitrust, Restructuring, Indirect Tax, Compliance). Backs the member directory's
-practice-area filter and the homepage's Practice Areas marquee — same taxonomy, not duplicated.
+Replaces the old flat `practice_areas` table (12 rows, 3-value `category` enum) outright — a
+client-supplied, real two-level taxonomy (17 categories, 138 services), not a backfill. See
+`docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md` for the full rationale and
+seed data.
 
-**`image_url`** — nullable text, decorative-only representative art for chip/card UI (e.g. the
-homepage's Practice Areas marquee). Seeded with the same per-name Unsplash URLs
-`EXPERTLY_PRACTICE_AREAS` itself uses — dev/placeholder imagery, not a real asset pipeline. Not
-exposed for editing via any write endpoint today.
+**`categories`**: `id`, `name` (unique), `sort_order`, `image_url` (nullable, decorative-only —
+unlike the old `practice_areas` seed, no images are seeded for the 17 categories today; stays null
+until an admin sets one via the taxonomy admin CRUD), `is_active`, `created_at`, `updated_at`.
 
-**`category`** — enum `taxation`\|`legal`\|`finance_advisory`, NOT NULL. Backs the category-pill
-filter in `design/static_html/onboarding_form.html`'s service-preference step. The mapping is
-sourced directly from `design/static_html/assets/onboarding-form.js`'s own authoritative
-category-per-practice-area list, not guessed — notably **not** a naive legal-vs-finance split:
-Banking & Finance is categorized `legal`, while Antitrust and Compliance are `finance_advisory`.
+**`services`**: `id`, `category_id` (FK → `categories.id`, no `ON DELETE` clause — deleting a
+category with services fails with a `23503` FK violation, caught and turned into `409
+CATEGORY_HAS_SERVICES`), `name`, `sort_order`, `is_custom` (true for the one "<<Custom Field>>"
+placeholder row a category may have — only 6 of the 17 categories have one; selecting it reveals a
+free-text input, stored as a `customLabel`/`customServiceLabels` sidecar on whichever table
+references the id), `is_active`, `created_at`, `updated_at`. `unique(category_id, name)` — names
+repeat across categories in the source list (e.g. "Startups & Emerging Companies"), so uniqueness
+is scoped per-category, not global.
 
-| Category | Practice areas |
-|---|---|
-| `taxation` | M&A Tax, Transfer Pricing, Indirect Tax |
-| `legal` | Corporate Law, IP & Technology, Banking & Finance, Dispute Resolution |
-| `finance_advisory` | Capital Markets, Private Equity, Restructuring, Compliance, Antitrust |
+Both tables get a `select-all` RLS policy (`using (true)`), matching `practice_areas` before them —
+admin writes go through the backend's service-role client, which bypasses RLS.
 
-Not region-scoped (no `country`/`city` on this table) — a deliberate call, not a deferred one: a
-practice area like "M&A Tax" means the same thing everywhere, so regional filtering belongs on the
-*member's* own location (a future `member_profiles` field), not on the taxonomy itself. None of
-the 12 current areas are jurisdiction-bound the way something like "GST" would be; revisit only if
-a genuinely region-specific practice area is added later.
+Not region-scoped (no `country`/`city` on either table) — a deliberate call, not a deferred one: a
+service like "M&A Tax" means the same thing everywhere, so regional filtering belongs on the
+*member's* own location (a `member_profiles` field), not on the taxonomy itself.
 
 ### Design decisions
 
@@ -209,25 +204,26 @@ also flip `status` back to `draft` (self-service unpublish) via `PATCH` regardle
 | `body` | text | full article content, rich HTML produced by the write flow's Tiptap editor (`apps/frontend/components/articles/RichTextEditor.tsx`) — `<p>`/`<h2>`/`<h3>`/`<ul>`/`<ol>`/`<li>`/`<blockquote>`/`<strong>`/`<em>`/`<u>`/`<code>`/`<pre>`/`<a>`/`<br>` only, always passed through `sanitize-html` server-side before insert/update, per root `CLAUDE.md`'s non-negotiable rule — kept in lockstep with the editor's own toolbar (no image/table support in either) |
 | `excerpt` | text | **always server-derived** from `body` (truncated to ~200 chars on a word boundary) — never accepted from the client |
 | `read_time_minutes` | smallint | **always server-derived** from `body`'s word count (`words / 200`, min 1) |
-| `cover_image_url` | text | write-it-yourself: member-picked from a curated static set (`apps/frontend/lib/cover-images.ts`, keyed by practice area, no AI/upload); AI wizard: same set, pre-selected |
-| `practice_area_ids` | uuid[], default `{}` | see below — not a join table, same trade-off as `service_preferences` |
-| `countries` | text[] NOT NULL, default `{}` | genuinely multi-select (an article can apply to more than one country) — same array/no-FK trade-off as `practice_area_ids`, except free-form country names rather than ids, so no live-validation query on write. Was a single required `country` string before the write-flow rebuild; migrated in place (pre-production, no rows to backfill carefully) |
+| `cover_image_url` | text | write-it-yourself: member-picked from a curated static set (`apps/frontend/lib/cover-images.ts`, keyed by category, no AI/upload); AI wizard: same set, pre-selected |
+| `service_ids` | uuid[], default `{}` | see below — not a join table, same trade-off as `service_preferences` |
+| `custom_service_labels` | jsonb NOT NULL, default `{}` | `{ [serviceId]: label }` — only populated for ids in `service_ids` that are `is_custom` services |
+| `countries` | text[] NOT NULL, default `{}` | genuinely multi-select (an article can apply to more than one country) — same array/no-FK trade-off as `service_ids`, except free-form country names rather than ids, so no live-validation query on write. Was a single required `country` string before the write-flow rebuild; migrated in place (pre-production, no rows to backfill carefully) |
 | `state` | text | optional |
 | `rejection_reason` | text | nullable; set only when `status = 'rejected'` (editorial mode), cleared on any resubmission — same shape as `membership_applications.rejection_reason` |
 | `ai_summary` | text | nullable; server-written once by `ArticlesService.generateSummaryIfNeeded()` the first time an article becomes `published` (fire-and-forget, never blocks the publish/approve response) — see `docs/rest-api.md`. Never client-writable. Seed data pre-populates it for dev fixtures. |
 | `creation_mode` | text NOT NULL | default `'manual'`; `'manual' \| 'ai'`, settable via `CreateArticleRequest.creationMode` — see `POST /v1/articles/ai-draft` in `docs/rest-api.md` |
 | `created_at`, `updated_at` | timestamptz | |
 
-**`practice_area_ids` is a native array, not a join table** — the write form's practice-area picker
-is genuinely multi-select against the same 12-item taxonomy already in `practice_areas` (the
-browse grid's single `category` string is a *display* convenience in the prototype, joining
-multiple selections with commas — not the real relationship, so the real schema doesn't reproduce
-it). Same load-bearing trade-off as `membership_applications.service_preferences`: no FK (arrays
-can't reference a table), so **every write path must validate each id against a live,
-`is_active`-filtered `practice_areas` query before insert/update** — there is no CASCADE/RESTRICT
-safety net. Unlike the write path, *reading* an article's practice areas back deliberately does
-**not** filter by `is_active` — an already-published article should keep showing the real name of
-a practice area even if it's since been deactivated.
+**`service_ids` is a native array, not a join table** — the write form's service picker is
+genuinely multi-select against the same taxonomy already in `services` (the browse grid's single
+`category` string was a *display* convenience in the old prototype's flat model, joining multiple
+selections with commas — not the real relationship, so the real schema doesn't reproduce it). Same
+load-bearing trade-off as `membership_applications.service_preferences`: no FK (arrays can't
+reference a table), so **every write path must validate each id against a live,
+`is_active`-filtered `services` query before insert/update** — there is no CASCADE/RESTRICT safety
+net. Unlike the write path, *reading* an article's services back deliberately does **not** filter
+by `is_active` — an already-published article should keep showing the real name of a service even
+if it's since been deactivated.
 
 ### Design decisions — divergences from the static prototype
 
@@ -295,8 +291,8 @@ feature, not derived from (and in one case directly contradicting) what the stat
 
 ### Not built yet (explicitly deferred)
 
-- Tags — suggested in the write-flow UI (cosmetic, client-derived from practice areas + title
-  keywords), never actually persisted — matches the prototype's own tags-are-UI-only behavior.
+- Tags — suggested in the write-flow UI (cosmetic, client-derived from services + title keywords),
+  never actually persisted — matches the prototype's own tags-are-UI-only behavior.
 - AI-generated summary bullet points — a static per-category lookup table in the prototype, not
   real per-article data.
 - View/like/comment counters — anonymous, `localStorage`-based in the prototype, unrelated to any
@@ -326,7 +322,7 @@ backend module read from it — see the drift note below.
 | `start_date` | timestamptz | |
 | `end_date` | timestamptz, nullable | single-day events have no end date |
 | `timezone` | text, nullable | |
-| `event_type` | text, nullable | free-text category (e.g. "Tax", "M&A", "AI & Tech") — not FK'd to `practice_areas`, the prototype's own category list doesn't line up 1:1 with that taxonomy |
+| `event_type` | text, nullable | free-text category (e.g. "Tax", "M&A", "AI & Tech") — not FK'd to `categories`/`services`, the prototype's own category list doesn't line up 1:1 with that taxonomy |
 | `event_format` | text, nullable, check `in_person`\|`virtual`\|`hybrid` | |
 | `country`, `city`, `venue_name` | text, nullable | |
 | `is_free` | boolean, default `false` | |
@@ -442,9 +438,10 @@ current consumer.
 
 ### `member_services`
 
-Real join table to `practice_areas` (not JSONB like `service_preferences`/`practice_area_ids`
-elsewhere in this schema) — the directory's own search filters by practice area, a need those
-write-once/read-as-a-whole tables don't have. Composite PK `(member_id, practice_area_id)`, real FK
+Real join table to `services` (renamed from `practice_area_id` to `service_id`, plus a nullable
+`custom_label` for `is_custom` entries — not JSONB like `service_preferences`/`article.service_ids`
+elsewhere in this schema) — the directory's own search filters by service/category, a need those
+write-once/read-as-a-whole tables don't have. Composite PK `(member_id, service_id)`, real FK
 (this table *can* have one, unlike the JSONB-array columns, since it's a real join table).
 
 ### 8 jsonb sections on `member_profiles`
@@ -457,8 +454,8 @@ item — so a `jsonb` array column matches that "one UPDATE" semantics better th
 across a child table. The one cited reason for tables that didn't hold up was "a future employer
 search" — speculative, nothing currently needs it, and CLAUDE.md's own principle is not to design
 for hypothetical future requirements. `member_services` (below) stays a real join table — that one
-has a *today* need (real FK to `practice_areas`, filtered on directly by the directory's
-practice-area search) that these sections don't share.
+has a *today* need (real FK to `services`, filtered on directly by the directory's service/category
+search) that these sections don't share.
 
 Each is `jsonb not null default '[]'`, checked `jsonb_typeof(...) = 'array'`, stored as an array of
 objects already shaped like the API's camelCase response type (`MemberWorkExperience[]`, etc., in

@@ -7,7 +7,7 @@ import { StepActions } from '@/components/apply/StepActions';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
 import type { BillingPeriod } from '@shared/membership-application';
-import type { PracticeAreaDto } from '@shared/practice-area';
+import type { CategoryDto } from '@shared/category';
 
 // Static display copy; the authoritative amount always comes from the backend.
 const PRICE_LABEL: Record<BillingPeriod, string> = {
@@ -17,7 +17,7 @@ const PRICE_LABEL: Record<BillingPeriod, string> = {
 export function ReviewSubmitStep({
   form,
   update,
-  practiceAreas,
+  categories,
   saving,
   saveError,
   onBack,
@@ -25,7 +25,7 @@ export function ReviewSubmitStep({
 }: {
   form: WizardFormState;
   update: (patch: Partial<WizardFormState>) => void;
-  practiceAreas: PracticeAreaDto[];
+  categories: CategoryDto[];
   saving?: boolean;
   saveError?: string | null;
   onBack: () => void;
@@ -35,7 +35,8 @@ export function ReviewSubmitStep({
   const [consentPrivacy, setConsentPrivacy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const practiceAreaName = (id: string) => practiceAreas.find((a) => a.id === id)?.name ?? id;
+  const services = categories.flatMap((c) => c.services);
+  const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? id;
   const regionLabel = REGIONS.find((r) => r.value === form.region)?.label ?? form.region;
   const location = [form.city, form.state, form.country].filter(Boolean).join(', ');
 
@@ -85,7 +86,7 @@ export function ReviewSubmitStep({
         <ReviewRow
           label="Services"
           value={form.servicePreferences
-            .map((p) => practiceAreaName(p.practiceAreaId))
+            .map((p) => (p.customLabel ? `${serviceName(p.serviceId)} (${p.customLabel})` : serviceName(p.serviceId)))
             .join(' · ')}
         />
         <ReviewRow

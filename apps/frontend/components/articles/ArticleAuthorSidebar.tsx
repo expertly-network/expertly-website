@@ -5,7 +5,7 @@ import type { MemberDto } from '@shared/member';
 
 export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
   const location = [author.city, author.country].filter(Boolean).join(', ');
-  const primaryPracticeArea = author.practiceAreas[0];
+  const primaryService = author.services[0];
 
   return (
     <Card padding="md">
@@ -56,10 +56,10 @@ export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
       </div>
 
       <dl className="mt-4 flex flex-col gap-2 border-t border-line pt-4 text-sm">
-        {primaryPracticeArea && (
+        {primaryService && (
           <div className="flex items-center justify-between">
-            <dt className="text-ink-3">Practice area</dt>
-            <dd className="font-semibold text-ink">{primaryPracticeArea.name}</dd>
+            <dt className="text-ink-3">Service</dt>
+            <dd className="font-semibold text-ink">{primaryService.name}</dd>
           </div>
         )}
         <div className="flex items-center justify-between">

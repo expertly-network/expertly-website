@@ -17,7 +17,7 @@ open questions with whoever's driving) exactly like membership applications and 
 |---|---|---|
 | Auth | — (Supabase direct, no custom REST) | `docs/auth.md` |
 | Membership applications | `POST /v1/applications`, `GET /v1/applications/me` | `docs/rest-api.md` |
-| Practice areas | `GET /v1/practice-areas` | `docs/rest-api.md` |
+| Categories/services | `GET /v1/categories` | `docs/rest-api.md` |
 | Articles | `GET /v1/articles`, `GET /v1/articles/me`, `GET/:id`, `POST`, `PATCH/:id`, `DELETE/:id` | `docs/rest-api.md` |
 
 ## Cross-cutting open decisions
@@ -163,7 +163,7 @@ fresh rather than reverse-engineered.
 id, title, desc, org, start, end?, city, country,
 format: 'In Person' | 'Hybrid' | 'Virtual',
 category  -- own taxonomy (Tax/Legal/Audit/AI & Tech/Fintech/Law/Startup/General/
-             International Law/Networking/M&A) — NOT the 12-item practice-area list
+             International Law/Networking/M&A) — NOT the categories/services taxonomy
 ```
 
 **Public suggestion flow**: anyone submits a suggested event → `pending` queue → admin
