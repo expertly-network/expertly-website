@@ -125,9 +125,9 @@ wizard step to resume on, pure UX convenience, not validated).
   - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`.
 
 **Response `200`:** `ApplicationDto` — the full current record (draft or submitted), including
-resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`, a freshly-signed
-`photoUrl` (private Storage path, not a public URL — see the uploads endpoint below), and
-`documents[]`.
+resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`, a `photoUrl` (a plain,
+permanent public URL built from the Storage path at read time — see the uploads endpoint below),
+and `documents[]`.
 
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
 already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
@@ -167,13 +167,14 @@ through the backend rather than issuing a signed upload URL (unlike
 so magic-byte MIME validation (root `CLAUDE.md`'s non-negotiable file-upload rule) would be
 structurally impossible there. Bytes are sniffed with `file-type` against an allow-list
 (`photo`: JPEG/PNG, 5MB max; `document`: JPEG/PNG/PDF, 15MB max) before being written to the
-private `application-assets` Storage bucket at a deterministic path
+public `application-assets` Storage bucket at a deterministic path
 (`members/application/{applicantId}/profile-photo.<ext>`, overwriting on re-upload; or
 `document-{n}.<ext>`, appended). Only allowed while the caller has a `draft` application.
 
-**Response `200`:** `ApplicationDto` — the updated record, `photoUrl`/`documents[].url` freshly
-signed. **Errors:** `400` no draft to attach to, oversized file, or a MIME mismatch (including a
-renamed file whose magic bytes don't match its extension/declared content-type).
+**Response `200`:** `ApplicationDto` — the updated record, `photoUrl`/`documents[].url` a plain
+public URL built from the stored path (no signing). **Errors:** `400` no draft to attach to,
+oversized file, or a MIME mismatch (including a renamed file whose magic bytes don't match its
+extension/declared content-type).
 
 ## Membership applications — admin
 
@@ -217,9 +218,11 @@ and never regenerated on `PATCH`. Routes below still key on the real `id` (UUID)
 session's article detail route (`/articles/[id]`); `slug` is carried on the DTO for a future
 pretty-URL pass, not wired into routing yet.
 
-`authorPhotoUrl: string | null` — sourced from the author's `member_profiles.photo_url` (falling
-back to `profiles.avatar_url`, same posture as `MembersService`'s `photoUrl`), null when neither
-is set. `authorHeadline`/`authorFirmName: string | null` — sourced from `member_profiles.headline`/
+`authorPhotoUrl: string | null` — sourced from the author's `member_profiles.photo_path` (a plain
+public URL built from the `application-assets` Storage path at read time — see
+`docs/database-erd.md`), falling back to `profiles.avatar_url`, same posture as `MembersService`'s
+`photoUrl`, null when neither is set.
+`authorHeadline`/`authorFirmName: string | null` — sourced from `member_profiles.headline`/
 `firm_name`, the "designation" line under the author's name/photo. All three are additive fields,
 no version bump.
 

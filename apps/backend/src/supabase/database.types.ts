@@ -336,7 +336,7 @@ export type Database = {
           linkedin_url: string | null
           member_tier: Database["public"]["Enums"]["membership_tier"]
           membership_started_at: string
-          photo_url: string | null
+          photo_path: string | null
           profile_id: string
           qualifications: Json
           rate_currency: string
@@ -377,7 +377,7 @@ export type Database = {
           linkedin_url?: string | null
           member_tier: Database["public"]["Enums"]["membership_tier"]
           membership_started_at?: string
-          photo_url?: string | null
+          photo_path?: string | null
           profile_id: string
           qualifications?: Json
           rate_currency?: string
@@ -418,7 +418,7 @@ export type Database = {
           linkedin_url?: string | null
           member_tier?: Database["public"]["Enums"]["membership_tier"]
           membership_started_at?: string
-          photo_url?: string | null
+          photo_path?: string | null
           profile_id?: string
           qualifications?: Json
           rate_currency?: string

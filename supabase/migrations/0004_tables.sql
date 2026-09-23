@@ -339,8 +339,9 @@ create table public.membership_applications (
   -- enforced in ApplicationsService (assertComplete), not here — same "cross-field rules live in
   -- the service" convention this schema already uses for rate_min/max_cents ordering.
   --
-  -- photo_path: private Storage path (application-assets bucket, see below), not a public URL —
-  -- a signed URL is minted at read time by ApplicationsService.toDto().
+  -- photo_path: Storage path within the application-assets bucket (see below) — that bucket is
+  -- public, so this resolves to a plain, permanent URL at read time (ApplicationsService.toDto()),
+  -- never a signed one.
   photo_path text,
   first_name text,
   last_name text,
@@ -778,7 +779,12 @@ create table public.member_profiles (
   website text,
 
   is_verified boolean not null default false,
-  photo_url text,
+  -- Same convention as membership_applications.photo_path: a Storage path within the (public)
+  -- application-assets bucket, copied verbatim from the source application's photo_path on
+  -- approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL.
+  -- Resolved to a plain, permanent URL at read time (MembersService/ArticlesRepository); never a
+  -- signed URL, since this column is read back directly with no read-time refresh.
+  photo_path text,
   status public.member_profile_status not null default 'active',
 
   -- Set when a member was provisioned via an approved application (the eventual, not-yet-built
@@ -941,17 +947,26 @@ create policy member_proofs_owner_rw
   with check (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ============================================================================
--- Storage — application-assets bucket, backing POST /v1/applications/me/uploads. Unlike
--- member-proofs' signed-upload-URL flow, uploads here are proxied through the backend (see
--- ApplicationsService.uploadFile) so magic-byte MIME validation is actually possible before the
--- object is written — a signed-upload-URL flow never puts the file's bytes through the API.
--- Private (not public); a signed URL is minted at read time. Objects are keyed
+-- Storage — application-assets bucket, backing POST /v1/applications/me/uploads. Uploads here are
+-- proxied through the backend (see ApplicationsService.uploadFile) so magic-byte MIME validation
+-- is actually possible before the object is written — a signed-upload-URL flow never puts the
+-- file's bytes through the API.
+--
+-- Public: every file here — an applicant's profile photo and their other documents alike — is
+-- resolved to a plain, permanent URL at read time (ApplicationsRepository.getPublicUrl()), never a
+-- signed one. member_profiles.photo_path (see below) reuses the exact same path/file once an
+-- application is approved — same bucket, nothing to copy or move. Objects are keyed
 -- "members/application/<applicantId>/profile-photo.<ext>" or "...document-<n>.<ext>", so index 3
 -- (1-indexed: members, application, <applicantId>, ...) is the applicant id.
+--
+-- Only the backend's service-role client ever writes here, which bypasses RLS entirely — the
+-- owner-scoped policy below only matters if a client ever writes directly with its own JWT, which
+-- doesn't happen today; it costs nothing to keep as defense-in-depth. Public buckets don't need a
+-- select policy at all — the public flag already bypasses read access control entirely.
 -- ============================================================================
 
 insert into storage.buckets (id, name, public)
-values ('application-assets', 'application-assets', false)
+values ('application-assets', 'application-assets', true)
 on conflict (id) do nothing;
 
 create policy application_assets_owner_all

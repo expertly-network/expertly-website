@@ -41,7 +41,7 @@ const MEMBER_PROFILE_COLUMNS = [
   'linkedin_url',
   'website',
   'is_verified',
-  'photo_url',
+  'photo_path',
   'status',
   'application_id',
   'membership_started_at',
@@ -98,7 +98,9 @@ export interface MemberProfileRow {
   linkedin_url: string | null;
   website: string | null;
   is_verified: boolean;
-  photo_url: string | null;
+  // Path within the (public) application-assets bucket, same convention and same file as the
+  // source application's photo_path — or a legacy/seed full external URL. Never a signed URL.
+  photo_path: string | null;
   status: MemberProfileStatus;
   application_id: string | null;
   membership_started_at: string;
@@ -240,6 +242,15 @@ export class MembersRepository {
     const { data, error } = await this.supabase.db.storage.from('member-proofs').createSignedUploadUrl(path);
     if (error || !data) throw new InternalServerErrorException('Failed to create upload URL.');
     return data;
+  }
+
+  // photo_path holds either a bucket-relative path (real uploads, application-assets — public,
+  // so this is a plain permanent URL, not signed) or a legacy/seed full external URL (e.g.
+  // dev-seeded randomuser.me links) — pass those through unchanged.
+  buildPhotoUrl(path: string): string {
+    if (/^https?:\/\//i.test(path)) return path;
+    const { data } = this.supabase.db.storage.from('application-assets').getPublicUrl(path);
+    return data.publicUrl;
   }
 
   async insertEdit(row: MemberProfileEditInsert): Promise<MemberProfileEditRow> {
