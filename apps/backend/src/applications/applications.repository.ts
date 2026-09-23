@@ -47,18 +47,21 @@ const APPLICATION_ROW_COLUMNS = [
   'updated_at',
 ] as const;
 
+// Every column aliased to its AdminApplicationListItemDto camelCase name — listForReview()
+// returns this cast straight to the DTO with no manual row mapping, unlike the rest of this
+// file, so an unaliased column here silently comes back undefined on the DTO.
 const ADMIN_LIST_COLUMNS = [
   'id',
   'status',
-  'first_name',
-  'last_name',
-  'contact_email',
+  'firstName:first_name',
+  'lastName:last_name',
+  'contactEmail:contact_email',
   'country',
-  'selected_tier',
-  'billing_period',
-  'amount_due_cents',
-  'payment_status',
-  'created_at',
+  'selectedTier:selected_tier',
+  'billingPeriod:billing_period',
+  'amountDueCents:amount_due_cents',
+  'paymentStatus:payment_status',
+  'createdAt:created_at',
 ] as const;
 
 export type ApplicationRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
