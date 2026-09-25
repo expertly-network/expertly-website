@@ -31,6 +31,16 @@ const SECTION_TO_COLUMN = {
   key_clients: 'key_clients',
 } as const;
 
+// These sections carry proof embedded per item (payload[i].proofAttachments) rather than the
+// shared proof_file_url/proof_link columns education/work_experiences use for the whole batch.
+const PER_ITEM_PROOF_SECTIONS = ['engagements', 'testimonials', 'awards'] as const;
+
+interface ProofAttachmentInput {
+  type?: unknown;
+  url?: unknown;
+  label?: unknown;
+}
+
 // Membership runs 12 months from membership_started_at; flagged "due-soon" 30 days out.
 const RENEWAL_PERIOD_MONTHS = 12;
 const RENEWAL_REMINDER_DAYS = 30;
@@ -254,7 +264,12 @@ export class MembersService {
     const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
     if (!column) throw new BadRequestException(`Unknown edit section: ${section}`);
 
-    const items = (payload as Record<string, unknown>[]).map((item) => ({ id: randomUUID(), ...item }));
+    // proofAttachments is moderation-only evidence, embedded in the edit payload for review —
+    // it must never land in the public member_profiles column the applied item is written to.
+    const items = (payload as Record<string, unknown>[]).map(({ proofAttachments: _proofAttachments, ...item }) => ({
+      id: randomUUID(),
+      ...item,
+    }));
     await this.membersRepository.applySectionEdit(memberId, column, section, items);
   }
 
@@ -271,6 +286,29 @@ export class MembersService {
     }
     if (!Array.isArray(dto.payload)) {
       throw new BadRequestException(`${dto.section} payload must be an array.`);
+    }
+
+    if (PER_ITEM_PROOF_SECTIONS.includes(dto.section as (typeof PER_ITEM_PROOF_SECTIONS)[number])) {
+      for (const item of dto.payload as Record<string, unknown>[]) {
+        this.validateProofAttachments(dto.section, item.proofAttachments);
+      }
+    }
+  }
+
+  private validateProofAttachments(section: string, value: unknown): void {
+    if (value === undefined) return;
+    if (!Array.isArray(value)) {
+      throw new BadRequestException(`${section} item proofAttachments must be an array.`);
+    }
+    for (const attachment of value as ProofAttachmentInput[]) {
+      const validType = attachment.type === 'file' || attachment.type === 'link';
+      const validUrl = typeof attachment.url === 'string' && attachment.url.trim().length > 0;
+      const validLabel = typeof attachment.label === 'string' && attachment.label.trim().length > 0;
+      if (!validType || !validUrl || !validLabel) {
+        throw new BadRequestException(
+          `${section} item proofAttachments entries require type ('file'|'link'), url, and label.`
+        );
+      }
     }
   }
 

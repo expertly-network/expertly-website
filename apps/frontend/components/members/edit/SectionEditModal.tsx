@@ -12,9 +12,19 @@ import {
 import { createMemberEdit, requestMemberUpload } from '@/lib/api/members';
 import { uploadToSignedUrl } from '@/lib/api/upload';
 import { ApiError } from '@/lib/api/client';
-import type { CreateMemberEditRequest, MemberDto, MemberEditSection } from '@shared/member';
+import type { CreateMemberEditRequest, MemberDto, MemberEditSection, ProofAttachment } from '@shared/member';
 
 type Row = Record<string, unknown>;
+
+// Sections whose proof is embedded per row (payload[i].proofAttachments) rather than shared
+// across the whole batch via the modal-level proofFileUrl/proofLink fields.
+function hasPerItemProof(config: SectionConfig): boolean {
+  return config.shape === 'list-per-item-proof';
+}
+
+function rowAttachments(row: Row): ProofAttachment[] {
+  return Array.isArray(row.proofAttachments) ? (row.proofAttachments as ProofAttachment[]) : [];
+}
 
 // Submit isn't a native form submit, so required-field completeness is checked explicitly.
 function hasRequiredFieldsFilled(config: SectionConfig, data: Row | Row[]): boolean {
@@ -136,6 +146,10 @@ export function SectionEditModal({
   const [proofMode, setProofMode] = useState<'file' | 'link'>('link');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofLink, setProofLink] = useState('');
+  // Per-row link-being-typed text, for list-per-item-proof sections — kept out of `data` so it's
+  // never accidentally submitted as part of the row payload.
+  const [linkDrafts, setLinkDrafts] = useState<Record<number, string>>({});
+  const [uploadingRow, setUploadingRow] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -147,6 +161,8 @@ export function SectionEditModal({
     setProofMode('link');
     setProofFile(null);
     setProofLink('');
+    setLinkDrafts({});
+    setUploadingRow(null);
     setError(null);
   }
 
@@ -156,7 +172,11 @@ export function SectionEditModal({
   const activeSection = section;
 
   const config = SECTION_CONFIG[section];
-  const needsProof = config.shape === 'list-per-item-proof' || config.shape === 'list-shared-proof';
+  // list-shared-proof (education, work_experiences): one proof for the whole batch, via the
+  // modal-level widget below. list-per-item-proof (engagements, testimonials, awards): proof is
+  // embedded per row, rendered inline with that row instead.
+  const needsSharedProof = config.shape === 'list-shared-proof';
+  const needsPerItemProof = hasPerItemProof(config);
   const rows = Array.isArray(data) ? data : null;
 
   function updateField(rowIndex: number | null, key: string, value: unknown) {
@@ -181,7 +201,11 @@ export function SectionEditModal({
     setData(rows.filter((_, i) => i !== index));
   }
 
-  const proofSatisfied = !needsProof || Boolean(proofFile) || proofLink.trim().length > 0;
+  const proofSatisfied = needsSharedProof
+    ? Boolean(proofFile) || proofLink.trim().length > 0
+    : needsPerItemProof
+      ? (rows ?? []).every((row) => rowAttachments(row).length > 0)
+      : true;
   const canSubmit = proofSatisfied && hasRequiredFieldsFilled(config, data) && !submitting;
 
   // Uploads immediately per row, not deferred to submit like proof files.
@@ -197,6 +221,46 @@ export function SectionEditModal({
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Logo upload failed. Please try again.');
     }
+  }
+
+  // A row can carry any mix of multiple files and links — each upload appends, never replaces.
+  async function handleProofFilesSelected(rowIndex: number, files: FileList) {
+    setError(null);
+    setUploadingRow(rowIndex);
+    try {
+      const uploaded: ProofAttachment[] = [];
+      for (const file of Array.from(files)) {
+        const { uploadUrl, path } = await requestMemberUpload(member.id, {
+          fileName: file.name,
+          contentType: file.type,
+        });
+        await uploadToSignedUrl(uploadUrl, file);
+        uploaded.push({ type: 'file', url: path, label: file.name });
+      }
+      updateField(rowIndex, 'proofAttachments', [...rowAttachments((rows as Row[])[rowIndex]), ...uploaded]);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'File upload failed. Please try again.');
+    } finally {
+      setUploadingRow(null);
+    }
+  }
+
+  function addLinkAttachment(rowIndex: number) {
+    const url = (linkDrafts[rowIndex] ?? '').trim();
+    if (!url) return;
+    updateField(rowIndex, 'proofAttachments', [
+      ...rowAttachments((rows as Row[])[rowIndex]),
+      { type: 'link', url, label: url } satisfies ProofAttachment,
+    ]);
+    setLinkDrafts((prev) => ({ ...prev, [rowIndex]: '' }));
+  }
+
+  function removeAttachment(rowIndex: number, attachmentIndex: number) {
+    updateField(
+      rowIndex,
+      'proofAttachments',
+      rowAttachments((rows as Row[])[rowIndex]).filter((_, i) => i !== attachmentIndex)
+    );
   }
 
   async function handleSubmit() {
@@ -217,7 +281,7 @@ export function SectionEditModal({
       const body = {
         section,
         payload: data,
-        ...(needsProof
+        ...(needsSharedProof
           ? { proofFileUrl, proofLink: proofMode === 'link' ? proofLink.trim() || undefined : undefined }
           : {}),
       } as CreateMemberEditRequest;
@@ -284,6 +348,75 @@ export function SectionEditModal({
                     ) : null}
                   </div>
                 )}
+                {needsPerItemProof && (
+                  <div className="mt-3 rounded-xl border border-line p-3">
+                    <p className="text-xs font-medium text-ink-2">Proof for this item</p>
+                    {rowAttachments(row).length > 0 && (
+                      <ul className="mt-2 flex flex-col gap-1.5">
+                        {rowAttachments(row).map((attachment, ai) => (
+                          <li
+                            key={ai}
+                            className="flex items-center justify-between gap-2 rounded-input bg-bg-alt px-3 py-1.5 text-xs text-ink-2"
+                          >
+                            <span className="truncate">
+                              {attachment.type === 'file' ? '📎 ' : '🔗 '}
+                              {attachment.label}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachment(i, ai)}
+                              className="shrink-0 font-medium text-error"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <label className="rounded-input border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:border-ink">
+                        {uploadingRow === i ? 'Uploading…' : 'Add file(s)'}
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,.pdf"
+                          disabled={uploadingRow === i}
+                          onChange={(e) => {
+                            if (e.target.files?.length) handleProofFilesSelected(i, e.target.files);
+                            e.target.value = '';
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="…or paste a proof link (https://…)"
+                        value={linkDrafts[i] ?? ''}
+                        onChange={(e) => setLinkDrafts((prev) => ({ ...prev, [i]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addLinkAttachment(i);
+                          }
+                        }}
+                        className="min-w-0 flex-1 rounded-input border border-line px-3 py-1.5 text-xs outline-none focus:border-ink"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addLinkAttachment(i)}
+                        disabled={!(linkDrafts[i] ?? '').trim()}
+                        className="rounded-input border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:border-ink disabled:opacity-40"
+                      >
+                        Add link
+                      </button>
+                    </div>
+                    {rowAttachments(row).length === 0 && (
+                      <p className="mt-2 text-xs text-error">
+                        Please attach at least one file or link as proof for this item.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {rows.length < (config.maxItems ?? Infinity) && (
@@ -309,7 +442,7 @@ export function SectionEditModal({
           </div>
         )}
 
-        {needsProof && (
+        {needsSharedProof && (
           <div className="rounded-xl border border-line p-4">
             <p className="text-xs font-medium text-ink-2">Proof</p>
             <div className="mt-2 flex gap-2">

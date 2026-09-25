@@ -110,7 +110,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
 
 // Empty-row factories for "+ Add another" in SectionEditModal.
 export const EMPTY_ROW: Record<string, Record<string, unknown>> = {
-  engagements: { title: '', organization: '', year: undefined, url: '' },
+  engagements: { title: '', organization: '', year: undefined, url: '', proofAttachments: [] },
   education: { degree: '', institution: '', field: '', endYear: undefined },
   work_experiences: {
     title: '',
@@ -128,6 +128,7 @@ export const EMPTY_ROW: Record<string, Record<string, unknown>> = {
     clientCompany: '',
     serviceName: '',
     occurredOn: '',
+    proofAttachments: [],
   },
-  awards: { title: '', issuingBody: '', year: undefined, description: '' },
+  awards: { title: '', issuingBody: '', year: undefined, description: '', proofAttachments: [] },
 };

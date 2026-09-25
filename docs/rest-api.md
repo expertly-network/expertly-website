@@ -588,8 +588,11 @@ Requests a signed upload URL for a proof file or a key-client logo — Supabase 
 bytes. `@Roles('member')`, owner-only (`:id` must equal the caller's id).
 
 **Request:** `{ fileName: string, contentType: string }`. **Response `201`:** `{ uploadUrl: string,
-path: string }` — `path` is what gets sent back as `proofFileUrl`/`logoUrl` in a subsequent edit
-submission, not the raw `uploadUrl`.
+path: string }` — for the batch-shared-proof sections (`education`, `work_experiences`), `path`
+gets sent back as top-level `proofFileUrl`; for `key_clients`, as that row's `logoUploadPath`; for
+the per-item-proof sections (`engagements`, `testimonials`, `awards`), as the `url` of a `{ type:
+'file', url, label }` entry appended to that row's `proofAttachments` (see below) — call this
+endpoint once per file when a member attaches multiple.
 
 ### 🔒 `POST /v1/members/:id/edits`
 
@@ -603,8 +606,20 @@ row; **never touches the live profile** — that only happens on admin approval 
 discriminated union) and matches the section's actual base-data shape — **not** the prototype's
 flattened single-string-per-item shortcut (see `docs/database-erd.md`).
 
+Proof shape also depends on `section`: `education`/`work_experiences` use the top-level
+`proofFileUrl`/`proofLink` (one shared proof for the whole batch); `engagements`/`testimonials`/
+`awards` instead carry proof **per item**, as `payload[i].proofAttachments?:
+{type: 'file'|'link', url, label}[]` — a member can attach any mix of multiple files and links to
+a single item, not just one or the other. The DTO only validates `payload` is present (its exact
+shape is section-dependent, so class-validator can't express it) — `MembersService
+.validateEditPayloadShape()` does the real per-section check, including that every
+`proofAttachments` entry (when present) has a valid `type`/`url`/`label`. `proofAttachments` is
+moderation-only evidence: on admin approval it is stripped before the item is written into the
+live `member_profiles` column, so it's never exposed on the public `GET /v1/members/:id` response.
+
 **Response `201`:** `MemberProfileEditDto`. **Errors:** `401` · `403` not this member · `400`
-validation failure (payload shape doesn't match `section`).
+validation failure (payload shape doesn't match `section`, or a malformed `proofAttachments`
+entry).
 
 ### 🔒 `GET /v1/members/:id/edits`
 
