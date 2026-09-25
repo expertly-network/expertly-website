@@ -178,10 +178,21 @@ export class ContactEditPayload {
   @ApiProperty({ nullable: true, type: String }) website!: string | null;
 }
 
-// Proof/asset lives per-item for these sections, embedded in each array element.
-export type EngagementsEditPayload = (Omit<MemberEngagement, 'id'> & { proofFileUrl?: string; proofLink?: string })[];
-export type TestimonialsEditPayload = (Omit<MemberTestimonial, 'id' | 'isVerified'> & { proofFileUrl?: string; proofLink?: string })[];
-export type AwardsEditPayload = (Omit<MemberAward, 'id'> & { proofFileUrl?: string; proofLink?: string })[];
+// One piece of proof for a single item — `url` is a storage object path (from
+// POST /v1/members/:id/uploads) when type is 'file', or the raw URL the member pasted when
+// type is 'link'. `label` is what's shown in the attachment list (original filename, or the
+// link text itself).
+export class ProofAttachment {
+  @ApiProperty({ enum: ['file', 'link'] }) type!: 'file' | 'link';
+  @ApiProperty() url!: string;
+  @ApiProperty() label!: string;
+}
+
+// Proof/asset lives per-item for these sections, embedded in each array element — a member can
+// attach any mix of multiple files and links to a single item.
+export type EngagementsEditPayload = (Omit<MemberEngagement, 'id'> & { proofAttachments?: ProofAttachment[] })[];
+export type TestimonialsEditPayload = (Omit<MemberTestimonial, 'id' | 'isVerified'> & { proofAttachments?: ProofAttachment[] })[];
+export type AwardsEditPayload = (Omit<MemberAward, 'id'> & { proofAttachments?: ProofAttachment[] })[];
 export type KeyClientsEditPayload = (Omit<MemberKeyClient, 'id'> & { logoUploadPath?: string })[];
 
 // education / work_experiences: one shared proof for the whole batch, not per item.

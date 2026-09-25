@@ -507,6 +507,17 @@ for the whole batch submission (the `proof_file_url`/`proof_link` columns above)
 embedded directly inside each element of the `payload` array — which is why `payload` stays `jsonb`
 rather than becoming more structured columns.
 
+For `engagements`/`testimonials`/`awards`, that per-item proof is `proofAttachments?:
+{type: 'file'|'link', url: string, label: string}[]` (`ProofAttachment` in
+`packages/shared-types/member.ts`) — a member can attach any mix of multiple files and links to a
+single item, not just one of the two. (An earlier build of the self-edit UI only wired up one
+shared file-or-link widget for the whole modal, same shortcut the static prototype itself takes —
+that's now fixed to match this per-item design rather than left as a divergence.) `url` is a
+Storage object path for `type: 'file'` (from `POST /v1/members/:id/uploads`, one call per file) or
+the pasted URL for `type: 'link'`; `label` is the display text (original filename, or the link
+itself). `proofAttachments` is stripped out when an approved edit is written into the live
+`member_profiles` column (see below) — it's moderation evidence, never part of the public profile.
+
 On approval, `payload` becomes the live value for that member+section: for the array-shaped
 sections, the matching `jsonb` column on `member_profiles` is overwritten wholesale (a single
 `UPDATE`, each item assigned a fresh application-generated `id`); for `headline_bio`/`contact`, the
