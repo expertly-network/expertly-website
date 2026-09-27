@@ -205,11 +205,21 @@ As a member, I want to edit or delete my own article before or after publication
 ## US-08 — Admin: Application Review ✅
 
 ### US-08-01: Reviewing and deciding on an application
-As an admin with `manageApplications` permission, I want to review a submitted application and
-approve, reject, or waitlist it.
-- [ ] Gated by `@RequirePermission('manageApplications')`, not a bare `admin` role check — a
+As an admin with `manageApplications` permission, I want to review a submitted application on its
+own detail page — everything the applicant submitted, read-only — and approve or reject it.
+- [x] Gated by `@RequirePermission('manageApplications')`, not a bare `admin` role check — a
       `reviewer` sub-tier has exactly this permission and nothing else destructive
-- [ ] Approval triggers the role transition described in US-04-01
+- [x] `GET /v1/admin/applications/:id` (full detail) + `PATCH /v1/admin/applications/:id`
+      (decision) per `docs/rest-api.md`
+- [x] Approval triggers the role transition described in US-04-01
+- [x] Approving lets the admin choose exactly one of the applicant's submitted service
+      preferences, override the computed member tier, and set the membership start date — all
+      three are admin-decided at provisioning time, not corrections to what the applicant
+      submitted (those go through the separate `member_profile_edits` flow, US-09-01)
+- [x] Rejecting requires a reason, visible on the detail page after the fact
+- [x] The detail page is read-only for everything the applicant submitted (identity, bio, work
+      history, education, peer references, documents, photo, consents) — no inline editing of
+      applicant-submitted data
 
 ---
 

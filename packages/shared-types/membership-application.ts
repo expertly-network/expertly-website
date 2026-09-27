@@ -137,6 +137,9 @@ export class ApplicationDto {
   @ApiProperty({ nullable: true, type: String }) city!: string | null;
   @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
   @ApiProperty({ nullable: true, type: Boolean }) linkedinImportConsent!: boolean | null;
+  @ApiProperty({ nullable: true, type: Boolean }) backgroundCheckConsent!: boolean | null;
+  @ApiProperty({ nullable: true, type: String }) termsVersionAgreed!: string | null;
+  @ApiProperty({ nullable: true, type: String }) privacyVersionAgreed!: string | null;
   @ApiProperty({ nullable: true, type: String }) bio!: string | null;
   @ApiProperty({ nullable: true, type: Number }) yearsOfExperience!: number | null;
   @ApiProperty({ type: () => WorkExperienceInput, isArray: true }) workExperiences!: WorkExperienceInput[];
@@ -153,6 +156,8 @@ export class ApplicationDto {
   @ApiProperty({ nullable: true, type: Number }) amountDueCents!: number | null;
   @ApiProperty({ nullable: true, enum: ['pending', 'waived', 'paid'] }) paymentStatus!: PaymentStatus | null;
   @ApiProperty() createdAt!: string;
+  /** Set only once status is 'rejected'. */
+  @ApiProperty({ nullable: true, type: String }) rejectionReason!: string | null;
 }
 
 export class LinkedInImportRequest {
@@ -183,6 +188,17 @@ export class AdminApplicationReviewRequest {
    * the applicant's other submitted preferences are not auto-approved.
    */
   @ApiPropertyOptional() approvedServiceId?: string;
+  /**
+   * Optional admin override, only used when status is 'approved'. Falls back to the applicant's
+   * own computed selectedTier when omitted.
+   */
+  @ApiPropertyOptional({ enum: ['budding_entrepreneur', 'seasoned_professional'] })
+  memberTier?: MembershipTier;
+  /**
+   * Optional, only used when status is 'approved'. ISO date string. Defaults to today when
+   * omitted — see docs/rest-api.md.
+   */
+  @ApiPropertyOptional() membershipStartedAt?: string;
 }
 
 /** POST /v1/applications/me/coupon-preview request body — a stateless price calculation. */
@@ -209,12 +225,19 @@ export class AdminApplicationListItemDto {
   @ApiProperty() firstName!: string;
   @ApiProperty() lastName!: string;
   @ApiProperty() contactEmail!: string;
+  @ApiProperty({ nullable: true, type: String }) phoneCountryCode!: string | null;
+  @ApiProperty({ nullable: true, type: String }) phone!: string | null;
+  @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) yearsOfExperience!: number | null;
   @ApiProperty() country!: string;
+  @ApiProperty({ nullable: true, type: String }) state!: string | null;
   @ApiProperty({ nullable: true, type: String }) selectedTier!: MembershipTier | null;
   @ApiProperty({ nullable: true, type: String }) billingPeriod!: BillingPeriod | null;
   @ApiProperty({ nullable: true, type: Number }) amountDueCents!: number | null;
   @ApiProperty({ enum: ['pending', 'waived', 'paid'] }) paymentStatus!: PaymentStatus;
   @ApiProperty() createdAt!: string;
+  /** Set only when status is 'rejected'. */
+  @ApiProperty({ nullable: true, type: String }) rejectionReason!: string | null;
   /** The applicant's submitted preferences — admin picks exactly one of these to approve. */
   @ApiProperty({ type: () => ServicePreference, isArray: true }) servicePreferences!: ServicePreference[];
 }

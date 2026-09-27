@@ -51,6 +51,28 @@ export async function getAdminApplicationsServer(status?: string): Promise<Admin
   return res.json();
 }
 
+// Returns full detail for the admin review page, or null if not found.
+export async function getAdminApplicationServer(id: string): Promise<ApplicationDto | null> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/applications/${id}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load application.', res.status);
+  }
+
+  return res.json();
+}
+
 // Returns the member directory list for the given query string.
 export async function getMembersServer(queryString: string): Promise<MemberListItemDto[]> {
   const res = await fetch(`${getApiBaseUrlServer()}/v1/members${queryString}`, {

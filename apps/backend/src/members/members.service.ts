@@ -342,6 +342,7 @@ export class MembersService {
 
     return {
       id: row.profile_id,
+      slug: row.slug,
       name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Unknown member',
       initials,
       headline: row.headline,

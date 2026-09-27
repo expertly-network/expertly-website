@@ -117,9 +117,17 @@ const config: Config = {
             opacity: '0',
           },
         },
+        // A member profile's Key Clients row (design/static_html/assets/styles.css's
+        // .mp-clients-grid) — the list is rendered twice back to back so translateX(-50%) loops
+        // seamlessly with no visible seam or reset jump.
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         'confetti-fall': 'confetti-fall 2s ease-in forwards',
+        marquee: 'marquee 28s linear infinite',
       },
     },
   },

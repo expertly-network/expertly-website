@@ -406,6 +406,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 |---|---|---|
 | `id` | uuid PK, own generated value | internal surrogate key — not exposed in the API, nothing else references it |
 | `profile_id` | uuid, unique, FK → `profiles.id` | the "real" identity — this is `MemberDto.id`, and what every other table's `member_id` column references |
+| `slug` | text, unique, not null | added 2026-09-27. Server-generated at provisioning time (`ApplicationsService.reviewApplication()`, from the applicant's name) via `generateUniqueSlug()` — the same mechanism `events`/`articles` use for their own slugs (`apps/backend/src/common/slugify.ts`): kebab-case, `-2`/`-3`/... suffix on collision. Never regenerated afterward, even if the member's name changes later — same "permanent identifier" rule those slugs follow. Exposed on `MemberListItemDto`/`MemberDto` but not yet wired into routing — `/members/[id]` is unaffected for now, matching `articles.slug`'s own not-yet-wired state (see below). |
 | `headline`, `bio` | text | |
 | `firm_name` | text, nullable | **Null, not the prototype's literal `'Independent'` string** — render that label at the UI layer. Baking display text into data was a deliberate thing *not* to reproduce. |
 | `firm_website` | text, nullable | |

@@ -43,6 +43,14 @@ export function BackgroundStep({
       else if (!w.company.trim()) e[`workExperiences.${i}.company`] = 'Company is required.';
       else if (!w.startYear) e[`workExperiences.${i}.startYear`] = 'Start year is required.';
     });
+    // One entry must be marked as the applicant's current position — it becomes the approved
+    // member's firm name, so it can't be silently absent (backend enforces this too, at submit).
+    if (
+      Object.keys(e).length === 0 &&
+      !form.workExperiences.some((w) => w.isCurrent && w.company.trim())
+    ) {
+      e.workExperiencesCurrent = 'Mark your current position — this becomes your firm name once approved.';
+    }
     form.educations.forEach((edu, i) => {
       if (!edu.institution.trim()) e[`educations.${i}.institution`] = 'Institution is required.';
       else if (!edu.degree.trim()) e[`educations.${i}.degree`] = 'Degree is required.';
@@ -82,7 +90,9 @@ export function BackgroundStep({
     const next = [...form.workExperiences];
     next[index] = { ...next[index], ...patch };
     update({ workExperiences: next });
-    clearErrors(Object.keys(patch).map((key) => `workExperiences.${index}.${key}`));
+    const fieldsToClear = Object.keys(patch).map((key) => `workExperiences.${index}.${key}`);
+    if ('isCurrent' in patch || 'company' in patch) fieldsToClear.push('workExperiencesCurrent');
+    clearErrors(fieldsToClear);
   }
 
   function updateEdu(index: number, patch: Partial<WizardFormState['educations'][number]>) {
@@ -130,6 +140,12 @@ export function BackgroundStep({
         </span>
         <span className="text-xs text-ink-3">1 required · up to 5 entries</span>
       </div>
+
+      {errors.workExperiencesCurrent && (
+        <div className="mt-3">
+          <ErrorBanner message={errors.workExperiencesCurrent} />
+        </div>
+      )}
 
       <div className="mt-4 flex flex-col gap-4">
         {form.workExperiences.map((work, i) => (

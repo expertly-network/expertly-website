@@ -15,6 +15,7 @@ import {
 } from '@/components/apply/types';
 import { TERMS_OF_SERVICE_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { previewCoupon } from '@/lib/api/applications';
+import { ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
 import type { CouponPreviewResponse } from '@shared/membership-application';
 import type { CategoryDto } from '@shared/category';
 
@@ -462,75 +463,6 @@ export function ReviewSubmitStep({
         nextLabel={saving ? 'Submitting…' : 'Submit application'}
         nextDisabled={saving}
       />
-    </div>
-  );
-}
-
-function ReviewRow({
-  label,
-  value,
-  multiline,
-  href,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-  href?: string;
-}) {
-  return (
-    <div className={`grid grid-cols-[140px_1fr] gap-4 px-6 py-3.5 text-sm ${multiline ? 'items-start' : 'items-center'}`}>
-      <span className="text-mono-label text-ink-3">{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="break-all text-accent underline hover:text-ink"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className={`text-ink ${multiline ? 'whitespace-pre-wrap' : ''}`}>{value || '—'}</span>
-      )}
-    </div>
-  );
-}
-
-// For fields that are a list of structured entries (work history, education, services, peer
-// references) rather than a single value — the flat "joined with · " rendering these used to
-// share lost most of what the applicant actually entered (dates, city, firm size, contact info).
-function ReviewListRow({
-  label,
-  items,
-}: {
-  label: string;
-  items: { title: string; detail?: string; link?: { href: string; label: string } }[];
-}) {
-  return (
-    <div className="grid grid-cols-[140px_1fr] items-start gap-4 px-6 py-3.5 text-sm">
-      <span className="mt-0.5 text-mono-label text-ink-3">{label}</span>
-      {items.length === 0 ? (
-        <span className="text-ink">—</span>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {items.map((item, i) => (
-            <div key={i}>
-              <div className="text-ink">{item.title}</div>
-              {item.detail && <div className="mt-0.5 text-xs text-ink-3">{item.detail}</div>}
-              {item.link && (
-                <a
-                  href={item.link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-0.5 inline-block text-xs text-accent underline hover:text-ink"
-                >
-                  {item.link.label}
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

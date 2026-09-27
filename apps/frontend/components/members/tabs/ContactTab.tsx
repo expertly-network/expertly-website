@@ -35,7 +35,7 @@ export function ContactTab({
       <div className="flex items-center justify-between">
         <h2 className="text-title text-ink">Contact Information</h2>
         <div className="flex items-center gap-2">
-          <SectionBadge status={getSectionEditBadge('contact', edits)} />
+          <SectionBadge status={getSectionEditBadge('contact', edits, member.isVerified)} />
           {isOwnProfile && (
             <button type="button" onClick={() => onEdit('contact')} className="text-xs font-medium text-accent">
               Edit

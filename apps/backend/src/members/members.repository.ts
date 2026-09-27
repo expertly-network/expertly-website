@@ -21,6 +21,7 @@ import type {
 // exposes as MemberDto.id.
 const MEMBER_PROFILE_COLUMNS = [
   'profile_id',
+  'slug',
   'headline',
   'bio',
   'firm_name',
@@ -78,6 +79,7 @@ const PROFILE_IDENTITY_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'ava
 
 export interface MemberProfileRow {
   profile_id: string;
+  slug: string;
   headline: string | null;
   bio: string | null;
   firm_name: string | null;

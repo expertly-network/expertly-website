@@ -90,6 +90,8 @@ export class MemberKeyClient {
 // GET /v1/members list-view shape. No child arrays, no self-edit state.
 export class MemberListItemDto {
   @ApiProperty() id!: string;
+  /** Server-generated at provisioning time, kebab-case, never regenerated afterward. */
+  @ApiProperty() slug!: string;
   @ApiProperty() name!: string;
   @ApiProperty() initials!: string;
   @ApiProperty({ nullable: true, type: String }) headline!: string | null;

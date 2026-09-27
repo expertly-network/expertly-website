@@ -261,17 +261,28 @@ export class ApplicationsService {
     return this.uploadFile(user, 'photo', { buffer, size: buffer.length, originalname: 'linkedin-photo' });
   }
 
-  // 🛡️ manageApplications — defaults to the two reviewable statuses (submitted, under_review).
+  // 🛡️ manageApplications — returns every status by default; the admin table filters client-side.
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
     const rows = await this.applicationsRepository.listForReview(status);
 
-    const allPreferences = rows.flatMap((r) => (r.service_preferences ?? []) as { serviceId: string }[]);
+    // Repository selects this column pre-aliased to camelCase (see ADMIN_LIST_COLUMNS) — unlike
+    // the rest of this file's row shapes, so it's `row.servicePreferences`, not the snake_case
+    // `row.service_preferences` every other query here returns.
+    const allPreferences = rows.flatMap((r) => (r.servicePreferences ?? []) as { serviceId: string }[]);
     const serviceDetails = await this.resolveServiceDetails(allPreferences);
 
     return rows.map((row) => ({
       ...row,
-      servicePreferences: this.toServicePreferences(row.service_preferences ?? [], serviceDetails),
+      servicePreferences: this.toServicePreferences(row.servicePreferences ?? [], serviceDetails),
     })) as unknown as AdminApplicationListItemDto[];
+  }
+
+  // 🛡️ manageApplications — the exact same ApplicationDto shape the applicant sees on their own
+  // review step, for the admin detail page.
+  async getForReview(id: string): Promise<ApplicationDto> {
+    const application = await this.applicationsRepository.findByIdForReview(id);
+    const serviceDetails = await this.resolveServiceDetails(application.service_preferences ?? []);
+    return this.toDto(application, serviceDetails);
   }
 
   // Approves or rejects a submitted application, provisioning a member profile on approval.
@@ -314,9 +325,35 @@ export class ApplicationsService {
       return { status: 'rejected' };
     }
 
+    const slug = await this.applicationsRepository.findUniqueMemberSlug(
+      `${application.first_name} ${application.last_name}`
+    );
+
+    // Same shape assertComplete() now requires at submit time — a current (isCurrent) position
+    // with a company name. Older applications submitted before that check existed may still lack
+    // one; fall back to the most recent entry rather than leaving firm_name silently null.
+    const workExperiences = (application.work_experiences ?? []) as {
+      title: string;
+      company: string;
+      companyUrl?: string;
+      startYear: number;
+      endYear?: number;
+      isCurrent: boolean;
+    }[];
+    const educations = (application.educations ?? []) as {
+      institution: string;
+      degree: string;
+      fieldOfStudy?: string;
+      endYear?: number;
+    }[];
+    const currentJob = workExperiences.find((w) => w.isCurrent) ?? workExperiences[0];
+
     await this.applicationsRepository.insertMemberProfile({
       profile_id: application.applicant_id,
+      slug,
       bio: application.bio,
+      firm_name: currentJob?.company ?? null,
+      firm_website: currentJob?.companyUrl ?? null,
       region: application.region,
       country: application.country,
       state: application.state,
@@ -324,9 +361,37 @@ export class ApplicationsService {
       years_of_experience: application.years_of_experience,
       rate_min_cents: application.rate_min_cents,
       rate_max_cents: application.rate_max_cents,
-      member_tier: application.selected_tier,
+      // Admin can override the tier computed at submission; falls back to it when omitted.
+      member_tier: dto.memberTier ?? application.selected_tier,
+      // Explicit rather than omitted-and-DB-defaulted, so the inserted row's start date is always
+      // traceable to a value this call actually decided (the admin's input, or "now" computed
+      // here) — same effective default as before, just no longer implicit.
+      membership_started_at: dto.membershipStartedAt ?? new Date().toISOString(),
       contact_email: application.contact_email,
+      // member_profiles.contact_phone is one field (unlike the application's split
+      // phone_country_code/phone) — same join convention the frontend already uses for display.
+      contact_phone: application.phone ? `${application.phone_country_code ?? ''} ${application.phone}`.trim() : null,
       linkedin_url: application.linkedin_url,
+      // Member profile's work-history/education shape is simpler than the application's own
+      // (id-keyed, no city/firmSize/companyUrl/startMonth/endMonth, description instead) — same
+      // { id: randomUUID(), ...item } convention MembersService uses when a member's own
+      // self-edit gets applied to these same jsonb columns.
+      work_experiences: workExperiences.map((w) => ({
+        id: randomUUID(),
+        title: w.title,
+        company: w.company,
+        startYear: w.startYear,
+        endYear: w.endYear ?? null,
+        isCurrent: w.isCurrent,
+        description: null,
+      })),
+      educations: educations.map((e) => ({
+        id: randomUUID(),
+        degree: e.degree,
+        institution: e.institution,
+        field: e.fieldOfStudy ?? null,
+        endYear: e.endYear ?? null,
+      })),
       // Same bucket, same path as the source application — application-assets is public now, so
       // no file copy and no signing is needed, just carry the path forward as-is.
       photo_path: application.photo_path,
@@ -392,11 +457,16 @@ export class ApplicationsService {
     // block submission on it in that one case.
     if (row.region == null && row.country !== 'Other') missing.push('region');
 
-    const workExperiences = (row.work_experiences ?? []) as unknown[];
+    const workExperiences = (row.work_experiences ?? []) as { company?: string; isCurrent?: boolean }[];
     const educations = (row.educations ?? []) as unknown[];
     const peerReferences = (row.peer_references ?? []) as unknown[];
     const servicePreferences = (row.service_preferences ?? []) as unknown[];
     if (workExperiences.length < 1) missing.push('workExperiences');
+    // Whichever entry is marked isCurrent becomes the approved member's firm_name — require one
+    // so that's never silently null (see ApplicationsService.reviewApplication()'s approve path).
+    else if (!workExperiences.some((w) => w.isCurrent && w.company?.trim())) {
+      missing.push('workExperiences must include a current position (isCurrent) with a company name');
+    }
     if (educations.length < 1) missing.push('educations');
     if (peerReferences.length !== 2) missing.push('peerReferences (exactly 2 required)');
     if (servicePreferences.length < 1) missing.push('servicePreferences');
@@ -465,6 +535,9 @@ export class ApplicationsService {
       city: row.city,
       linkedinUrl: row.linkedin_url,
       linkedinImportConsent: row.linkedin_import_consent,
+      backgroundCheckConsent: row.background_check_consent,
+      termsVersionAgreed: row.terms_version_agreed,
+      privacyVersionAgreed: row.privacy_version_agreed,
       bio: row.bio,
       yearsOfExperience: row.years_of_experience,
       workExperiences: row.work_experiences ?? [],
@@ -481,6 +554,7 @@ export class ApplicationsService {
       amountDueCents: row.amount_due_cents,
       paymentStatus: row.payment_status,
       createdAt: row.created_at,
+      rejectionReason: row.rejection_reason,
     };
   }
 }

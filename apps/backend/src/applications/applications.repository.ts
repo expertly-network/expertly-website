@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
+import { generateUniqueSlug } from '../common/slugify';
 import type { Database } from '../supabase/database.types';
 import type { ApplicationStatus } from '@shared/membership-application';
 
@@ -56,12 +57,19 @@ const ADMIN_LIST_COLUMNS = [
   'firstName:first_name',
   'lastName:last_name',
   'contactEmail:contact_email',
+  'phoneCountryCode:phone_country_code',
+  'phone',
+  'linkedinUrl:linkedin_url',
+  'yearsOfExperience:years_of_experience',
   'country',
+  'state',
   'selectedTier:selected_tier',
   'billingPeriod:billing_period',
   'amountDueCents:amount_due_cents',
   'paymentStatus:payment_status',
   'createdAt:created_at',
+  // Only ever set when status is 'rejected'.
+  'rejectionReason:rejection_reason',
   // Raw {serviceId, priority, customLabel}[] — resolved to full ServicePreference (with
   // name/category) in the service layer, same as the applicant-facing ApplicationDto.
   'servicePreferences:service_preferences',
@@ -75,7 +83,12 @@ export type ApplicationRow = Record<string, any>; // eslint-disable-line @typesc
 type MembershipApplicationInsert = Database['public']['Tables']['membership_applications']['Insert'];
 type MembershipApplicationUpdate = Database['public']['Tables']['membership_applications']['Update'];
 
-export type MemberProfileInsert = Database['public']['Tables']['member_profiles']['Insert'];
+// `& { slug }`: member_profiles.slug was added in supabase/migrations/0004_tables.sql
+// (2026-09-27) but this environment has no SUPABASE_DB_URL to run `pnpm gen:types` against the
+// live schema, so the generated Database type doesn't know about it yet. Safe to drop this
+// intersection (never hand-edit database.types.ts itself) once types are regenerated after the
+// migration is applied — the generated Insert type will include `slug` natively then.
+export type MemberProfileInsert = Database['public']['Tables']['member_profiles']['Insert'] & { slug: string };
 
 export interface ServiceDetail {
   name: string;
@@ -177,8 +190,20 @@ export class ApplicationsRepository {
     if (error) throw new InternalServerErrorException('Failed to reject application.');
   }
 
+  // Same mechanism events/articles use for their own slugs — kebab-case, `-2`/`-3`/... suffix on
+  // collision against member_profiles.slug.
+  async findUniqueMemberSlug(name: string): Promise<string> {
+    return generateUniqueSlug(this.supabase.db, 'member_profiles', name, 'member');
+  }
+
   async insertMemberProfile(row: MemberProfileInsert): Promise<void> {
-    const { error } = await this.memberProfiles().insert(row);
+    // `row`'s `slug` isn't in the generated Insert type yet (see MemberProfileInsert's comment) —
+    // supabase-js's typed `.insert()` rejects unknown properties outright (stricter than a plain
+    // structural cast), so this needs the same "loosely typed at the call site" escape hatch this
+    // file already uses for membership_applications' insert/update above.
+    const { error } = await this.memberProfiles().insert(
+      row as unknown as Database['public']['Tables']['member_profiles']['Insert']
+    );
     if (error) throw new InternalServerErrorException('Failed to provision member profile.');
   }
 
@@ -207,7 +232,10 @@ export class ApplicationsRepository {
       .select(ADMIN_LIST_COLUMNS.join(', '))
       .order('created_at', { ascending: false });
 
-    query = status ? query.eq('status', status) : query.in('status', ['submitted', 'under_review']);
+    // Unfiltered default is every status — the admin UI's own status filter (client-side) is what
+    // narrows this down; the backend no longer pre-excludes 'draft'/'approved' rows (changed
+    // 2026-09-27, see docs/rest-api.md).
+    if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
     if (error) throw new InternalServerErrorException('Failed to load applications.');

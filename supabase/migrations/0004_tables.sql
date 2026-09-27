@@ -745,6 +745,13 @@ create table public.member_profiles (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null unique references public.profiles (id) on delete cascade,
 
+  -- Server-generated at provisioning time (ApplicationsService.reviewApplication(), from the
+  -- applicant's name) via the same generateUniqueSlug() mechanism events/articles use for their
+  -- own slugs (apps/backend/src/common/slugify.ts) — kebab-case, `-2`/`-3`/... suffix on
+  -- collision. Never regenerated afterward even if the member's name changes later, same
+  -- "permanent identifier, not a live mirror of the title" rule those slugs already follow.
+  slug text not null unique,
+
   headline text,
   bio text,
   -- Null means independent/no firm — the prototype bakes the literal string 'Independent' into

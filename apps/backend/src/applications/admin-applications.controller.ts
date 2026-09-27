@@ -3,7 +3,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
+import type {
+  AdminApplicationListItemDto,
+  ApplicationDto,
+  ApplicationStatus,
+} from '@shared/membership-application';
 import { ApplicationsService } from './applications.service';
 import { ReviewApplicationDto } from './dto/review-application.dto';
 
@@ -14,10 +18,17 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 export class AdminApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
-  // Defaults to the review queue (submitted + under_review) when status is omitted.
+  // Returns every status when status is omitted — the admin table filters client-side.
   @Get('applications')
   list(@Query('status') status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
     return this.applicationsService.listForReview(status);
+  }
+
+  // Full detail for the review page — same ApplicationDto shape as the applicant's own
+  // GET /v1/applications/me.
+  @Get('applications/:id')
+  getOne(@Param('id') id: string): Promise<ApplicationDto> {
+    return this.applicationsService.getForReview(id);
   }
 
   @Patch('applications/:id')

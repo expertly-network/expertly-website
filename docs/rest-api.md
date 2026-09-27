@@ -91,8 +91,10 @@ ever runs, so a malformed body from a non-client caller surfaces as `400` first,
 - `status: 'submitted'` in the body → after merging, the **merged row** (not just this call's
   body) must satisfy every requirement the old one-shot `POST /v1/applications` used to enforce
   (all identity/background/services/rates fields present, `workExperiences`/`educations`/
-  `servicePreferences` non-empty, `peerReferences` exactly 2 entries (added 2026-08-31 per
-  client feedback), `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
+  `servicePreferences` non-empty, **`workExperiences` must include one entry with
+  `isCurrent: true` and a non-empty `company`** (added 2026-09-27 — this becomes the approved
+  member's `firm_name`, so it can't be silently absent), `peerReferences` exactly 2 entries (added
+  2026-08-31 per client feedback), `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
   terms/privacy versions present) — missing/invalid fields are named in the `400` response body,
   not just a generic rejection. On success: computes `selectedTier`, `listPriceCents`,
   `discountAmountCents`, `amountDueCents`, `paymentStatus` exactly as the old endpoint did (see
@@ -137,7 +139,8 @@ wizard step to resume on, pure UX convenience, not validated).
 **Response `200`:** `ApplicationDto` — the full current record (draft or submitted), including
 resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`, a `photoUrl` (a plain,
 permanent public URL built from the Storage path at read time — see the uploads endpoint below),
-and `documents[]`.
+`documents[]`, and (added 2026-09-27, also surfaced on the admin detail endpoint above)
+`backgroundCheckConsent`/`termsVersionAgreed`/`privacyVersionAgreed`.
 
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
 already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
@@ -218,16 +221,31 @@ extension/declared content-type).
 
 ## Membership applications — admin
 
+### 🛡️ `manageApplications` `GET /v1/admin/applications/:id`
+
+Full detail for the admin review page (`apps/frontend/app/(shell)/admin/applications/[id]/`) — the
+exact same `ApplicationDto` shape the applicant sees on their own `GET /v1/applications/me`,
+including `servicePreferences[]` so the admin can pick which one to approve.
+
+**Response `200`:** `ApplicationDto`. **Errors:** `401`/`403` per the 🛡️ badge · `404` no such
+application.
+
 ### 🛡️ `manageApplications` `PATCH /v1/admin/applications/:id`
 
 Approve or reject a `submitted`/`under_review` application. Consumed by
-`apps/frontend/app/(shell)/admin/applications/page.tsx` /
-`components/admin/AdminApplicationsTable.tsx` (stale note removed 2026-09-26 — this doc previously
-said no admin UI consumed this route; that page already existed).
+`components/admin/ApplicationReviewDetail.tsx` via the `apps/frontend/app/(shell)/admin/applications/[id]/page.tsx`
+detail page — `AdminApplicationsTable.tsx` only links to that page and no longer calls this
+endpoint directly.
 
 **Request:** `AdminApplicationReviewRequest` — `{ status: 'approved' | 'rejected', rejectionReason?:
-string, approvedServiceId?: string }` (`rejectionReason` required when rejecting;
-`approvedServiceId` required when approving, as of 2026-09-26).
+string, approvedServiceId?: string, memberTier?: MembershipTier, membershipStartedAt?: string }`
+(`rejectionReason` required when rejecting; `approvedServiceId` required when approving, as of
+2026-09-26). `memberTier`/`membershipStartedAt` are optional admin overrides used only when
+approving — added 2026-09-27. `memberTier` falls back to the applicant's own computed
+`selectedTier` when omitted; `membershipStartedAt` (ISO date) falls back to "now" when omitted.
+Both map directly onto the same `member_profiles.member_tier`/`membership_started_at` columns
+`PATCH /v1/admin/members/:id` already treats as admin-editable — this is the same "admin corrects a
+lifecycle fact" concept at provisioning time, not a new one.
 
 **On approve:** provisions a `member_profiles` row (1:1 field mapping from the application row)
 and exactly **one** `member_services` row — for `approvedServiceId`, which must be one of the
@@ -237,13 +255,47 @@ leaves the application `submitted` (still reviewable) rather than silently `appr
 member actually provisioned. Not a true DB transaction — supabase-js has no multi-statement
 transaction API from a service-role client.
 
+`member_profiles.member_tier` is `memberTier` if the admin supplied one, else the application's own
+`selected_tier`; `membership_started_at` is `membershipStartedAt` if supplied, else the time of
+approval — both set explicitly on insert now, not left to the DB's `now()` default the way
+`membership_started_at` used to be. No `member_profiles.approved_by` column — the reviewing admin
+is traceable via `member_profiles.application_id` → `membership_applications.reviewed_by` (a
+deliberate decision, not a gap — see
+`docs/superpowers/specs/2026-09-27-admin-application-review-detail-design.md`).
+
+Fixed 2026-09-27: `insertMemberProfile()` had never actually mapped `firm_name`/`firm_website`/
+`contact_phone`/`work_experiences`/`educations` from the application — a pre-existing gap that
+only surfaced once an application was approved end-to-end for the first time (every prior approve
+silently left these null/empty). Now: `firm_name`/`firm_website` come from whichever
+`work_experiences` entry has `isCurrent: true` (`company`/`companyUrl`); `contact_phone` joins the
+application's split `phoneCountryCode`+`phone` into one string; `work_experiences`/`educations` are
+mapped into the member profile's own simpler per-item shape (`id`-keyed
+`MemberWorkExperience`/`MemberEducation`, dropping fields like `city`/`firmSize`/`companyUrl` the
+member-facing shape doesn't carry). `assertComplete()` (submit-time validation on
+`POST /v1/applications/me`) now requires at least one `workExperiences` entry to be `isCurrent`
+with a non-empty `company` — this is what becomes `firm_name`, so it's compulsory to submit, not
+optional.
+
 Changed 2026-09-26: previously provisioned a `member_services` row for **every** submitted
 preference with no way to approve just one, which (a) meant "forgetting" to narrow it down
 approved all of them, and (b) crashed outright if two preferences shared a `serviceId` (most
 commonly two different "Other" custom labels — `member_services`' primary key is
 `(member_id, service_id)`, so the second insert violated it). `GET /v1/admin/applications` now also
 returns each row's `servicePreferences[]` (serviceName/customLabel resolved, same shape as
-`ApplicationDto`) specifically so the approving admin can choose from them.
+`ApplicationDto`) specifically so the approving admin can choose from them. Also returns
+`phoneCountryCode`/`phone`/`linkedinUrl`/`yearsOfExperience` (added 2026-09-27) so the review queue
+table can show enough to triage without opening the detail page — the admin UI filters this list
+client-side (by name, by status) rather than via new query params, since the queue is small and
+already fully loaded per request.
+
+**Default status filter changed 2026-09-27, twice**: first to also include `rejected` (with its
+`rejectionReason`, also added to this list row) instead of dropping a decided-rejected application
+from view entirely; then, same day, to drop the server-side status filter altogether — with no
+`status` query param this now returns **every** status, including `draft` and `approved`, newest
+first, and `createdAt` is shown per row so the admin can tell drafts/old submissions apart. The
+admin table filters client-side (by name, by status) rather than the backend narrowing what it
+returns — the queue is small and already fully loaded per request either way. An explicit
+`?status=` value is unchanged — it still filters to exactly that one status.
 
 **On reject:** stamps `reviewed_by`/`reviewed_at`/`rejection_reason` only.
 
@@ -608,8 +660,9 @@ must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
 (`featured`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
 `pageSize=8`, matching the prototype's infinite-scroll page size).
 
-**Response `200`:** `MemberListItemDto[]` — id, name, initials, headline, bio, firmName, region,
-country, city, services (`{id, name, categoryId, categoryName}[]`, from `member_services`),
+**Response `200`:** `MemberListItemDto[]` — id, slug (added 2026-09-27; server-generated, unique,
+not yet used for routing — see `docs/database-erd.md`), name, initials, headline, bio, firmName,
+region, country, city, services (`{id, name, categoryId, categoryName}[]`, from `member_services`),
 isVerified, memberTier, yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl.
 Tenure/rate display strings
 (`"18y"`, `"$420/hr"`) are **not** returned — format them client-side from the numeric fields.

@@ -35,7 +35,7 @@ export function ReviewsTab({
         <div className="flex items-center justify-between">
           <h2 className="text-title text-ink">Client Testimonials</h2>
           <div className="flex items-center gap-2">
-            <SectionBadge status={getSectionEditBadge('testimonials', edits)} />
+            <SectionBadge status={getSectionEditBadge('testimonials', edits, member.isVerified)} />
             {isOwnProfile && (
               <button type="button" onClick={() => onEdit('testimonials')} className="text-xs font-medium text-accent">
                 Edit
@@ -65,7 +65,7 @@ export function ReviewsTab({
         <div className="flex items-center justify-between">
           <h2 className="text-title text-ink">Awards &amp; Recognition</h2>
           <div className="flex items-center gap-2">
-            <SectionBadge status={getSectionEditBadge('awards', edits)} />
+            <SectionBadge status={getSectionEditBadge('awards', edits, member.isVerified)} />
             {isOwnProfile && (
               <button type="button" onClick={() => onEdit('awards')} className="text-xs font-medium text-accent">
                 Edit

@@ -263,7 +263,7 @@ profile_bits as (
   join auth.users seed on seed.email = 'member' || n.n || '@expertlyseed.test'
 )
 insert into public.member_profiles (
-  profile_id, headline, bio, firm_name, firm_website, region, country, state, city,
+  profile_id, slug, headline, bio, firm_name, firm_website, region, country, state, city,
   years_of_experience, rate_min_cents, rate_max_cents, rate_currency, member_tier,
   is_available, availability_notes, contact_email, contact_phone, linkedin_url, website,
   is_verified, photo_path, status,
@@ -271,6 +271,11 @@ insert into public.member_profiles (
 )
 select
   profile_id,
+  -- first_name/last_name are drawn 1:1 by the same index n from two 50-distinct-value arrays
+  -- (see the `names` CTE), so every row's pair is unique by construction — no collision
+  -- suffixing needed here, unlike the real generateUniqueSlug() the app uses at actual
+  -- provisioning time (apps/backend/src/common/slugify.ts).
+  lower(first_name) || '-' || lower(last_name),
   title,
   first_name || ' ' || last_name || ' is a ' || lower(title) || ' with ' || years_of_experience
     || 'y of experience specialising in ' || primary_practice || ' '
