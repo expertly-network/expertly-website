@@ -244,6 +244,66 @@ sequenceDiagram
 
 ---
 
+## Part 1b — Linking LinkedIn to an existing email/password account (membership applications)
+
+Added 2026-09-26. **Plain English:** a `client` who signed up with email/password can still apply
+to become a member, but before they can, we now make them actually connect a real LinkedIn account
+to their existing account — not just paste a profile link. That connection is what lets us trust
+the profile is genuinely theirs and pull a real photo, instead of trusting an unverified pasted
+URL.
+
+**Technical:** `apps/frontend/components/apply/steps/LinkedInImportStep.tsx` (application wizard
+step 1) checks `supabase.auth.getUserIdentities()` on mount. If no `linkedin_oidc` identity is
+present (i.e. the applicant signed up via the User tab's email/password path, not its "Continue
+with LinkedIn" option), it blocks progress behind a "Connect your LinkedIn" button that calls
+`linkLinkedInIdentity()` (`apps/frontend/lib/auth/linkedin.ts`) —
+`supabase.auth.linkIdentity({ provider: 'linkedin_oidc' })`, **not** `signInWithOAuth()`: this
+attaches a second identity to the *currently signed-in* user rather than starting a new sign-in.
+It redirects through the same PKCE flow and the same `/auth/callback` route as ordinary LinkedIn
+sign-in (no callback-route changes were needed — `exchangeCodeForSession()` completes an identity
+link the same way it completes a sign-in when the flow was started by `linkIdentity()`).
+
+**This is deliberately a separate consent from `linkedinImportConsent`.** Connecting (this section)
+verifies identity and, via LinkedIn's own OAuth consent screen, already covers sharing
+name/email/photo with us — it does **not** imply consent to the *scrape*: an applicant can connect
+to satisfy this identity check and still click "Skip — I'll fill this in manually" instead of
+running the actual import. `linkedinImportConsent` is a separate, real checkbox (still present,
+unchanged) shown only after connecting, right next to the profile-URL field — "I consent to
+Expertly extracting my bio, work history, and education from this LinkedIn profile and displaying
+it on my member listing." It's set `true` only when the applicant actually checks it and runs the
+import via `POST /v1/applications/me/linkedin-import`, never implicitly. (An earlier version of
+this session's work auto-set it `true` on connecting instead of keeping the checkbox — that
+conflated the two consents and was reverted.)
+
+**Important limitation:** LinkedIn's OIDC product only exposes `name`/`email`/`picture` — it does
+**not** return the public profile URL/vanity name. So `linkIdentity()` cannot replace the
+URL-based scraper: the applicant still separately provides/confirms their profile URL right after
+connecting, which still feeds `POST /v1/applications/me/linkedin-import` for bio/work-history/
+education. What OAuth linking *does* replace is the unreliable scraped photo — see
+`ApplicationsService.importPhotoFromLinkedIn()`, which reads the linked identity's `picture` claim
+via the Supabase Admin API (`auth.admin.getUserById`) rather than trying to scrape one.
+
+**Requires "Manual linking" enabled** under Supabase Dashboard → Authentication → Settings — see
+"Environment / setup reference" below.
+
+**Open decision, deliberately deferred (2026-09-26): does connecting LinkedIn replace email/
+password login, or just add to it?** Today it's additive — `linkIdentity()` attaches LinkedIn as a
+*second* identity; the original email/password identity is untouched and keeps working
+indefinitely. So a client who's connected LinkedIn can sign in either way, forever.
+
+Enforcing "LinkedIn only" is possible — call `supabase.auth.unlinkIdentity()` on the `email`
+identity right after the LinkedIn link succeeds (Supabase allows this once at least one identity
+remains). It was considered and explicitly **not** done: once that email identity is removed,
+password sign-in for that account stops working permanently, and self-service password reset goes
+with it (same identity). If LinkedIn access is ever lost for that user afterward — revoked app
+access, a changed LinkedIn email, a closed LinkedIn account, or Supabase LinkedIn-integration
+downtime — there is **no self-service way back into the account**, since this app has no
+account-recovery/support-unlock tooling. The only fix would be a manual Admin API intervention.
+Revisit only with a real product reason to force the cutover, and build some form of recovery path
+first if so.
+
+---
+
 ## Part 2 — Frontend: deciding what a page shows (no backend involved)
 
 **Plain English:** Every time you load a page, the Next.js server peeks at your session cookie,
@@ -522,6 +582,10 @@ enabled by default on every table in this repo means the grant alone is not suff
 - **`getCurrentProfile()` (frontend) and the backend's admin fresh-check are the only DB-fresh
   reads that exist** — no page currently calls `getCurrentProfile()`; it's reserved for a future
   sensitive/destructive frontend action that can't tolerate claim staleness.
+- **Whether LinkedIn-connect (Part 1b) should eventually replace email/password login, not just add
+  to it, is an open product decision — deliberately not implemented.** See Part 1b's own "Open
+  decision" note for the mechanics (`unlinkIdentity()`) and why it was held back (permanent,
+  unrecoverable lockout risk with no account-recovery tooling to fall back on).
 
 ## Environment / setup reference
 
@@ -537,7 +601,9 @@ enabled by default on every table in this repo means the grant alone is not suff
   Authentication → URL Configuration → Redirect Values for every environment; register
   `custom_access_token_hook` under Authentication → Hooks → "Customize Access Token (JWT) Claims."
   (Confirmed already done on the current dev project — see the postmortem above; the hook was
-  firing, just failing partway through.)
+  firing, just failing partway through.) Also enable **"Allow manual linking"** under
+  Authentication → Settings — required for `supabase.auth.linkIdentity()` (Part 1b above); without
+  it, the applicant-side "Connect your LinkedIn" call fails.
 - Schema lives in `supabase/migrations/0001_extensions.sql` → `0004_tables.sql` (pre-production,
   four-file convention — see that folder's `README.md`), applied manually via the Supabase SQL
   Editor, not automatically on deploy.

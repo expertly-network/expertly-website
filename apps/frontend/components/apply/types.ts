@@ -53,7 +53,11 @@ export function toUpdateRequest(
     firstName: form.firstName || undefined,
     lastName: form.lastName || undefined,
     contactEmail: form.contactEmail || undefined,
-    phoneCountryCode: form.phone ? form.phoneCountryCode : undefined,
+    // Sent independently of `phone` — the LinkedIn import can default this from the applicant's
+    // country before they've typed a number at all; gating it on `phone` being non-empty (as this
+    // used to) meant that default was silently dropped on save and reverted to '+1' on the next
+    // read, since the server never had a value to persist.
+    phoneCountryCode: form.phoneCountryCode || undefined,
     phone: form.phone || undefined,
     region: form.region || undefined,
     country: form.country || undefined,
@@ -92,6 +96,7 @@ export function toUpdateRequest(
 export function fromDto(app: ApplicationDto): Partial<WizardFormState> {
   return {
     linkedinUrl: app.linkedinUrl ?? '',
+    linkedinImportConsent: app.linkedinImportConsent ?? false,
     photoUrl: app.photoUrl ?? undefined,
     firstName: app.firstName ?? '',
     lastName: app.lastName ?? '',
@@ -426,4 +431,10 @@ export const FIRM_SIZES: { value: NonNullable<WorkExperienceInput['firmSize']>; 
   { value: '11_50', label: '11–50' },
   { value: '51_200', label: '51–200' },
   { value: '200_plus', label: '200+' },
+];
+
+// Shared between BackgroundStep (the date-select inputs) and ReviewSubmitStep (formatting the
+// same dates back out for display).
+export const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];

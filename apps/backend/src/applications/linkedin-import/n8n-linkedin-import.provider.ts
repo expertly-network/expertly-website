@@ -10,7 +10,20 @@ import { LinkedInImportProvider } from './linkedin-import.provider';
 const REQUEST_TIMEOUT_MS = 100_000;
 const MAX_EXPERIENCES = 5;
 const MAX_EDUCATIONS = 3;
-const BIO_MAX_CHARS = 500;
+// Matches UpdateApplicationDto's @MaxLength(2000) on bio — kept in sync manually since this
+// provider has no compile-time link to that DTO.
+const BIO_MAX_CHARS = 2000;
+
+// Only engaged if a scraped bio still exceeds BIO_MAX_CHARS — truncates at the last word
+// boundary rather than mid-word, and says so, instead of silently cutting mid-sentence.
+function truncateBio(bio: string): string {
+  if (bio.length <= BIO_MAX_CHARS) return bio;
+  const suffix = '… (truncated)';
+  const limit = BIO_MAX_CHARS - suffix.length;
+  const cut = bio.slice(0, limit);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${lastSpace > 0 ? cut.slice(0, lastSpace) : cut}${suffix}`;
+}
 
 // Converts a 3-letter month abbreviation to its 1-12 number.
 const MONTH_NUM: Record<string, number> = {
@@ -149,7 +162,7 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
     return {
       firstName: raw.firstName || undefined,
       lastName: raw.lastName || undefined,
-      bio: raw.about ? raw.about.slice(0, BIO_MAX_CHARS) : undefined,
+      bio: raw.about ? truncateBio(raw.about) : undefined,
       country: raw.location?.parsed?.country || undefined,
       state: raw.location?.parsed?.state || undefined,
       city: raw.location?.parsed?.city || undefined,

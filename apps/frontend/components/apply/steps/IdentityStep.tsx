@@ -7,12 +7,13 @@ import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
-import { COUNTRIES, PHONE_COUNTRY_CODES, REGIONS, type WizardFormState } from '@/components/apply/types';
+import { COUNTRIES, PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const BIO_MAX_CHARS = 2000;
 
 export function IdentityStep({
   form,
@@ -40,12 +41,22 @@ export function IdentityStep({
     if (!form.firstName.trim()) e.firstName = 'First name is required.';
     if (!form.lastName.trim()) e.lastName = 'Last name is required.';
     if (!form.contactEmail.trim()) e.contactEmail = 'Contact email is required.';
-    if (!form.region) e.region = 'Region is required.';
     if (!form.country) e.country = 'Country is required.';
     if (!form.linkedinUrl.trim()) e.linkedinUrl = 'LinkedIn URL is required.';
     if (!form.bio.trim()) e.bio = 'Professional bio is required.';
-    else if (form.bio.length > 500) e.bio = 'Bio must be 500 characters or fewer.';
+    else if (form.bio.length > BIO_MAX_CHARS) e.bio = `Bio must be ${BIO_MAX_CHARS} characters or fewer.`;
     return e;
+  }
+
+  // Clears a field's error as soon as its value changes, instead of leaving a stale red
+  // border/message on screen until the next full-form validation pass.
+  function clearError(field: string) {
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }
 
   function handleNext() {
@@ -75,6 +86,7 @@ export function IdentityStep({
     try {
       const updated = await uploadApplicationFile('photo', file);
       update({ photoUrl: updated.photoUrl ?? undefined });
+      clearError('photo');
     } catch (err) {
       setUploadError(
         err instanceof ApiError ? err.message : 'Failed to upload photo — please try again.'
@@ -135,7 +147,10 @@ export function IdentityStep({
             name="firstName"
             placeholder="Jane"
             value={form.firstName}
-            onChange={(e) => update({ firstName: e.target.value })}
+            onChange={(e) => {
+              update({ firstName: e.target.value });
+              clearError('firstName');
+            }}
             error={errors.firstName}
             required
           />
@@ -145,7 +160,10 @@ export function IdentityStep({
             name="lastName"
             placeholder="Smith"
             value={form.lastName}
-            onChange={(e) => update({ lastName: e.target.value })}
+            onChange={(e) => {
+              update({ lastName: e.target.value });
+              clearError('lastName');
+            }}
             error={errors.lastName}
             required
           />
@@ -158,7 +176,10 @@ export function IdentityStep({
             type="email"
             placeholder="you@example.com"
             value={form.contactEmail}
-            onChange={(e) => update({ contactEmail: e.target.value })}
+            onChange={(e) => {
+              update({ contactEmail: e.target.value });
+              clearError('contactEmail');
+            }}
             error={errors.contactEmail}
             required
           />
@@ -189,36 +210,23 @@ export function IdentityStep({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <Select
-            id="region"
-            label="Region"
-            value={form.region}
-            onChange={(e) => update({ region: e.target.value as WizardFormState['region'] })}
-            error={errors.region}
-            required
-          >
-            <option value="">Select region…</option>
-            {REGIONS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            id="country"
-            label="Country"
-            value={form.country}
-            onChange={(e) => update({ country: e.target.value })}
-            error={errors.country}
-            required
-          >
-            <option value="">Select country…</option>
-            {COUNTRIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </Select>
-        </div>
+        {/* Region is no longer picked here — the backend derives it server-side from country. */}
+        <Select
+          id="country"
+          label="Country"
+          value={form.country}
+          onChange={(e) => {
+            update({ country: e.target.value });
+            clearError('country');
+          }}
+          error={errors.country}
+          required
+        >
+          <option value="">Select country…</option>
+          {COUNTRIES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </Select>
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
@@ -251,7 +259,10 @@ export function IdentityStep({
           type="url"
           placeholder="https://linkedin.com/in/yourprofile"
           value={form.linkedinUrl}
-          onChange={(e) => update({ linkedinUrl: e.target.value })}
+          onChange={(e) => {
+            update({ linkedinUrl: e.target.value });
+            clearError('linkedinUrl');
+          }}
           error={errors.linkedinUrl}
           required
         />
@@ -261,12 +272,16 @@ export function IdentityStep({
           label="Professional bio"
           labelRight={form.importedFields.has('bio') ? <ImportedTag /> : undefined}
           rows={4}
-          maxLength={500}
+          autoGrow
+          maxLength={BIO_MAX_CHARS}
           placeholder="Describe your professional background, expertise, and what makes you uniquely qualified…"
           value={form.bio}
-          onChange={(e) => update({ bio: e.target.value })}
+          onChange={(e) => {
+            update({ bio: e.target.value });
+            clearError('bio');
+          }}
           error={errors.bio}
-          hint={`${form.bio.length} / 500 characters — appears on your public member profile`}
+          hint={`${form.bio.length} / ${BIO_MAX_CHARS} characters — appears on your public member profile`}
         />
       </div>
 

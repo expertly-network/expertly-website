@@ -103,6 +103,24 @@ const config: Config = {
         // from the app's normal 20px `card` radius, used at 3+ call sites in that one flow.
         'card-lg': '24px',
       },
+
+      // A single celebratory moment (successfully applying a membership coupon) — falling +
+      // rotating confetti pieces. Per-particle randomness (position/color/timing/drift) is set
+      // via inline style/CSS custom properties at the call site; this just defines the fall
+      // itself. Duration here is a placeholder overridden per-particle via inline
+      // animationDuration/animationDelay.
+      keyframes: {
+        'confetti-fall': {
+          '0%': { transform: 'translateY(-12px) translateX(0) rotate(0deg)', opacity: '1' },
+          '100%': {
+            transform: 'translateY(160px) translateX(var(--confetti-drift, 0px)) rotate(var(--confetti-rotate, 200deg))',
+            opacity: '0',
+          },
+        },
+      },
+      animation: {
+        'confetti-fall': 'confetti-fall 2s ease-in forwards',
+      },
     },
   },
   plugins: [],

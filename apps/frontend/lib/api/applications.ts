@@ -2,6 +2,8 @@ import { apiFetch, ApiError } from '@/lib/api/client';
 import type {
   AdminApplicationReviewRequest,
   ApplicationDto,
+  CouponPreviewRequest,
+  CouponPreviewResponse,
   LinkedInImportRequest,
   LinkedInImportResponse,
   UpdateApplicationRequest,
@@ -30,6 +32,19 @@ export function importLinkedIn(body: LinkedInImportRequest): Promise<LinkedInImp
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+/** Stateless price calculation for the review step's live coupon preview. */
+export function previewCoupon(body: CouponPreviewRequest): Promise<CouponPreviewResponse> {
+  return apiFetch<CouponPreviewResponse>('/applications/me/coupon-preview', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Best-effort: imports the profile photo from the caller's linked LinkedIn identity, if any. */
+export function importLinkedInPhoto(): Promise<ApplicationDto> {
+  return apiFetch<ApplicationDto>('/applications/me/photo/linkedin', { method: 'POST' });
 }
 
 export function uploadApplicationFile(kind: 'photo' | 'document', file: File): Promise<ApplicationDto> {

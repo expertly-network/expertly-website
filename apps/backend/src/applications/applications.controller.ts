@@ -4,11 +4,12 @@ import { validate } from 'class-validator';
 import type { FastifyRequest } from 'fastify';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { ApplicationDto, LinkedInImportResponse } from '@shared/membership-application';
+import { ApplicationDto, CouponPreviewResponse, LinkedInImportResponse } from '@shared/membership-application';
 import { ApplicationsService } from './applications.service';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { LinkedInImportRequestDto } from './dto/linkedin-import-request.dto';
 import { UploadApplicationFileDto } from './dto/upload-application-file.dto';
+import { CouponPreviewDto } from './dto/coupon-preview.dto';
 
 // 🔒 Auth — every route requires authentication; role is further restricted to 'client' in the service.
 @Controller('applications')
@@ -34,6 +35,18 @@ export class ApplicationsController {
   @Post('me/linkedin-import')
   importLinkedIn(@Body() dto: LinkedInImportRequestDto): Promise<LinkedInImportResponse> {
     return this.applicationsService.importFromLinkedIn(dto.linkedinUrl);
+  }
+
+  // Stateless price calculation — doesn't touch or require a draft application.
+  @Post('me/coupon-preview')
+  previewCoupon(@Body() dto: CouponPreviewDto): CouponPreviewResponse {
+    return this.applicationsService.previewCoupon(dto);
+  }
+
+  // Best-effort: imports the profile photo from the caller's linked LinkedIn identity, if any.
+  @Post('me/photo/linkedin')
+  importLinkedInPhoto(@CurrentUser() user: AuthenticatedUser): Promise<ApplicationDto> {
+    return this.applicationsService.importPhotoFromLinkedIn(user);
   }
 
   // Uploads a photo or document file for the caller's draft application.

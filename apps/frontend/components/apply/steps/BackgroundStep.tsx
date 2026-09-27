@@ -11,12 +11,10 @@ import {
   EMPTY_EDUCATION,
   EMPTY_WORK_EXPERIENCE,
   FIRM_SIZES,
+  MONTHS,
   type WizardFormState,
 } from '@/components/apply/types';
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
 const YEARS = Array.from({ length: 67 }, (_, i) => new Date().getFullYear() - i);
 
 export function BackgroundStep({
@@ -69,22 +67,36 @@ export function BackgroundStep({
     onNext();
   }
 
+  // Clears one or more field errors as soon as their value changes, instead of leaving a stale
+  // red border/message on screen until the next full-form validation pass.
+  function clearErrors(fields: string[]) {
+    setErrors((prev) => {
+      if (!fields.some((f) => f in prev)) return prev;
+      const next = { ...prev };
+      for (const f of fields) delete next[f];
+      return next;
+    });
+  }
+
   function updateWork(index: number, patch: Partial<WizardFormState['workExperiences'][number]>) {
     const next = [...form.workExperiences];
     next[index] = { ...next[index], ...patch };
     update({ workExperiences: next });
+    clearErrors(Object.keys(patch).map((key) => `workExperiences.${index}.${key}`));
   }
 
   function updateEdu(index: number, patch: Partial<WizardFormState['educations'][number]>) {
     const next = [...form.educations];
     next[index] = { ...next[index], ...patch };
     update({ educations: next });
+    clearErrors(Object.keys(patch).map((key) => `educations.${index}.${key}`));
   }
 
   function updateReference(index: number, patch: Partial<WizardFormState['peerReferences'][number]>) {
     const next = [...form.peerReferences];
     next[index] = { ...next[index], ...patch };
     update({ peerReferences: next });
+    clearErrors(Object.keys(patch).map((key) => `peerReferences.${index}.${key}`));
   }
 
   return (
@@ -102,7 +114,10 @@ export function BackgroundStep({
           max={60}
           placeholder="e.g. 12"
           value={form.yearsOfExperience}
-          onChange={(e) => update({ yearsOfExperience: e.target.value })}
+          onChange={(e) => {
+            update({ yearsOfExperience: e.target.value });
+            clearErrors(['yearsOfExperience']);
+          }}
           error={errors.yearsOfExperience}
           required
         />

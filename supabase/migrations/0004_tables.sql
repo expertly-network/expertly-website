@@ -353,7 +353,9 @@ create table public.membership_applications (
   state text,
   city text,
   linkedin_url text,
-  bio varchar(500),
+  -- Raised from varchar(500) 2026-09-26 — the old limit was silently truncating a normal-length
+  -- professional bio mid-sentence (enforced identically in UpdateApplicationDto's @MaxLength).
+  bio varchar(2000),
 
   -- Background (step 3). Stored as JSONB, not child tables — see the immutable-submission-record
   -- rationale in the table comment above; matches the frontend wizard's own array-of-objects

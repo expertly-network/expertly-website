@@ -114,7 +114,17 @@ wizard step to resume on, pure UX convenience, not validated).
   whenever a call actually includes `servicePreferences` — the DB has no FK to catch an invalid id
   (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field (a
   previously-valid, now-deactivated selection isn't retroactively rejected mid-draft). When the
-  referenced service is `isCustom`, `customLabel` becomes required on that entry.
+  referenced service is `isCustom`, `customLabel` becomes required on that entry. **The same
+  `serviceId` cannot appear in more than one priority slot** — rejected with `400` (previously
+  allowed, which let two different "Other" custom labels collide on the same generic service id
+  and crash approval later — see the admin section below).
+- `bio` — up to 2000 characters (raised from 500 on 2026-09-26 — the old limit was silently
+  truncating a normal-length professional bio mid-sentence).
+- `region` — **no longer accepted from the client at all** (accepted-but-ignored if sent; the DTO
+  field is kept only for backward compatibility with older callers). Always derived server-side
+  from `country` via a small fixed map (`apps/backend/src/applications/constants/country-region.ts`)
+  whenever a call's patch touches `country`. `country: 'Other'` has no defensible region and is
+  left `null`, exempted from the submit-completeness check.
 - `selectedTier`, `listPriceCents`, `discountAmountCents`, `amountDueCents`, `paymentStatus`,
   `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
   from the client** — computed server-side exactly as before:
@@ -147,17 +157,44 @@ Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever p
 configured `LinkedInImportProvider` can produce for the given URL and returns it directly; the
 frontend merges the result into its wizard state and saves it through `POST /v1/applications/me`
 like any manually-entered edit, so there's exactly one write path regardless of how the data
-originated. Backed by `N8nLinkedInImportProvider` when `LINKEDIN_IMPORT_WEBHOOK_URL` is configured,
-falling back to the deterministic `MockLinkedInImportProvider` otherwise (e.g. local dev without
-real credentials) — see `docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md`
-for the confirmed n8n request/response contract and field-mapping rules. Request/response shape
-here is unchanged either way — swapping providers was a zero-controller/DTO/frontend-change DI
-rebind, as originally designed.
+originated. Backed by `N8nLinkedInImportProvider` unconditionally as of 2026-09-26 — the mock
+fallback (`MockLinkedInImportProvider`, used when `LINKEDIN_IMPORT_WEBHOOK_URL` was unset) has been
+deleted; a missing webhook URL now throws `502 Bad Gateway` ("LinkedIn import is not configured.")
+at call time instead of silently returning fake profile data. See
+`docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md` for the n8n
+request/response contract and field-mapping rules.
 
 **Request:** `LinkedInImportRequest` — `{ linkedinUrl: string }`.
 **Response `201`:** `LinkedInImportResponse` — every field optional; absent fields mean "couldn't
-be extracted." (NestJS's default status for a `POST` handler with no `@HttpCode()` override —
-confirmed live, not `200` as previously documented here.)
+be extracted." `bio` is capped at 2000 chars (raised from 500 on 2026-09-26); truncation, only
+when the raw scrape still exceeds that, happens at the last word boundary with a visible
+`… (truncated)` suffix rather than a silent mid-sentence cut. (NestJS's default status for a
+`POST` handler with no `@HttpCode()` override — confirmed live, not `200` as previously documented
+here.)
+
+### 🔒 `POST /v1/applications/me/photo/linkedin`
+
+Added 2026-09-26. Best-effort: pulls the `picture` claim off the caller's linked LinkedIn OAuth
+identity (via the Supabase Admin API — `auth.identities`, not a public-schema table) and stores it
+through the exact same path as a manual photo upload below. Never overwrites a photo the applicant
+already has; the frontend only calls this when `photoUrl` is still unset. No request body.
+
+**Response `200`:** `ApplicationDto`, same shape as the manual upload endpoint. **Errors:** `404`
+no LinkedIn identity linked or it has no `picture` claim · `502` the picture URL couldn't be
+fetched.
+
+### 🔒 `POST /v1/applications/me/coupon-preview`
+
+Added 2026-09-26. Stateless price calculation — reuses the exact `applyCoupon()` logic the real
+submission path uses, so the review step can show the real discounted price live as a coupon code
+is typed instead of a hardcoded label that never reflected it. Doesn't touch or require a draft
+application to exist.
+
+**Request:** `CouponPreviewRequest` — `{ billingPeriod: 'annual', couponCode?: string }`.
+**Response `200`:** `CouponPreviewResponse` — `{ valid, listPriceCents, discountAmountCents,
+amountDueCents }`. `valid: false` (with `discountAmountCents: 0`) when a non-empty `couponCode`
+doesn't match a known code — not an error response, so the frontend can render "invalid code"
+inline without a failed request.
 
 ### 🔒 `POST /v1/applications/me/uploads`
 
@@ -167,9 +204,12 @@ through the backend rather than issuing a signed upload URL (unlike
 so magic-byte MIME validation (root `CLAUDE.md`'s non-negotiable file-upload rule) would be
 structurally impossible there. Bytes are sniffed with `file-type` against an allow-list
 (`photo`: JPEG/PNG, 5MB max; `document`: JPEG/PNG/PDF, 15MB max) before being written to the
-public `application-assets` Storage bucket at a deterministic path
-(`members/application/{applicantId}/profile-photo.<ext>`, overwriting on re-upload; or
-`document-{n}.<ext>`, appended). Only allowed while the caller has a `draft` application.
+public `application-assets` Storage bucket at a deterministic path — for `photo`, always
+`members/application/{applicantId}/profile-photo` (**no extension**, fixed 2026-09-26: the path
+used to bake in the sniffed extension, so re-uploading in a different format, e.g. jpg → png,
+produced a second orphaned object instead of replacing the first; the upload call is `upsert:
+true`, so a stable key is what actually makes re-upload behave like a replace) or, for `document`,
+`document-{n}.<ext>`, appended. Only allowed while the caller has a `draft` application.
 
 **Response `200`:** `ApplicationDto` — the updated record, `photoUrl`/`documents[].url` a plain
 public URL built from the stored path (no signing). **Errors:** `400` no draft to attach to,
@@ -180,32 +220,41 @@ extension/declared content-type).
 
 ### 🛡️ `manageApplications` `PATCH /v1/admin/applications/:id`
 
-Approve or reject a `submitted`/`under_review` application. No admin UI consumes this route —
-backend-only, curl-verified (see the spec doc §7: no admin-review page exists anywhere in the
-design prototype to build one against; a real screen is deferred to its own future "Admin:
-applications" session, same as `master-tdd.md`'s routing table already scoped it).
+Approve or reject a `submitted`/`under_review` application. Consumed by
+`apps/frontend/app/(shell)/admin/applications/page.tsx` /
+`components/admin/AdminApplicationsTable.tsx` (stale note removed 2026-09-26 — this doc previously
+said no admin UI consumed this route; that page already existed).
 
 **Request:** `AdminApplicationReviewRequest` — `{ status: 'approved' | 'rejected', rejectionReason?:
-string }` (`rejectionReason` required when rejecting).
+string, approvedServiceId?: string }` (`rejectionReason` required when rejecting;
+`approvedServiceId` required when approving, as of 2026-09-26).
 
 **On approve:** provisions a `member_profiles` row (1:1 field mapping from the application row)
-and one `member_services` row per `servicePreferences` entry, then flips `profiles.role` to
+and exactly **one** `member_services` row — for `approvedServiceId`, which must be one of the
+applicant's own submitted `service_preferences` (`400` otherwise) — then flips `profiles.role` to
 `'member'`, then marks the application `approved` — in that order, so a mid-sequence failure
 leaves the application `submitted` (still reviewable) rather than silently `approved` with no
 member actually provisioned. Not a true DB transaction — supabase-js has no multi-statement
 transaction API from a service-role client.
 
+Changed 2026-09-26: previously provisioned a `member_services` row for **every** submitted
+preference with no way to approve just one, which (a) meant "forgetting" to narrow it down
+approved all of them, and (b) crashed outright if two preferences shared a `serviceId` (most
+commonly two different "Other" custom labels — `member_services`' primary key is
+`(member_id, service_id)`, so the second insert violated it). `GET /v1/admin/applications` now also
+returns each row's `servicePreferences[]` (serviceName/customLabel resolved, same shape as
+`ApplicationDto`) specifically so the approving admin can choose from them.
+
 **On reject:** stamps `reviewed_by`/`reviewed_at`/`rejection_reason` only.
 
 **Errors:** `401`/`403` per the 🛡️ badge · `404` no such application · `409` application isn't
-`submitted`/`under_review` · `400` rejecting without a `rejectionReason`.
+`submitted`/`under_review` · `400` rejecting without a `rejectionReason`, approving without a
+valid `approvedServiceId`.
 
 ## Membership applications — not built yet (explicitly deferred)
 
-- Admin review **UI** — the endpoint above exists; no page consumes it yet.
 - Member directory (`GET /v1/members`, `GET /v1/members/:id`) — separate future backend session.
 - Real payment gateway integration — `payment_status='paid'` is modeled but unreachable.
-- Real LinkedIn import — `MockLinkedInImportProvider` only; n8n integration is a future DI swap.
 
 ## Articles
 

@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -12,14 +13,17 @@ import type {
   ApplicationDto,
   ApplicationStatus,
   BillingPeriod,
+  CouponPreviewResponse,
   ServicePreference,
 } from '@shared/membership-application';
 import { randomUUID } from 'node:crypto';
 import { fromBuffer as sniffFileType } from 'file-type';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
+import { CouponPreviewDto } from './dto/coupon-preview.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
+import { deriveRegion } from './constants/country-region';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import { ApplicationsRepository, type ApplicationRow, type ServiceDetail } from './applications.repository';
 
@@ -41,7 +45,8 @@ const WRITABLE_COLUMNS: Record<string, keyof UpdateApplicationDto> = {
   contact_email: 'contactEmail',
   phone_country_code: 'phoneCountryCode',
   phone: 'phone',
-  region: 'region',
+  // region is deliberately absent: it's derived server-side from country (see saveOrSubmit),
+  // never taken directly from client input.
   country: 'country',
   state: 'state',
   city: 'city',
@@ -67,7 +72,6 @@ const REQUIRED_TO_SUBMIT: [string, string][] = [
   ['first_name', 'firstName'],
   ['last_name', 'lastName'],
   ['contact_email', 'contactEmail'],
-  ['region', 'region'],
   ['country', 'country'],
   ['linkedin_url', 'linkedinUrl'],
   ['bio', 'bio'],
@@ -106,6 +110,12 @@ export class ApplicationsService {
     for (const [column, key] of Object.entries(WRITABLE_COLUMNS)) {
       const value = dto[key];
       if (value !== undefined) patch[column] = value;
+    }
+
+    // Re-derive region whenever country is part of this write, so it never drifts out of sync
+    // with whatever country the applicant last saved.
+    if (patch.country !== undefined) {
+      patch.region = deriveRegion(patch.country as string);
     }
 
     const merged: Row = { ...(existing ?? { status: 'draft' }), ...patch };
@@ -167,6 +177,21 @@ export class ApplicationsService {
     return this.linkedInImportProvider.importProfile(linkedinUrl);
   }
 
+  // Stateless — lets the review step show the real discounted price live as a coupon is typed,
+  // instead of a hardcoded label that never reflects the coupon. Reuses the exact same
+  // applyCoupon() logic the real submission path uses, so the two can never drift apart.
+  previewCoupon(dto: CouponPreviewDto): CouponPreviewResponse {
+    const listPriceCents = MEMBERSHIP_PRICE_CENTS[dto.billingPeriod];
+    const couponResult = applyCoupon(dto.couponCode, listPriceCents);
+    const discountAmountCents = couponResult.valid ? couponResult.discountAmountCents : 0;
+    return {
+      valid: couponResult.valid,
+      listPriceCents,
+      discountAmountCents,
+      amountDueCents: Math.max(0, listPriceCents - discountAmountCents),
+    };
+  }
+
   // Proxies the file through the backend so its MIME type can be validated from magic bytes.
   async uploadFile(
     user: AuthenticatedUser,
@@ -188,9 +213,13 @@ export class ApplicationsService {
     }
 
     const existingDocuments = (existing.documents ?? []) as Row[];
+    // The photo path deliberately has no extension: it must stay stable across re-uploads (the
+    // upload is `upsert: true`), and baking the sniffed extension in here meant re-uploading in a
+    // different format (e.g. jpg -> png) produced a second, orphaned object instead of replacing
+    // the first. Content-Type is already carried by the object's metadata, not its key.
     const path =
       kind === 'photo'
-        ? `members/application/${user.id}/profile-photo.${sniffed.ext}`
+        ? `members/application/${user.id}/profile-photo`
         : `members/application/${user.id}/document-${existingDocuments.length + 1}.${sniffed.ext}`;
 
     await this.applicationsRepository.uploadFile(path, file.buffer, sniffed.mime);
@@ -218,9 +247,31 @@ export class ApplicationsService {
     return this.toDto(saved, serviceDetails);
   }
 
+  // Best-effort: pulls the profile photo off the caller's linked LinkedIn OAuth identity and
+  // stores it the same way a manual upload would. Never overwrites a photo the applicant already
+  // has — callers are expected to check for that themselves before invoking this.
+  async importPhotoFromLinkedIn(user: AuthenticatedUser): Promise<ApplicationDto> {
+    const pictureUrl = await this.applicationsRepository.findLinkedInPictureUrl(user.id);
+    if (!pictureUrl) throw new NotFoundException('No LinkedIn photo available to import.');
+
+    const response = await fetch(pictureUrl);
+    if (!response.ok) throw new BadGatewayException('Failed to fetch LinkedIn photo.');
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    return this.uploadFile(user, 'photo', { buffer, size: buffer.length, originalname: 'linkedin-photo' });
+  }
+
   // 🛡️ manageApplications — defaults to the two reviewable statuses (submitted, under_review).
   async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
-    return this.applicationsRepository.listForReview(status);
+    const rows = await this.applicationsRepository.listForReview(status);
+
+    const allPreferences = rows.flatMap((r) => (r.service_preferences ?? []) as { serviceId: string }[]);
+    const serviceDetails = await this.resolveServiceDetails(allPreferences);
+
+    return rows.map((row) => ({
+      ...row,
+      servicePreferences: this.toServicePreferences(row.service_preferences ?? [], serviceDetails),
+    })) as unknown as AdminApplicationListItemDto[];
   }
 
   // Approves or rejects a submitted application, provisioning a member profile on approval.
@@ -235,6 +286,20 @@ export class ApplicationsService {
     }
     if (dto.status === 'rejected' && !dto.rejectionReason) {
       throw new BadRequestException('rejectionReason is required when rejecting.');
+    }
+
+    const submittedPreferences = (application.service_preferences ?? []) as {
+      serviceId: string;
+      customLabel?: string;
+    }[];
+
+    if (dto.status === 'approved') {
+      if (!dto.approvedServiceId) {
+        throw new BadRequestException('approvedServiceId is required when approving.');
+      }
+      if (!submittedPreferences.some((p) => p.serviceId === dto.approvedServiceId)) {
+        throw new BadRequestException('approvedServiceId must be one of the applicant\'s submitted service preferences.');
+      }
     }
 
     const reviewedAt = new Date().toISOString();
@@ -270,16 +335,14 @@ export class ApplicationsService {
       status: 'active',
     });
 
-    const servicePreferences = (application.service_preferences ?? []) as { serviceId: string; customLabel?: string }[];
-    if (servicePreferences.length > 0) {
-      await this.applicationsRepository.insertMemberServices(
-        servicePreferences.map((p) => ({
-          member_id: application.applicant_id,
-          service_id: p.serviceId,
-          custom_label: p.customLabel ?? null,
-        }))
-      );
-    }
+    const approvedPreference = submittedPreferences.find((p) => p.serviceId === dto.approvedServiceId)!;
+    await this.applicationsRepository.insertMemberServices([
+      {
+        member_id: application.applicant_id,
+        service_id: approvedPreference.serviceId,
+        custom_label: approvedPreference.customLabel ?? null,
+      },
+    ]);
 
     await this.applicationsRepository.promoteToMember(application.applicant_id);
     await this.applicationsRepository.markApproved(applicationId, reviewer.id, reviewedAt);
@@ -298,6 +361,13 @@ export class ApplicationsService {
     if (servicePreferences.length === 0) return new Map();
 
     const ids = servicePreferences.map((p) => p.serviceId);
+    const duplicateIds = ids.filter((id, i) => ids.indexOf(id) !== i);
+    if (duplicateIds.length > 0) {
+      // Most commonly hit via "Other" picked in more than one priority slot — two rows sharing a
+      // service_id would collide on member_services' (member_id, service_id) primary key later.
+      throw new BadRequestException(`Duplicate service id(s) across preferences: ${[...new Set(duplicateIds)].join(', ')}`);
+    }
+
     const details = await this.applicationsRepository.findServiceDetails(ids);
 
     const invalidIds = ids.filter((id) => !details.get(id)?.isActive);
@@ -317,6 +387,10 @@ export class ApplicationsService {
     const missing = REQUIRED_TO_SUBMIT.filter(([column]) => row[column] === null || row[column] === undefined).map(
       ([, key]) => key
     );
+
+    // region has no defensible derivation for country === 'Other' (see deriveRegion) — don't
+    // block submission on it in that one case.
+    if (row.region == null && row.country !== 'Other') missing.push('region');
 
     const workExperiences = (row.work_experiences ?? []) as unknown[];
     const educations = (row.educations ?? []) as unknown[];
@@ -346,26 +420,39 @@ export class ApplicationsService {
     }));
   }
 
+  private toServicePreferences(
+    preferences: { serviceId: string; priority: 1 | 2 | 3; customLabel?: string }[],
+    serviceDetails: Map<string, ServiceDetail>
+  ): ServicePreference[] {
+    return preferences.map((p) => {
+      const detail = serviceDetails.get(p.serviceId);
+      return {
+        serviceId: p.serviceId,
+        priority: p.priority,
+        customLabel: p.customLabel,
+        serviceName: detail?.name ?? 'Unknown',
+        categoryId: detail?.categoryId ?? '',
+        categoryName: detail?.categoryName ?? 'Unknown',
+      };
+    });
+  }
+
   private async toDto(row: ApplicationRow, serviceDetails: Map<string, ServiceDetail>): Promise<ApplicationDto> {
-    const servicePreferences: ServicePreference[] = (row.service_preferences ?? []).map(
-      (p: { serviceId: string; priority: 1 | 2 | 3; customLabel?: string }) => {
-        const detail = serviceDetails.get(p.serviceId);
-        return {
-          serviceId: p.serviceId,
-          priority: p.priority,
-          customLabel: p.customLabel,
-          serviceName: detail?.name ?? 'Unknown',
-          categoryId: detail?.categoryId ?? '',
-          categoryName: detail?.categoryName ?? 'Unknown',
-        };
-      }
-    );
+    const servicePreferences = this.toServicePreferences(row.service_preferences ?? [], serviceDetails);
 
     return {
       id: row.id,
       status: row.status,
       currentStep: row.current_step,
-      photoUrl: row.photo_path ? this.applicationsRepository.getPublicUrl(row.photo_path) : null,
+      // The photo's storage key is stable across re-uploads (fixed 2026-09-26 — see uploadFile()),
+      // which means its URL is too; Supabase Storage serves it with `Cache-Control: max-age=3600`,
+      // so without a cache-busting param the browser would keep showing a stale cached image at
+      // that same URL after a re-upload. row.updated_at changes on every write to this row
+      // (including a photo upload, via saveUploadReference), so it's a free, already-there value
+      // to bust the cache with — not a new column.
+      photoUrl: row.photo_path
+        ? `${this.applicationsRepository.getPublicUrl(row.photo_path)}?v=${encodeURIComponent(row.updated_at)}`
+        : null,
       documents: this.resolveDocuments(row.documents ?? []),
       firstName: row.first_name,
       lastName: row.last_name,
@@ -377,6 +464,7 @@ export class ApplicationsService {
       state: row.state,
       city: row.city,
       linkedinUrl: row.linkedin_url,
+      linkedinImportConsent: row.linkedin_import_consent,
       bio: row.bio,
       yearsOfExperience: row.years_of_experience,
       workExperiences: row.work_experiences ?? [],

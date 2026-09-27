@@ -42,9 +42,19 @@ export function ServicesRatesStep({
         ? [...withoutThis, { serviceId, priority }].sort((a, b) => a.priority - b.priority)
         : withoutThis,
     });
+    if (priority === 1) setErrors((prev) => ({ ...prev, servicePreference1: '' }));
   };
   const preferenceFor = (priority: 1 | 2 | 3) =>
     prefs.find((p) => p.priority === priority)?.serviceId ?? '';
+  // The same service (most often "Other") picked in more than one slot collides on
+  // member_services' (member_id, service_id) primary key at approval time — excluding ids
+  // already chosen elsewhere prevents that at the source instead of erroring later.
+  const optionsFor = (priority: 1 | 2 | 3) => {
+    const takenElsewhere = new Set(
+      prefs.filter((p) => p.priority !== priority && p.serviceId).map((p) => p.serviceId)
+    );
+    return visibleServices.filter((s) => !takenElsewhere.has(s.id));
+  };
   const setCustomLabel = (priority: 1 | 2 | 3, customLabel: string) => {
     update({
       servicePreferences: prefs.map((p) => (p.priority === priority ? { ...p, customLabel } : p)),
@@ -130,7 +140,7 @@ export function ServicesRatesStep({
             required
           >
             <option value="">Select service…</option>
-            {visibleServices.map((s) => (
+            {optionsFor(1).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
@@ -151,7 +161,7 @@ export function ServicesRatesStep({
               onChange={(e) => setPreference(2, e.target.value)}
             >
               <option value="">Select service…</option>
-              {visibleServices.map((s) => (
+              {optionsFor(2).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -163,7 +173,7 @@ export function ServicesRatesStep({
               onChange={(e) => setPreference(3, e.target.value)}
             >
               <option value="">Select service…</option>
-              {visibleServices.map((s) => (
+              {optionsFor(3).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -202,7 +212,10 @@ export function ServicesRatesStep({
           min={0}
           placeholder="e.g. 500"
           value={form.rateMinDollars}
-          onChange={(e) => update({ rateMinDollars: e.target.value })}
+          onChange={(e) => {
+            update({ rateMinDollars: e.target.value });
+            setErrors((prev) => ({ ...prev, rateMinDollars: '', rateMaxDollars: '' }));
+          }}
           error={errors.rateMinDollars}
         />
         <Input
@@ -212,7 +225,10 @@ export function ServicesRatesStep({
           min={0}
           placeholder="e.g. 2000"
           value={form.rateMaxDollars}
-          onChange={(e) => update({ rateMaxDollars: e.target.value })}
+          onChange={(e) => {
+            update({ rateMaxDollars: e.target.value });
+            setErrors((prev) => ({ ...prev, rateMinDollars: '', rateMaxDollars: '' }));
+          }}
           error={errors.rateMaxDollars}
         />
       </div>

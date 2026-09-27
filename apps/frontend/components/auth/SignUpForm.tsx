@@ -10,9 +10,11 @@ import { signUpWithEmail } from '@/lib/auth/continue-with-email';
 export function SignUpForm({
   returnTo,
   onSwitchToSignIn,
+  onCheckEmailChange,
 }: {
   returnTo: string;
   onSwitchToSignIn: () => void;
+  onCheckEmailChange: (checking: boolean) => void;
 }) {
   const router = useRouter();
 
@@ -53,6 +55,7 @@ export function SignUpForm({
     }
     if (result.status === 'check_email') {
       setCheckEmail(result.email);
+      onCheckEmailChange(true);
       setSubmitting(false);
       return;
     }

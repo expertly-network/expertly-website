@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
-import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
+import type { ApplicationStatus } from '@shared/membership-application';
 
 // Every column on membership_applications.
 const APPLICATION_ROW_COLUMNS = [
@@ -62,6 +62,9 @@ const ADMIN_LIST_COLUMNS = [
   'amountDueCents:amount_due_cents',
   'paymentStatus:payment_status',
   'createdAt:created_at',
+  // Raw {serviceId, priority, customLabel}[] — resolved to full ServicePreference (with
+  // name/category) in the service layer, same as the applicant-facing ApplicationDto.
+  'servicePreferences:service_preferences',
 ] as const;
 
 export type ApplicationRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -197,7 +200,9 @@ export class ApplicationsRepository {
   }
 
   // 🛡️ manageApplications — lighter column set than APPLICATION_ROW_COLUMNS for the list view.
-  async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListItemDto[]> {
+  // service_preferences comes back raw ({serviceId, priority, customLabel}[]) — the service layer
+  // resolves it to the full ServicePreference shape, same as ApplicationDto.
+  async listForReview(status?: ApplicationStatus): Promise<ApplicationRow[]> {
     let query = this.membershipApplications()
       .select(ADMIN_LIST_COLUMNS.join(', '))
       .order('created_at', { ascending: false });
@@ -206,7 +211,7 @@ export class ApplicationsRepository {
 
     const { data, error } = await query;
     if (error) throw new InternalServerErrorException('Failed to load applications.');
-    return (data ?? []) as unknown as AdminApplicationListItemDto[];
+    return (data ?? []) as unknown as ApplicationRow[];
   }
 
   async findServiceDetails(ids: string[]): Promise<Map<string, ServiceDetail>> {
@@ -238,6 +243,17 @@ export class ApplicationsRepository {
         },
       ])
     );
+  }
+
+  // Reads the `picture` claim off the caller's linked LinkedIn OAuth identity, if any — via the
+  // Admin API (service-role only), not a table select; Supabase stores identities on auth.users,
+  // not in a public-schema table this client can query directly.
+  async findLinkedInPictureUrl(userId: string): Promise<string | null> {
+    const { data, error } = await this.supabase.db.auth.admin.getUserById(userId);
+    if (error || !data.user) return null;
+    const identity = data.user.identities?.find((i) => i.provider === 'linkedin_oidc');
+    const picture = identity?.identity_data?.picture;
+    return typeof picture === 'string' ? picture : null;
   }
 
   async uploadFile(path: string, buffer: Buffer, contentType: string): Promise<void> {

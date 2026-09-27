@@ -59,11 +59,11 @@ immutable snapshot again, same as the original design. Approving an application
 | `first_name`, `last_name` | text, nullable | nullable so a draft can be incomplete; required by the time `status` becomes `submitted` (enforced in `ApplicationsService`, not the DB) |
 | `contact_email` | citext, nullable | deliberately separate from `profiles.email` (work vs. login email) |
 | `phone_country_code`, `phone` | text | optional, always |
-| `region` | enum (7 values: `asia_pacific`…`africa`), nullable | required at submit |
+| `region` | enum (7 values: `asia_pacific`…`africa`), nullable | **not client-settable** (2026-09-26) — derived server-side from `country` via a fixed map (`apps/backend/src/applications/constants/country-region.ts`); required at submit except when `country = 'Other'`, which has no defensible region and stays `null` |
 | `country` | text, nullable | free text in the design (fixed option list + "Other"), not its own lookup table yet; required at submit |
 | `state`, `city` | text | optional, always |
 | `linkedin_url` | text, nullable | required at submit |
-| `bio` | varchar(500), nullable | required at submit |
+| `bio` | varchar(2000), nullable | raised from varchar(500) 2026-09-26 — the old limit silently truncated a normal-length bio mid-sentence; required at submit |
 | `years_of_experience` | smallint, check 0–60, nullable | required at submit |
 | `work_experiences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a child table; non-empty required at submit |
 | `educations` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below; non-empty required at submit |
@@ -446,6 +446,16 @@ Real join table to `services` (renamed from `practice_area_id` to `service_id`, 
 elsewhere in this schema) — the directory's own search filters by service/category, a need those
 write-once/read-as-a-whole tables don't have. Composite PK `(member_id, service_id)`, real FK
 (this table *can* have one, unlike the JSONB-array columns, since it's a real join table).
+
+The composite PK means at most one row per `(member, service)` — this bit twice before the
+2026-09-26 fix: (1) an applicant could pick the same `serviceId` (almost always the generic
+"Other" one) in more than one of their 3 `service_preferences` priority slots, so on admin approval
+the second `insertMemberServices` row hit the PK and threw; now rejected at submit time with `400`
+(`ApplicationsService.assertActiveAndResolveServices`) and the frontend dedupes the dropdown
+options so it can't even be selected. (2) Approval used to insert one row per submitted preference
+with no way to approve fewer — now the admin explicitly picks exactly one via
+`AdminApplicationReviewRequest.approvedServiceId`, so a member's `member_services` reflects one
+deliberately-approved service, not everything they applied with.
 
 ### 8 jsonb sections on `member_profiles`
 

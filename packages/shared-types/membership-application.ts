@@ -136,6 +136,7 @@ export class ApplicationDto {
   @ApiProperty({ nullable: true, type: String }) state!: string | null;
   @ApiProperty({ nullable: true, type: String }) city!: string | null;
   @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
+  @ApiProperty({ nullable: true, type: Boolean }) linkedinImportConsent!: boolean | null;
   @ApiProperty({ nullable: true, type: String }) bio!: string | null;
   @ApiProperty({ nullable: true, type: Number }) yearsOfExperience!: number | null;
   @ApiProperty({ type: () => WorkExperienceInput, isArray: true }) workExperiences!: WorkExperienceInput[];
@@ -176,6 +177,28 @@ export class AdminApplicationReviewRequest {
   @ApiProperty({ enum: ['approved', 'rejected'] }) status!: 'approved' | 'rejected';
   /** Required when status is 'rejected'. */
   @ApiPropertyOptional() rejectionReason?: string;
+  /**
+   * Required when status is 'approved'. Must be one of the applicant's own submitted
+   * service_preferences — exactly this one service is provisioned into member_services;
+   * the applicant's other submitted preferences are not auto-approved.
+   */
+  @ApiPropertyOptional() approvedServiceId?: string;
+}
+
+/** POST /v1/applications/me/coupon-preview request body — a stateless price calculation. */
+export class CouponPreviewRequest {
+  @ApiProperty({ enum: ['annual'] }) billingPeriod!: BillingPeriod;
+  /** Omit or send an invalid code to preview the undiscounted price. */
+  @ApiPropertyOptional() couponCode?: string;
+}
+
+/** Response for POST /v1/applications/me/coupon-preview. */
+export class CouponPreviewResponse {
+  /** False when couponCode was provided but isn't a valid/active code. */
+  @ApiProperty() valid!: boolean;
+  @ApiProperty() listPriceCents!: number;
+  @ApiProperty() discountAmountCents!: number;
+  @ApiProperty() amountDueCents!: number;
 }
 
 /** GET /v1/admin/applications response row — lighter than the full ApplicationDto. */
@@ -192,4 +215,6 @@ export class AdminApplicationListItemDto {
   @ApiProperty({ nullable: true, type: Number }) amountDueCents!: number | null;
   @ApiProperty({ enum: ['pending', 'waived', 'paid'] }) paymentStatus!: PaymentStatus;
   @ApiProperty() createdAt!: string;
+  /** The applicant's submitted preferences — admin picks exactly one of these to approve. */
+  @ApiProperty({ type: () => ServicePreference, isArray: true }) servicePreferences!: ServicePreference[];
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const STAGES = [
   'Connecting to your LinkedIn profile…',
@@ -12,6 +12,10 @@ const STAGES = [
 ];
 
 const STAGE_INTERVAL_MS = 2600;
+// Once the real fetch has finished, catch the ticker up to the last stage quickly instead of
+// waiting out the remaining full-speed intervals — avoids both the jarring "cut off mid-sentence"
+// look of unmounting early and a noticeably longer wait than the real work actually took.
+const CATCH_UP_INTERVAL_MS = 300;
 const LINE_HEIGHT_PX = 32;
 
 /**
@@ -25,15 +29,36 @@ const LINE_HEIGHT_PX = 32;
  * a plain text swap. Advances through STAGES on a timer and holds on the last one indefinitely
  * rather than looping or going blank, so it always reads as "still working," never "finished" or
  * "stuck," regardless of how long the actual request takes.
+ *
+ * `done` and `onReachedEnd` let a caller doing real async work behind this loader avoid tearing
+ * it down mid-stage the moment that work finishes: pass `done` once the real result is in, and
+ * this component fast-forwards to the last stage (if it isn't there already) before calling
+ * `onReachedEnd()` exactly once — that's the caller's cue that it's now safe to move on.
  */
-export function ImportingLoader() {
+export function ImportingLoader({
+  done = false,
+  onReachedEnd,
+}: {
+  done?: boolean;
+  onReachedEnd?: () => void;
+}) {
   const [stageIndex, setStageIndex] = useState(0);
+  const firedRef = useRef(false);
+  const atEnd = stageIndex >= STAGES.length - 1;
 
   useEffect(() => {
-    if (stageIndex >= STAGES.length - 1) return;
-    const timer = setTimeout(() => setStageIndex((i) => i + 1), STAGE_INTERVAL_MS);
+    if (atEnd) return;
+    const timer = setTimeout(() => setStageIndex((i) => i + 1), done ? CATCH_UP_INTERVAL_MS : STAGE_INTERVAL_MS);
     return () => clearTimeout(timer);
-  }, [stageIndex]);
+  }, [stageIndex, atEnd, done]);
+
+  useEffect(() => {
+    if (atEnd && done && !firedRef.current) {
+      firedRef.current = true;
+      onReachedEnd?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atEnd, done]);
 
   return (
     <div className="flex flex-col items-center gap-5 py-14 text-center">

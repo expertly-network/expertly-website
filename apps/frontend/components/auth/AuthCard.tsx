@@ -51,6 +51,7 @@ export function AuthCard({
   const [authView, setAuthView] = useState<AuthView>('signin');
   const [linkedinPending, setLinkedinPending] = useState(false);
   const [linkedinError, setLinkedinError] = useState<string | null>(null);
+  const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false);
   const copy = COPY[mode][authView];
 
   async function handleLinkedIn() {
@@ -73,6 +74,7 @@ export function AuthCard({
         onChange={(next) => {
           setMode(next);
           setAuthView('signin');
+          setAwaitingEmailConfirmation(false);
         }}
       />
 
@@ -80,22 +82,39 @@ export function AuthCard({
         <h1 className="text-heading text-ink">{copy.title}</h1>
         <p className="mb-7 mt-2.5 text-lede text-ink-3">{copy.sub}</p>
 
-        <div className="flex flex-col gap-2">
-          <ErrorBanner message={linkedinError} />
-          <SsoButton provider="linkedin" onClick={handleLinkedIn} disabled={linkedinPending} />
-        </div>
+        {!(mode === 'user' && authView === 'signup' && awaitingEmailConfirmation) && (
+          <div className="flex flex-col gap-2">
+            <ErrorBanner message={linkedinError} />
+            <SsoButton provider="linkedin" onClick={handleLinkedIn} disabled={linkedinPending} />
+          </div>
+        )}
 
         {mode === 'user' && (
           <>
-            <div className="my-5 flex items-center gap-3 text-[11px] tracking-[0.1em] text-ink-3">
-              <span className="h-px flex-1 bg-line" />
-              or
-              <span className="h-px flex-1 bg-line" />
-            </div>
+            {!awaitingEmailConfirmation && (
+              <div className="my-5 flex items-center gap-3 text-[11px] tracking-[0.1em] text-ink-3">
+                <span className="h-px flex-1 bg-line" />
+                or
+                <span className="h-px flex-1 bg-line" />
+              </div>
+            )}
             {authView === 'signin' ? (
-              <SignInForm returnTo={returnTo} onSwitchToSignUp={() => setAuthView('signup')} />
+              <SignInForm
+                returnTo={returnTo}
+                onSwitchToSignUp={() => {
+                  setAuthView('signup');
+                  setAwaitingEmailConfirmation(false);
+                }}
+              />
             ) : (
-              <SignUpForm returnTo={returnTo} onSwitchToSignIn={() => setAuthView('signin')} />
+              <SignUpForm
+                returnTo={returnTo}
+                onSwitchToSignIn={() => {
+                  setAuthView('signin');
+                  setAwaitingEmailConfirmation(false);
+                }}
+                onCheckEmailChange={setAwaitingEmailConfirmation}
+              />
             )}
           </>
         )}

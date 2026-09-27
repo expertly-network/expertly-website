@@ -85,9 +85,13 @@ As an applicant, I want a multi-step form (identity, background, services & rate
 submit) matching `apply.html`/`onboarding_form.html` so the process feels structured, not a wall
 of fields.
 - [x] Each step validates independently before advancing (see `components/apply/steps/*`)
-- [x] LinkedIn import step pre-fills identity/background where available (real fetch against a
-      `LinkedInImportProvider`, mocked for now — see the spec doc §5) — imported fields are
-      visually tagged and the tag clears the moment the applicant edits that field
+- [x] LinkedIn import step pre-fills identity/background where available (real fetch against
+      `N8nLinkedInImportProvider` — the mock fallback was removed 2026-09-26; a missing
+      `LINKEDIN_IMPORT_WEBHOOK_URL` now throws instead of returning fake data — see the spec doc
+      §5) — imported fields are visually tagged and the tag clears the moment the applicant edits
+      that field. Applicants who signed up via email/password must first connect a real LinkedIn
+      account (OAuth identity link, not just a pasted URL) before this step proceeds — see
+      `docs/auth.md` Part 1b.
 - [x] Review step shows every collected field before final submit
 - [x] Progress is saved to the backend as the applicant advances (not frontend-only) — leaving and
       returning resumes at the last-saved step with prior data intact

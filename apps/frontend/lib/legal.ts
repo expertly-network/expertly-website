@@ -5,3 +5,4 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export const TERMS_OF_SERVICE_URL = `${SUPABASE_URL}/storage/v1/object/public/legal/terms-of-service.html`;
 export const PRIVACY_POLICY_URL = `${SUPABASE_URL}/storage/v1/object/public/legal/privacy-policy.html`;
+export const LINKEDIN_DATA_USE_URL = `${SUPABASE_URL}/storage/v1/object/public/legal/linkedin-data-use.html`;

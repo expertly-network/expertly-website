@@ -11,8 +11,10 @@ import { ServicesRatesStep } from '@/components/apply/steps/ServicesRatesStep';
 import { ReviewSubmitStep } from '@/components/apply/steps/ReviewSubmitStep';
 import { INITIAL_WIZARD_STATE, fromDto, toUpdateRequest, type WizardFormState } from '@/components/apply/types';
 import { getCategories } from '@/lib/api/categories';
-import { getMyApplication, saveApplication } from '@/lib/api/applications';
+import { getMyApplication, importLinkedInPhoto, saveApplication } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
+import { hasLinkedInIdentity } from '@/lib/auth/linkedin';
+import { createClient } from '@/lib/supabase/client';
 import type { CategoryDto } from '@shared/category';
 
 const TOTAL_STEPS = 5;
@@ -36,15 +38,26 @@ export function ApplicationWizard() {
   // Redirects to the status page if the application is already submitted/decided.
   useEffect(() => {
     let cancelled = false;
-    getMyApplication()
-      .then((app) => {
-        if (cancelled || !app) return;
-        if (app.status !== 'draft') {
+    // The account's own login email is a sensible, always-available default for contact email —
+    // fetched alongside the draft rather than gated behind LinkedIn, since it applies equally to
+    // an applicant who signed up with email/password. getSession() (not getUser()) deliberately —
+    // this is a UI convenience default, not an authorization decision, so it should stay a cheap
+    // local cookie read (per docs/auth.md's own distinction) instead of adding a real network
+    // round-trip to every /apply load — getUser() here previously left the page stuck on its
+    // loading skeleton until that round-trip finished.
+    Promise.all([getMyApplication(), createClient().auth.getSession()])
+      .then(([app, { data }]) => {
+        if (cancelled) return;
+        if (app && app.status !== 'draft') {
           router.replace('/apply/submitted');
           return;
         }
-        setForm((prev) => ({ ...prev, ...fromDto(app), importedFields: new Set() }));
-        setStep(app.currentStep || 1);
+        setForm((prev) => {
+          const next: WizardFormState = { ...prev, ...(app ? fromDto(app) : {}), importedFields: new Set<string>() };
+          if (!next.contactEmail && data.session?.user.email) next.contactEmail = data.session.user.email;
+          return next;
+        });
+        if (app) setStep(app.currentStep || 1);
       })
       .finally(() => {
         if (!cancelled) setResuming(false);
@@ -54,6 +67,36 @@ export function ApplicationWizard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fills in a photo from the applicant's linked LinkedIn identity once one is confirmed — run
+  // here, not inside LinkedInImportStep, because connecting LinkedIn does a full page redirect
+  // away and back to /apply. That redirect can land the wizard back on ANY step (goBack()/the
+  // sidebar's "revisit a completed step" navigation is client-side only and never persists
+  // currentStep), so step 1 may not even render on return. Keying this off "resuming just
+  // finished" instead of "step 1 is showing" makes it run regardless.
+  //
+  // Deliberately does NOT touch linkedinImportConsent — connecting LinkedIn verifies identity
+  // (and, via LinkedIn's own OAuth consent screen, already covers sharing name/email/photo with
+  // us); it is a separate thing from the applicant's consent to having Expertly extract and
+  // publish their bio/work-history/education, which stays a real opt-in checkbox in
+  // LinkedInImportStep, set only when they actually choose to run that import.
+  useEffect(() => {
+    if (resuming || form.photoUrl) return;
+    let cancelled = false;
+    (async () => {
+      const linked = await hasLinkedInIdentity();
+      if (cancelled || !linked) return;
+      importLinkedInPhoto()
+        .then((withPhoto) => {
+          if (!cancelled) setForm((prev) => (prev.photoUrl ? prev : { ...prev, ...fromDto(withPhoto) }));
+        })
+        .catch(() => {});
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resuming]);
 
   function update(patch: Partial<WizardFormState>) {
     setForm((prev) => {

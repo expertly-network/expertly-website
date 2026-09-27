@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge, Button, Textarea } from '@/components/ui';
+import { Badge, Button, Select, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { reviewApplication } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
@@ -25,15 +25,22 @@ function AdminApplicationRow({
   onDecided: (id: string) => void;
 }) {
   const [rejecting, setRejecting] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sortedPreferences = [...application.servicePreferences].sort((a, b) => a.priority - b.priority);
+  const [approvedServiceId, setApprovedServiceId] = useState(sortedPreferences[0]?.serviceId ?? '');
 
   async function approve() {
+    if (!approvedServiceId) {
+      setError('Select which service to approve the applicant for.');
+      return;
+    }
     setError(null);
     setBusy('approve');
     try {
-      await reviewApplication(application.id, { status: 'approved' });
+      await reviewApplication(application.id, { status: 'approved', approvedServiceId });
       onDecided(application.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to approve this application.');
@@ -82,10 +89,36 @@ function AdminApplicationRow({
         <Badge variant="neutral">{application.status.replace('_', ' ')}</Badge>
       </td>
       <td className="px-6 py-4">
-        {!rejecting ? (
+        {approving ? (
+          <div className="flex w-64 flex-col gap-2">
+            <Select
+              label="Approve for service"
+              value={approvedServiceId}
+              onChange={(e) => setApprovedServiceId(e.target.value)}
+            >
+              {sortedPreferences.map((p) => (
+                <option key={p.serviceId} value={p.serviceId}>
+                  {p.customLabel ? `${p.serviceName} (${p.customLabel})` : p.serviceName} — priority {p.priority}
+                </option>
+              ))}
+            </Select>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={approve} disabled={busy !== null}>
+                {busy === 'approve' ? 'Approving…' : 'Confirm approve'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setApproving(false)} disabled={busy !== null}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : !rejecting ? (
           <div className="flex gap-2">
-            <Button size="sm" onClick={approve} disabled={busy !== null}>
-              {busy === 'approve' ? 'Approving…' : 'Approve'}
+            <Button
+              size="sm"
+              onClick={() => setApproving(true)}
+              disabled={busy !== null || sortedPreferences.length === 0}
+            >
+              Approve
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setRejecting(true)} disabled={busy !== null}>
               Reject
