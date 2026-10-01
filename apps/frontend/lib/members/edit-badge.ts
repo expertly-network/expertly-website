@@ -1,11 +1,5 @@
 import type { MemberEditSection, MemberProfileEditDto } from '@shared/member';
 
-// Per the prototype's own explicit design decision (confirmed by direct
-// read): education/work_experiences show no section-level badge at all —
-// "too many small, evolving facts to badge individually there". Edits still
-// submit normally for these sections; only the badge UI is suppressed.
-const NO_BADGE_SECTIONS: readonly MemberEditSection[] = ['education', 'work_experiences'];
-
 // Matches design/static_html/member-profile.html's sectionBadgeHtml() exactly: pending (amber)
 // if the latest edit for this section is awaiting review; verified (green) if the latest edit
 // was approved or the member is already Expertly-verified overall (with no pending edit in the
@@ -15,8 +9,6 @@ export function getSectionEditBadge(
   edits: MemberProfileEditDto[],
   isVerified: boolean
 ): 'pending' | 'verified' | null {
-  if (NO_BADGE_SECTIONS.includes(section)) return null;
-
   const latest = edits
     .filter((edit) => edit.section === section)
     .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
@@ -24,4 +16,15 @@ export function getSectionEditBadge(
   if (latest?.status === 'pending') return 'pending';
   if (latest?.status === 'verified' || isVerified) return 'verified';
   return null;
+}
+
+// The admin's reason, when the member's most recent edit to this section was rejected by a
+// reviewer — shown only on the member's own profile (edits are only fetched for the owner).
+// Edits closed automatically because the member resubmitted (no reviewer) don't count.
+export function getSectionRejectionNote(section: MemberEditSection, edits: MemberProfileEditDto[]): string | null {
+  const latest = edits
+    .filter((edit) => edit.section === section)
+    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
+  if (latest?.status !== 'rejected' || !latest.reviewedBy) return null;
+  return latest.reviewNote ?? 'Your last change to this section was not approved.';
 }

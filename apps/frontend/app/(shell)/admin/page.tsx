@@ -32,6 +32,14 @@ const ARTICLES_ICON = (
   </>
 );
 
+const MEMBER_EDITS_ICON = (
+  <>
+    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+    <path d="M16 3.5l1.5 1.5L21 1.5" />
+  </>
+);
+
 // Each destination is separately permission-gated by the backend.
 const ADMIN_SECTIONS = [
   {
@@ -39,6 +47,12 @@ const ADMIN_SECTIONS = [
     icon: APPLICATIONS_ICON,
     title: 'Membership applications',
     description: 'Review, approve, or reject applications to become a vetted member.',
+  },
+  {
+    href: '/admin/member-edits',
+    icon: MEMBER_EDITS_ICON,
+    title: 'Profile edits',
+    description: 'Compare members\' proposed profile changes with what\'s live, check proof, and approve or reject.',
   },
   {
     href: '/admin/articles',
@@ -71,13 +85,14 @@ export default async function AdminPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Admin</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Manage membership applications, the events calendar, and article submissions.
+            Manage membership applications, member profile edits, the events calendar, and article
+            submissions.
           </p>
         </PageContainer>
       </section>
       <section className="py-12">
         <PageContainer>
-          <div className="grid grid-cols-3 gap-5 max-[900px]:grid-cols-1">
+          <div className="grid grid-cols-4 gap-5 max-[1200px]:grid-cols-2 max-[640px]:grid-cols-1">
             {ADMIN_SECTIONS.map((section) => (
               <Link
                 key={section.href}

@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { AdminMemberListItemDto, MemberProfileEditDto } from '@shared/member';
+import { AdminMemberEditsDetailDto, AdminMemberListItemDto, MemberProfileEditDto } from '@shared/member';
 import { MembersService } from './members.service';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
@@ -23,6 +23,12 @@ export class AdminMembersController {
   @Patch('members/:id')
   updateMember(@Param('id') id: string, @Body() dto: UpdateAdminMemberDto): Promise<AdminMemberListItemDto> {
     return this.membersService.adminUpdateMember(id, dto);
+  }
+
+  // Per-member review page: identity, live section values, all edits, signed proof links.
+  @Get('members/:id/edits')
+  getMemberEdits(@Param('id', ParseUUIDPipe) id: string): Promise<AdminMemberEditsDetailDto> {
+    return this.membersService.adminGetMemberEdits(id);
   }
 
   @Get('member-edits')

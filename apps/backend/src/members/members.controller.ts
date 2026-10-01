@@ -43,9 +43,11 @@ export class MembersController {
     });
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberDto> {
-    return this.membersService.findOne(id, user);
+  // Profile read is by slug (e.g. /v1/members/priya-menon), not UUID — the slug is what shows in
+  // the browser's address bar. Owner/admin write routes below stay keyed on the UUID.
+  @Get(':slug')
+  findOne(@Param('slug') slug: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberDto> {
+    return this.membersService.findOneBySlug(slug, user);
   }
 
   @Roles('member')

@@ -406,10 +406,10 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 |---|---|---|
 | `id` | uuid PK, own generated value | internal surrogate key — not exposed in the API, nothing else references it |
 | `profile_id` | uuid, unique, FK → `profiles.id` | the "real" identity — this is `MemberDto.id`, and what every other table's `member_id` column references |
-| `slug` | text, unique, not null | added 2026-09-27. Server-generated at provisioning time (`ApplicationsService.reviewApplication()`, from the applicant's name) via `generateUniqueSlug()` — the same mechanism `events`/`articles` use for their own slugs (`apps/backend/src/common/slugify.ts`): kebab-case, `-2`/`-3`/... suffix on collision. Never regenerated afterward, even if the member's name changes later — same "permanent identifier" rule those slugs follow. Exposed on `MemberListItemDto`/`MemberDto` but not yet wired into routing — `/members/[id]` is unaffected for now, matching `articles.slug`'s own not-yet-wired state (see below). |
+| `slug` | text, unique, not null | added 2026-09-27. Server-generated at provisioning time (`ApplicationsService.reviewApplication()`, from the applicant's name) via `generateUniqueSlug()` — the same mechanism `events`/`articles` use for their own slugs (`apps/backend/src/common/slugify.ts`): kebab-case, `-2`/`-3`/... suffix on collision. Never regenerated afterward, even if the member's name changes later — same "permanent identifier" rule those slugs follow. Exposed on `MemberListItemDto`/`MemberDto`, and since 2026-09-27 the routing key for profiles: `GET /v1/members/:slug` and the frontend's `/members/[slug]`. `profile_id` (UUID) stays the key for owner/admin write routes and every foreign key. Note: `apps/backend/src/supabase/database.types.ts` predates this column (no `SUPABASE_DB_URL` in this environment to run `pnpm gen:types`), so slug queries are loosely typed at the call site until types are regenerated — don't hand-edit the generated file. |
 | `headline`, `bio` | text | |
 | `firm_name` | text, nullable | **Null, not the prototype's literal `'Independent'` string** — render that label at the UI layer. Baking display text into data was a deliberate thing *not* to reproduce. |
-| `firm_website` | text, nullable | |
+| `firm_website` | text, **not null** | Added 2026-09-29. Required even for an independent practitioner with no `firm_name` — any well-formed URL is accepted (a personal site, or a LinkedIn company/profile page), not just a firm domain. Enforced at application-submit time (`ApplicationsService.assertComplete()`, on the entry marked `isCurrent`); this `NOT NULL` is defense-in-depth, not the primary enforcement. |
 | `years_of_experience` | smallint, check 0–60 | drives tier, same shape as the application's own field |
 | `rate_min_cents`, `rate_max_cents` | int, check `max > min` | **Named to match `membership_applications.rate_min_cents`/`rate_max_cents`** — same concept, not `fee_range_*` as an earlier draft of this section had it |
 | `rate_currency` | text, default `'USD'` | ISO 4217 code — the prototype only ever shows `'$'`, not a real currency code; every seed profile is USD, stored properly so a future non-USD member doesn't need a schema change |
@@ -511,6 +511,15 @@ table — a legitimate simplification, not a shortcut being flagged.
 | `reviewed_at` | timestamptz, nullable | |
 | `submitted_at`, `created_at`, `updated_at` | timestamptz | |
 
+**Status conventions (2026-09-27, no schema change):** at most one `pending` row per
+`member_id` + `section` — a new submission closes older pending rows as `rejected` with
+`review_note = 'Replaced by a newer submission.'` and `reviewed_by = null` (a null reviewer on a
+rejected row means "replaced", not an admin decision). A real rejection always has `reviewed_by`
+set and a non-blank `review_note`, which the member sees on their profile. On approval of a
+`key_clients` edit, each item's `logoUploadPath` (private `member-proofs` path) is copied into the
+public `application-assets` bucket under `members/<memberId>/client-logos/` and replaced by a
+public `logoUrl` in the live `key_clients` column.
+
 **Proof requirement varies by section — confirmed from the actual save logic, not assumed:**
 `headline_bio`/`contact` need no proof at all; `education`/`work_experiences` need one shared proof
 for the whole batch submission (the `proof_file_url`/`proof_link` columns above); `engagements`/
@@ -545,7 +554,7 @@ one forward.
 
 ### Design decisions — divergences from the static prototype
 
-- **Full profile detail requires sign-in** (`GET /v1/members/:id`) even though the directory list
+- **Full profile detail requires sign-in** (`GET /v1/members/:slug`) even though the directory list
   itself (`GET /v1/members`) is public — a deliberate product decision (the prototype's own
   auth-wall on this page reads more as an engagement/signup gimmick than a real privacy need, but
   the call was made to keep it gated rather than remove it).

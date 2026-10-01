@@ -276,6 +276,14 @@ member-facing shape doesn't carry). `assertComplete()` (submit-time validation o
 with a non-empty `company` — this is what becomes `firm_name`, so it's compulsory to submit, not
 optional.
 
+Changed 2026-09-29: that same `isCurrent` entry's `companyUrl` is now also required at submit —
+`member_profiles.firm_website` became `NOT NULL`, so it's no longer optional the way
+`WorkExperienceDto.companyUrl` (`@IsOptional() @IsUrl()`, unchanged) suggests in isolation; the
+requirement is a cross-field, submit-time rule in `assertComplete()`, not a DTO-level one, since it
+only applies to the `isCurrent` entry, not every role. No exemption for an independent
+practitioner with no `firm_name` — `@IsUrl()` already accepts any well-formed URL, so a personal
+site or a LinkedIn company/profile page satisfies it just as well as a firm domain.
+
 Changed 2026-09-26: previously provisioned a `member_services` row for **every** submitted
 preference with no way to approve just one, which (a) meant "forgetting" to narrow it down
 approved all of them, and (b) crashed outright if two preferences shared a `serviceId` (most
@@ -326,6 +334,9 @@ public URL built from the `application-assets` Storage path at read time — see
 `authorHeadline`/`authorFirmName: string | null` — sourced from `member_profiles.headline`/
 `firm_name`, the "designation" line under the author's name/photo. All three are additive fields,
 no version bump.
+`authorSlug: string | null` (added 2026-09-27) — the author's `member_profiles.slug`, used to link
+to and fetch the author's profile (`GET /v1/members/:slug`); null when the author has no member
+profile. Additive, no version bump.
 
 `aiSummary: string | null` — a short 3-to-4-point summary rendered as the detail page's "AI
 Summary" callout (one bullet per `\n`-separated line), sourced from `articles.ai_summary`.
@@ -661,7 +672,7 @@ must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
 `pageSize=8`, matching the prototype's infinite-scroll page size).
 
 **Response `200`:** `MemberListItemDto[]` — id, slug (added 2026-09-27; server-generated, unique,
-not yet used for routing — see `docs/database-erd.md`), name, initials, headline, bio, firmName,
+permanent — the key for `GET /v1/members/:slug` and the frontend's `/members/[slug]` route), name, initials, headline, bio, firmName,
 region, country, city, services (`{id, name, categoryId, categoryName}[]`, from `member_services`),
 isVerified, memberTier, yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl.
 Tenure/rate display strings
@@ -669,7 +680,15 @@ Tenure/rate display strings
 `bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
 `line-clamp-2`, matching the design's own approach, so no separate excerpt field was added.
 
-### 🔒 `GET /v1/members/:id`
+### 🔒 `GET /v1/members/:slug`
+
+**Keyed on the member's slug, not the UUID** (e.g. `/v1/members/priya-menon`) — changed in place on
+`/v1` on 2026-09-27 as a deliberate exception to the "breaking changes go to `/v2`" rule: the
+frontend was the only caller, both ship together, and the feature wasn't live yet. A UUID passed
+here is treated as a (non-matching) slug and returns `404`. Every other member route below — the
+owner-only `/:id/uploads` and `/:id/edits`, and admin `PATCH /v1/admin/members/:id` — stays keyed on
+the UUID (`MemberDto.id`): those compare it directly against the caller's JWT, never appear in the
+browser's address bar, and the UUID remains the key every other table references.
 
 Full profile — all `member_profiles` columns, all 8 child arrays, `memberServices`. **Requires
 sign-in** (any authenticated role) — a deliberate product decision, not something the static
@@ -679,7 +698,7 @@ A member's own published articles are **not** embedded here — fetch
 `GET /v1/articles?authorId=:id` separately (see that endpoint's note above). `memberServices`
 resolves service (and category) names the same way `ArticleService` does.
 
-**Response `200`:** `MemberDto`. **Errors:** `401` no/invalid token · `404` not found, not
+**Response `200`:** `MemberDto`. **Errors:** `401` no/invalid token · `404` no member with that slug, not
 `status='active'`, or the caller isn't its owner (same "don't leak existence" posture as a draft
 article — a deactivated profile that isn't the caller's own returns `404`, not `403`).
 
@@ -717,11 +736,22 @@ shape is section-dependent, so class-validator can't express it) — `MembersSer
 .validateEditPayloadShape()` does the real per-section check, including that every
 `proofAttachments` entry (when present) has a valid `type`/`url`/`label`. `proofAttachments` is
 moderation-only evidence: on admin approval it is stripped before the item is written into the
-live `member_profiles` column, so it's never exposed on the public `GET /v1/members/:id` response.
+live `member_profiles` column, so it's never exposed on the public `GET /v1/members/:slug` response.
+
+**One pending edit per section.** Submitting closes any older still-`pending` edit for the same
+member + section (status `rejected`, `reviewNote: "Replaced by a newer submission."`,
+`reviewedBy: null` — a null reviewer is how clients tell "replaced" apart from a real rejection),
+so an admin can never approve a stale request over a newer one.
+
+**File paths must be the member's own.** Every storage path the edit references — `proofFileUrl`,
+`proofAttachments[].url` where `type: 'file'`, and key-client `logoUploadPath` — must start with
+`<memberId>/` (where `POST /v1/members/:id/uploads` puts them). Otherwise `400`: a member could
+otherwise point at someone else's private proof and have it signed for an admin, or copied into
+the public bucket as a "logo".
 
 **Response `201`:** `MemberProfileEditDto`. **Errors:** `401` · `403` not this member · `400`
-validation failure (payload shape doesn't match `section`, or a malformed `proofAttachments`
-entry).
+validation failure (payload shape doesn't match `section`, a malformed `proofAttachments` entry, or
+a file path that isn't the member's own).
 
 ### 🔒 `GET /v1/members/:id/edits`
 
@@ -752,20 +782,51 @@ audit trails.
 
 ### 🛡️ `manageMembers` `GET /v1/admin/member-edits`
 
-All pending (default) or any-status edit requests across every member, newest first. Query param
-`status` (optional, defaults to `pending`).
+Edit requests across every member, newest first. Query param `status`: `pending` (default) \|
+`verified` \| `rejected` \| `all` — anything else is `400`. The admin queue page
+(`/admin/member-edits`) fetches `all` and groups by member client-side.
 
-**Response `200`:** `MemberProfileEditDto[]`, each including the member's name/id for display.
+**Response `200`:** `MemberProfileEditDto[]`. Every `MemberProfileEditDto` (here and on the
+member's own endpoints) carries `memberName`, and since 2026-09-27 also `memberSlug` and
+`memberPhotoUrl` (additive).
+
+### 🛡️ `manageMembers` `GET /v1/admin/members/:id/edits`
+
+Added 2026-09-27. Everything the per-member review page (`/admin/member-edits/[memberId]`) needs,
+in one call. `:id` is the member's UUID (`400` if malformed, `404` if no such member — any
+`status`, including deactivated).
+
+**Response `200`:** `AdminMemberEditsDetailDto`:
+- `member` — `{ id, slug, name, initials, email, photoUrl, status, isVerified }`.
+- `current` — the **live** value of every self-editable section, keyed by section name
+  (`headline_bio: {headline, bio}`, `contact: ContactEditPayload`, and the six list sections as
+  their public item arrays), for the current-vs-proposed diff.
+- `edits` — all of this member's edits, any status, newest first.
+- `fileUrls` — storage path → signed download URL (1-hour expiry) for every private
+  `member-proofs` object those edits reference. A path missing from the map couldn't be signed
+  (e.g. the member deleted it); the UI shows it as unavailable.
 
 ### 🛡️ `manageMembers` `PATCH /v1/admin/member-edits/:id`
 
-Approve or reject one edit request. `{ status: 'verified' | 'rejected', reviewNote?: string }`. On
-`verified`: for the array-shaped sections, replaces that member's child-table rows for the section
-wholesale with `payload`'s items; for `headline_bio`/`contact`, overwrites the corresponding
-`member_profiles` columns directly. Sets `reviewedBy`/`reviewedAt` to the caller/now either way.
+Approve or reject one edit request. `{ status: 'verified' | 'rejected', reviewNote?: string }` —
+**`reviewNote` is required (non-blank) when rejecting** (added 2026-09-27): it's shown to the
+member on their own profile as the reason. On `verified`: for the array-shaped sections, replaces
+that member's items for the section wholesale with `payload`'s items (`proofAttachments` stripped);
+for `headline_bio`/`contact`, overwrites the corresponding `member_profiles` columns directly.
+Sets `reviewedBy`/`reviewedAt` to the caller/now either way.
 
-**Response `200`:** `MemberProfileEditDto`. **Errors:** `409` if the edit is no longer `pending`
-(already reviewed).
+**Key-client logos are published on approval.** A newly uploaded logo sits in the private
+`member-proofs` bucket as the item's `logoUploadPath`; the public profile reads `logoUrl`. On
+approval the file is magic-byte checked (PNG/JPEG/WebP/GIF, ≤ 2MB), copied to the public
+`application-assets` bucket at `members/<memberId>/client-logos/<uuid>.<ext>`, and `logoUrl` is set
+to its public URL; `logoUploadPath` is dropped. Items without a new upload keep their existing
+`logoUrl`. (Before this, approved logos were silently lost — written as `logoUploadPath`, which
+nothing reads.) A logo that fails the check makes the whole approval `400` with a message naming
+the client — reject the edit with a reason instead.
+
+**Response `200`:** `MemberProfileEditDto`. **Errors:** `400` rejecting without a `reviewNote`, or
+an invalid key-client logo · `409` if the edit is no longer `pending` (already reviewed, or
+replaced by a newer submission).
 
 ## Member directory & profiles — not built yet (explicitly deferred)
 

@@ -2,7 +2,13 @@ import { createClient } from '@/lib/supabase/server';
 import { ApiError } from '@/lib/api/client';
 import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
 import type { AdminApplicationListItemDto, ApplicationDto } from '@shared/membership-application';
-import type { MemberDto, MemberListItemDto, MemberProfileEditDto } from '@shared/member';
+import type {
+  AdminMemberEditsDetailDto,
+  MemberDto,
+  MemberEditStatusFilter,
+  MemberListItemDto,
+  MemberProfileEditDto,
+} from '@shared/member';
 import type { CategoryDto } from '@shared/category';
 import type { AdminArticleListItemDto, ArticleDto, ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
@@ -87,15 +93,15 @@ export async function getMembersServer(queryString: string): Promise<MemberListI
   return res.json();
 }
 
-// Returns a member's full profile, or null if signed out or not found.
-export async function getMemberServer(id: string): Promise<MemberDto | null> {
+// Returns a member's full profile by slug, or null if signed out or not found.
+export async function getMemberServer(slug: string): Promise<MemberDto | null> {
   const supabase = createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session) return null;
 
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/members/${id}`, {
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/members/${encodeURIComponent(slug)}`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
     cache: 'no-store',
   });
@@ -265,6 +271,49 @@ export async function getAdminEventServer(id: string): Promise<EventDto | null> 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(body?.message ?? 'Failed to load event.', res.status);
+  }
+
+  return res.json();
+}
+
+// Admin profile-edit queue — every member's edits with the given status (default: pending).
+export async function getAdminMemberEditsServer(status: MemberEditStatusFilter = 'pending'): Promise<MemberProfileEditDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/member-edits?status=${encodeURIComponent(status)}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load profile edits.', res.status);
+  }
+
+  return res.json();
+}
+
+// One member's edits + live section values for the admin review page, or null if not found.
+export async function getAdminMemberEditsDetailServer(memberId: string): Promise<AdminMemberEditsDetailDto | null> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/members/${encodeURIComponent(memberId)}/edits`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (res.status === 404 || res.status === 400) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load profile edits.', res.status);
   }
 
   return res.json();

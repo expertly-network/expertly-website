@@ -230,10 +230,43 @@ export class MembersRepository {
     return this.findMemberIdsByServices(serviceIds);
   }
 
-  async findDetailByProfileId(id: string): Promise<MemberProfileDetailRow | null> {
+  // Admin review page (GET /v1/admin/members/:id/edits) — by UUID, any status.
+  async findDetailByProfileId(profileId: string): Promise<MemberProfileDetailRow | null> {
     const { data, error } = await this.memberProfiles()
       .select([...MEMBER_PROFILE_COLUMNS, ...MEMBER_DETAIL_JSONB_COLUMNS].join(', '))
-      .eq('profile_id', id)
+      .eq('profile_id', profileId)
+      .maybeSingle();
+
+    if (error) throw new InternalServerErrorException('Failed to load member profile.');
+    return data as unknown as MemberProfileDetailRow | null;
+  }
+
+  // Slug + photo for a batch of members — enriches the admin edit queue's rows.
+  async findSlugAndPhotoByProfileIds(
+    profileIds: string[]
+  ): Promise<Map<string, { slug: string; photo_path: string | null }>> {
+    const map = new Map<string, { slug: string; photo_path: string | null }>();
+    const unique = [...new Set(profileIds)];
+    if (unique.length === 0) return map;
+
+    // Loosely typed select string: member_profiles.slug isn't in the generated Database type yet.
+    const columns: string = 'profile_id, slug, photo_path';
+    const { data, error } = await this.memberProfiles().select(columns).in('profile_id', unique);
+    if (error) throw new InternalServerErrorException('Failed to load member summaries.');
+    for (const row of (data ?? []) as unknown as { profile_id: string; slug: string; photo_path: string | null }[]) {
+      map.set(row.profile_id, { slug: row.slug, photo_path: row.photo_path });
+    }
+    return map;
+  }
+
+  // The public profile read (GET /v1/members/:slug) looks members up by their permanent,
+  // server-generated slug — the UUID stays the key for everything else.
+  async findDetailBySlug(slug: string): Promise<MemberProfileDetailRow | null> {
+    const { data, error } = await this.memberProfiles()
+      .select([...MEMBER_PROFILE_COLUMNS, ...MEMBER_DETAIL_JSONB_COLUMNS].join(', '))
+      // `.filter`, not `.eq`: member_profiles.slug isn't in the generated Database type yet (see
+      // MemberProfileInsert in applications.repository.ts), and `.eq` only accepts known columns.
+      .filter('slug', 'eq', slug)
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load member profile.');
@@ -294,11 +327,11 @@ export class MembersRepository {
     return updated as unknown as MemberProfileRow;
   }
 
-  async findAllEditsByStatus(status: string): Promise<MemberProfileEditRow[]> {
-    const { data, error } = await this.memberProfileEdits()
-      .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .eq('status', status as MemberEditStatus)
-      .order('submitted_at', { ascending: false });
+  // `status` 'all' returns every edit regardless of status.
+  async findAllEditsByStatus(status: MemberEditStatus | 'all'): Promise<MemberProfileEditRow[]> {
+    let query = this.memberProfileEdits().select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '));
+    if (status !== 'all') query = query.eq('status', status);
+    const { data, error } = await query.order('submitted_at', { ascending: false });
 
     if (error) throw new InternalServerErrorException('Failed to load profile edits.');
     return (data ?? []) as unknown as MemberProfileEditRow[];
@@ -313,6 +346,50 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to load profile edit.');
     if (!data) throw new NotFoundException('Profile edit not found.');
     return data as unknown as MemberProfileEditRow;
+  }
+
+  // Closes any older still-pending edit for the same member + section once a newer one is
+  // submitted, so approving a stale request can never overwrite a newer one.
+  async supersedePendingEdits(memberId: string, section: MemberEditSection, exceptId: string): Promise<void> {
+    const { error } = await this.memberProfileEdits()
+      .update({
+        status: 'rejected',
+        review_note: 'Replaced by a newer submission.',
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('member_id', memberId)
+      .eq('section', section)
+      .eq('status', 'pending')
+      .neq('id', exceptId);
+    if (error) throw new InternalServerErrorException('Failed to update earlier profile edits.');
+  }
+
+  // Short-lived read URLs for private member-proofs objects, for the admin review page.
+  // Paths that can't be signed (deleted, never uploaded) are simply absent from the result.
+  async createSignedProofUrls(paths: string[], expiresInSeconds: number): Promise<Record<string, string>> {
+    const unique = [...new Set(paths)];
+    if (unique.length === 0) return {};
+    const { data, error } = await this.supabase.db.storage.from('member-proofs').createSignedUrls(unique, expiresInSeconds);
+    if (error) throw new InternalServerErrorException('Failed to sign proof file URLs.');
+    const urls: Record<string, string> = {};
+    for (const entry of data ?? []) {
+      if (entry.path && entry.signedUrl && !entry.error) urls[entry.path] = entry.signedUrl;
+    }
+    return urls;
+  }
+
+  async downloadProofFile(path: string): Promise<Buffer> {
+    const { data, error } = await this.supabase.db.storage.from('member-proofs').download(path);
+    if (error || !data) throw new InternalServerErrorException('Failed to read uploaded file.');
+    return Buffer.from(await data.arrayBuffer());
+  }
+
+  // Public application-assets bucket — same bucket member photos live in.
+  async uploadPublicAsset(path: string, buffer: Buffer, contentType: string): Promise<void> {
+    const { error } = await this.supabase.db.storage
+      .from('application-assets')
+      .upload(path, buffer, { contentType, upsert: false });
+    if (error) throw new InternalServerErrorException('Failed to store client logo.');
   }
 
   async updateEditDecision(id: string, patch: MemberProfileEditUpdate): Promise<MemberProfileEditRow> {

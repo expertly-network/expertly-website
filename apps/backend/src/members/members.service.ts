@@ -1,9 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { fromBuffer as sniffFileType } from 'file-type';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
+  AdminMemberEditsDetailDto,
   AdminMemberListItemDto,
   MemberDto,
+  MemberEditStatusFilter,
   MemberListItemDto,
   MemberProfileEditDto,
   RenewalDueState,
@@ -15,6 +25,7 @@ import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import {
   MembersRepository,
+  type MemberProfileDetailRow,
   type MemberProfileEditRow,
   type MemberProfileRow,
   type MemberProfileUpdate,
@@ -41,12 +52,31 @@ interface ProofAttachmentInput {
   label?: unknown;
 }
 
+const EDIT_STATUS_FILTERS: readonly MemberEditStatusFilter[] = ['pending', 'verified', 'rejected', 'all'];
+
+// Signed proof-file links on the admin review page expire after an hour.
+const PROOF_URL_TTL_SECONDS = 60 * 60;
+
+// Key-client logos are copied from the private member-proofs bucket into the public
+// application-assets bucket on approval — only real raster images, checked by magic bytes.
+const LOGO_MIME_TO_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+type EditPayloadItem = Record<string, unknown>;
+
 // Membership runs 12 months from membership_started_at; flagged "due-soon" 30 days out.
 const RENEWAL_PERIOD_MONTHS = 12;
 const RENEWAL_REMINDER_DAYS = 30;
 
 @Injectable()
 export class MembersService {
+  private readonly logger = new Logger(MembersService.name);
+
   constructor(private readonly membersRepository: MembersRepository) {}
 
   async list(query: {
@@ -96,8 +126,8 @@ export class MembersService {
     return items;
   }
 
-  async findOne(id: string, user: AuthenticatedUser): Promise<MemberDto> {
-    const row = await this.membersRepository.findDetailByProfileId(id);
+  async findOneBySlug(slug: string, user: AuthenticatedUser): Promise<MemberDto> {
+    const row = await this.membersRepository.findDetailBySlug(slug);
 
     if (!row || (row.status !== 'active' && row.profile_id !== user.id)) {
       throw new NotFoundException('Member profile not found.');
@@ -139,6 +169,7 @@ export class MembersService {
   async createEdit(memberId: string, user: AuthenticatedUser, dto: CreateMemberEditDto): Promise<MemberProfileEditDto> {
     this.assertOwner(memberId, user);
     this.validateEditPayloadShape(dto);
+    this.assertOwnedFilePaths(memberId, dto.section, dto.payload, dto.proofFileUrl);
 
     const inserted = await this.membersRepository.insertEdit({
       member_id: memberId,
@@ -147,15 +178,17 @@ export class MembersService {
       proof_file_url: dto.proofFileUrl ?? null,
       proof_link: dto.proofLink ?? null,
     });
+    await this.membersRepository.supersedePendingEdits(memberId, dto.section, inserted.id);
 
-    return this.toEditDto(inserted, user.firstName + ' ' + user.lastName);
+    const [dto_] = await this.toEditDtos([inserted]);
+    return dto_;
   }
 
   async listMyEdits(memberId: string, user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
     this.assertOwner(memberId, user);
 
     const rows = await this.membersRepository.findEditsByMember(memberId);
-    return rows.map((row) => this.toEditDto(row, user.firstName + ' ' + user.lastName));
+    return this.toEditDtos(rows);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -204,12 +237,54 @@ export class MembersService {
   }
 
   async adminListEdits(status?: string): Promise<MemberProfileEditDto[]> {
-    const rows = await this.membersRepository.findAllEditsByStatus(status ?? 'pending');
-    const profilesById = await this.membersRepository.findProfilesByIds(rows.map((r) => r.member_id));
-    return rows.map((row) => this.toEditDto(row, this.fullName(profilesById.get(row.member_id))));
+    const filter = (status ?? 'pending') as MemberEditStatusFilter;
+    if (!EDIT_STATUS_FILTERS.includes(filter)) {
+      throw new BadRequestException(`status must be one of: ${EDIT_STATUS_FILTERS.join(', ')}.`);
+    }
+    const rows = await this.membersRepository.findAllEditsByStatus(filter);
+    return this.toEditDtos(rows);
+  }
+
+  // Everything the per-member review page needs: identity, the live value of every section (for
+  // the current-vs-proposed diff), all edits, and signed links for their private proof files.
+  async adminGetMemberEdits(memberId: string): Promise<AdminMemberEditsDetailDto> {
+    const row = await this.membersRepository.findDetailByProfileId(memberId);
+    if (!row) throw new NotFoundException('Member profile not found.');
+
+    const [profilesById, editRows] = await Promise.all([
+      this.membersRepository.findProfilesByIds([memberId]),
+      this.membersRepository.findEditsByMember(memberId),
+    ]);
+    const profile = profilesById.get(memberId);
+    const [edits, fileUrls] = await Promise.all([
+      this.toEditDtos(editRows),
+      this.membersRepository.createSignedProofUrls(editRows.flatMap((e) => this.proofPathsOf(e)), PROOF_URL_TTL_SECONDS),
+    ]);
+
+    return {
+      member: {
+        id: row.profile_id,
+        slug: row.slug,
+        name: this.fullName(profile),
+        initials:
+          profile?.initials ?? `${(profile?.first_name ?? '?')[0]}${(profile?.last_name ?? '?')[0]}`.toUpperCase(),
+        email: profile?.email ?? null,
+        photoUrl: row.photo_path ? this.membersRepository.buildPhotoUrl(row.photo_path) : (profile?.avatar_url ?? null),
+        status: row.status,
+        isVerified: row.is_verified,
+      },
+      current: this.currentSectionValues(row),
+      edits,
+      fileUrls,
+    };
   }
 
   async adminReviewEdit(id: string, admin: AuthenticatedUser, dto: ReviewMemberEditDto): Promise<MemberProfileEditDto> {
+    const reviewNote = dto.reviewNote?.trim() || null;
+    if (dto.status === 'rejected' && !reviewNote) {
+      throw new BadRequestException('A reason is required when rejecting an edit — it is shown to the member.');
+    }
+
     const edit = await this.membersRepository.findEditById(id);
     if (edit.status !== 'pending') {
       throw new ConflictException('This edit has already been reviewed.');
@@ -221,13 +296,13 @@ export class MembersService {
 
     const updated = await this.membersRepository.updateEditDecision(id, {
       status: dto.status,
-      review_note: dto.reviewNote ?? null,
+      review_note: reviewNote,
       reviewed_by: admin.id,
       reviewed_at: new Date().toISOString(),
     });
 
-    const profilesById = await this.membersRepository.findProfilesByIds([updated.member_id]);
-    return this.toEditDto(updated, this.fullName(profilesById.get(updated.member_id)));
+    const [updatedDto] = await this.toEditDtos([updated]);
+    return updatedDto;
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -266,11 +341,95 @@ export class MembersService {
 
     // proofAttachments is moderation-only evidence, embedded in the edit payload for review —
     // it must never land in the public member_profiles column the applied item is written to.
-    const items = (payload as Record<string, unknown>[]).map(({ proofAttachments: _proofAttachments, ...item }) => ({
+    let items: EditPayloadItem[] = (payload as EditPayloadItem[]).map(({ proofAttachments: _proofAttachments, ...item }) => ({
       id: randomUUID(),
       ...item,
     }));
+    if (section === 'key_clients') {
+      items = await Promise.all(items.map((item) => this.publishClientLogo(memberId, item)));
+    }
     await this.membersRepository.applySectionEdit(memberId, column, section, items);
+  }
+
+  // A newly uploaded key-client logo sits in the private member-proofs bucket as
+  // `logoUploadPath`, but the public profile reads `logoUrl`. On approval, copy the file into the
+  // public application-assets bucket (magic-byte checked) and point `logoUrl` at it. Items without
+  // a new upload keep whatever `logoUrl` they already had.
+  private async publishClientLogo(memberId: string, item: EditPayloadItem): Promise<EditPayloadItem> {
+    const { logoUploadPath, ...rest } = item;
+    if (typeof logoUploadPath !== 'string' || logoUploadPath.length === 0) {
+      return { ...rest, logoUrl: typeof rest.logoUrl === 'string' ? rest.logoUrl : null };
+    }
+    this.assertOwnedPath(memberId, logoUploadPath);
+
+    const buffer = await this.membersRepository.downloadProofFile(logoUploadPath);
+    const sniffed = await sniffFileType(buffer);
+    const ext = sniffed ? LOGO_MIME_TO_EXT[sniffed.mime] : undefined;
+    const clientName = typeof rest.name === 'string' ? rest.name : 'a client';
+    if (!sniffed || !ext) {
+      throw new BadRequestException(`The logo for ${clientName} isn't a PNG, JPEG, WebP, or GIF image — reject this edit instead.`);
+    }
+    if (buffer.length > MAX_LOGO_BYTES) {
+      throw new BadRequestException(`The logo for ${clientName} is larger than 2MB — reject this edit instead.`);
+    }
+
+    const publicPath = `members/${memberId}/client-logos/${randomUUID()}.${ext}`;
+    await this.membersRepository.uploadPublicAsset(publicPath, buffer, sniffed.mime);
+    this.logger.log(`Published client logo for member ${memberId} at ${publicPath}`);
+    return { ...rest, logoUrl: this.membersRepository.buildPhotoUrl(publicPath) };
+  }
+
+  // Every private member-proofs object an edit references.
+  private proofPathsOf(edit: MemberProfileEditRow): string[] {
+    const paths: string[] = [];
+    if (edit.proof_file_url) paths.push(edit.proof_file_url);
+    if (Array.isArray(edit.payload)) {
+      for (const item of edit.payload as EditPayloadItem[]) {
+        if (typeof item.logoUploadPath === 'string' && item.logoUploadPath) paths.push(item.logoUploadPath);
+        if (Array.isArray(item.proofAttachments)) {
+          for (const a of item.proofAttachments as ProofAttachmentInput[]) {
+            if (a.type === 'file' && typeof a.url === 'string' && a.url) paths.push(a.url);
+          }
+        }
+      }
+    }
+    return paths;
+  }
+
+  // Uploads land at `<memberId>/...` (see requestUpload). A submitted edit may only reference its
+  // own member's files — otherwise a member could point at someone else's private proof and have
+  // it signed for an admin or, via a key-client logo, copied into the public bucket.
+  private assertOwnedFilePaths(memberId: string, section: string, payload: unknown, proofFileUrl?: string): void {
+    const paths = this.proofPathsOf({
+      section,
+      payload,
+      proof_file_url: proofFileUrl ?? null,
+    } as MemberProfileEditRow);
+    for (const path of paths) this.assertOwnedPath(memberId, path);
+  }
+
+  private assertOwnedPath(memberId: string, path: string): void {
+    if (!path.startsWith(`${memberId}/`) || path.includes('..')) {
+      throw new BadRequestException('Uploaded files must be your own uploads.');
+    }
+  }
+
+  private currentSectionValues(row: MemberProfileDetailRow): AdminMemberEditsDetailDto['current'] {
+    return {
+      headline_bio: { headline: row.headline, bio: row.bio },
+      contact: {
+        contactEmail: row.contact_email,
+        contactPhone: row.contact_phone,
+        linkedinUrl: row.linkedin_url,
+        website: row.website,
+      },
+      engagements: row.engagements ?? [],
+      education: row.educations ?? [],
+      work_experiences: row.work_experiences ?? [],
+      key_clients: row.key_clients ?? [],
+      testimonials: row.testimonials ?? [],
+      awards: row.awards ?? [],
+    };
   }
 
   private validateEditPayloadShape(dto: CreateMemberEditDto): void {
@@ -362,11 +521,35 @@ export class MembersService {
     };
   }
 
-  private toEditDto(row: MemberProfileEditRow, memberName: string): MemberProfileEditDto {
+  // Batch-resolves member name/slug/photo for a set of edit rows.
+  private async toEditDtos(rows: MemberProfileEditRow[]): Promise<MemberProfileEditDto[]> {
+    const memberIds = rows.map((r) => r.member_id);
+    const [profilesById, summaries] = await Promise.all([
+      this.membersRepository.findProfilesByIds([...new Set(memberIds)]),
+      this.membersRepository.findSlugAndPhotoByProfileIds(memberIds),
+    ]);
+    return rows.map((row) => {
+      const profile = profilesById.get(row.member_id);
+      const summary = summaries.get(row.member_id);
+      const photoUrl = summary?.photo_path
+        ? this.membersRepository.buildPhotoUrl(summary.photo_path)
+        : (profile?.avatar_url ?? null);
+      return this.toEditDto(row, this.fullName(profile), summary?.slug ?? null, photoUrl);
+    });
+  }
+
+  private toEditDto(
+    row: MemberProfileEditRow,
+    memberName: string,
+    memberSlug: string | null,
+    memberPhotoUrl: string | null
+  ): MemberProfileEditDto {
     return {
       id: row.id,
       memberId: row.member_id,
       memberName,
+      memberSlug,
+      memberPhotoUrl,
       section: row.section,
       payload: row.payload,
       proofFileUrl: row.proof_file_url,

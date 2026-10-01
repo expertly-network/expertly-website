@@ -26,7 +26,7 @@ As a visitor, I want to search and filter vetted experts so I can find someone r
 committing to sign up.
 - [ ] `GET /v1/members` supports search (name/practice/location/firm/title), filter (practice area,
       country, price-range bucket), sort, and pagination per `docs/rest-api.md`
-- [ ] Guest can view a member's full public profile (`GET /v1/members/:id`)
+- [ ] Guest can view a member's full public profile (`GET /v1/members/:slug`)
 - [ ] No member contact info is exposed without booking a consultation (once that feature exists)
 
 ### US-01-03: Reading a published article as a guest
@@ -140,7 +140,7 @@ pages.
 ### US-06-01: My public profile after activation
 As a member, I want my profile (headline, bio, firm, experience, services, credentials, etc.)
 visible in the directory once I'm activated.
-- [ ] `GET /v1/members/:id` returns full profile including all child tables (work experience,
+- [ ] `GET /v1/members/:slug` returns full profile including all child tables (work experience,
       education, engagements, qualifications, credentials, testimonials, awards, key clients)
 
 ### US-06-02: Proposing an edit to my profile
@@ -228,8 +228,19 @@ own detail page — everything the applicant submitted, read-only — and approv
 ### US-09-01: Reviewing a pending profile-edit request
 As an admin with `manageMembers` permission, I want to see pending member profile edits and
 approve or reject each one, with its proof, before it goes live.
-- [ ] `GET /v1/admin/member-edits` and `PATCH /v1/admin/member-edits/:id` per `docs/rest-api.md`
-- [ ] Rejection doesn't silently discard the member's proposed change without a visible reason
+- [x] `GET /v1/admin/member-edits` and `PATCH /v1/admin/member-edits/:id` per `docs/rest-api.md`,
+      plus `GET /v1/admin/members/:id/edits` for the per-member review page
+- [x] Queue is grouped **per member** (`/admin/member-edits`): sections changed, pending count,
+      waiting-since; clicking through shows every change that member submitted
+      (`/admin/member-edits/[memberId]`)
+- [x] Each pending section shows **current vs proposed** — field-by-field for headline/bio and
+      contact, per-entry Added / Changed / Removed / Unchanged for list sections — with its proof
+      (private files via short-lived signed links)
+- [x] Approve or reject per section, plus "Approve all" (with confirmation)
+- [x] Rejection doesn't silently discard the member's proposed change without a visible reason —
+      a reason is required (API-enforced) and shown to the member on their own profile
+- [x] At most one pending edit per member + section — resubmitting replaces the older one
+- [x] Approved key-client logos are actually published (copied to the public bucket)
 
 **Renewal thresholds are not admin-configurable.** An earlier version of this story had a
 `GET`/`PATCH /v1/admin/renewal-policy` pair backing a sitewide settings row (12-month period,

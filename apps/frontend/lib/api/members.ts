@@ -5,6 +5,7 @@ import type {
   MemberDto,
   MemberListItemDto,
   MemberProfileEditDto,
+  ReviewMemberEditRequest,
   UploadRequest,
   UploadResponse,
 } from '@shared/member';
@@ -26,8 +27,8 @@ export function getMembers(params: GetMembersParams): Promise<MemberListItemDto[
   return apiFetch<MemberListItemDto[]>(`/members${buildMembersQueryString(params)}`);
 }
 
-export function getMember(id: string): Promise<MemberDto> {
-  return apiFetch<MemberDto>(`/members/${id}`);
+export function getMember(slug: string): Promise<MemberDto> {
+  return apiFetch<MemberDto>(`/members/${encodeURIComponent(slug)}`);
 }
 
 export function getMyMemberEdits(id: string): Promise<MemberProfileEditDto[]> {
@@ -47,6 +48,14 @@ export function createMemberEdit(
 export function requestMemberUpload(id: string, body: UploadRequest): Promise<UploadResponse> {
   return apiFetch<UploadResponse>(`/members/${id}/uploads`, {
     method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+// 🛡️ manageMembers — approve or reject one pending edit. A reason is required to reject.
+export function reviewMemberEdit(id: string, body: ReviewMemberEditRequest): Promise<MemberProfileEditDto> {
+  return apiFetch<MemberProfileEditDto>(`/admin/member-edits/${id}`, {
+    method: 'PATCH',
     body: JSON.stringify(body),
   });
 }

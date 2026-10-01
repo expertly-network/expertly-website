@@ -220,6 +220,9 @@ export class MemberProfileEditDto {
   @ApiProperty() id!: string;
   @ApiProperty() memberId!: string;
   @ApiProperty() memberName!: string;
+  /** For linking to the member's live profile (/members/:slug). Null only if the profile is gone. */
+  @ApiProperty({ nullable: true, type: String }) memberSlug!: string | null;
+  @ApiProperty({ nullable: true, type: String }) memberPhotoUrl!: string | null;
   @ApiProperty({
     enum: [
       'headline_bio',
@@ -247,5 +250,46 @@ export class MemberProfileEditDto {
 
 export class ReviewMemberEditRequest {
   @ApiProperty({ enum: ['verified', 'rejected'] }) status!: 'verified' | 'rejected';
+  /** Required when status is 'rejected' — shown to the member as the reason. */
   @ApiPropertyOptional() reviewNote?: string;
+}
+
+/** `status` query param of GET /v1/admin/member-edits. */
+export type MemberEditStatusFilter = MemberEditStatus | 'all';
+
+/** The live value of every self-editable section, for the admin's current-vs-proposed diff. */
+export class MemberEditCurrentValues {
+  @ApiProperty({ type: () => HeadlineBioEditPayload }) headline_bio!: { headline: string | null; bio: string | null };
+  @ApiProperty({ type: () => ContactEditPayload }) contact!: ContactEditPayload;
+  @ApiProperty({ type: () => MemberEngagement, isArray: true }) engagements!: MemberEngagement[];
+  @ApiProperty({ type: () => MemberEducation, isArray: true }) education!: MemberEducation[];
+  @ApiProperty({ type: () => MemberWorkExperience, isArray: true }) work_experiences!: MemberWorkExperience[];
+  @ApiProperty({ type: () => MemberKeyClient, isArray: true }) key_clients!: MemberKeyClient[];
+  @ApiProperty({ type: () => MemberTestimonial, isArray: true }) testimonials!: MemberTestimonial[];
+  @ApiProperty({ type: () => MemberAward, isArray: true }) awards!: MemberAward[];
+}
+
+export class AdminEditMemberSummary {
+  @ApiProperty() id!: string;
+  @ApiProperty() slug!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() initials!: string;
+  @ApiProperty({ nullable: true, type: String }) email!: string | null;
+  @ApiProperty({ nullable: true, type: String }) photoUrl!: string | null;
+  @ApiProperty({ enum: ['active', 'deactivated'] }) status!: MemberProfileStatus;
+  @ApiProperty() isVerified!: boolean;
+}
+
+/** GET /v1/admin/members/:id/edits — everything the per-member review page needs in one call. */
+export class AdminMemberEditsDetailDto {
+  @ApiProperty({ type: () => AdminEditMemberSummary }) member!: AdminEditMemberSummary;
+  @ApiProperty({ type: () => MemberEditCurrentValues }) current!: MemberEditCurrentValues;
+  /** All of this member's edits, any status, newest first. */
+  @ApiProperty({ type: () => MemberProfileEditDto, isArray: true }) edits!: MemberProfileEditDto[];
+  /**
+   * Storage path -> short-lived (1 hour) signed download URL, for every private `member-proofs`
+   * object referenced by these edits: `proofFileUrl`, `proofAttachments[].url` where type is
+   * 'file', and key-client `logoUploadPath`. Paths missing here couldn't be signed (e.g. deleted).
+   */
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } }) fileUrls!: Record<string, string>;
 }
