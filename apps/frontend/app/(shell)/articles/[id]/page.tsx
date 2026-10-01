@@ -74,7 +74,8 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
   }
 
   const [author, allArticles] = await Promise.all([
-    getMemberServer(article.authorId),
+    // Authors without a member profile (no slug) get no author sidebar.
+    article.authorSlug ? getMemberServer(article.authorSlug) : Promise.resolve(null),
     getArticlesServer(),
   ]);
 

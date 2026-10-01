@@ -32,29 +32,37 @@ export function ProfileTabs({
 
   return (
     <div>
-      <div className="flex gap-1 overflow-x-auto rounded-card border border-line bg-bg-card p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActive(tab.key)}
-            className={`whitespace-nowrap rounded-input px-4 py-2.5 text-sm font-medium transition-colors ${
-              active === tab.key ? 'bg-ink text-bg' : 'text-ink-3 hover:bg-bg-alt hover:text-ink'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* `.mp-tabs-nav` / `.mp-tab` — underline tabs, not pills. */}
+      <div className="mb-4 overflow-hidden rounded-panel border border-line bg-bg-card shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        <div role="tablist" className="flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active === tab.key}
+              onClick={() => setActive(tab.key)}
+              className={`flex-none whitespace-nowrap border-b-2 px-5 py-3.5 font-mono text-profile-item font-medium transition-colors ${
+                active === tab.key ? 'border-ink-2 text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-5 rounded-card border border-line bg-bg-card p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+      {/* `.mp-tab-content` */}
+      <div role="tabpanel" className="rounded-panel border border-line bg-bg-card p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] max-[640px]:p-5">
         {active === 'About' && (
           <AboutTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
         {active === 'Credentials' && (
-          <CredentialsTab member={member} isOwnProfile={isOwnProfile} onEdit={onEdit} />
+          <CredentialsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
-        {active === 'Articles' && <ArticlesTab authorId={member.id} />}
+        {active === 'Articles' && (
+          <ArticlesTab authorId={member.id} isOwnProfile={isOwnProfile} />
+        )}
         {active === 'Reviews' && (
           <ReviewsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}

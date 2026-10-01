@@ -29,9 +29,9 @@ export function ProfileClient({
   }
 
   return (
-    <PageContainer className="py-10 pb-24 min-[1024px]:pb-10">
+    <PageContainer className="pb-28 pt-10 max-[720px]:pt-5 min-[1024px]:pb-20">
       <ProfileHeader member={member} />
-      <div className="mt-6 flex items-start gap-6 max-[1023px]:flex-col">
+      <div className="mt-5 flex items-start gap-6 max-[1023px]:flex-col">
         <div className="min-w-0 flex-1">
           <ProfileTabs
             member={member}

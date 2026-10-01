@@ -15,7 +15,7 @@ be), then use it — don't reach for an arbitrary `text-[17px]` or `#00A582` inl
 | Colors | CSS custom properties in `apps/frontend/app/globals.css` | Tailwind utilities (`bg-accent`, `text-ink-3`, …) via `tailwind.config.ts` |
 | Fonts | `apps/frontend/app/layout.tsx` (loads Geist + Archivo, exposes as CSS vars) | `font-sans` (Geist, default body) / `font-mono` (Archivo, labels) |
 | Type scale (size/line-height/letter-spacing/weight) | `apps/frontend/tailwind.config.ts` → `theme.extend.fontSize` | `text-heading`, `text-eyebrow`, etc. — see table below |
-| Radii | `apps/frontend/tailwind.config.ts` → `theme.extend.borderRadius` | `rounded-input` (10px), `rounded-card` (20px); everything else uses Tailwind's defaults (see below) |
+| Radii | `apps/frontend/tailwind.config.ts` → `theme.extend.borderRadius` | `rounded-input` (10px), `rounded-card` (20px), `rounded-panel` (14px, member profile tab bar/content and inner item cards — `.mp-tabs-nav`/`.mp-tab-content`/`.mp-edu-card`), `rounded-card-lg` (24px, write flow); everything else uses Tailwind's defaults (see below) |
 
 Colors are CSS variables (not hardcoded into `tailwind.config.ts`) specifically so re-syncing
 against the design repo, or swapping a value at runtime, is a one-line diff in `globals.css`.
@@ -99,6 +99,10 @@ letter-spacing + weight together.
 | `text-label` | 12px | normal | normal | 500 | Form field labels | This app — from `auth-field label` |
 | `text-caption` | 13px | 1.4 | normal | 400 | Secondary/meta text (pair with `text-ink-3`) | This app — from `auth-foot`, card meta text |
 | `text-mono-label` | 11px | normal | 0.12em | 500 | Small-caps tag/label, pairs with `font-mono` | This app — from badges, `auth-logos` city names |
+| `text-profile-label` | 11px | normal | 0.08em | (set at call site, 700) | Member profile section heading ("Key Engagements"), pairs with `font-mono` — not uppercased, matching the prototype | styles.css `.mp-section-label` |
+| `text-profile-body` | 15.5px | 1.7 | — | (400) | Member profile bio paragraph | styles.css `.mp-bio` |
+| `text-profile-item` | 14.5px | 1.45 | — | (500/600 at call site) | Member profile item titles, stats row, tabs, contact values | styles.css `.mp-eng-title` / `.mp-work-title` / `.mp-stat` / `.mp-tab` |
+| `text-profile-meta` | 11px | 1.45 | — | (400) | Member profile item meta (institution · year, company, dates) | styles.css `.mp-edu-meta` / `.mp-work-company` / `.mp-award-meta` |
 
 **A note on the "This app" rows:** the prototype has organic size drift for similar elements —
 card titles show up as 17px, 18px, *and* 19px in different places, page headings as 28px and 32px.
@@ -116,6 +120,14 @@ design intends. Fixed by standardizing every genuine section-intro paragraph on 
 including the hero, rather than reproducing the design's own split. Don't add a second "hero
 lede" variant if a future mockup shows another slightly-different one-off size for this role —
 consolidate into this token instead.
+
+**The `profile-*` rows are a deliberate exception to that consolidation.** The member profile
+page was first built with the generic tokens (`text-title` 18px section headings, `text-sm`
+bios), which made it read visibly differently from `member-profile.html`, whose `.mp-*` scale is
+internally consistent (not drift) — small 11px Archivo section labels, 14.5px item titles,
+15.5px bio. Those sizes now have their own named tokens, scoped to the profile page and its
+`components/members/` pieces. Weights are left out of these tokens on purpose because the
+prototype pairs the same size with different weights.
 
 Still-fine to use freely: Tailwind's default scale (`text-sm`, `text-xs`, etc.) for genuine
 one-offs that aren't part of any recurring pattern — the semantic names above are for anything
@@ -151,7 +163,7 @@ form, and the application wizard before this existed).
 | `Input` | A single labeled text/email/password field | Wraps a native `<input>`; `label` and optional `labelRight` (e.g. a "Forgot?" link) are required props. |
 | `Select` | A labeled `<select>` | Same label pattern as `Input`; pass `<option>`s as children. |
 | `Textarea` | A labeled multi-line field | Same label pattern, plus an optional `hint` line below it. |
-| `Card` | A bordered surface/panel | `rounded-card border border-line bg-bg-card`; `padding="lg"` (default, collapses on mobile — also the homepage testimonial cards' size, measured at design's own 36px, close enough to `lg`'s 40px to reuse rather than add a 5th variant), `"md"`, or `"xl"` (56px — design's `.dual-card`, a genuinely bigger card like the homepage's two-way-in split cards). Real variants, not one-off className padding overrides, which fight the existing padding utility at unpredictable specificity. |
+| `Card` | A bordered surface/panel | `rounded-card border border-line bg-bg-card`; `padding="lg"` (default, collapses on mobile — also the homepage testimonial cards' size, measured at design's own 36px, close enough to `lg`'s 40px to reuse rather than add a 5th variant), `"md"`, `"xl"` (56px — design's `.dual-card`, a genuinely bigger card like the homepage's two-way-in split cards), or `"sm"` (20px — design's `.mp-sidebar-card`, for cards in a narrow ~288px column such as the member profile sidebar, where `lg`'s 40px leaves too little content width). Real variants, not one-off className padding overrides, which fight the existing padding utility at unpredictable specificity. |
 | `Badge` | A pill/chip/tag | `variant`: `neutral` (bg-bg-alt), `emphasis` (bg-ink), `brand` (accent-tinted) — the same three chip treatments documented above — plus `success` (`ok`-tinted), `danger` (`error`-tinted), `warning` (amber-50/amber-700, same pair as the pending-verification chip below), `info` (sky-50/sky-700) for status-style indicators (e.g. an application's `approved`/`rejected`/`draft`/`submitted` state) that need a distinct hue per state rather than one flat neutral chip. |
 | `FilterPopover` | Multi/single-select filter control with optional in-list search (directory filters) | `components/ui/FilterPopover.tsx` — native `<select>` (see `Select`) can't do multi-select or in-list search |
 | `Eyebrow` | Small-caps label above a section heading | `components/ui/Eyebrow.tsx` — renders the 22×2px accent dash before the label that `design/static_html`'s `.eyebrow::before` has on every section eyebrow (previously missing app-wide — plain text was used instead). `dark` prop dims the label text to `white/55` for dark-surface sections (e.g. Firms Band) — the dash itself always stays accent-colored either way, matching the source. |

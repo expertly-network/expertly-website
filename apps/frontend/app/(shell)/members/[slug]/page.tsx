@@ -4,13 +4,13 @@ import { getMemberServer, getMyMemberEditsServer } from '@/lib/api/server';
 import { ProfileAuthWall } from '@/components/members/ProfileAuthWall';
 import { ProfileClient } from './ProfileClient';
 
-export default async function MemberProfilePage({ params }: { params: { id: string } }) {
+export default async function MemberProfilePage({ params }: { params: { slug: string } }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) {
     return <ProfileAuthWall />;
   }
 
-  const member = await getMemberServer(params.id);
+  const member = await getMemberServer(params.slug);
   if (!member) {
     notFound();
   }

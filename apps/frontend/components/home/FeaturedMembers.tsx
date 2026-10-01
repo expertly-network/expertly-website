@@ -14,7 +14,7 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
       itemKey={(m) => m.id}
       renderItem={(m) => (
         <Link
-          href={`/members/${m.id}`}
+          href={`/members/${m.slug}`}
           className="flex w-[280px] items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2"
         >
           {m.photoUrl ? (

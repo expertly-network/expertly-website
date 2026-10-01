@@ -306,6 +306,7 @@ function toDto(row: ArticleRow, serviceDetails: Map<string, ServiceDetail>, auth
     slug: row.slug,
     authorId: row.author_id,
     authorName: author?.name ?? 'Expertly Member',
+    authorSlug: author?.slug ?? null,
     authorPhotoUrl: author?.photoUrl ?? null,
     authorHeadline: author?.headline ?? null,
     authorFirmName: author?.firmName ?? null,

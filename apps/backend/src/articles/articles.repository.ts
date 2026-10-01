@@ -57,8 +57,22 @@ export interface ServiceDetail {
   isActive: boolean;
 }
 
+// A plain `string` rather than a literal, so supabase-js doesn't type-parse it: member_profiles.slug
+// isn't in the generated Database type yet (see MemberProfileInsert in applications.repository.ts).
+// Tighten back to a literal once `pnpm gen:types` has been re-run.
+const AUTHOR_MEMBER_COLUMNS: string = 'profile_id, slug, photo_path, headline, firm_name';
+interface AuthorMemberRow {
+  profile_id: string;
+  slug: string;
+  photo_path: string | null;
+  headline: string | null;
+  firm_name: string | null;
+}
+
 export interface AuthorInfo {
   name: string;
+  // Null when the author has no member profile (e.g. an admin-authored article).
+  slug: string | null;
   photoUrl: string | null;
   headline: string | null;
   firmName: string | null;
@@ -216,7 +230,7 @@ export class ArticlesRepository {
     );
   }
 
-  // Resolves author name/photo/headline/firm from profiles and member_profiles.
+  // Resolves author name/slug/photo/headline/firm from profiles and member_profiles.
   async findAuthorsInfo(ids: string[]): Promise<Map<string, AuthorInfo>> {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
@@ -224,25 +238,27 @@ export class ArticlesRepository {
     const [{ data: profiles, error: profilesError }, { data: memberProfiles, error: memberError }] =
       await Promise.all([
         this.profiles().select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
-        this.memberProfiles().select('profile_id, photo_path, headline, firm_name').in('profile_id', uniqueIds),
+        this.memberProfiles().select(AUTHOR_MEMBER_COLUMNS).in('profile_id', uniqueIds),
       ]);
 
     if (profilesError || memberError) {
       throw new InternalServerErrorException('Failed to resolve article authors.');
     }
 
-    const memberByProfileId = new Map((memberProfiles ?? []).map((m) => [m.profile_id as string, m]));
+    const memberRows = (memberProfiles ?? []) as unknown as AuthorMemberRow[];
+    const memberByProfileId = new Map(memberRows.map((m) => [m.profile_id, m]));
     return new Map(
       (profiles ?? []).map((p) => {
         const member = memberByProfileId.get(p.id as string);
-        const photoPath = member?.photo_path as string | null;
+        const photoPath = member?.photo_path ?? null;
         return [
           p.id as string,
           {
             name: `${p.first_name} ${p.last_name}`.trim(),
+            slug: member?.slug ?? null,
             photoUrl: photoPath ? this.buildPhotoUrl(photoPath) : ((p.avatar_url as string | null) ?? null),
-            headline: (member?.headline as string | null) ?? null,
-            firmName: (member?.firm_name as string | null) ?? null,
+            headline: member?.headline ?? null,
+            firmName: member?.firm_name ?? null,
           },
         ];
       })

@@ -1,19 +1,92 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui';
+import { useState } from 'react';
 import type { MemberDto } from '@shared/member';
+
+type PdfState = 'idle' | 'generating' | 'error';
+
+// `.mp-action-btn`
+const ACTION_BTN =
+  'inline-flex w-[120px] items-center justify-center gap-1.5 whitespace-nowrap rounded-input border-[1.5px] border-line-2 bg-bg-card px-3.5 py-2 font-mono text-caption font-semibold text-ink transition-colors hover:border-ink-3 hover:bg-bg-alt disabled:cursor-wait disabled:opacity-60 max-[639px]:w-auto max-[639px]:flex-1';
 
 // Tier badge reads "Seasoned Professional" for that tier, plainly "Member" otherwise.
 export function ProfileHeader({ member }: { member: MemberDto }) {
+  const [copied, setCopied] = useState(false);
+  const [pdfState, setPdfState] = useState<PdfState>('idle');
+
   async function share() {
     const url = window.location.href;
     if (navigator.share) {
-      await navigator.share({ title: member.name, url }).catch(() => {});
-    } else {
+      await navigator.share({ title: `${member.name} - Expertly`, url }).catch(() => {});
+      return;
+    }
+    try {
       await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard permission denied — nothing useful to fall back to.
     }
   }
+
+  async function downloadPdf() {
+    setPdfState('generating');
+    try {
+      // Loaded on demand so @react-pdf/renderer (~500 KB) never ships with the page itself.
+      const { downloadMemberProfilePdf } = await import('@/components/members/pdf/downloadMemberProfilePdf');
+      await downloadMemberProfilePdf(member);
+      setPdfState('idle');
+    } catch {
+      setPdfState('error');
+    }
+  }
+
+  const actions = (
+    <>
+      <button
+        type="button"
+        onClick={share}
+        className={`${ACTION_BTN} ${copied ? 'border-accent text-accent' : ''}`}
+      >
+        {copied ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        )}
+        {copied ? 'Link copied!' : 'Share'}
+      </button>
+      <button
+        type="button"
+        onClick={downloadPdf}
+        disabled={pdfState === 'generating'}
+        className={`${ACTION_BTN} ${pdfState === 'error' ? 'border-error text-error' : ''}`}
+        title={pdfState === 'error' ? 'Could not generate the PDF — click to try again' : 'Download profile as PDF'}
+      >
+        {pdfState === 'generating' ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="animate-spin" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+            <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        )}
+        {pdfState === 'generating' ? 'Preparing…' : pdfState === 'error' ? 'Retry PDF' : 'PDF'}
+      </button>
+    </>
+  );
 
   const location = [member.city, member.country].filter(Boolean).join(', ');
   const designation =
@@ -27,7 +100,7 @@ export function ProfileHeader({ member }: { member: MemberDto }) {
     <div>
       <Link
         href="/members"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-3 hover:text-ink"
+        className="mb-5 inline-flex items-center gap-1.5 text-profile-item text-ink-3 transition-colors hover:text-ink"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 18l-6-6 6-6" />
@@ -72,39 +145,12 @@ export function ProfileHeader({ member }: { member: MemberDto }) {
                 </div>
               )}
             </div>
-
-            <div className="mb-6 hidden flex-col gap-2 sm:flex">
-              <Button variant="secondary" size="sm" onClick={share} className="w-[120px]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3" />
-                  <circle cx="6" cy="12" r="3" />
-                  <circle cx="18" cy="19" r="3" />
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                </svg>
-                Share
-              </Button>
-              <Button variant="secondary" size="sm" disabled title="Coming soon" className="w-[120px]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                PDF
-              </Button>
-            </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 sm:pr-36">
             <span className="text-[clamp(22px,3vw,30px)] font-bold leading-[1.1] tracking-[-0.02em] text-ink">
               {member.name}
             </span>
-            {member.isVerified && (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-none" aria-label="Verified">
-                <path d="M12 2L14.5 7H20l-4.5 4 1.5 6L12 14l-5 3 1.5-6L4 7h5.5L12 2z" fill="var(--accent)" />
-                <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-[3px] font-mono text-[11px] font-semibold tracking-[0.02em] ${
                 isSeasoned
@@ -116,9 +162,9 @@ export function ProfileHeader({ member }: { member: MemberDto }) {
             </span>
           </div>
 
-          {designation && <p className="mt-1 text-base font-medium text-ink-3">{designation}</p>}
+          {designation && <p className="mt-1 text-base font-medium text-ink-3 sm:pr-36">{designation}</p>}
 
-          <div className="mt-4 flex flex-wrap gap-4 text-[14.5px] text-ink-3">
+          <div className="mt-4 flex flex-wrap gap-4 text-profile-item text-ink-3 sm:pr-36">
             {location && (
               <span className="inline-flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-none text-accent">
@@ -146,11 +192,10 @@ export function ProfileHeader({ member }: { member: MemberDto }) {
             )}
           </div>
 
-          <div className="mt-4 flex gap-2 sm:hidden">
-            <Button variant="secondary" size="sm" onClick={share} fullWidth>
-              Share
-            </Button>
-          </div>
+          {/* `.mp-profile-actions` — pinned bottom-right of the header card from sm up; a
+              full-width row under the stats on phones, where there's no room beside them. */}
+          <div className="absolute bottom-6 right-6 hidden flex-col gap-2 sm:flex">{actions}</div>
+          <div className="mt-5 flex gap-2 sm:hidden">{actions}</div>
         </div>
       </div>
     </div>

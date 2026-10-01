@@ -76,7 +76,7 @@ export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
 
       {author.bio && <p className="mt-4 line-clamp-4 text-sm text-ink-3">{author.bio}</p>}
 
-      <Link href={`/members/${author.id}`} className="mt-4 block text-sm font-medium text-accent">
+      <Link href={`/members/${author.slug}`} className="mt-4 block text-sm font-medium text-accent">
         View profile →
       </Link>
     </Card>

@@ -20,7 +20,7 @@ export function MemberCard({ member }: { member: MemberListItemDto }) {
 
   return (
     <Link
-      href={`/members/${member.id}`}
+      href={`/members/${member.slug}`}
       className="grid grid-cols-[156px_1fr] gap-7 rounded-2xl border border-line bg-bg-card p-6 transition-colors hover:border-line-2 max-[560px]:grid-cols-1"
     >
       {member.photoUrl ? (

@@ -144,7 +144,7 @@ export function SearchModal({
               {memberResults.map((m) => (
                 <Link
                   key={m.id}
-                  href={`/members/${m.id}`}
+                  href={`/members/${m.slug}`}
                   onClick={onClose}
                   className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm text-ink hover:bg-bg-alt"
                 >

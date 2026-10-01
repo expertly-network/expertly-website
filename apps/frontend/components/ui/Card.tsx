@@ -8,7 +8,8 @@ export function Card({
 }: {
   children: ReactNode;
   className?: string;
-  padding?: 'xl' | 'lg' | 'md';
+  /** `sm` (20px) is for narrow sidebar cards, e.g. the member profile's 288px column. */
+  padding?: 'xl' | 'lg' | 'md' | 'sm';
   /** Escape hatch for dynamic backgrounds only, not static styling. */
   style?: CSSProperties;
 }) {
@@ -17,7 +18,9 @@ export function Card({
       ? 'p-14 max-[640px]:px-6 max-[640px]:py-7'
       : padding === 'lg'
         ? 'p-10 max-[640px]:px-6 max-[640px]:py-7'
-        : 'p-6';
+        : padding === 'md'
+          ? 'p-6'
+          : 'p-5';
 
   return (
     <div

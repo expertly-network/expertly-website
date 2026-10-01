@@ -19,6 +19,9 @@ export class ArticleDto {
   @ApiProperty() slug!: string;
   @ApiProperty() authorId!: string;
   @ApiProperty() authorName!: string;
+  // The author's member profile slug, for linking to /members/:slug. Null when the author has
+  // no member profile.
+  @ApiProperty({ nullable: true, type: String }) authorSlug!: string | null;
   // Null falls back to initials in the UI.
   @ApiProperty({ nullable: true, type: String }) authorPhotoUrl!: string | null;
   // The "designation" line under the author's name.

@@ -90,6 +90,17 @@ const config: Config = {
           '11px',
           { lineHeight: 'normal', letterSpacing: '0.12em', fontWeight: '500' },
         ],
+
+        // Member profile page (design/static_html/assets/styles.css's .mp-* scale). Weights are
+        // left to the call site since the prototype pairs the same size with 500/600/700.
+        // `.mp-section-label` — "KEY ENGAGEMENTS"-style section heading, pairs with `font-mono`.
+        'profile-label': ['11px', { lineHeight: 'normal', letterSpacing: '0.08em' }],
+        // `.mp-bio`
+        'profile-body': ['15.5px', { lineHeight: '1.7' }],
+        // `.mp-eng-title` / `.mp-edu-degree` / `.mp-work-title` / `.mp-stat` / `.mp-tab`
+        'profile-item': ['14.5px', { lineHeight: '1.45' }],
+        // `.mp-edu-meta` / `.mp-work-company` / `.mp-award-meta`
+        'profile-meta': ['11px', { lineHeight: '1.45' }],
       },
 
       // Radii used repeatedly that don't already have a matching Tailwind
@@ -98,6 +109,9 @@ const config: Config = {
       borderRadius: {
         input: '10px',
         card: '20px',
+        // The member profile's tab bar / tab content / inner item cards (`.mp-tabs-nav`,
+        // `.mp-tab-content`, `.mp-edu-card`, `.mp-work-card`, …).
+        panel: '14px',
         // The write-flow's own bigger card radius (design/static_html/assets/styles.css's
         // .anv-write-card/.anv-write-option/.anv-preview-page all use 24px) — visually distinct
         // from the app's normal 20px `card` radius, used at 3+ call sites in that one flow.
