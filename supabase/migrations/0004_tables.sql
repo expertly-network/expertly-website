@@ -758,7 +758,11 @@ create table public.member_profiles (
   -- the data; deliberately not reproduced here (see docs/database-erd.md). Render the label at
   -- the UI layer instead.
   firm_name text,
-  firm_website text,
+  -- Always required, even for an independent practitioner with no firm_name — any well-formed
+  -- URL is accepted (a personal site, or a LinkedIn company/profile page), not just a firm
+  -- domain. Enforced at application-submit time by ApplicationsService.assertComplete(); this
+  -- NOT NULL is defense-in-depth, not the primary enforcement (see root CLAUDE.md).
+  firm_website text not null,
 
   -- Current location, not a snapshot of where the applicant was at submission time — reuses
   -- membership_applications' region enum/country-as-free-text shape for the same concept, but

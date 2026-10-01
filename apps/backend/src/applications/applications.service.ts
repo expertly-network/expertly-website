@@ -330,8 +330,11 @@ export class ApplicationsService {
     );
 
     // Same shape assertComplete() now requires at submit time — a current (isCurrent) position
-    // with a company name. Older applications submitted before that check existed may still lack
-    // one; fall back to the most recent entry rather than leaving firm_name silently null.
+    // with a company name and company website. Older applications submitted before those checks
+    // existed may still lack one; fall back to the most recent entry rather than leaving
+    // firm_name silently null. firm_website has no such fallback value — member_profiles.firm_website
+    // is NOT NULL, so approving a pre-existing application that truly has no companyUrl anywhere
+    // would fail at insert; there were none in that state as of this rule's introduction.
     const workExperiences = (application.work_experiences ?? []) as {
       title: string;
       company: string;
@@ -457,15 +460,28 @@ export class ApplicationsService {
     // block submission on it in that one case.
     if (row.region == null && row.country !== 'Other') missing.push('region');
 
-    const workExperiences = (row.work_experiences ?? []) as { company?: string; isCurrent?: boolean }[];
+    const workExperiences = (row.work_experiences ?? []) as {
+      company?: string;
+      companyUrl?: string;
+      isCurrent?: boolean;
+    }[];
     const educations = (row.educations ?? []) as unknown[];
     const peerReferences = (row.peer_references ?? []) as unknown[];
     const servicePreferences = (row.service_preferences ?? []) as unknown[];
     if (workExperiences.length < 1) missing.push('workExperiences');
-    // Whichever entry is marked isCurrent becomes the approved member's firm_name — require one
-    // so that's never silently null (see ApplicationsService.reviewApplication()'s approve path).
-    else if (!workExperiences.some((w) => w.isCurrent && w.company?.trim())) {
-      missing.push('workExperiences must include a current position (isCurrent) with a company name');
+    else {
+      const currentJob = workExperiences.find((w) => w.isCurrent);
+      // Whichever entry is marked isCurrent becomes the approved member's firm_name/firm_website
+      // — require both so neither is ever silently null (see
+      // ApplicationsService.reviewApplication()'s approve path). firm_website has no exemption
+      // for an independent practitioner: any well-formed URL is accepted (a personal site, or a
+      // LinkedIn company/profile page), not just a firm domain — so there's always something to
+      // submit here, and the check applies uniformly.
+      if (!currentJob?.company?.trim()) {
+        missing.push('workExperiences must include a current position (isCurrent) with a company name');
+      } else if (!currentJob.companyUrl?.trim()) {
+        missing.push('workExperiences current position must include a company website (companyUrl)');
+      }
     }
     if (educations.length < 1) missing.push('educations');
     if (peerReferences.length !== 2) missing.push('peerReferences (exactly 2 required)');

@@ -42,6 +42,10 @@ export function BackgroundStep({
       if (!w.title.trim()) e[`workExperiences.${i}.title`] = 'Job title is required.';
       else if (!w.company.trim()) e[`workExperiences.${i}.company`] = 'Company is required.';
       else if (!w.startYear) e[`workExperiences.${i}.startYear`] = 'Start year is required.';
+      // Only the current position's URL becomes the approved member's public firm website, so
+      // past roles stay optional — any URL works, including a LinkedIn company/profile page.
+      else if (w.isCurrent && !w.companyUrl?.trim())
+        e[`workExperiences.${i}.companyUrl`] = 'Add a website for your current position.';
     });
     // One entry must be marked as the applicant's current position — it becomes the approved
     // member's firm name, so it can't be silently absent (backend enforces this too, at submit).
@@ -92,6 +96,8 @@ export function BackgroundStep({
     update({ workExperiences: next });
     const fieldsToClear = Object.keys(patch).map((key) => `workExperiences.${index}.${key}`);
     if ('isCurrent' in patch || 'company' in patch) fieldsToClear.push('workExperiencesCurrent');
+    // Unmarking an entry as current drops its own companyUrl requirement — clear any stale error.
+    if ('isCurrent' in patch && !patch.isCurrent) fieldsToClear.push(`workExperiences.${index}.companyUrl`);
     clearErrors(fieldsToClear);
   }
 
@@ -205,12 +211,16 @@ export function BackgroundStep({
 
             <div className="mt-4">
               <Input
+                id={`workExperiences.${i}.companyUrl`}
                 label="Company website"
-                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+                labelRight={
+                  work.isCurrent ? undefined : <span className="text-xs font-normal text-ink-3">optional</span>
+                }
                 type="url"
-                placeholder="https://example.com"
+                placeholder="https://example.com — or a LinkedIn company/profile page"
                 value={work.companyUrl ?? ''}
                 onChange={(e) => updateWork(i, { companyUrl: e.target.value })}
+                error={errors[`workExperiences.${i}.companyUrl`]}
               />
             </div>
 

@@ -282,7 +282,13 @@ select
     || (case when firm_name = 'Independent' then 'as an independent practitioner' else 'at ' || firm_name end)
     || ', based in ' || city || '. Available for cross-border mandates and international engagements.',
   firm_name,
-  case when firm_name <> 'Independent' then 'https://www.' || lower(regexp_replace(firm_name, '[^a-zA-Z]', '', 'g')) || '.example.com' else null end,
+  -- firm_website is NOT NULL — every member has one, but an independent practitioner has no
+  -- firm domain to derive one from, so they get a LinkedIn profile URL instead (a real allowed
+  -- value per ApplicationsService.assertComplete(): any well-formed URL, not just a firm site).
+  case
+    when firm_name <> 'Independent' then 'https://www.' || lower(regexp_replace(firm_name, '[^a-zA-Z]', '', 'g')) || '.example.com'
+    else 'https://www.linkedin.com/in/' || lower(first_name) || '-' || lower(last_name)
+  end,
   region,
   country,
   null,
