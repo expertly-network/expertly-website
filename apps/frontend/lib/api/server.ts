@@ -12,6 +12,7 @@ import type {
 import type { CategoryDto } from '@shared/category';
 import type { AdminArticleListItemDto, ArticleDto, ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
+import type { ConsultationRequestDto } from '@shared/consultation-request';
 
 // Returns the caller's current application, or null if none exists.
 export async function getMyApplicationServer(): Promise<ApplicationDto | null> {
@@ -74,6 +75,69 @@ export async function getAdminApplicationServer(id: string): Promise<Application
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(body?.message ?? 'Failed to load application.', res.status);
+  }
+
+  return res.json();
+}
+
+// Returns the caller's own sent consultation requests.
+export async function getMyConsultationsServer(): Promise<ConsultationRequestDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/consultations/mine`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load your consultation requests.', res.status);
+  }
+
+  return res.json();
+}
+
+// Returns consultation requests received by the caller (member role only — the backend 403s otherwise).
+export async function getReceivedConsultationsServer(): Promise<ConsultationRequestDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/consultations/received`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load consultation requests.', res.status);
+  }
+
+  return res.json();
+}
+
+// Every consultation request regardless of requester or member — admin oversight queue.
+export async function getAdminConsultationsServer(): Promise<ConsultationRequestDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/consultations`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load consultation requests.', res.status);
   }
 
   return res.json();

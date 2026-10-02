@@ -18,7 +18,17 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   autoGrow?: boolean;
 }
 
-export function Textarea({ label, labelRight, hint, id, error, autoGrow, value, ...textareaProps }: TextareaProps) {
+export function Textarea({
+  label,
+  labelRight,
+  hint,
+  id,
+  error,
+  autoGrow,
+  value,
+  className = '',
+  ...textareaProps
+}: TextareaProps) {
   const fieldId = id ?? textareaProps.name;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -31,10 +41,12 @@ export function Textarea({ label, labelRight, hint, id, error, autoGrow, value, 
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
-        <span>{label}</span>
-        {labelRight}
-      </label>
+      {(label || labelRight) && (
+        <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
+          <span>{label}</span>
+          {labelRight}
+        </label>
+      )}
       <textarea
         ref={textareaRef}
         id={fieldId}
@@ -46,7 +58,7 @@ export function Textarea({ label, labelRight, hint, id, error, autoGrow, value, 
           error
             ? 'border-error focus:border-error focus:ring-error/[0.08]'
             : 'border-line focus:border-ink focus:ring-ink/[0.08]'
-        }`}
+        } ${className}`}
         {...textareaProps}
       />
       {error ? <span className="text-xs text-error">{error}</span> : hint && <span className="text-xs text-ink-3">{hint}</span>}

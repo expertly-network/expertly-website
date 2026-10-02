@@ -580,3 +580,148 @@ one forward.
 - Promoting an approved `membership_applications` row into a real `member_profiles` row (flips
   `profiles.role` to `member`) — still blocked on the applications-side admin-review endpoint,
   itself still deferred (see that section above).
+
+## Consultations (`supabase/migrations/0004_tables.sql`)
+
+**✅ Applied to the dev database:** the `requester_name`/`requester_contact_email`/
+`requester_phone` columns and the `consultation_messages` table (both below, for reference —
+already live, don't re-run).
+
+```sql
+alter table public.consultation_requests
+  add column requester_name text not null,
+  add column requester_contact_email text not null,
+  add column requester_phone text not null;
+```
+
+```sql
+create table public.consultation_messages (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references public.consultation_requests (id) on delete cascade,
+  sender_id uuid not null references public.profiles (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index consultation_messages_request_id_idx on public.consultation_messages (request_id, created_at);
+
+alter table public.consultation_messages enable row level security;
+
+create policy consultation_messages_select_participant
+  on public.consultation_messages for select
+  using (
+    exists (
+      select 1 from public.consultation_requests cr
+      where cr.id = request_id
+        and (cr.requester_id = auth.uid() or cr.member_id = auth.uid())
+    )
+  );
+```
+
+**⚠️ Pending: the migration below has NOT been applied yet.** Safe — no backfill needed
+(pre-production):
+
+```sql
+alter table public.consultation_requests
+  add column rating smallint check (rating between 1 and 5);
+```
+
+Then regenerate types for real: `cd apps/backend && pnpm gen:types` (needs `SUPABASE_DB_URL` set
+to the project's direct Postgres connection string — Project Settings → Database → Connection
+string — which isn't configured yet; this can't be run until that's filled in) — this replaces the
+provisional hand-edits currently in `apps/backend/src/supabase/database.types.ts` (see the
+comments there).
+
+**⚠️ This one breaks the whole feature, not just the rating endpoint.** `rating` was added to
+`ConsultationsRepository`'s shared `CONSULTATION_COLUMNS` list — the same column set every
+consultation read/write uses (`findById`, `findByRequesterId`, `findByMemberId`, `findAll`,
+`insert`, `updateStatus`, `updateRating`). Until the column above is applied, **every** consultation
+endpoint returns `500` against a live database, including the ones that were already working
+(`/mine`, `/received`, creating a request, updating status) — apply this migration immediately
+after deploying this change, not at your convenience.
+
+### `consultation_requests`
+
+Created ahead of any API work in the initial schema migration (see the "live database vs.
+migration file drift" note above) — this session adds the real contract on top of it.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | PK |
+| `requester_id` | `uuid not null` | FK → `profiles.id`, cascade delete |
+| `member_id` | `uuid not null` | FK → `profiles.id`, cascade delete |
+| `requester_name` | `text not null` | **New.** Collected on the request form — independent of the requester's account profile, since the prototype's modal lets the value differ from it |
+| `requester_contact_email` | `text not null` | **New.** Same reasoning — distinct from `profiles.email` |
+| `requester_phone` | `text not null` | **New.** Distinct from `profiles.phone` |
+| `service_id` | `uuid` | FK → `services.id`, set null on delete. Wired up by a later product requirement (service/category picker, validated against `member_services`) — exactly one of `service_id`/`custom_service_label` is set per row |
+| `custom_service_label` | `text` | The "Other" free-text entry, set only when `service_id` is null |
+| `subject` | `text` | **Unused**, no UI for it |
+| `message` | `text not null` | The "Description of Work Required" field |
+| `description` | `text` | **Unused** |
+| `status` | `consultation_status enum` | `'pending' \| 'completed' \| 'declined'`, default `'pending'` |
+| `scheduled_at` | `timestamptz` | **Unused** — no scheduling in this feature (see Peer Connect) |
+| `response_message` | `text` | The member's required reason when transitioning `pending` → `completed`/`declined` (added by a later product requirement — not in the original design prototype). Null while `status` is `'pending'` |
+| `rating` | `smallint` | **New, not yet applied (see above).** The requester's 1-5 rating of the conversation — settable only once `status` is no longer `'pending'` (`PATCH /v1/consultations/:id/rating`), check-constrained to 1-5 |
+| `created_at` / `updated_at` | `timestamptz not null` | — |
+
+### `consultation_messages`
+
+Added by a later product requirement — a free-form back-and-forth thread on a request, separate
+from the one-time `response_message` reason above. Either participant can post while `status` is
+`'pending'`; once the member decides, the thread closes to new messages (history stays readable)
+and the requester rates the conversation (`rating` on `consultation_requests`) instead.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | PK |
+| `request_id` | `uuid not null` | FK → `consultation_requests.id`, cascade delete |
+| `sender_id` | `uuid not null` | FK → `profiles.id`, cascade delete. Whichever side (requester or member) wrote it — not a role column |
+| `body` | `text not null` | 1–2000 chars, enforced server-side |
+| `created_at` | `timestamptz not null` | No `updated_at` — append-only, no edit/delete in this feature |
+
+### Design decisions
+
+- **Three new `not null` text columns** (`requester_name`/`requester_contact_email`/
+  `requester_phone`) added this session — the original schema-only table had no way to store the
+  contact details the request-creation modal actually collects, which are independent of the
+  requester's account profile (`profiles.email`/`profiles.phone`). No backfill needed
+  (pre-production, zero rows existed).
+- **Three columns left unused** (`subject`, `description`, `scheduled_at`) — present in the
+  schema-only table ahead of any product decision; no corresponding field exists anywhere in this
+  feature. Left in place (harmless, nullable) rather than dropped. (`response_message` was in this
+  group at this doc's original writing but is now wired up — see the table above.)
+- **`consultation_messages` added after this doc's original writing** — a later product
+  requirement for genuine back-and-forth between requester and member, separate from the one-time
+  `response_message` reason. See the table above.
+- **`rating` added after this doc's original writing** — closes the loop on the thread above: once
+  the member decides, the requester's "say something" action shifts from posting another message
+  to rating the conversation 1-5. A plain `smallint` with a check constraint rather than a separate
+  table — one rating per request, no history/edit trail needed.
+- **`service_id`/`custom_service_label` wired up after this doc's original writing** — a later
+  product requirement added a service/category picker to the request form (not in the original
+  design prototype), backed by these two already-existing-but-dormant columns rather than a schema
+  change. Exactly one is set per row: `service_id` when the requester picked one of the target
+  member's own offered services (validated server-side against `member_services` — never trusted
+  as an arbitrary `services.id`), `custom_service_label` when they chose "Other" and typed free
+  text instead.
+- **`GET /v1/consultations/received` is scoped to `member_id = caller.id`** — the prototype's own
+  `consultation-requests.html` has no ownership filter at all (every member sees every request in
+  the shared `admin-data.js` store); the real backend does not reproduce that.
+- **No rate-limit table/column** — the `CONSULTATION_REQUEST_LIMIT`/`CONSULTATION_REQUEST_WINDOW_DAYS`
+  window is computed at request time from `consultation_requests.created_at`, no extra schema
+  needed. See `docs/rest-api.md`'s Consultations section.
+- **No schema for the pending-duplicate cooldown either** — same reasoning: a query against
+  existing `requester_id`/`member_id`/`status`/`created_at` columns (`findLatestPendingToMember`)
+  is enough. A later product requirement, added after this doc's original writing — see
+  `docs/rest-api.md`'s `POST /v1/consultations` section for the exact rule.
+
+### Not built yet (explicitly deferred)
+
+- Everything under the three remaining unused columns above.
+- Peer Connect-style "Schedule a Call" scheduling — separate feature, own session.
+- Resetting a decided (`completed`/`declined`) row back to `pending` — the admin dashboard
+  prototype has a "Reset" action; no product decision has been made on whether a decided request
+  should be reopenable, so no schema/endpoint support exists for it.
+- Deleting a `consultation_requests` row — the admin dashboard prototype has a "Delete" action
+  gated by a `deleteContent` permission; no product decision has been made on retention/deletion
+  policy for this table, so no endpoint exists for it.

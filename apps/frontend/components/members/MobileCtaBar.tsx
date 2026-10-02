@@ -4,7 +4,15 @@ import { Button } from '@/components/ui';
 import { formatRate } from '@/lib/members/format';
 import type { MemberDto } from '@shared/member';
 
-export function MobileCtaBar({ member }: { member: MemberDto }) {
+export function MobileCtaBar({
+  member,
+  isOwnProfile,
+  onRequestConsultation,
+}: {
+  member: MemberDto;
+  isOwnProfile: boolean;
+  onRequestConsultation: () => void;
+}) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-line bg-bg-card px-4 py-3 min-[1024px]:hidden">
       <div>
@@ -15,9 +23,7 @@ export function MobileCtaBar({ member }: { member: MemberDto }) {
           {member.isAvailable ? 'Available' : 'Currently unavailable'}
         </div>
       </div>
-      <Button disabled aria-disabled="true" title="Coming soon">
-        Request Consultation
-      </Button>
+      {!isOwnProfile && <Button onClick={onRequestConsultation}>Request Consultation</Button>}
     </div>
   );
 }

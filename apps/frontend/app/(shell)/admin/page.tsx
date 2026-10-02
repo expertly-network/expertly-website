@@ -39,6 +39,10 @@ const MEMBER_EDITS_ICON = (
     <path d="M16 3.5l1.5 1.5L21 1.5" />
   </>
 );
+// Same speech-bubble glyph as the sidebar's own Consultations entry.
+const CONSULTATIONS_ICON = (
+  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
+);
 
 // Each destination is separately permission-gated by the backend.
 const ADMIN_SECTIONS = [
@@ -66,6 +70,12 @@ const ADMIN_SECTIONS = [
     title: 'Events',
     description: 'Add, edit, publish, and remove events on the community calendar.',
   },
+  {
+    href: '/admin/consultations',
+    icon: CONSULTATIONS_ICON,
+    title: 'Consultations',
+    description: 'See every consultation request sent from a member’s profile, across every member.',
+  },
 ];
 
 // No design mockup exists for this hub; styled to match other admin pages.
@@ -85,8 +95,8 @@ export default async function AdminPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Admin</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Manage membership applications, member profile edits, the events calendar, and article
-            submissions.
+            Manage membership applications, member profile edits, the events calendar, article
+            submissions, and consultation requests.
           </p>
         </PageContainer>
       </section>

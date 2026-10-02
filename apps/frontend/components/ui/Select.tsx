@@ -18,7 +18,7 @@ export function Select({ label, id, children, error, ...selectProps }: SelectPro
       <select
         id={fieldId}
         aria-invalid={error ? true : undefined}
-        className={`w-full rounded-input border bg-bg px-3.5 py-3 text-sm text-ink focus:outline-none focus:ring-[3px] ${
+        className={`w-full rounded-input border bg-bg py-3 pl-3.5 pr-9 text-sm text-ink focus:outline-none focus:ring-[3px] ${
           error
             ? 'border-error focus:border-error focus:ring-error/[0.08]'
             : 'border-line focus:border-ink focus:ring-ink/[0.08]'

@@ -7,6 +7,7 @@ import { ServicesModule } from './services/services.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { MembersModule } from './members/members.module';
 import { EventsModule } from './events/events.module';
+import { ConsultationsModule } from './consultations/consultations.module';
 import { ArticlesModule } from './articles/articles.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { ArticlesModule } from './articles/articles.module';
     ApplicationsModule,
     MembersModule,
     EventsModule,
+    ConsultationsModule,
     ArticlesModule,
   ],
   controllers: [AppController],

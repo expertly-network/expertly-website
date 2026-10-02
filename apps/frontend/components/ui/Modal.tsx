@@ -3,16 +3,24 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
+const MAX_WIDTH_CLASSES = {
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+} as const;
+
 export function Modal({
   open,
   onClose,
   title,
   children,
+  size = 'md',
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Defaults to 'md' (the original max-w-lg) — pass 'lg' for a wider form. */
+  size?: keyof typeof MAX_WIDTH_CLASSES;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -39,7 +47,7 @@ export function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-card border border-line bg-bg-card p-6 max-[640px]:p-5"
+        className={`max-h-[85vh] w-full ${MAX_WIDTH_CLASSES[size]} overflow-y-auto rounded-card border border-line bg-bg-card p-6 max-[640px]:p-5`}
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 id="modal-title" className="text-title text-ink">

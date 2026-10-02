@@ -13,9 +13,15 @@ const PAGE_SIZE = MEMBER_LIST_PAGE_SIZE;
 export function MemberDirectoryList({
   initialMembers,
   filters,
+  viewerId,
+  viewerName,
+  viewerEmail,
 }: {
   initialMembers: MemberListItemDto[];
   filters: MemberFilters;
+  viewerId?: string;
+  viewerName?: string;
+  viewerEmail?: string;
 }) {
   const [members, setMembers] = useState(initialMembers);
   const [page, setPage] = useState(1);
@@ -82,7 +88,13 @@ export function MemberDirectoryList({
     <div>
       <div className="flex flex-col gap-5">
         {members.map((member) => (
-          <MemberCard key={member.id} member={member} />
+          <MemberCard
+            key={member.id}
+            member={member}
+            isOwnProfile={viewerId === member.id}
+            viewerName={viewerName}
+            viewerEmail={viewerEmail}
+          />
         ))}
         {loading &&
           Array.from({ length: 2 }).map((_, i) => (

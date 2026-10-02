@@ -552,6 +552,11 @@ create table public.consultation_requests (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references public.profiles (id) on delete cascade,
   member_id uuid not null references public.profiles (id) on delete cascade,
+  -- Collected directly on the request form, independent of the requester's account profile
+  -- (profiles.email/phone) — the prototype's modal lets them type different contact details here.
+  requester_name text not null,
+  requester_contact_email text not null,
+  requester_phone text not null,
   service_id uuid references public.services (id) on delete set null,
   -- Set only when service_id references an is_custom service.
   custom_service_label text,
@@ -561,6 +566,9 @@ create table public.consultation_requests (
   status consultation_status not null default 'pending',
   scheduled_at timestamptz,
   response_message text,
+  -- The requester's 1-5 rating of the conversation, settable only once the member has decided
+  -- (status != 'pending') — see consultation_requests_select_requester below for who can set it.
+  rating smallint check (rating between 1 and 5),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -583,6 +591,32 @@ create policy consultation_requests_select_requester
 create policy consultation_requests_select_member
   on public.consultation_requests for select
   using (auth.uid() = member_id);
+
+-- consultation_messages — free-form back-and-forth thread on a consultation_requests row.
+-- Append-only (no edit/delete in this feature); sender_id is whichever side (requester or
+-- member) wrote it — not a role column, since either side can post regardless of the parent
+-- request's current status.
+create table public.consultation_messages (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references public.consultation_requests (id) on delete cascade,
+  sender_id uuid not null references public.profiles (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index consultation_messages_request_id_idx on public.consultation_messages (request_id, created_at);
+
+alter table public.consultation_messages enable row level security;
+
+create policy consultation_messages_select_participant
+  on public.consultation_messages for select
+  using (
+    exists (
+      select 1 from public.consultation_requests cr
+      where cr.id = request_id
+        and (cr.requester_id = auth.uid() or cr.member_id = auth.uid())
+    )
+  );
 
 -- ============================================================================
 -- Peer Connect — automated monthly 1:1 peer-matching program for members. Two tables, both

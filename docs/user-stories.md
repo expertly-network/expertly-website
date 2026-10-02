@@ -275,27 +275,35 @@ admins so responsibilities are properly scoped.
 
 ---
 
-## US-11 — Requesting a Consultation 🧱
+## US-11 — Requesting a Consultation ⚠️ Backend built, frontend not
 
 ### US-11-01: Sending a consultation request
 As a client (or another member), I want to request time with a member so I can get expert advice.
-- [ ] `POST /v1/consultations` 🔑 — collects name, email, phone, message only; no topic picker, no
+- [x] `POST /v1/consultations` 🔑 — collects name, email, phone, message only; no topic picker, no
       time-slot scheduling, no rate/payment (per `docs/roadmap.md`, don't add these without a
       product decision)
-- [ ] Resolves to `mailto:`/`tel:` contact, not in-app messaging
+- [x] Rate-limited: `CONSULTATION_REQUEST_LIMIT` requests per `CONSULTATION_REQUEST_WINDOW_DAYS`-
+      day window (defaults 3/1), `429` once exceeded — new requirement, not in the original
+      prototype/roadmap sketch. See `docs/rest-api.md`'s Consultations section.
+- [ ] Resolves to `mailto:`/`tel:` contact, not in-app messaging — frontend not built yet
+- Not built: the request modal itself (`member-profile.html`'s "Send a Message" panel) — separate
+  frontend session
 
 ### US-11-02: Managing consultation requests I've received
 As a member, I want to see requests sent to me (not everyone's requests) and mark each completed
 or declined.
-- [ ] `GET /v1/consultations/received` scoped to `memberId === caller.id` — the design prototype
-      has no such filter; the real backend must add it, not reproduce the prototype's
+- [x] `GET /v1/consultations/received` scoped to `memberId === caller.id` — the design prototype
+      has no such filter; the real backend adds it rather than reproducing the prototype's
       show-everything behavior
-- [ ] `PATCH /v1/consultations/:id` 🔒 owner-member or admin only; states are `pending` →
-      `completed`/`declined`, no intermediate state, no cancel
+- [x] `PATCH /v1/consultations/:id` 🔒 owner-member only (no cancel, no admin override on this
+      route — admin uses the separate `PATCH /v1/admin/consultations/:id`, same transition rules);
+      states are `pending` → `completed`/`declined`, no intermediate state
+- Not built: the inbox page itself (`consultation-requests.html`) — separate frontend session
 
 ### US-11-03: Tracking requests I've sent
 As a client or member, I want to see the status of consultation requests I've sent.
-- [ ] `GET /v1/consultations/mine` 🔒 owner (the requester)
+- [x] `GET /v1/consultations/mine` 🔒 owner (the requester)
+- Not built: the sent-requests page itself (`my-consultations.html`) — separate frontend session
 
 ---
 

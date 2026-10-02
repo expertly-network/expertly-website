@@ -71,7 +71,7 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | `articles` | ✅ Built — restored from `main-backup`'s `763bf75` (dropped in a prior rewrite; docs/shared-types had stayed current the whole time) plus `authorId` query-param filtering added for the profile page's Articles tab | `articles/` |
 | `member_profiles` + 7 child tables, `member_profile_edits`, `member_renewal_policy` | ✅ Built | `members/` |
 | `events` | ⚠️ Partially built — public `GET /v1/events` plus admin CRUD (`/v1/admin/events`); public suggestion-queue submission not built | `events/` |
-| `consultation_requests` | 🧱 Schema only | none — see Section 6 |
+| `consultation_requests` | ⚠️ Backend built, frontend not | `consultations/` |
 | `peer_connect_matches`, `peer_connect_member_preferences` | 🧱 Schema only | none — see Section 6 |
 | Perks, templates, learnings | 📋 Roadmap — no schema yet | none |
 | Newsletter subscriptions, signup-source tracking | 📋 Roadmap — no schema yet | none |
@@ -98,9 +98,9 @@ model, made server-real during the Member Directory & Profiles session — `docs
 "cross-cutting open decision #1" on this topic is resolved; that section of the roadmap doc is
 stale.
 
-Note: `manageEvents` is now wired up (`AdminEventsController`, see Section 6). `manageConsultations`
-and `manageResources` still have no backend module to gate — the permission model was scoped ahead
-of the features it'll gate.
+Note: `manageEvents` and `manageConsultations` are now wired up (`AdminEventsController`,
+`AdminConsultationsController`, see Section 6). `manageResources` still has no backend module to
+gate — the permission model was scoped ahead of the features it'll gate.
 
 ---
 
@@ -124,7 +124,7 @@ pixel/behavior reference per root `CLAUDE.md`'s methodology.
 | Membership applications | ✅ Built | `apply.html`, `onboarding_form.html`, `review.html` | Payment integration deferred — see `docs/rest-api.md`'s "not built yet" section |
 | Articles | ✅ Built — browse grid + detail page + full write flow (manual + 3-step AI wizard) + My Articles tab + feature-flagged editorial review queue | `articles.html`, `article.html` | Guest sees title+excerpt only on the detail page (`GET /v1/articles/:id` requires auth); `ARTICLES_REVIEW_MODE` env var (`instant` default \| `editorial`) controls whether submitting publishes immediately or queues for `manageArticles` admin approval — see `docs/database-erd.md` |
 | Member directory & profiles | ✅ Built | `members.html`, `member-profile.html`, `dashboard.html`/`dashboard-alt-3.html` | Per-section edit-approval workflow; `docs/roadmap.md`'s framing of this as unbuilt is stale |
-| Consultations | 🧱 Schema only | `consultation-requests.html`, `my-consultations.html` | Sketch endpoints in `docs/roadmap.md` |
+| Consultations | ⚠️ Backend built (create/mine/received/status transitions + admin oversight, rate-limited), frontend not | `consultation-requests.html`, `my-consultations.html` | See `docs/rest-api.md`'s Consultations section; request modal, inbox, and my-consultations pages not built yet |
 | Peer Connect | 🧱 Schema only | `peer-connect.html` | Monthly 1:1 matching program, not a directory — recommend its own scoping session per `docs/roadmap.md` |
 | Events | ✅ Built — homepage teaser, standalone `/events` browse page, admin CRUD at `/admin/events` | `events.html` | `GET /v1/events?upcoming=false` backs the standalone page's month-grouped, client-filtered list (date preset/country/format); `/admin/events` covers direct create/edit/delete. No public suggestion-queue submission endpoint yet — "Suggest an event" is a `mailto:` link. See `docs/rest-api.md` |
 | Perks / Templates / Learnings | 📋 Roadmap | `perks.html`, `templates.html`, `learnings.html` | Identical CRUD shape ×3; public-vs-member-gated is an open product call |
@@ -219,7 +219,7 @@ What to read for a given task. "Docs" lists what to open; "User stories" points 
 | Admin: applications | `docs/rest-api.md`, Section 4 | US-08 |
 | Admin: members / edit review | `docs/rest-api.md`, Section 4 | US-09 |
 | Admin: articles / admin permission management | `docs/rest-api.md`, Section 4 | US-10 |
-| Consultations (new session) | `docs/roadmap.md` §Consultations, Section 6 | US-11 |
+| Consultations frontend (new session) | `docs/rest-api.md`, `docs/database-erd.md`, Section 6 | US-11 |
 | Peer Connect (new session) | `docs/roadmap.md` §Peer Connect, Section 6 | US-12 |
 | Events (new session) | `docs/roadmap.md` §Events, Section 6 | US-13 |
 | Perks / Templates / Learnings (new session) | `docs/roadmap.md` §Perks..., Section 6 | US-14 |
@@ -236,8 +236,9 @@ Reflects what's actually built plus `docs/roadmap.md`'s suggested order for what
 for what turned out to already have schema:
 
 1. ✅ Monorepo, auth, practice areas, membership applications, articles, member directory & profiles
-2. **Consultations** — schema exists, simple CRUD, no unresolved dependency once member profiles
-   exist (needs a valid `memberId`).
+2. **Consultations** — backend built (create/mine/received/status transitions + admin oversight,
+   rate-limited per requester). Frontend (request modal, member inbox, requester's sent-list page)
+   remains — its own session, per root `CLAUDE.md`'s backend/frontend split.
 3. **Perks / Templates / Learnings** — no schema yet, low complexity, same shape ×3; resolve
    public-vs-member-gated once, apply to all three.
 4. **Events** — direct admin CRUD built; remaining scope is just the public suggestion-queue

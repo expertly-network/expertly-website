@@ -11,6 +11,13 @@ export interface ProfileRoleRow {
   admin_role: AdminRole | null;
 }
 
+const PROFILE_CONTACT_COLUMNS = ['phoneCountryCode:phone_country_code', 'phone'] as const;
+
+export interface ProfileContactRow {
+  phoneCountryCode: string | null;
+  phone: string | null;
+}
+
 @Injectable()
 export class ProfilesRepository {
   constructor(private readonly supabase: SupabaseService) {}
@@ -28,5 +35,19 @@ export class ProfilesRepository {
 
     if (error || !data) return null;
     return data as unknown as ProfileRoleRow;
+  }
+
+  // phone_country_code/phone aren't in the Supabase JWT's custom claims (only first/last name
+  // and role are), so the frontend's fast-path session read can't see them — this is the one
+  // real DB read needed to prefill a phone field. Returns null phone/phoneCountryCode (not a
+  // null row) when the caller never set one, which is the common case for OAuth signups.
+  async findContactById(userId: string): Promise<ProfileContactRow | null> {
+    const { data, error } = await this.profiles()
+      .select(PROFILE_CONTACT_COLUMNS.join(', '))
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) return null;
+    return data as unknown as ProfileContactRow | null;
   }
 }

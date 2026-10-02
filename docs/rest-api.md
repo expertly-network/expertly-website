@@ -839,3 +839,184 @@ replaced by a newer submission).
 - Full-text/fuzzy search on `q` — this session's `GET /v1/members` does a straightforward
   `ilike`-style match; a real search index is a separate future concern if the member count grows
   large enough to need one.
+
+## Consultations
+
+Two resources: `consultation_requests` — a client or member requesting time with a member — and
+`consultation_messages`, a free-form back-and-forth thread on a request (added by a later product
+requirement; direct contact via `mailto:`/`tel:` was the only option at this doc's original
+writing). No time-slot scheduling, no rate/payment (per `docs/roadmap.md`'s read of the prototype —
+not added without a product decision). A service/category picker (not in the original design
+prototype) was added by a later product requirement — see `POST /v1/consultations` below.
+
+### 🔑 `GET /v1/consultations/can-request/:memberId`
+
+Read-only probe the frontend calls before even opening the request form — reports both gates
+`POST /v1/consultations` enforces (see below): the pending-duplicate cooldown (checked first) and
+the daily rate limit, without requiring the caller to fill out and submit the form first to find
+out which one, if either, applies. `memberId` isn't validated as a real member here (a bad id just
+can't have a pending request, so `blocked` comes back `false` from that check) — this endpoint is
+a cheap read scoped to the caller's own `requester_id`, not a gate.
+
+**Response `200`:** `{ blocked: boolean; reason: 'pending' | 'rate_limited' | null; retryAfter:
+string | null }` — `reason`/`retryAfter` are set whenever `blocked` is `true`; `retryAfter` is the
+pending request's cooldown end for `'pending'`, or the rate-limit window's reset time for
+`'rate_limited'`. **Errors:** `401` no/invalid token.
+
+### 🔑 `POST /v1/consultations`
+
+Creates a request. Any authenticated role — client, member, or admin — may send one, including to
+a member who is themselves a signed-up member (peer-to-peer) — the prototype's own creation flow
+never actually restricts this despite its inbox view implying a client/member distinction. Whether
+admin accounts should be able to create requests (e.g. for support/testing purposes) hasn't had an
+explicit product decision — current behavior simply doesn't restrict it.
+
+The target `memberId` must resolve to a `profiles.role === 'member'` row whose `profiles.status`
+is `active` and whose `member_profiles.status` is also `active` — a deactivated/suspended member
+is rejected with the same `400`/message as a non-existent or non-member `memberId`, so a caller
+can't distinguish "no such member" from "that member is deactivated."
+
+Exactly one of `serviceId`/`customServiceLabel` is required. `serviceId` must be one of the
+target member's own offered services (validated server-side against `member_services` — an
+arbitrary `services.id` the caller doesn't actually offer is rejected with `400`); otherwise
+`customServiceLabel` (free text, max 150 chars) is used. `message` requires a minimum of 100
+characters — a quality bar for the member deciding whether to accept, not just formatting
+validation.
+
+Rate-limited: `CONSULTATION_REQUEST_LIMIT` (default `3`) requests per
+`CONSULTATION_REQUEST_WINDOW_DAYS`-day (default `1`) window, counted across all target members, not
+per-member. Windows are fixed-size blocks anchored to 08:00 UTC, not a rolling clock — see
+`docs/superpowers/specs/2026-10-01-consultations-backend-design.md` §4 for the exact math. A
+multi-day window (`CONSULTATION_REQUEST_WINDOW_DAYS > 1`) anchors to the fixed epoch
+`1970-01-01T08:00:00Z`, so e.g. a 7-day window resets on a fixed weekday (Thursdays at 08:00 UTC)
+determined by that epoch, not by when the server first started or when any particular user signed
+up. The rate-limit check is a count-then-insert read followed by a separate write, not atomic — a
+burst of truly concurrent requests from the same user could narrowly exceed the configured limit;
+this is an accepted, intentional tradeoff (a soft abuse guard, not a hard limit), not a bug.
+
+Separately, a **pending-duplicate cooldown**: if the caller already has a `'pending'` request to
+this same `memberId`, a new one to that member is rejected until either the member decides it
+(`completed`/`declined`) or `CONSULTATION_PENDING_COOLDOWN_DAYS` (default `15`) days have passed
+since it was sent, whichever comes first — the cooldown expiring on its own means a member who
+never responds doesn't block the requester forever. This is per-(requester, member) pair and
+independent of the rate limit above (a global per-requester count); a caller can be blocked by one
+without the other — checked in that order (cooldown, then rate limit), so when both would apply,
+the cooldown's `409` wins. Not atomic with the insert (a read-then-write, same accepted tradeoff as
+the rate limit) — a burst of truly concurrent requests to the same member could narrowly both
+succeed. See `GET /v1/consultations/can-request/:memberId` above for the pre-flight version of
+both checks.
+
+**Request:** `CreateConsultationRequestRequest`. **Response `201`:** `ConsultationRequestDto`.
+**Errors:** `401` no/invalid token · `400` validation failure (including `message` under 100
+characters, neither `serviceId` nor `customServiceLabel` provided, or a `serviceId` the target
+member doesn't offer), `memberId` isn't a `member`-role profile, that member is
+deactivated/suspended, or `memberId === caller.id` · `409` caller already has a pending request to
+this member (body includes `retryAfter`, the ISO timestamp the cooldown ends) · `429` rate limit
+exceeded (body includes `resetAt`, the ISO timestamp the window next resets).
+
+### 🔒 `GET /v1/consultations/mine`
+
+The caller's own sent requests, newest first, enriched with `memberName`/`memberFirmName`/
+`memberHeadline`/`memberAvatarUrl`/`memberSlug` (the member they sent each request to) —
+`memberSlug` backs the frontend's "View Profile" link — and `serviceName` (resolved from
+`services.name` when `serviceId` was set; `null` when `customServiceLabel` was used instead).
+
+**Response `200`:** `ConsultationRequestDto[]`.
+
+### 🔒 `GET /v1/consultations/received`
+
+The caller's received requests, newest first — scoped to `member_id = caller.id`. **The design
+prototype (`consultation-requests.html`) has no such filter at all** (shows every request to every
+member); this is deliberately not reproduced. Each row is enriched with `requesterIsVerifiedMember`
+(computed from `profiles.role`, never client input), `requesterFirmName`, `requesterAvatarUrl`, and
+`serviceName` (same resolution as `/mine`, above).
+
+**Response `200`:** `ConsultationRequestDto[]`. **Errors:** `403` caller's role isn't `member`.
+
+### 🔒 `PATCH /v1/consultations/:id`
+
+Owner (the target member) transitions `pending` → `completed`/`declined`. No intermediate state,
+no cancel, no re-opening a decided request. `responseMessage` is required (10–500 chars) on every
+transition — the requester sees it on their own `/mine` list, so a bare status flip with no
+explanation isn't enough context for them.
+
+**Request:** `UpdateConsultationStatusRequest`. **Response `200`:** `ConsultationRequestDto`.
+**Errors:** `401` · `403` caller isn't the request's `memberId` · `404` not found · `409` already
+decided · `400` `responseMessage` missing or under 10 characters.
+
+### 🔒 `GET /v1/consultations/:id/messages`
+
+Either participant (the requester or the target member on this request) can read the thread,
+regardless of `status` — history stays visible after a decision, only posting new messages closes.
+Newest-last (chat order).
+
+**Response `200`:** `ConsultationMessageDto[]`. **Errors:** `401` · `403` caller is neither the
+request's `requesterId` nor `memberId` · `404` request not found.
+
+### 🔒 `POST /v1/consultations/:id/messages`
+
+Either participant posts a message — only while `status` is `'pending'`. Once the member decides
+(`completed`/`declined`), the conversation closes to new messages on both sides; the requester
+rates it instead (see `PATCH /v1/consultations/:id/rating` below).
+
+**Request:** `CreateConsultationMessageRequest` (`body`, 1–2000 chars). **Response `201`:**
+`ConsultationMessageDto`. **Errors:** `401` · `403` · `404` · `409` request already decided ·
+`400` `body` missing or over 2000 characters.
+
+### 🔒 `PATCH /v1/consultations/:id/rating`
+
+The requester rates the conversation 1–5, once the member has decided (`status` is no longer
+`'pending'`) — this is what replaces the now-closed message composer on the requester's side.
+
+**Request:** `RateConsultationRequestRequest` (`rating`, integer 1–5). **Response `200`:**
+`ConsultationRequestDto`. **Errors:** `401` · `403` caller isn't the request's `requesterId` ·
+`404` not found · `409` request is still `pending` · `400` `rating` not an integer 1–5.
+
+### 🛡️ `manageConsultations` `GET /v1/admin/consultations`
+
+Every request regardless of status or member, newest first, unpaginated (same posture as
+`AdminMembersController.listMembers()`).
+
+**Response `200`:** `ConsultationRequestDto[]`.
+
+### 🛡️ `manageConsultations` `PATCH /v1/admin/consultations/:id`
+
+Same transition as the owner-member route, no ownership check. `responseMessage` required, same
+validation as the owner-member route above.
+
+**Request:** `UpdateConsultationStatusRequest`. **Response `200`:** `ConsultationRequestDto`.
+**Errors:** `401` · `403` · `404` not found · `409` already decided · `400` `responseMessage`
+missing or under 10 characters.
+
+### Not built yet (explicitly deferred)
+
+- `subject`/`description`/`scheduledAt` — schema columns, no UI anywhere in this feature to
+  collect or display them. (`serviceId`/`customServiceLabel`/`responseMessage` were schema-only at
+  this doc's original writing but are now wired up — see `POST /v1/consultations` and
+  `PATCH /v1/consultations/:id` above.)
+- The "Schedule a Call" tab in `member-profile.html`'s request modal — Peer Connect-shaped
+  scheduling (VC link, AI transcription), out of scope; see `docs/roadmap.md`'s Peer Connect
+  section.
+- Notifications (new request received, request completed/declined) — no notification
+  infrastructure exists yet (`docs/master-tdd.md` Section 8.3).
+- Frontend — the request modal, the member's received-requests inbox, and the requester's
+  sent-requests page are not built. See `docs/user-stories.md`'s US-11.
+- Resetting a decided (`completed`/`declined`) request back to `pending` — the admin dashboard
+  prototype (`admin-dashboard.html`) has a "Reset" action; no product decision has been made on
+  whether this should be allowed, so no endpoint exists for it.
+- Deleting a consultation request — the admin dashboard prototype has a "Delete" action gated by a
+  `deleteContent` permission; no endpoint exists for it, and no product decision has been made on
+  retention/deletion policy for this resource.
+
+## Account
+
+### 🔑 `GET /v1/me/contact`
+
+The caller's own `phoneCountryCode`/`phone` (`profiles.phone_country_code`/`profiles.phone`).
+Added for the consultation request form's phone-number prefill — the frontend's normal fast-path
+session read (`getSessionUser()`) only sees the Supabase JWT's claims (name, email, role), which
+don't carry phone, so this is the one real database read needed to get it. Both fields are `null`
+when the caller never set a phone number (the common case for OAuth signups) — this is not a 404,
+a signed-in caller always gets a `200` with possibly-null fields.
+
+**Response `200`:** `{ phoneCountryCode: string | null; phone: string | null }`.

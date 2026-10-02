@@ -110,6 +110,14 @@ export type Database = {
         }
         Relationships: []
       }
+      // PROVISIONAL HAND-EDIT (not from `pnpm gen:types`): requester_name, requester_contact_email,
+      // requester_phone, and rating were added below ahead of a real type regeneration. The
+      // migration that adds these columns (supabase/migrations/0004_tables.sql) has NOT been
+      // applied to any live database yet, so `gen:types` cannot see them. This is a stand-in for
+      // review only — replace this whole consultation_requests entry with a real `pnpm gen:types`
+      // run once the migration has actually been applied to a dev database. Per
+      // apps/backend/CLAUDE.md, this file is normally generated, never hand-edited; this is a
+      // deliberate, recorded exception.
       consultation_requests: {
         Row: {
           created_at: string
@@ -118,7 +126,11 @@ export type Database = {
           id: string
           member_id: string
           message: string
+          rating: number | null
+          requester_contact_email: string
           requester_id: string
+          requester_name: string
+          requester_phone: string
           response_message: string | null
           scheduled_at: string | null
           service_id: string | null
@@ -133,7 +145,11 @@ export type Database = {
           id?: string
           member_id: string
           message: string
+          rating?: number | null
+          requester_contact_email: string
           requester_id: string
+          requester_name: string
+          requester_phone: string
           response_message?: string | null
           scheduled_at?: string | null
           service_id?: string | null
@@ -148,7 +164,11 @@ export type Database = {
           id?: string
           member_id?: string
           message?: string
+          rating?: number | null
+          requester_contact_email?: string
           requester_id?: string
+          requester_name?: string
+          requester_phone?: string
           response_message?: string | null
           scheduled_at?: string | null
           service_id?: string | null
@@ -176,6 +196,50 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      // PROVISIONAL HAND-EDIT (not from `pnpm gen:types`): this whole consultation_messages entry
+      // is a stand-in for review only, added ahead of a real type regeneration — see the
+      // consultation_requests entry above for the same convention. Replace once
+      // supabase/migrations/0004_tables.sql's consultation_messages table has actually been
+      // applied to a dev database and `pnpm gen:types` has been re-run.
+      consultation_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          request_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          request_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          request_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_messages_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "consultation_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

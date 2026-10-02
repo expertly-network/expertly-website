@@ -1,6 +1,7 @@
 import { getMembersServer, getCategoriesServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { MEMBER_LIST_PAGE_SIZE, parseMemberFilters } from '@/lib/members/search-params';
+import { getSessionUser } from '@/lib/auth/session-claims';
 import { DirectoryHeroSearch } from '@/components/members/DirectoryHeroSearch';
 import { DirectoryFilterBar } from '@/components/members/DirectoryFilterBar';
 import { DirectorySidebar } from '@/components/members/DirectorySidebar';
@@ -24,10 +25,14 @@ export default async function MembersPage({
   const filters = parseMemberFilters(searchParams);
   const query = buildMembersQueryString({ ...filters, page: 1, pageSize: PAGE_SIZE });
 
-  const [members, categories] = await Promise.all([
+  const [members, categories, sessionUser] = await Promise.all([
     getMembersServer(query),
     getCategoriesServer(),
+    getSessionUser(),
   ]);
+  const viewerId = sessionUser?.id;
+  const viewerName = sessionUser ? `${sessionUser.first_name} ${sessionUser.last_name}`.trim() : undefined;
+  const viewerEmail = sessionUser?.email;
 
   return (
     <div>
@@ -78,7 +83,13 @@ export default async function MembersPage({
           <div>
             <DirectoryFilterBar categories={categories} filters={filters} />
             <div className="mt-6">
-              <MemberDirectoryList initialMembers={members} filters={filters} />
+              <MemberDirectoryList
+                initialMembers={members}
+                filters={filters}
+                viewerId={viewerId}
+                viewerName={viewerName}
+                viewerEmail={viewerEmail}
+              />
             </div>
           </div>
           <DirectorySidebar />

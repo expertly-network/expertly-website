@@ -26,6 +26,14 @@ function soonBadgeClasses(variant: SidebarVariant) {
   return `${base} hidden group-hover:inline-block`;
 }
 
+// Section header ("Explore" / "Member Benefits") — collapses away in the rail variant until
+// hover-expanded, matching how nav-link labels behave.
+function navSectionLabelClasses(variant: SidebarVariant) {
+  const base = 'pb-2 pt-4 font-mono text-eyebrow text-white/30';
+  if (variant === 'full') return `${base} px-3`;
+  return `${base} px-2.5 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width,padding] duration-200 group-hover:max-w-[160px] group-hover:px-3 group-hover:opacity-100 group-hover:delay-150`;
+}
+
 const ARTICLES_ICON = (
   <path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
 );
@@ -36,13 +44,51 @@ const MEMBERS_ICON = (
     <path d="M21 21l-4.35-4.35" />
   </>
 );
-const BENEFITS_ICON = <path d="M12 2a6 6 0 100 12 6 6 0 000-12zM15.5 13.5L17 22l-5-3-5 3 1.5-8.5" />;
 const ADMIN_ICON = (
   <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />
 );
+const CONSULTATIONS_ICON = (
+  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
+);
+const DASHBOARD_ICON = (
+  <>
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
+  </>
+);
+const LEARNINGS_ICON = (
+  <>
+    <path d="M22 10L12 5 2 10l10 5 10-5z" />
+    <path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" />
+    <path d="M22 10v6" />
+  </>
+);
+const TEMPLATES_ICON = (
+  <>
+    <rect x="7" y="7" width="13" height="13" rx="2" />
+    <path d="M4 16V4a1 1 0 011-1h12" />
+  </>
+);
+const PERKS_ICON = (
+  <>
+    <path d="M20.59 13.41L13.42 20.6a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+    <circle cx="7" cy="7" r="1.5" />
+  </>
+);
+const DISCOUNTS_ICON = (
+  <>
+    <path d="M19 5L5 19" />
+    <circle cx="6.5" cy="6.5" r="2.5" />
+    <circle cx="17.5" cy="17.5" r="2.5" />
+  </>
+);
 
-// Articles, Events, Members are real destinations; Expertly Benefits doesn't exist yet, so it
-// renders inert with a "Soon" pill instead of linking to a 404.
+// Articles, Events, Members, and (for a client/admin) Consultations are real destinations under
+// "Explore". "Member Benefits" is a member-only section — Consultations is real there too
+// (a member both sends and receives requests); Dashboard/Learnings/Templates/Perks/Discounts
+// don't exist yet, so they render inert with a "Soon" pill instead of linking to a 404.
 export function SidebarNav({
   user,
   variant = 'full',
@@ -64,6 +110,7 @@ export function SidebarNav({
 
   return (
     <nav className="flex flex-1 flex-col gap-1 px-2">
+      <div className={navSectionLabelClasses(variant)}>Explore</div>
       <Link href="/articles" className={navLinkClasses(variant)}>
         <svg {...iconProps}>{ARTICLES_ICON}</svg>
         <span className={navLabelClasses(variant)}>Articles</span>
@@ -76,16 +123,57 @@ export function SidebarNav({
         <svg {...iconProps}>{MEMBERS_ICON}</svg>
         <span className={navLabelClasses(variant)}>Members</span>
       </Link>
-      <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
-        <svg {...iconProps}>{BENEFITS_ICON}</svg>
-        <span className={navLabelClasses(variant)}>Expertly Benefits</span>
-        <span className={soonBadgeClasses(variant)}>SOON</span>
-      </span>
-      {user?.role === 'admin' && (
-        <Link href="/admin" className={navLinkClasses(variant)}>
-          <svg {...iconProps}>{ADMIN_ICON}</svg>
-          <span className={navLabelClasses(variant)}>Admin</span>
+      {user && user.role !== 'member' && (
+        <Link href="/consultations" className={navLinkClasses(variant)}>
+          <svg {...iconProps}>{CONSULTATIONS_ICON}</svg>
+          <span className={navLabelClasses(variant)}>Consultations</span>
         </Link>
+      )}
+
+      {user?.role === 'member' && (
+        <>
+          <div className="my-1 h-px bg-white/10" />
+          <div className={navSectionLabelClasses(variant)}>Member Benefits</div>
+          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <svg {...iconProps}>{DASHBOARD_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Dashboard</span>
+            <span className={soonBadgeClasses(variant)}>SOON</span>
+          </span>
+          <Link href="/consultations" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{CONSULTATIONS_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Consultations</span>
+          </Link>
+          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <svg {...iconProps}>{LEARNINGS_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Learnings</span>
+            <span className={soonBadgeClasses(variant)}>SOON</span>
+          </span>
+          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <svg {...iconProps}>{TEMPLATES_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Templates</span>
+            <span className={soonBadgeClasses(variant)}>SOON</span>
+          </span>
+          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <svg {...iconProps}>{PERKS_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Perks</span>
+            <span className={soonBadgeClasses(variant)}>SOON</span>
+          </span>
+          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <svg {...iconProps}>{DISCOUNTS_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Discounts</span>
+            <span className={soonBadgeClasses(variant)}>SOON</span>
+          </span>
+        </>
+      )}
+
+      {user?.role === 'admin' && (
+        <>
+          <div className="my-1 h-px bg-white/10" />
+          <Link href="/admin" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{ADMIN_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Admin</span>
+          </Link>
+        </>
       )}
     </nav>
   );

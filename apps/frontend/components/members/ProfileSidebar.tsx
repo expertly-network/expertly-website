@@ -9,9 +9,11 @@ const LABEL = 'font-mono text-[10px] font-semibold tracking-[0.08em] text-ink-3'
 export function ProfileSidebar({
   member,
   isOwnProfile,
+  onRequestConsultation,
 }: {
   member: MemberDto;
   isOwnProfile: boolean;
+  onRequestConsultation: () => void;
 }) {
   const pct = isOwnProfile ? computeCompletionPct(member) : null;
   const rate = formatRateParts(member.rateMinCents, member.rateMaxCents, member.rateCurrency);
@@ -61,9 +63,11 @@ export function ProfileSidebar({
         {member.availabilityNotes && (
           <p className="mb-4 text-caption leading-relaxed text-ink-3">{member.availabilityNotes}</p>
         )}
-        <Button disabled aria-disabled="true" title="Coming soon" fullWidth className="font-mono font-semibold">
-          Request Consultation
-        </Button>
+        {!isOwnProfile && (
+          <Button onClick={onRequestConsultation} fullWidth className="font-mono font-semibold">
+            Request Consultation
+          </Button>
+        )}
         {member.firmWebsite && (
           // `.mp-firm-link`
           <a
