@@ -1,0 +1,1977 @@
+{
+  "info": {
+    "name": "Expertly API",
+    "description": "Every `apps/backend` REST endpoint, grouped to match `docs/rest-api.md`. Base path `/v1` (set via `{{baseUrl}}`). Public/member routes are grouped by resource near the top; every 🛡️ admin-only route lives in the single **Admin** folder at the bottom instead, with one sub-folder per resource.\n\nQuick start:\n1. Import the companion environment file (`Expertly.postman_environment.json`) and select it top-right.\n2. Fill in `supabaseUrl` / `supabaseAnonKey` (from your `.env`) and `testEmail` / `testPassword` (an existing Supabase user).\n3. Run **Auth (Supabase) → Sign in** — it auto-saves a real JWT into `accessToken`, which every other request inherits as its Bearer token.\n4. Replace the placeholder `{{...Id}}` variables with real ids as you create resources (most GET list endpoints return them).\n\n⚠️ **Keep this collection in sync with the contract.** Whenever an endpoint is added, removed, or its request/response shape changes (see root `CLAUDE.md` → \"Database schema & REST API\"), update this file in the same change — see `postman/README.md`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000/v1",
+      "type": "string",
+      "description": "NestJS backend base URL (global prefix /v1). Docker/Coolify deploys: swap for the deployed origin."
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "Supabase JWT access_token used as the Bearer token. Get one from the \"Sign In\" request below, or paste one from the frontend (localStorage / Application tab) while signed in."
+    },
+    {
+      "key": "supabaseUrl",
+      "value": "https://your-project.supabase.co",
+      "type": "string",
+      "description": "Matches NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL. Only used by the Auth (Supabase) folder to mint a token — the backend itself is never called with this."
+    },
+    {
+      "key": "supabaseAnonKey",
+      "value": "your-anon-key",
+      "type": "string",
+      "description": "Matches NEXT_PUBLIC_SUPABASE_ANON_KEY. Safe to expose client-side; only used by the Auth (Supabase) folder."
+    },
+    {
+      "key": "testEmail",
+      "value": "test.client@example.com",
+      "type": "string",
+      "description": "Credentials for an existing Supabase user in your project, used by the Sign In request."
+    },
+    {
+      "key": "testPassword",
+      "value": "ChangeMe123!",
+      "type": "string",
+      "description": "Password for testEmail."
+    },
+    {
+      "key": "categoryId",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "A real categories.id from GET /categories."
+    },
+    {
+      "key": "serviceId",
+      "value": "00000000-0000-0000-0000-000000000002",
+      "type": "string",
+      "description": "A real services.id (non-custom) from GET /categories."
+    },
+    {
+      "key": "serviceIdSecondary",
+      "value": "00000000-0000-0000-0000-000000000003",
+      "type": "string",
+      "description": "A second services.id, for multi-select examples (service preferences, article services)."
+    },
+    {
+      "key": "applicationId",
+      "value": "00000000-0000-0000-0000-000000000004",
+      "type": "string",
+      "description": "A membership_applications.id, e.g. from GET /admin/applications."
+    },
+    {
+      "key": "articleId",
+      "value": "00000000-0000-0000-0000-000000000005",
+      "type": "string",
+      "description": "An articles.id, e.g. from GET /articles."
+    },
+    {
+      "key": "eventId",
+      "value": "00000000-0000-0000-0000-000000000006",
+      "type": "string",
+      "description": "An events.id, e.g. from GET /admin/events."
+    },
+    {
+      "key": "memberId",
+      "value": "00000000-0000-0000-0000-000000000007",
+      "type": "string",
+      "description": "A member_profiles.id (UUID) — owner-only write routes key on this, not the slug."
+    },
+    {
+      "key": "memberSlug",
+      "value": "priya-menon",
+      "type": "string",
+      "description": "A member_profiles.slug — the public GET /members/:slug route keys on this."
+    },
+    {
+      "key": "consultationId",
+      "value": "00000000-0000-0000-0000-000000000008",
+      "type": "string",
+      "description": "A consultation_requests.id, e.g. from GET /consultations/mine."
+    },
+    {
+      "key": "memberEditId",
+      "value": "00000000-0000-0000-0000-000000000009",
+      "type": "string",
+      "description": "A member_profile_edits.id, e.g. from GET /admin/member-edits."
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth (Supabase)",
+      "item": [
+        {
+          "name": "POST /auth/v1/token — Sign in (password grant), mint a real JWT for every other request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{supabaseUrl}}/auth/v1/token?grant_type=password",
+              "host": [
+                "{{supabaseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "token"
+              ],
+              "query": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                }
+              ]
+            },
+            "description": "Calls Supabase directly (NOT the Expertly backend) to exchange email/password for a JWT. Requires an existing user in your Supabase project (sign up via the frontend first, or use the Supabase dashboard). On success, the test script below auto-saves `access_token`/`refresh_token` into this environment’s `accessToken`/`refreshToken` variables, so every other request’s inherited Bearer auth picks it up immediately — no copy/paste needed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('accessToken', json.access_token);",
+                  "    pm.environment.set('refreshToken', json.refresh_token);",
+                  "    console.log('Saved accessToken to the active environment.');",
+                  "} else {",
+                  "    console.warn('Sign-in failed — accessToken was not updated.');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health & Account",
+      "item": [
+        {
+          "name": "GET /health — Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "🌐 Public.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /hello — Hello (smoke test)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/hello",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hello"
+              ]
+            },
+            "description": "🌐 Public.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /me — Get my claims",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "🔑 Auth — any authenticated role. Returns the decoded JWT claims (id, role, email, ...)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /me/contact — Get my contact info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/contact",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "contact"
+              ]
+            },
+            "description": "🔑 Auth — fresh DB read of the caller’s phoneCountryCode/phone (not on the JWT). Used to prefill the consultation request form."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /member/ping — Member ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/member/ping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "member",
+                "ping"
+              ]
+            },
+            "description": "👤 member (admin also passes — ranked role model). Smoke test for the `member` guard."
+          },
+          "response": []
+        }
+      ],
+      "description": "Unauthenticated smoke tests plus the one real \"my own account\" read. The admin-guard smoke test lives in the Admin folder with every other 🛡️ route."
+    },
+    {
+      "name": "Categories & Services",
+      "item": [
+        {
+          "name": "GET /categories — List categories (public taxonomy tree)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "🌐 Public. Active category→service taxonomy for the wizard, directory filter, and article tagging.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Membership Applications",
+      "item": [
+        {
+          "name": "POST /applications/me — Save or submit my application (upsert)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "me"
+              ]
+            },
+            "description": "_client_ role only. Upsert: creates a draft on first call, merges fields on repeat calls. Every field optional — shown here mid-wizard with `status: \"draft\"`. Set `status: \"submitted\"` once every required field above is filled (see docs/rest-api.md) to trigger the full completeness check.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jordan\",\n  \"lastName\": \"Reyes\",\n  \"contactEmail\": \"jordan.reyes@example.com\",\n  \"phoneCountryCode\": \"+1\",\n  \"phone\": \"4155551234\",\n  \"country\": \"United States\",\n  \"state\": \"California\",\n  \"city\": \"San Francisco\",\n  \"linkedinUrl\": \"https://linkedin.com/in/jordanreyes\",\n  \"bio\": \"Tax advisor with 15 years of experience helping cross-border businesses navigate transfer pricing and indirect tax compliance.\",\n  \"yearsOfExperience\": 15,\n  \"workExperiences\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"companyUrl\": \"https://reyestax.example.com\",\n      \"city\": \"San Francisco\",\n      \"firmSize\": \"2_10\",\n      \"startMonth\": 3,\n      \"startYear\": 2015,\n      \"isCurrent\": true\n    }\n  ],\n  \"educations\": [\n    {\n      \"institution\": \"University of California, Berkeley\",\n      \"degree\": \"J.D.\",\n      \"fieldOfStudy\": \"Tax Law\",\n      \"startYear\": 2006,\n      \"endYear\": 2009\n    }\n  ],\n  \"peerReferences\": [\n    {\n      \"name\": \"Amara Okafor\",\n      \"relationship\": \"Former colleague\",\n      \"email\": \"amara.okafor@example.com\",\n      \"phone\": \"+14155559876\"\n    },\n    {\n      \"name\": \"Liam Chen\",\n      \"relationship\": \"Client\",\n      \"email\": \"liam.chen@example.com\"\n    }\n  ],\n  \"servicePreferences\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"priority\": 1\n    },\n    {\n      \"serviceId\": \"{{serviceIdSecondary}}\",\n      \"priority\": 2\n    }\n  ],\n  \"rateMinCents\": 30000,\n  \"rateMaxCents\": 60000,\n  \"billingPeriod\": \"annual\",\n  \"couponCode\": \"LAUNCH25\",\n  \"linkedinImportConsent\": true,\n  \"termsVersionAgreed\": \"2026-01-01\",\n  \"privacyVersionAgreed\": \"2026-01-01\",\n  \"backgroundCheckConsent\": true,\n  \"currentStep\": 5,\n  \"status\": \"draft\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /applications/me — Get my application",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "me"
+              ]
+            },
+            "description": "🔒 Owner. The caller’s own most recent application. `404` if none exists yet."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /applications/me/linkedin-import — Import from LinkedIn (preview only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/me/linkedin-import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "me",
+                "linkedin-import"
+              ]
+            },
+            "description": "🔒 Auth. Fetch-and-normalize only — does NOT save. Frontend merges the result and saves via POST /applications/me.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"linkedinUrl\": \"https://www.linkedin.com/in/jordanreyes\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /applications/me/photo/linkedin — Import profile photo from LinkedIn",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/me/photo/linkedin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "me",
+                "photo",
+                "linkedin"
+              ]
+            },
+            "description": "🔒 Auth. No request body. Best-effort — pulls the `picture` claim off the caller’s linked LinkedIn identity. Never overwrites an existing photo."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /applications/me/coupon-preview — Preview coupon / price",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/applications/me/coupon-preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "me",
+                "coupon-preview"
+              ]
+            },
+            "description": "🔒 Auth. Stateless — does not require a draft to exist. `valid: false` (not an error) when the code is unrecognized.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingPeriod\": \"annual\",\n  \"couponCode\": \"LAUNCH25\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /applications/me/uploads — Upload photo or document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/me/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "applications",
+                "me",
+                "uploads"
+              ]
+            },
+            "description": "🔒 Auth. `multipart/form-data`. `kind` is `photo` (JPEG/PNG, 5MB max) or `document` (JPEG/PNG/PDF, 15MB max). Only allowed while the caller has a draft application.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "kind",
+                  "value": "photo",
+                  "type": "text",
+                  "description": "'photo' | 'document'"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a JPEG/PNG (or PDF for kind=document) from disk."
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Articles",
+      "item": [
+        {
+          "name": "GET /articles — List published articles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles"
+              ],
+              "query": [
+                {
+                  "key": "authorId",
+                  "value": "{{memberId}}",
+                  "description": "Optional — a member's own published articles.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "🌐 Public. Browse grid — published only, no `body`.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /articles/me — List my articles (any status)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "me"
+              ]
+            },
+            "description": "🔒 Auth. Caller’s own articles including drafts. Empty array if none — not a 404."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /articles/cover-images — Get cover image suggestions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/cover-images?query=international%20tax%20compliance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "cover-images"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "international tax compliance",
+                  "description": "Free text, typically selected practice area name(s).",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "member. Proxies an Unsplash search server-side so the API key never reaches the client."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /articles/{{articleId}} — Get article detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}"
+              ]
+            },
+            "description": "🔑 Auth, any role. `404` (not `403`) if it’s a draft the caller can’t see."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /articles/ai-draft — AI: generate draft",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/ai-draft",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "ai-draft"
+              ]
+            },
+            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF/DOCX/TXT).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "payload",
+                  "type": "text",
+                  "value": "{\"title\":\"Cross-Border Tax Planning for Growing Startups\",\"serviceIds\":[\"{{serviceId}}\"],\"countries\":[\"United States\",\"United Kingdom\"],\"state\":\"California\",\"notes\":\"Focus on indirect tax exposure when expanding into the EU.\",\"recentDevelopments\":\"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\"advice\":\"Recommend proactive nexus studies before entering a new market.\",\"sourceLinks\":[\"https://example.com/oecd-pillar-two-overview\"],\"includeVisual\":true,\"tone\":\"Professional, approachable\",\"extraInstructions\":\"Keep it under 1200 words and cite the OECD guidance.\"}"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional — zero or more PDF/DOCX/TXT source documents."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /articles/ai-refine — AI: refine draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/ai-refine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "ai-refine"
+              ]
+            },
+            "description": "member. Plain JSON (unlike ai-draft). Re-prompts against the current draft plus requested changes; returns a complete revised draft.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cross-Border Tax Planning for Growing Startups\",\n  \"body\": \"International tax planning has shifted dramatically for growth-stage companies expanding beyond their home market. This article walks through the practical steps a founder or finance lead should take before entering a new jurisdiction, from nexus studies to transfer pricing documentation. (Replace this placeholder with real body copy — remember POST/PATCH enforce an 800–2000 word count whenever the resulting status is not 'draft'.)\",\n  \"refinementNotes\": \"Make the tone more formal and add a short conclusion paragraph.\",\n  \"tone\": \"Formal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /articles/suggest-topics — AI: suggest topics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/suggest-topics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "suggest-topics"
+              ]
+            },
+            "description": "member. `serviceIds` optional — omit to let the backend sample 3 random active services.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /articles — Create article",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles"
+              ]
+            },
+            "description": "member (admin also passes). Omit `status` (or send anything other than 'draft') to submit — actual published/pending_review resolution is server-side via `ARTICLES_REVIEW_MODE`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Navigating Transfer Pricing Audits in 2026\",\n  \"body\": \"International tax planning has shifted dramatically for growth-stage companies expanding beyond their home market. This article walks through the practical steps a founder or finance lead should take before entering a new jurisdiction, from nexus studies to transfer pricing documentation. (Replace this placeholder with real body copy — remember POST/PATCH enforce an 800–2000 word count whenever the resulting status is not 'draft'.)\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1554224154-26032fced8bd\",\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ],\n  \"customServiceLabels\": {},\n  \"countries\": [\n    \"United States\"\n  ],\n  \"state\": \"California\",\n  \"status\": \"published\",\n  \"creationMode\": \"manual\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /articles/{{articleId}} — Update article",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}"
+              ]
+            },
+            "description": "🔒 Owner or admin. All fields optional; only provided fields change.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Navigating Transfer Pricing Audits in 2026 (Updated)\",\n  \"status\": \"draft\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /articles/{{articleId}} — Delete article",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}"
+              ]
+            },
+            "description": "🔒 Owner or admin."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "GET /events — List upcoming/published events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events?upcoming=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "upcoming",
+                  "value": "true",
+                  "description": "true (default) | false",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "🌐 Public. `upcoming=true` (default): homepage list, soonest-first. `upcoming=false`: every published event, chronological — backs the standalone /events browse page.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Member Directory & Profiles",
+      "item": [
+        {
+          "name": "GET /members — List members (directory)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/members?q=tax&serviceId={{serviceId}}&sort=featured&page=1&pageSize=8",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "tax",
+                  "description": "Search across name/practice/location/firm/title.",
+                  "disabled": false
+                },
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}",
+                  "description": "Repeatable.",
+                  "disabled": false
+                },
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}",
+                  "description": "Single — broadens to 'any service in this category'.",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "United States",
+                  "description": "Repeatable.",
+                  "disabled": true
+                },
+                {
+                  "key": "rateMinCents",
+                  "value": "10000",
+                  "disabled": true
+                },
+                {
+                  "key": "rateMaxCents",
+                  "value": "100000",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "featured",
+                  "description": "featured | tenure | rate_asc | rate_desc",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "8",
+                  "description": "Default 8, matches the prototype’s infinite-scroll page size.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "🌐 Public. Published/active members only.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /members/{{memberSlug}} — Get member profile by slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberSlug}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberSlug}}"
+              ]
+            },
+            "description": "🔒 Auth, any role. Keyed on slug, NOT the UUID. `404` if not found, not active, or a deactivated profile that isn’t the caller’s own."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /members/{{memberId}}/uploads — Request a signed upload URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "uploads"
+              ]
+            },
+            "description": "🔒 member, owner-only (`:id` must equal caller id). Returns a signed URL — the member uploads directly to it; this endpoint never sees file bytes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"proof-of-engagement.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /members/{{memberId}}/edits — Submit edit (pick a section)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/edits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "edits"
+              ]
+            },
+            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"section\": \"headline_bio\",\n  \"payload\": {\n    \"headline\": \"Cross-Border Tax & Transfer Pricing Advisor\",\n    \"bio\": \"I help fast-growing companies manage multi-jurisdiction tax exposure as they scale internationally.\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /members/{{memberId}}/edits — List my edit requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/edits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "edits"
+              ]
+            },
+            "description": "🔒 Owner-only. Any status, newest first — drives the \"pending verification\" badge."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Consultations",
+      "item": [
+        {
+          "name": "POST /consultations — Create consultation request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations"
+              ]
+            },
+            "description": "🔑 Auth, any role (client, member, or admin). Exactly one of `serviceId`/`customServiceLabel` required. `message` needs ≥100 characters. Rate-limited + pending-duplicate-cooldown — see GET can-request below.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"name\": \"Taylor Morgan\",\n  \"email\": \"taylor.morgan@example.com\",\n  \"phone\": \"+14155550123\",\n  \"message\": \"Hi, I'm expanding my e-commerce business into the EU and would like guidance on VAT registration and transfer pricing for our new subsidiary. Could we set up a time to discuss?\",\n  \"serviceId\": \"{{serviceId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /consultations/can-request/{{memberId}} — Check eligibility to request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/can-request/{{memberId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "can-request",
+                "{{memberId}}"
+              ]
+            },
+            "description": "🔑 Auth. Pre-flight probe for both gates POST enforces (pending-duplicate cooldown, daily rate limit) before the caller fills out the form."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /consultations/mine — List my sent requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "mine"
+              ]
+            },
+            "description": "🔒 Auth. Newest first, enriched with the target member’s display info."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /consultations/received — List my received requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/received",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "received"
+              ]
+            },
+            "description": "🔒 member. Scoped to `member_id = caller.id`. `403` if the caller isn’t a member."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /consultations/{{consultationId}} — Respond to request (complete or decline)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/{{consultationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultationId}}"
+              ]
+            },
+            "description": "🔒 Owner (the target member). Shipped body completes it. `responseMessage` required, 10–500 chars. No re-opening once decided.\n\n**To test Decline instead, replace the whole body with:**\n```json\n{\n  \"status\": \"declined\",\n  \"responseMessage\": \"Thanks for reaching out — this is outside my practice area, but I've suggested another member who specializes in EU VAT.\"\n}\n```",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"responseMessage\": \"Happy to help — sent a follow-up email with next steps and a proposed engagement scope.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /consultations/{{consultationId}}/rating — Rate a decided request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/{{consultationId}}/rating",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultationId}}",
+                "rating"
+              ]
+            },
+            "description": "🔒 Owner (the requester). Only once `status` is no longer `pending`. Integer 1–5.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /consultations/{{consultationId}}/messages — List thread messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/{{consultationId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultationId}}",
+                "messages"
+              ]
+            },
+            "description": "🔒 Owner (either participant). Visible regardless of status; newest-last."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /consultations/{{consultationId}}/messages — Post thread message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultations/{{consultationId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultationId}}",
+                "messages"
+              ]
+            },
+            "description": "🔒 Owner (either participant). Only while `status` is `pending`. 1–2000 chars.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Thanks for the detailed response — could we schedule a 30-minute call next week?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "GET /admin/ping — Admin ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/ping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "ping"
+              ]
+            },
+            "description": "🛡️ admin (exact role). Smoke test for the `admin` guard."
+          },
+          "response": []
+        },
+        {
+          "name": "Categories & Services",
+          "item": [
+            {
+              "name": "GET /admin/categories — List all categories",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/categories",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "categories"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/categories — Create category",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/categories",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "categories"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"imageUrl\": \"https://images.example.com/categories/tax-advisory.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/categories/{{categoryId}} — Update category",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/categories/{{categoryId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "categories",
+                    "{{categoryId}}"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy. All fields optional.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /admin/categories/{{categoryId}} — Delete category",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/categories/{{categoryId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "categories",
+                    "{{categoryId}}"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy. `409 CATEGORY_HAS_SERVICES` if it still has services."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/categories/{{categoryId}}/services — Create service under category",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/categories/{{categoryId}}/services",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "categories",
+                    "{{categoryId}}",
+                    "services"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy. Services are always created scoped under a category.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Transfer Pricing Advisory\",\n  \"isCustom\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/services/{{serviceId}} — Update service",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/services/{{serviceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "services",
+                    "{{serviceId}}"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy. All fields optional.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Transfer Pricing Advisory\",\n  \"sortOrder\": 3,\n  \"isActive\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /admin/services/{{serviceId}} — Delete service",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/services/{{serviceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "services",
+                    "{{serviceId}}"
+                  ]
+                },
+                "description": "🛡️ manageTaxonomy. `409 SERVICE_IN_USE` if still referenced by a member/article/application."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Membership Applications",
+          "item": [
+            {
+              "name": "GET /admin/applications — List applications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/applications",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "applications"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "submitted",
+                      "description": "draft | submitted | under_review | approved | rejected",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "🛡️ manageApplications. Omit `status` to get every status (including draft/approved) — the admin table filters client-side."
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/applications/{{applicationId}} — Get application detail",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/applications/{{applicationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "applications",
+                    "{{applicationId}}"
+                  ]
+                },
+                "description": "🛡️ manageApplications. Same ApplicationDto shape as the applicant’s own GET."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/applications/{{applicationId}} — Review application (approve or reject)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/applications/{{applicationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "applications",
+                    "{{applicationId}}"
+                  ]
+                },
+                "description": "🛡️ manageApplications. Shipped body approves. `approvedServiceId` must be one of the applicant’s own submitted servicePreferences. `memberTier`/`membershipStartedAt` are optional admin overrides, only used when approving.\n\n**To test Reject instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"rejectionReason\": \"Peer references could not be verified — please resubmit with updated contacts.\"\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"approved\",\n  \"approvedServiceId\": \"{{serviceId}}\",\n  \"memberTier\": \"seasoned_professional\",\n  \"membershipStartedAt\": \"2026-10-01\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Articles",
+          "item": [
+            {
+              "name": "GET /admin/articles — List review queue",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/articles",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "articles"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "rejected",
+                      "description": "Narrow to one bucket, e.g. to audit past decisions.",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "🛡️ manageArticles. Only ever non-empty in `editorial` review mode. Omit `status` for the default `pending_review` queue."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/articles/{{articleId}} — Review article (approve/publish or reject)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/articles/{{articleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "articles",
+                    "{{articleId}}"
+                  ]
+                },
+                "description": "🛡️ manageArticles. Shipped body approves (publishes). Only valid while the article is `pending_review`.\n\n**To test Reject instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"rejectionReason\": \"Needs more supporting citations before publishing.\"\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"published\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Events",
+          "item": [
+            {
+              "name": "GET /admin/events — List all events",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events"
+                  ]
+                },
+                "description": "🛡️ manageEvents. Every status (draft + published)."
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/events/export — Export events to CSV",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events/export",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events",
+                    "export"
+                  ]
+                },
+                "description": "🛡️ manageEvents. Returns `text/csv` (not JSON) — Postman will show it under the Response’s \"Save Response\" / raw view rather than pretty-printing it. Columns, in order: id, title, slug, description, shortDescription, coverImageUrl, startDate, endDate, timezone, eventType, eventFormat, country, city, venueName, isFree, registrationUrl, organiserName, status, createdAt, updatedAt. Re-uploading this file unmodified to the import endpoint below is a no-op."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/events/import — Import events from CSV (full sync)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events/import",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events",
+                    "import"
+                  ]
+                },
+                "description": "🛡️ manageEvents. `.csv` only. Each row is the FULL desired state of one event (replace, not patch) and the whole file is a full sync: blank `id` → create; filled `id` matching an existing event → replace every column except `slug`; any existing event whose id is absent from the file → **deleted**. All-or-nothing — every row is validated before anything is written; one failing row means nothing is written (`400`, one `\"Row N: ...\"` message per failure). A file with zero data rows is rejected outright rather than deleting everything.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "A .csv file matching the export format above — see that request’s description for the column list."
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/events/{{eventId}} — Get event detail",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events/{{eventId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events",
+                    "{{eventId}}"
+                  ]
+                },
+                "description": "🛡️ manageEvents. Any status."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/events — Create event",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events"
+                  ]
+                },
+                "description": "🛡️ manageEvents. Omitting `status` defaults to 'draft'. A draft only strictly needs title/description/startDate — the rest become required once `status` resolves to 'published' (see Publish requirements in docs/rest-api.md).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Cross-Border M&A Masterclass\",\n  \"description\": \"A half-day workshop covering deal structuring, due diligence, and post-merger integration for cross-border transactions.\",\n  \"shortDescription\": \"Hands-on workshop on cross-border M&A fundamentals.\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1507679799987-c73779587ccf\",\n  \"startDate\": \"2026-11-12T09:00:00.000Z\",\n  \"endDate\": \"2026-11-12T17:00:00.000Z\",\n  \"timezone\": \"America/New_York\",\n  \"eventType\": \"Workshop\",\n  \"eventFormat\": \"hybrid\",\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"venueName\": \"Expertly HQ\",\n  \"isFree\": false,\n  \"registrationUrl\": \"https://example.com/events/cross-border-ma-masterclass\",\n  \"organiserName\": \"Expertly Events Team\",\n  \"status\": \"published\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/events/{{eventId}} — Update event",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events/{{eventId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events",
+                    "{{eventId}}"
+                  ]
+                },
+                "description": "🛡️ manageEvents. All fields optional. Every optional field also accepts explicit `null` to CLEAR it — omitting the key leaves it unchanged.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"city\": \"Boston\",\n  \"venueName\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /admin/events/{{eventId}} — Delete event",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/events/{{eventId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "events",
+                    "{{eventId}}"
+                  ]
+                },
+                "description": "🛡️ manageEvents."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Members & Profiles",
+          "item": [
+            {
+              "name": "GET /admin/members — List all members",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members"
+                  ]
+                },
+                "description": "🛡️ manageMembers. Including deactivated."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/members/{{memberId}} — Update member (lifecycle)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members",
+                    "{{memberId}}"
+                  ]
+                },
+                "description": "🛡️ manageMembers. Lifecycle facts only (status/membershipStartedAt/renewalPaymentStatus) — NOT content, which only the self-edit flow governs.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"membershipStartedAt\": \"2026-01-15\",\n  \"renewalPaymentStatus\": \"paid\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/members/{{memberId}}/edits — Get member edits detail (per-member review page)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/edits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members",
+                    "{{memberId}}",
+                    "edits"
+                  ]
+                },
+                "description": "🛡️ manageMembers. Current live values + every edit + signed proof-file URLs, in one call."
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/member-edits — List all edit requests (queue)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/member-edits?status=all",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "member-edits"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "all",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "🛡️ manageMembers. `status`: pending (default) | verified | rejected | all."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/member-edits/{{memberEditId}} — Review edit (verify or reject)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/member-edits/{{memberEditId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "member-edits",
+                    "{{memberEditId}}"
+                  ]
+                },
+                "description": "🛡️ manageMembers. Shipped body verifies. On verify: for list sections, replaces the member’s items wholesale; for headline_bio/contact, overwrites those columns directly.\n\n**To test Reject instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"reviewNote\": \"Please attach a proof document for this engagement before resubmitting.\"\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"verified\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Consultations",
+          "item": [
+            {
+              "name": "GET /admin/consultations — List all consultation requests",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/consultations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "consultations"
+                  ]
+                },
+                "description": "🛡️ manageConsultations. Every request, unpaginated."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/consultations/{{consultationId}} — Respond to request (complete or decline)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/consultations/{{consultationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "consultations",
+                    "{{consultationId}}"
+                  ]
+                },
+                "description": "🛡️ manageConsultations. Shipped body completes it. Same transition as the owner-member route, no ownership check.\n\n**To test Decline instead, replace the whole body with:**\n```json\n{\n  \"status\": \"declined\",\n  \"responseMessage\": \"Thanks for reaching out — this is outside my practice area, but I've suggested another member who specializes in EU VAT.\"\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"completed\",\n  \"responseMessage\": \"Happy to help — sent a follow-up email with next steps and a proposed engagement scope.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ],
+      "description": "Every 🛡️ admin-only route (role `admin` + the matching permission, e.g. manageTaxonomy/manageEvents), kept separate from the public/member folders above instead of mixed in with them. Sub-folders mirror the same resource names (Categories & Services, Membership Applications, Articles, Events, Members & Profiles, Consultations) so the layout stays familiar."
+    }
+  ]
+}

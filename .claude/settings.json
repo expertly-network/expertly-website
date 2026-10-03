@@ -9,6 +9,15 @@
             "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *apps/frontend/app/*|*apps/frontend/components/*) echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PreToolUse\\\",\\\"permissionDecision\\\":\\\"allow\\\",\\\"additionalContext\\\":\\\"Reminder (CLAUDE.md Design source of truth): before writing $f, check the matching page in design/static_html/*.html for exact layout/copy/interaction. If no mockup exists for this route/component, proceed but flag the gap explicitly rather than guessing.\\\"}}\" ;; esac; }"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=\"$(jq -r '.tool_input.command // empty')\"\ncase \"$cmd\" in\n  *\"git commit\"*)\n    staged=\"$(git diff --cached --name-only 2>/dev/null)\"\n    if printf '%s\\n' \"$staged\" | grep -qE '^(docs/rest-api\\.md|packages/shared-types/.*\\.ts)$' \\\n       && ! printf '%s\\n' \"$staged\" | grep -qE '^postman/Expertly\\.postman_collection\\.json$'; then\n      reason=\"docs/rest-api.md or packages/shared-types/*.ts is staged for this commit but postman/Expertly.postman_collection.json is not. Per CLAUDE.md (Postman collection section) the collection must be updated in the same commit, or confirm this change genuinely does not affect the API contract.\"\n      jq -n --arg reason \"$reason\" '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"ask\",permissionDecisionReason:$reason}}'\n    fi\n    ;;\nesac"
+          }
+        ]
       }
     ]
   }

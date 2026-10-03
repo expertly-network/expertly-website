@@ -92,12 +92,55 @@ order:
    actually breaking an existing shape goes to `/v2` rather than silently changing `/v1`. **Also**
    write the request/response interfaces into `packages/shared-types/<resource>.ts` (see its
    `README.md`) — this makes the contract compiler-enforced, not just documentation someone has to
-   read carefully.
+   read carefully. **Also** update `postman/Expertly.postman_collection.json` — see "Postman
+   collection" below; this is not optional cleanup, it's part of landing the contract change.
 2. **Frontend session**, separate, implements pages against that now-fixed contract, importing
    types from `packages/shared-types/` (`import type` only — see that folder's `README.md` for
    why) instead of redefining its own copy. If it turns out the UI genuinely needs data the API
    doesn't provide, that's flagged back explicitly — "the contract needs to extend, here's why" —
    not patched in ad hoc from within the frontend session.
+
+## Postman collection — must stay in sync with the contract
+
+`postman/Expertly.postman_collection.json` (+ `postman/Expertly.postman_environment.json`,
+`postman/README.md`) is a Postman collection covering every `apps/backend` route, with real headers,
+query params, and an editable mock body per request — kept in the repo so anyone can exercise the
+REST API without the frontend.
+
+**Non-negotiable rule: any change to the backend contract updates this collection in the same
+change.** That means:
+
+- A new endpoint (new controller route, admin or public) → add a request for it.
+- A removed/renamed endpoint → remove/rename the request.
+- A changed request or response shape (field added/removed/renamed, enum value changed, a field
+  that became required) → update that request's body/params/description to match.
+- A new app/module added to `apps/backend/src/` → add its folder to the collection, same session
+  the module is wired up, not a follow-up.
+
+**Two structural conventions the collection follows — keep new additions consistent with them,
+don't silently drift back to the old shape (see `postman/README.md` for the full rationale):**
+
+1. **Role is the primary split, resource is secondary.** Every 🛡️ admin-only route lives in the
+   single top-level `Admin` folder, in a sub-folder named after its resource (e.g. `Admin →
+   Articles`) — never mixed into the public/member folder of the same name. A new admin endpoint
+   goes into that sub-folder (create one if the resource is new), not next to its non-admin
+   siblings.
+2. **One request per endpoint, even when its behavior branches on body content.** An
+   approve/reject-, verify/reject-, or complete/decline-style endpoint is one request — the
+   shipped body is the primary/most-common variant (valid, sendable as-is), and every other
+   variant's full JSON goes into that request's Description as a ready-to-paste block ("To test X
+   instead, replace the whole body with: ..."). Never add a second near-duplicate request for the
+   alternate outcome, and never try to represent it as a `//`-commented sibling in the body itself
+   — real JSON has no comment syntax, and `apps/backend/src/main.ts`'s
+   `forbidNonWhitelisted: true` `ValidationPipe` rejects a dormant extra key sitting next to the
+   active payload, so there is no way to keep both in the body and just toggle one.
+3. Every request is named `METHOD /route — why` (route first, so it's identifiable without
+   opening the request).
+
+This applies whether the change came from a backend session (§ above) or any later fix. Don't treat
+it as docs cleanup to get to later — `docs/rest-api.md`, `packages/shared-types/`, and this
+collection change together, in the same commit/PR, or the collection silently rots and stops being
+trustworthy. See `postman/README.md` for exactly how to edit/export it.
 
 ## When implementing a feature
 
@@ -247,6 +290,8 @@ At the end of any session touching backend or frontend:
 □ Note any TODOs or explicitly deferred scope — name it, don't leave it silent
 □ Confirm docs/rest-api.md / docs/database-erd.md / packages/shared-types/ were updated
   if the contract changed
+□ Confirm postman/Expertly.postman_collection.json was updated to match — any contract
+  change (§ "Postman collection") that lands without it is incomplete
 □ Confirm no hardcoded credentials or keys
 □ Confirm pnpm typecheck passes
 ```
