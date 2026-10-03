@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import type { EventDto } from '@shared/event';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import type { EventDto, ImportEventsResponse, ImportEventsRowResultDto } from '@shared/event';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { assertPublishReady } from './publish-requirements';
-import { EventsRepository, type EventUpdate } from './events.repository';
+import { EventsRepository, type EventInsert, type EventUpdate } from './events.repository';
+import { eventsToCsv, parseEventsCsv } from './events-csv';
+import { toEventColumns, validateEventRow, type ValidatedEventRow } from './import-events';
 
 @Injectable()
 export class EventsService {
@@ -100,5 +102,98 @@ export class EventsService {
 
   async remove(id: string): Promise<void> {
     return this.eventsRepository.deleteById(id);
+  }
+
+  async exportToCsv(): Promise<string> {
+    const events = await this.eventsRepository.findAllForAdmin();
+    return eventsToCsv(events);
+  }
+
+  // All-or-nothing full sync: every row is validated before anything is written: a blank `id`
+  // creates, a filled `id` matching an existing event fully replaces it, and any existing event
+  // whose id isn't present anywhere in the file is deleted. See the design note in this
+  // session's history for why this isn't wrapped in a single DB transaction — rows are fully
+  // pre-validated, so a write-phase failure is a rare infra issue, not a data problem, and at
+  // this table's scale (dozens of rows) re-running the import is a sufficient recovery path.
+  async importFromCsv(buffer: Buffer): Promise<ImportEventsResponse> {
+    const { rows, headerErrors } = parseEventsCsv(buffer);
+    if (headerErrors.length > 0) throw new BadRequestException(headerErrors);
+    if (rows.length === 0) {
+      throw new BadRequestException(
+        'CSV has no event rows. Refusing to run — a full sync would delete every existing event. ' +
+          'If that is really the goal, delete events individually instead.'
+      );
+    }
+
+    const existing = await this.eventsRepository.findAllForAdmin();
+    const existingById = new Map(existing.map((event) => [event.id, event]));
+
+    const errors: string[] = [];
+    const seenIds = new Set<string>();
+    const toCreate: ValidatedEventRow[] = [];
+    const toUpdate: ValidatedEventRow[] = [];
+
+    for (const row of rows) {
+      const result = validateEventRow(row);
+      if ('errors' in result) {
+        errors.push(...result.errors);
+        continue;
+      }
+
+      const { id } = result.row;
+      if (id === null) {
+        toCreate.push(result.row);
+        continue;
+      }
+      if (seenIds.has(id)) {
+        errors.push(`Row ${row.rowNumber}: id "${id}" is used by more than one row in this file.`);
+        continue;
+      }
+      if (!existingById.has(id)) {
+        errors.push(`Row ${row.rowNumber}: id "${id}" does not match any existing event.`);
+        continue;
+      }
+      seenIds.add(id);
+      toUpdate.push(result.row);
+    }
+
+    if (errors.length > 0) throw new BadRequestException(errors);
+
+    const results: ImportEventsRowResultDto[] = [];
+
+    if (toCreate.length > 0) {
+      const usedSlugs = new Set<string>();
+      const inserts: EventInsert[] = [];
+      for (const row of toCreate) {
+        const slug = await this.eventsRepository.findUniqueSlug(row.title, usedSlugs);
+        inserts.push({ ...toEventColumns(row), slug });
+      }
+
+      const created = await this.eventsRepository.bulkInsert(inserts);
+      created.forEach((event, index) => {
+        results.push({ row: toCreate[index].rowNumber, action: 'created', id: event.id, title: event.title });
+      });
+    }
+
+    for (const row of toUpdate) {
+      const updated = await this.eventsRepository.updateById(row.id as string, toEventColumns(row));
+      results.push({ row: row.rowNumber, action: 'updated', id: updated.id, title: updated.title });
+    }
+
+    const deleteIds = existing.filter((event) => !seenIds.has(event.id)).map((event) => event.id);
+    if (deleteIds.length > 0) {
+      await this.eventsRepository.deleteByIds(deleteIds);
+      for (const id of deleteIds) {
+        const event = existingById.get(id) as EventDto;
+        results.push({ row: null, action: 'deleted', id: event.id, title: event.title });
+      }
+    }
+
+    return {
+      createdCount: toCreate.length,
+      updatedCount: toUpdate.length,
+      deletedCount: deleteIds.length,
+      results,
+    };
   }
 }

@@ -633,6 +633,67 @@ event."`), same array-of-strings shape as class-validator's own errors.
 
 **Response `204`.** **Errors:** `401` · `403` · `404` not found.
 
+### 🛡️ `manageEvents` `GET /v1/admin/events/export`
+
+Streams every event (any status) as a CSV file (`Content-Type: text/csv`, `Content-Disposition:
+attachment; filename="events.csv"`). Columns, in order: `id, title, slug, description,
+shortDescription, coverImageUrl, startDate, endDate, timezone, eventType, eventFormat, country,
+city, venueName, isFree, registrationUrl, organiserName, status, createdAt, updatedAt`. Re-uploading
+this file unmodified to `POST /v1/admin/events/import` is a no-op (every row matches its own `id`
+and gets rewritten to the same values).
+
+### 🛡️ `manageEvents` `POST /v1/admin/events/import`
+
+Bulk create/update/delete via a CSV upload (`multipart/form-data`, field `file`). `.csv` only today
+— `.xlsx`/Excel support is deferred, not silently dropped.
+
+**Semantics — each row is the full desired state of one event (a replace, not a partial patch),
+and the whole file is treated as a full sync:**
+
+- `id` blank → creates a new event. `slug` is generated server-side from `title` (never
+  client-writable, same as `POST /v1/admin/events`) — any `slug` value in the row is ignored.
+- `id` filled and matches an existing event → replaces every column on that row except `slug`
+  (slug is permanent once assigned, same as a single `PATCH`).
+- `id` filled but matches no existing event, or the same `id` appears on more than one row → row
+  error (see below).
+- Any existing event whose `id` isn't present anywhere in the file → **deleted**. This is a full
+  sync, not an additive import — omitting a row deletes that event.
+- Required per row: `title`, `description`, `startDate` (unconditional, same as
+  `CreateEventRequest`). If the row's `status` is `published`, the same 7 fields
+  `publish-requirements.ts` enforces on a single create/update are re-checked against this row's
+  own values (not merged with any existing row — a row stands alone).
+- `isFree`: `"true"` or `"false"` (case-insensitive), blank → `false`. `eventFormat`/`status`: must
+  be a valid enum value or blank (`status` blank → `draft`). `coverImageUrl`/`registrationUrl`: must
+  be a valid URL if present.
+
+**All-or-nothing:** every row is validated before anything is written. If any row fails, **nothing
+is written** — `400` with one message per failure, each prefixed `"Row N: ..."` (`N` is the CSV row
+number, header counted as row 1), same array-of-strings shape as every other validation error in
+this API. A file with zero data rows is rejected outright (`400`) rather than treated as "delete
+everything," even though that's what a literal full sync would otherwise do.
+
+**Response `200`** (never `201` — the response is as often all-updates as it is a creation):
+```
+ImportEventsResponse {
+  createdCount: number;
+  updatedCount: number;
+  deletedCount: number;
+  results: { row: number | null; action: 'created' | 'updated' | 'deleted'; id: string; title: string }[];
+}
+```
+`row` is `null` for a `deleted` action, since a deletion is driven by an id's absence from the file,
+not by any specific row in it.
+
+**Errors:** `401` · `403` · `404`/`403`/`401` not applicable beyond the controller-level guard ·
+`400` no file / wrong extension / empty file / unparseable CSV / missing required column / zero
+data rows / any row validation failure (see above).
+
+**Known limitation — not a single DB transaction:** rows are fully validated before any write, so a
+write-phase failure only happens on a rare infra error (not a data problem), and at this table's
+scale (dozens of rows) re-running the import is a sufficient recovery path. A literal all-or-nothing
+guarantee under a mid-write crash would need a Postgres function wrapping the writes in one
+transaction — deliberately not built given the above.
+
 ### Not built yet (explicitly deferred)
 
 - Public suggestion queue + admin approve/reject moderation of those suggestions
@@ -640,6 +701,11 @@ event."`), same array-of-strings shape as class-validator's own errors.
   underlying state, but no submission endpoint exists yet. The `/events` page's "Suggest an
   event" card remains a `mailto:` link. Direct admin add/edit/delete (above) is built; the
   public-submission half of US-13-01 is not.
+- `.xlsx`/Excel upload support for `POST /v1/admin/events/import` — CSV only today, by deliberate
+  scope decision, not an oversight.
+- A frontend import/export UI on `/admin/events` — this session built and verified the backend
+  contract only (curl, per this repo's backend/frontend session split); wiring an upload button and
+  a "Download CSV" link into the admin page is separate frontend scope.
 - Country/format/date-range filtering on `GET /v1/events` itself — the standalone page filters
   client-side over the full `upcoming=false` set (same pattern as `/articles`), not query params,
   since the dataset is small (dozens, not thousands).

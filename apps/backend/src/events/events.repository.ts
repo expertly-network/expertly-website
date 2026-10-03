@@ -80,8 +80,8 @@ export class EventsRepository {
     return data as unknown as EventDto;
   }
 
-  async findUniqueSlug(title: string): Promise<string> {
-    return generateUniqueSlug(this.supabase.db, 'events', title, 'event');
+  async findUniqueSlug(title: string, reserved?: Set<string>): Promise<string> {
+    return generateUniqueSlug(this.supabase.db, 'events', title, 'event', reserved);
   }
 
   async insert(row: EventInsert): Promise<EventDto> {
@@ -92,6 +92,16 @@ export class EventsRepository {
 
     if (error || !inserted) throw new InternalServerErrorException('Failed to create event.');
     return inserted as unknown as EventDto;
+  }
+
+  // Single multi-row insert — one network/DB round trip rather than one per row.
+  async bulkInsert(rows: EventInsert[]): Promise<EventDto[]> {
+    if (rows.length === 0) return [];
+
+    const { data: inserted, error } = await this.events().insert(rows).select(EVENT_COLUMNS.join(', '));
+
+    if (error || !inserted) throw new InternalServerErrorException('Failed to create events.');
+    return inserted as unknown as EventDto[];
   }
 
   async updateById(id: string, patch: EventUpdate): Promise<EventDto> {
@@ -111,5 +121,14 @@ export class EventsRepository {
 
     if (error) throw new InternalServerErrorException('Failed to delete event.');
     if (!data) throw new NotFoundException('Event not found.');
+  }
+
+  // Single multi-row delete, used by the bulk import's full-sync pass. Caller already knows
+  // every id exists (they came from a prior findAllForAdmin() call), so no NotFoundException path.
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    const { error } = await this.events().delete().in('id', ids);
+    if (error) throw new InternalServerErrorException('Failed to delete events.');
   }
 }

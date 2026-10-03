@@ -4,6 +4,7 @@ import { getAdminEventsServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Button, Eyebrow } from '@/components/ui';
 import { AdminEventsList } from '@/components/admin/AdminEventsList';
+import { AdminEventsImportExport } from '@/components/admin/AdminEventsImportExport';
 
 export const metadata = {
   title: 'Events — Admin — Expertly',
@@ -34,9 +35,12 @@ export default async function AdminEventsPage() {
                 here — the public calendar only shows published events.
               </p>
             </div>
-            <Button href="/admin/events/new" variant="secondary-dark">
-              Create event
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <AdminEventsImportExport />
+              <Button href="/admin/events/new" variant="secondary-dark">
+                Create event
+              </Button>
+            </div>
           </div>
         </PageContainer>
       </section>

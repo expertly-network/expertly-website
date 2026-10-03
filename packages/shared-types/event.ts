@@ -58,3 +58,25 @@ export class CreateEventRequest {
 
 // All fields optional; only provided fields change.
 export type UpdateEventRequest = Partial<CreateEventRequest>;
+
+export type ImportEventsRowAction = 'created' | 'updated' | 'deleted';
+
+// One per event the import actually changed. `row` is the 1-based CSV row (header is row 1, so
+// the first data row is 2) — null for a `deleted` action, since a deletion is driven by an
+// existing event's id being absent from the file entirely, not by any specific row in it.
+export class ImportEventsRowResultDto {
+  @ApiProperty({ nullable: true, type: Number }) row!: number | null;
+  @ApiProperty({ enum: ['created', 'updated', 'deleted'] }) action!: ImportEventsRowAction;
+  @ApiProperty() id!: string;
+  @ApiProperty() title!: string;
+}
+
+// POST /v1/admin/events/import's success response. All-or-nothing: this shape is only ever
+// returned when every row validated — see EventDto's ImportEventsRowResultDto docs in
+// `docs/rest-api.md` for the 400 shape when a row fails.
+export class ImportEventsResponse {
+  @ApiProperty() createdCount!: number;
+  @ApiProperty() updatedCount!: number;
+  @ApiProperty() deletedCount!: number;
+  @ApiProperty({ type: [ImportEventsRowResultDto] }) results!: ImportEventsRowResultDto[];
+}
