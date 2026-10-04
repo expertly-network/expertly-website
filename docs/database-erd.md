@@ -215,6 +215,7 @@ also flip `status` back to `draft` (self-service unpublish) via `PATCH` regardle
 | `rejection_reason` | text | nullable; set only when `status = 'rejected'` (editorial mode), cleared on any resubmission — same shape as `membership_applications.rejection_reason` |
 | `ai_summary` | text | nullable; server-written once by `ArticlesService.generateSummaryIfNeeded()` the first time an article becomes `published` (fire-and-forget, never blocks the publish/approve response) — see `docs/rest-api.md`. Never client-writable. Seed data pre-populates it for dev fixtures. |
 | `creation_mode` | text NOT NULL | default `'manual'`; `'manual' \| 'ai'`, settable via `CreateArticleRequest.creationMode` — see `POST /v1/articles/ai-draft` in `docs/rest-api.md` |
+| `ai_generation_id` | uuid FK → `ai_draft_generations.id`, `on delete set null` | nullable; set only on `POST /v1/articles` from `CreateArticleRequest.aiGenerationId` (the ai-draft response's `generationId`), after checking the generation belongs to the caller — links an AI-written article back to the inputs/output it was generated from, for the admin AI-generations log. Never changed by `PATCH`. Forces `creation_mode = 'ai'`. FK constraint is added after `ai_draft_generations` is created in `0004_tables.sql` (that table is declared later in the file). Indexed. |
 | `created_at`, `updated_at` | timestamptz | |
 
 **`service_ids` is a native array, not a join table** — the write form's service picker is
@@ -335,6 +336,7 @@ before clicking Generate leaves no row — a known, accepted gap, not a bug.
 | `followup_answers` | jsonb NOT NULL, default `[]` | `{ question, answer }[]` — only the ones the member actually answered |
 | `sources` | jsonb NOT NULL, default `[]` | `{ url, title }[]` — deduped citations from the AI SDK's own tool-result metadata, never from the model's self-reported JSON |
 | `tone`, `extra_instructions`, `draft_title`, `draft_body` | text | nullable; the generated output and the wizard's finishing-touches fields, for reviewing quality later |
+| `include_visual` | boolean NOT NULL, default `false` | the wizard's "include a table if relevant" toggle (`AiDraftArticleRequest.includeVisual`) |
 | `provider`, `model` | text | nullable; `process.env.AI_PROVIDER`/`AI_MODEL` at the time of the call |
 | `status` | text NOT NULL | `'success' \| 'failed'` |
 | `error_message` | text | nullable; set only when `status = 'failed'` |
@@ -343,9 +345,11 @@ before clicking Generate leaves no row — a known, accepted gap, not a bug.
 
 RLS enabled with an owner-only select policy (`ai_draft_generations_select_own`), same posture as
 `member_profile_edits_select_own` — defense-in-depth only, since the backend's service-role client
-is the actual write path. **No admin-facing read endpoint exists yet** — querying this table today
-means the Supabase dashboard directly; a real admin view belongs with the "admin/ops overview
-dashboard" already listed as beyond-roadmap in `master-tdd.md`. A second private bucket,
+is the actual write path. Admins read it through `GET /v1/admin/ai-generations[/:id]`
+(🛡️ `manageArticles`, see `docs/rest-api.md`) — the admin "AI generations" log at
+`/admin/ai-generations`, which shows every input next to the AI's output and the article it was
+saved as (via `articles.ai_generation_id`). Extra index `ai_draft_generations_created_at_idx`
+backs that newest-first list. A second private bucket,
 `ai-draft-sources`, backs `source_file_paths` above — same owner-scoped-RLS-as-defense-in-depth
 posture as `member-proofs`.
 

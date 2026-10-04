@@ -44,6 +44,11 @@ const CONSULTATIONS_ICON = (
   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
 );
 
+// Same star glyph as the write flow's "Write with AI" option.
+const AI_GENERATIONS_ICON = (
+  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+);
+
 // Each destination is separately permission-gated by the backend.
 const ADMIN_SECTIONS = [
   {
@@ -63,6 +68,12 @@ const ADMIN_SECTIONS = [
     icon: ARTICLES_ICON,
     title: 'Review articles',
     description: 'Approve or reject articles submitted for editorial review.',
+  },
+  {
+    href: '/admin/ai-generations',
+    icon: AI_GENERATIONS_ICON,
+    title: 'AI generations',
+    description: 'See what each member gave Expertly AI when drafting an article, and what it wrote back.',
   },
   {
     href: '/admin/events',
@@ -96,7 +107,7 @@ export default async function AdminPage() {
           <h1 className="mt-2 text-headline text-bg-card">Admin</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
             Manage membership applications, member profile edits, the events calendar, article
-            submissions, and consultation requests.
+            submissions and AI drafts, and consultation requests.
           </p>
         </PageContainer>
       </section>

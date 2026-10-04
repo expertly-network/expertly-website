@@ -33,6 +33,8 @@ const STEP_LABELS: Record<SubStep, string> = {
 };
 
 export interface AiDraftedArticle {
+  /** The ai-draft attempt this came from — sent back on save as aiGenerationId. */
+  generationId: string | null;
   title: string;
   body: string;
   serviceIds: string[];
@@ -89,6 +91,9 @@ export function AiDraftWizard({
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AiDraftArticleResponse | null>(null);
+  // Kept separately from `draft`: ai-refine replaces the draft but carries no generationId, and
+  // the article should still link back to the generation it was refined from.
+  const [generationId, setGenerationId] = useState<string | null>(null);
   const [reviewedServiceIds, setReviewedServiceIds] = useState<string[]>([]);
   const [reviewedCountries, setReviewedCountries] = useState<string[]>([]);
   const [reviewedState, setReviewedState] = useState('');
@@ -146,6 +151,7 @@ export function AiDraftWizard({
         files
       );
       setDraft(result);
+      setGenerationId(result.generationId ?? null);
       setReviewedServiceIds(result.serviceIds ?? []);
       setReviewedCountries(result.countries ?? []);
       setReviewedState(result.state ?? '');
@@ -271,6 +277,7 @@ export function AiDraftWizard({
           <WriteSubmitButton
             onClick={() =>
               onDrafted({
+                generationId,
                 title: draft.title,
                 body: draft.body,
                 serviceIds: reviewedServiceIds,

@@ -272,6 +272,27 @@ editorial review and approve or reject it.
 - [x] Rejecting requires a reason; it's visible to the author via `GET /v1/articles/me` and shown
       on their "My Articles" tab
 
+### US-10-03: Seeing how an AI-written article was generated
+As an admin with `manageArticles` permission, I want to see exactly what a member gave Expertly
+AI when drafting an article and what the AI wrote back, so I can judge an article's provenance and
+the AI's output quality.
+- [x] `GET /v1/admin/ai-generations` / `GET /v1/admin/ai-generations/:id`, gated by
+      `@RequiresPermission('manageArticles')` — read-only, no actions
+- [x] `/admin/ai-generations` lists every ai-draft attempt (newest first, 200 most recent) with
+      member, draft title, model, date, success/failed status and the article it was saved as;
+      filter by All / Saved as article / Generated / Failed, search by member or title
+- [x] Detail page shows every wizard input — the three core answers, each follow-up question
+      with its answer or "Skipped", source links, uploaded documents (short-lived download links),
+      tone, include-a-table toggle, extra instructions — next to the AI's output: title, body,
+      inferred services/countries/state and cited sources; a failed attempt shows its error
+- [x] An article saved from an AI draft links to its generation (`articles.ai_generation_id`,
+      set from the ai-draft response's `generationId`); the review queue shows a "Written with
+      AI — view inputs" link on those rows
+- [x] Empty, no-matches, not-found and failed-generation states handled; checked at 375px and
+      1440px
+- [ ] Not covered: `ai-refine` passes and the member's manual edits before saving aren't logged,
+      so the output shown is the original draft — the linked article is the saved version
+
 ### US-10-01: Managing admin permissions
 As a `super_admin`, I want to assign sub-tier roles (`content_manager`, `reviewer`) to other
 admins so responsibilities are properly scoped.

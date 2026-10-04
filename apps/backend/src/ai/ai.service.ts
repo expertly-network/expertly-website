@@ -24,6 +24,8 @@ export interface ArticleDraftOutput {
 }
 
 export interface ArticleDraftWithMetadata extends ArticleDraftOutput {
+  /** The ai_draft_generations audit row's id — echoed back on POST /articles as aiGenerationId. */
+  generationId: string;
   /** URLs the model actually fetched/searched, deduped. Null when none. */
   sources: { url: string; title: string }[] | null;
   /** AI-inferred, validated against the real active services list. Empty if nothing matched. */
@@ -438,6 +440,7 @@ export class AiService {
 
     return {
       ...output,
+      generationId,
       sources: sources.length > 0 ? sources : null,
       serviceIds: taxonomy.serviceIds,
       countries: taxonomy.countries,
@@ -487,6 +490,7 @@ export class AiService {
       source_file_paths: result.sourceFilePaths,
       source_links: input.sourceLinks ?? [],
       tone: input.tone ?? null,
+      include_visual: input.includeVisual ?? false,
       extra_instructions: input.extraInstructions ?? null,
       draft_title: result.draftTitle,
       draft_body: result.draftBody,

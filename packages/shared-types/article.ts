@@ -60,10 +60,17 @@ export class CreateArticleRequest {
   // Omit to publish (or submit for review); 'draft' skips the word-count check.
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) status?: ArticleStatus;
   @ApiPropertyOptional({ enum: ['manual', 'ai'] }) creationMode?: ArticleCreationMode;
+  /**
+   * POST only (ignored on PATCH). The `generationId` from the ai-draft response this article was
+   * saved from — links the article to its ai_draft_generations audit row so admins can see the
+   * inputs/output it came from. Must be one of the caller's own generations; implies
+   * creationMode 'ai'.
+   */
+  @ApiPropertyOptional() aiGenerationId?: string;
 }
 
 // All fields optional; status changes require the owner or an admin.
-export type UpdateArticleRequest = Partial<CreateArticleRequest & { status: ArticleStatus }>;
+export type UpdateArticleRequest = Partial<Omit<CreateArticleRequest, 'aiGenerationId'> & { status: ArticleStatus }>;
 
 // POST /v1/articles/ai-draft — 🔒 member. Generates a draft; does not save it. Service(s),
 // country/countries, state, and title are no longer client-provided — the AI infers all of them
@@ -102,6 +109,11 @@ export class ArticleSource {
 export class AiDraftArticleResponse {
   @ApiProperty() title!: string;
   @ApiProperty() body!: string;
+  /**
+   * ai-draft only (never ai-refine): the id of this attempt's ai_draft_generations audit row.
+   * Send it back as CreateArticleRequest.aiGenerationId when saving the article.
+   */
+  @ApiPropertyOptional() generationId?: string;
   /** URLs the model actually fetched/searched while drafting, if any. Null/empty when none. */
   @ApiPropertyOptional({ type: () => ArticleSource, isArray: true, nullable: true }) sources?: ArticleSource[] | null;
   /** AI-inferred, validated against the real active services list. Empty if nothing matched. */
@@ -156,6 +168,8 @@ export class AdminArticleListItemDto {
   @ApiProperty() authorName!: string;
   @ApiProperty({ type: () => ArticleService, isArray: true }) services!: ArticleService[];
   @ApiProperty({ type: String, isArray: true }) countries!: string[];
+  /** Set when the article was saved from an AI draft — links to GET /v1/admin/ai-generations/:id. */
+  @ApiProperty({ nullable: true, type: String }) aiGenerationId!: string | null;
   @ApiProperty() createdAt!: string;
 }
 
@@ -163,4 +177,79 @@ export class AdminArticleReviewRequest {
   @ApiProperty({ enum: ['published', 'rejected'] }) status!: 'published' | 'rejected';
   /** Required when status is 'rejected'. */
   @ApiPropertyOptional() rejectionReason?: string;
+}
+
+// ---------------------------------------------------------------------------------------------
+// 🛡️ manageArticles — admin AI-generations log (GET /v1/admin/ai-generations[/:id]). One row per
+// POST /v1/articles/ai-draft attempt (success or failure), read from ai_draft_generations.
+// ---------------------------------------------------------------------------------------------
+
+export type AiGenerationStatus = 'success' | 'failed';
+
+/** The article a generation was saved as, if the member saved it at all. */
+export class AiGenerationLinkedArticle {
+  @ApiProperty() id!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty({ enum: ['draft', 'pending_review', 'published', 'rejected'] }) status!: ArticleStatus;
+}
+
+/** GET /v1/admin/ai-generations response row. */
+export class AdminAiGenerationListItemDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() authorId!: string;
+  @ApiProperty() authorName!: string;
+  @ApiProperty({ enum: ['success', 'failed'] }) status!: AiGenerationStatus;
+  /** The AI's draft title. Null for a failed attempt. */
+  @ApiProperty({ nullable: true, type: String }) draftTitle!: string | null;
+  @ApiProperty({ nullable: true, type: String }) provider!: string | null;
+  @ApiProperty({ nullable: true, type: String }) model!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) latencyMs!: number | null;
+  @ApiProperty({ nullable: true, type: String }) errorMessage!: string | null;
+  /** Null when the member never saved this draft as an article. */
+  @ApiProperty({ nullable: true, type: () => AiGenerationLinkedArticle }) article!: AiGenerationLinkedArticle | null;
+  @ApiProperty() createdAt!: string;
+}
+
+/** One follow-up question the AI asked; answer is null when the member skipped it. */
+export class AiGenerationFollowUp {
+  @ApiProperty() question!: string;
+  @ApiProperty({ nullable: true, type: String }) answer!: string | null;
+}
+
+/** A source file the member uploaded. url is a short-lived signed URL; null if it can't be signed. */
+export class AiGenerationSourceFile {
+  @ApiProperty() filename!: string;
+  @ApiProperty({ nullable: true, type: String }) url!: string | null;
+}
+
+/** Everything the member gave the wizard for this attempt. */
+export class AiGenerationInputs {
+  @ApiProperty({ nullable: true, type: String }) notes!: string | null;
+  @ApiProperty({ nullable: true, type: String }) recentDevelopments!: string | null;
+  @ApiProperty({ nullable: true, type: String }) advice!: string | null;
+  /** Every question asked, in order — including skipped ones (answer: null). */
+  @ApiProperty({ type: () => AiGenerationFollowUp, isArray: true }) followUps!: AiGenerationFollowUp[];
+  @ApiProperty({ type: String, isArray: true }) sourceLinks!: string[];
+  @ApiProperty({ type: () => AiGenerationSourceFile, isArray: true }) sourceFiles!: AiGenerationSourceFile[];
+  @ApiProperty() includeVisual!: boolean;
+  @ApiProperty({ nullable: true, type: String }) tone!: string | null;
+  @ApiProperty({ nullable: true, type: String }) extraInstructions!: string | null;
+}
+
+/** What the AI returned. All null/empty for a failed attempt. */
+export class AiGenerationOutput {
+  @ApiProperty({ nullable: true, type: String }) title!: string | null;
+  /** Sanitized HTML, same allowlist as ArticleDto.body. */
+  @ApiProperty({ nullable: true, type: String }) body!: string | null;
+  @ApiProperty({ type: () => ArticleSource, isArray: true }) sources!: ArticleSource[];
+  /** AI-inferred services, resolved to names (unknown ids dropped). */
+  @ApiProperty({ type: () => ArticleService, isArray: true }) services!: ArticleService[];
+  @ApiProperty({ type: String, isArray: true }) countries!: string[];
+  @ApiProperty({ nullable: true, type: String }) state!: string | null;
+}
+
+/** GET /v1/admin/ai-generations/:id response. */
+export class AdminAiGenerationDetailDto extends AdminAiGenerationListItemDto {
+  @ApiProperty({ type: () => AiGenerationInputs }) inputs!: AiGenerationInputs;
+  @ApiProperty({ type: () => AiGenerationOutput }) output!: AiGenerationOutput;
 }

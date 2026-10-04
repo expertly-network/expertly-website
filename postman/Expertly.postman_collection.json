@@ -83,6 +83,12 @@
       "description": "An articles.id, e.g. from GET /articles."
     },
     {
+      "key": "aiGenerationId",
+      "value": "00000000-0000-0000-0000-00000000000a",
+      "type": "string",
+      "description": "An ai_draft_generations.id — the `generationId` from POST /articles/ai-draft, or an `id` from GET /admin/ai-generations."
+    },
+    {
       "key": "eventId",
       "value": "00000000-0000-0000-0000-000000000006",
       "type": "string",
@@ -642,7 +648,7 @@
                 "ai-draft"
               ]
             },
-            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct.",
+            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct. Response carries `generationId` — the id of this attempt's audit row; send it back as `aiGenerationId` on POST /articles so admins can trace the saved article to these inputs (GET /admin/ai-generations/{{aiGenerationId}}).",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -747,7 +753,7 @@
                 "articles"
               ]
             },
-            "description": "member (admin also passes). Omit `status` (or send anything other than 'draft') to submit — actual published/pending_review resolution is server-side via `ARTICLES_REVIEW_MODE`.",
+            "description": "member (admin also passes). Omit `status` (or send anything other than 'draft') to submit — actual published/pending_review resolution is server-side via `ARTICLES_REVIEW_MODE`.\n\nTo save an article generated with POST /articles/ai-draft instead, add the draft's `generationId` to the body as `\"aiGenerationId\": \"{{aiGenerationId}}\"` (and `\"creationMode\": \"ai\"` — the server forces it anyway when aiGenerationId is set). It must be one of your own generations (400 otherwise); POST only, PATCH ignores the link.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Navigating Transfer Pricing Audits in 2026\",\n  \"body\": \"International tax planning has shifted dramatically for growth-stage companies expanding beyond their home market. This article walks through the practical steps a founder or finance lead should take before entering a new jurisdiction, from nexus studies to transfer pricing documentation. (Replace this placeholder with real body copy — remember POST/PATCH enforce an 800–2000 word count whenever the resulting status is not 'draft'.)\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1554224154-26032fced8bd\",\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ],\n  \"customServiceLabels\": {},\n  \"countries\": [\n    \"United States\"\n  ],\n  \"state\": \"California\",\n  \"status\": \"published\",\n  \"creationMode\": \"manual\"\n}",
@@ -1584,7 +1590,7 @@
                     }
                   ]
                 },
-                "description": "🛡️ manageArticles. Only ever non-empty in `editorial` review mode. Omit `status` for the default `pending_review` queue."
+                "description": "🛡️ manageArticles. Only ever non-empty in `editorial` review mode. Omit `status` for the default `pending_review` queue. Each row carries `aiGenerationId` (null for manually written articles) — open it with GET /admin/ai-generations/{{aiGenerationId}}."
               },
               "response": []
             },
@@ -1619,6 +1625,65 @@
                     }
                   }
                 }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "AI Generations",
+          "description": "🛡️ manageArticles. Read-only log of every POST /articles/ai-draft attempt — what the member gave the AI wizard and what it generated.",
+          "item": [
+            {
+              "name": "GET /admin/ai-generations — List AI draft attempts (log)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/ai-generations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "ai-generations"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "failed",
+                      "description": "Optional: success | failed.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "authorId",
+                      "value": "{{memberId}}",
+                      "description": "Optional: narrow to one member's generations (a profiles.id).",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "🛡️ manageArticles. Newest first, capped at the 200 most recent. Each row includes the linked `article` ({ id, title, status }) when the draft was saved, otherwise null."
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/ai-generations/{{aiGenerationId}} — Get one AI draft attempt (inputs + output)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/ai-generations/{{aiGenerationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "ai-generations",
+                    "{{aiGenerationId}}"
+                  ]
+                },
+                "description": "🛡️ manageArticles. `inputs`: core answers, every follow-up question with its answer (null = skipped), source links, uploaded source files (10-minute signed URLs), tone, includeVisual, extraInstructions. `output`: the AI's original title/body (sanitized HTML), cited sources, inferred services/countries/state. 400 if the id isn't a UUID, 404 if not found."
               },
               "response": []
             }

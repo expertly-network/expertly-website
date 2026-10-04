@@ -16,6 +16,7 @@ export type Database = {
           followup_answers: NonNullable<Json>;
           followup_questions: NonNullable<Json>;
           id: string;
+          include_visual: boolean;
           latency_ms: number | null;
           model: string | null;
           provider: string | null;
@@ -39,6 +40,7 @@ export type Database = {
           followup_answers?: NonNullable<Json>;
           followup_questions?: NonNullable<Json>;
           id?: string;
+          include_visual?: boolean;
           latency_ms?: number | null;
           model?: string | null;
           provider?: string | null;
@@ -62,6 +64,7 @@ export type Database = {
           followup_answers?: NonNullable<Json>;
           followup_questions?: NonNullable<Json>;
           id?: string;
+          include_visual?: boolean;
           latency_ms?: number | null;
           model?: string | null;
           provider?: string | null;
@@ -85,6 +88,7 @@ export type Database = {
       };
       articles: {
         Row: {
+          ai_generation_id: string | null;
           ai_summary: string | null;
           author_id: string;
           body: string;
@@ -105,6 +109,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          ai_generation_id?: string | null;
           ai_summary?: string | null;
           author_id: string;
           body: string;
@@ -125,6 +130,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          ai_generation_id?: string | null;
           ai_summary?: string | null;
           author_id?: string;
           body?: string;
@@ -145,6 +151,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "articles_ai_generation_id_fkey";
+            columns: ["ai_generation_id"];
+            isOneToOne: false;
+            referencedRelation: "ai_draft_generations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "articles_author_id_fkey";
             columns: ["author_id"];

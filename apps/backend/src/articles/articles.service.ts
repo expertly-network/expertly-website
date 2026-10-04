@@ -13,6 +13,7 @@ import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
 import { countArticleWords, stripHtml, MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS } from './word-count';
 import { AiService } from '../ai/ai.service';
+import { AiDraftGenerationsRepository } from '../ai/ai-draft-generations.repository';
 import {
   ArticlesRepository,
   type ArticleRow,
@@ -35,7 +36,8 @@ export class ArticlesService {
 
   constructor(
     private readonly articlesRepository: ArticlesRepository,
-    private readonly aiService: AiService
+    private readonly aiService: AiService,
+    private readonly aiDraftGenerationsRepository: AiDraftGenerationsRepository
   ) { }
 
   // Resolves a submission to 'published' or 'pending_review' based on the review mode.
@@ -76,6 +78,9 @@ export class ArticlesService {
     const body = sanitizeArticleBody(dto.body);
     if (status !== 'draft') assertWordCount(body);
     await this.assertActiveServiceIds(dto.serviceIds, dto.customServiceLabels);
+    const aiGenerationId = dto.aiGenerationId
+      ? await this.resolveOwnAiGenerationId(dto.aiGenerationId, user.id)
+      : null;
     const slug = await this.articlesRepository.findUniqueSlug(dto.title);
 
     const row = await this.articlesRepository.insert({
@@ -91,7 +96,8 @@ export class ArticlesService {
       custom_service_labels: dto.customServiceLabels ?? {},
       countries: dto.countries,
       state: dto.state ?? null,
-      creation_mode: dto.creationMode ?? 'manual',
+      creation_mode: aiGenerationId ? 'ai' : (dto.creationMode ?? 'manual'),
+      ai_generation_id: aiGenerationId,
     });
 
     this.generateSummaryIfNeeded(row);
@@ -162,6 +168,7 @@ export class ArticlesService {
           return { id, name: d.name, categoryId: d.categoryId, categoryName: d.categoryName };
         }),
       countries: row.countries,
+      aiGenerationId: row.ai_generation_id,
       createdAt: row.created_at,
     }));
   }
@@ -217,6 +224,21 @@ export class ArticlesService {
           error instanceof Error ? error.stack : error
         );
       });
+  }
+
+  // A generation id that belongs to someone else is a client error. One that doesn't exist at
+  // all is tolerated (saved as null): the audit insert is fire-and-forget and may have failed,
+  // and that must never stop the member from saving their article.
+  private async resolveOwnAiGenerationId(generationId: string, authorId: string): Promise<string | null> {
+    const generationAuthorId = await this.aiDraftGenerationsRepository.findAuthorId(generationId);
+    if (generationAuthorId === null) {
+      this.logger.warn(`aiGenerationId ${generationId} not found — saving article without the link.`);
+      return null;
+    }
+    if (generationAuthorId !== authorId) {
+      throw new BadRequestException('aiGenerationId does not belong to you.');
+    }
+    return generationId;
   }
 
   private assertOwnerOrAdmin(row: ArticleRow, user: AuthenticatedUser): void {

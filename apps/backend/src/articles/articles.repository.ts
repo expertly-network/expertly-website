@@ -26,6 +26,15 @@ export interface ArticleRow {
   updated_at: string;
   ai_summary: string | null;
   creation_mode: ArticleCreationMode;
+  ai_generation_id: string | null;
+}
+
+// The few article fields the admin AI-generations log shows next to a generation it produced.
+export interface LinkedArticleRow {
+  id: string;
+  title: string;
+  status: ArticleStatus;
+  ai_generation_id: string;
 }
 
 const ARTICLE_COLUMNS = [
@@ -47,6 +56,7 @@ const ARTICLE_COLUMNS = [
   'updated_at',
   'ai_summary',
   'creation_mode',
+  'ai_generation_id',
 ] as const;
 
 export interface ServiceDetail {
@@ -187,6 +197,17 @@ export class ArticlesRepository {
 
     if (error) throw new InternalServerErrorException('Failed to load articles for review.');
     return (data ?? []) as unknown as ArticleRow[];
+  }
+
+  // Articles saved from any of the given ai_draft_generations rows, for the admin AI-generations log.
+  async findByAiGenerationIds(generationIds: string[]): Promise<LinkedArticleRow[]> {
+    const uniqueIds = [...new Set(generationIds)];
+    if (uniqueIds.length === 0) return [];
+    const { data, error } = await this.articles()
+      .select('id, title, status, ai_generation_id')
+      .in('ai_generation_id', uniqueIds);
+    if (error) throw new InternalServerErrorException('Failed to load linked articles.');
+    return (data ?? []) as unknown as LinkedArticleRow[];
   }
 
   async deleteById(id: string): Promise<void> {
