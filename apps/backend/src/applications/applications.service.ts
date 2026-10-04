@@ -333,8 +333,8 @@ export class ApplicationsService {
     // with a company name and company website. Older applications submitted before those checks
     // existed may still lack one; fall back to the most recent entry rather than leaving
     // firm_name silently null. firm_website has no such fallback value — member_profiles.firm_website
-    // is NOT NULL, so approving a pre-existing application that truly has no companyUrl anywhere
-    // would fail at insert; there were none in that state as of this rule's introduction.
+    // is nullable (relaxed 2026-10-03; every read path already treated it as such) precisely for
+    // this case, so a pre-existing application with no companyUrl anywhere still inserts cleanly.
     const workExperiences = (application.work_experiences ?? []) as {
       title: string;
       company: string;

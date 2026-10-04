@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
+import { getCoverImageSuggestions } from '@/lib/api/articles';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -13,12 +15,20 @@ const CLOCK_ICON = (
   </svg>
 );
 
+const REFRESH_ICON = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M23 4v6h-6M1 20v-6h6" />
+    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+  </svg>
+);
+
 // Mirrors the real article detail page's markup, so this preview is an honest "as it will
 // look" claim.
 export function ArticleLivePreview({
   title,
   body,
   coverImageUrl,
+  onCoverImageChange,
   serviceName,
   countries,
   authorName,
@@ -30,6 +40,8 @@ export function ArticleLivePreview({
   title: string;
   body: string;
   coverImageUrl: string;
+  /** Lets the member swap the auto-picked cover image before publishing. */
+  onCoverImageChange: (url: string) => void;
   serviceName?: string;
   countries: string[];
   authorName: string;
@@ -38,6 +50,44 @@ export function ArticleLivePreview({
   confirmLabel: string;
   confirming: boolean;
 }) {
+  // Fetched lazily on first click (not on mount) so the image shown on arrival is always
+  // whatever the write flow already picked — "Change image" explicitly opts into a fresh batch,
+  // queried from the real title (not just the service name) so results are actually relevant to
+  // this article, not just generically on-domain. Cycles through that same batch on each
+  // subsequent click rather than re-querying every time.
+  const [coverImageOptions, setCoverImageOptions] = useState<string[]>([]);
+  const [coverImageIndex, setCoverImageIndex] = useState(0);
+  const [coverImageLoading, setCoverImageLoading] = useState(false);
+
+  async function changeCoverImage() {
+    if (coverImageOptions.length > 0) {
+      const nextIndex = (coverImageIndex + 1) % coverImageOptions.length;
+      setCoverImageIndex(nextIndex);
+      onCoverImageChange(coverImageOptions[nextIndex]);
+      return;
+    }
+
+    setCoverImageLoading(true);
+    try {
+      const query = [serviceName, title].filter(Boolean).join(' ');
+      const { images } = await getCoverImageSuggestions(query || undefined);
+      setCoverImageOptions(images);
+      if (images.length > 0) {
+        // This query is often identical to the one that produced the currently-shown image
+        // (same service + title), so Unsplash's top result is frequently the same photo — skip
+        // to the first genuinely different one so the member's first click visibly does something.
+        const firstDifferent = images.findIndex((url) => url !== coverImageUrl);
+        const index = firstDifferent === -1 ? 0 : firstDifferent;
+        setCoverImageIndex(index);
+        onCoverImageChange(images[index]);
+      }
+    } catch {
+      // Best-effort — the member just keeps the current image if this fails.
+    } finally {
+      setCoverImageLoading(false);
+    }
+  }
+
   return (
     <div>
       <div className="mb-[18px] flex flex-wrap items-center justify-between gap-3 text-[12.5px] text-ink-3">
@@ -55,6 +105,20 @@ export function ArticleLivePreview({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={coverImageUrl} alt="" className="h-full w-full object-cover opacity-60" />
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(11,11,12,0.88)_0%,rgba(11,11,12,0.25)_55%,transparent_100%)]" />
+          <button
+            type="button"
+            onClick={changeCoverImage}
+            disabled={coverImageLoading}
+            className="absolute right-4 top-4 flex items-center gap-1.5 rounded-[9px] border border-white/[0.18] bg-black/35 px-3 py-1.5 text-[11.5px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {coverImageLoading ? (
+              'Finding images…'
+            ) : (
+              <>
+                {REFRESH_ICON} Change image
+              </>
+            )}
+          </button>
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-3 px-7 py-5">
             {serviceName && (
               <span className="rounded-full border border-white/[0.18] bg-white/10 px-3 py-1 text-[10.5px] font-bold tracking-[0.1em] text-accent">

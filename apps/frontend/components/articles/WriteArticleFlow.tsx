@@ -213,8 +213,11 @@ export function WriteArticleFlow({
               const names = services
                 .filter((s) => draft.serviceIds.includes(s.id))
                 .map((s) => s.name);
+              // The real title makes this query specific to the article, not just its practice
+              // area — the member can still swap it for another suggestion at the preview step.
+              const query = [names.join(' '), draft.title].filter(Boolean).join(' ');
               // Best-effort; falls back to no image if the search fails.
-              const coverImageUrl = await getCoverImageSuggestions(names.join(' '))
+              const coverImageUrl = await getCoverImageSuggestions(query)
                 .then((res) => res.images[0] ?? '')
                 .catch(() => '');
               setManual((prev) => ({
@@ -238,6 +241,7 @@ export function WriteArticleFlow({
             title={manual.title}
             body={manual.body}
             coverImageUrl={manual.coverImageUrl}
+            onCoverImageChange={(coverImageUrl) => updateManual({ coverImageUrl })}
             serviceName={services.find((s) => s.id === manual.serviceIds[0])?.name}
             countries={manual.countries}
             authorName={authorName}

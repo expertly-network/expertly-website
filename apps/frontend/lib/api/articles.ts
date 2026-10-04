@@ -3,6 +3,8 @@ import type {
   AdminArticleReviewRequest,
   AiDraftArticleRequest,
   AiDraftArticleResponse,
+  AiFollowUpQuestionsRequest,
+  AiFollowUpQuestionsResponse,
   ArticleDto,
   ArticleListItemDto,
   CoverImageSuggestionsResponse,
@@ -30,6 +32,16 @@ export function generateArticleDraft(
   form.set('payload', JSON.stringify(payload));
   for (const file of sourceFiles) form.append('files', file);
   return apiFetch<AiDraftArticleResponse>('/articles/ai-draft', { method: 'POST', body: form });
+}
+
+/** Analyzes the wizard's step-1 brief and returns 0-10 follow-up questions. */
+export function getFollowUpQuestions(
+  payload: AiFollowUpQuestionsRequest
+): Promise<AiFollowUpQuestionsResponse> {
+  return apiFetch<AiFollowUpQuestionsResponse>('/articles/ai-followup-questions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export function refineArticleDraft(payload: RefineArticleDraftRequest): Promise<AiDraftArticleResponse> {

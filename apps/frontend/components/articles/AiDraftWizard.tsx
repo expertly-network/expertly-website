@@ -5,9 +5,10 @@ import { Input, MultiSelect, Select, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { WriteCard } from '@/components/articles/WriteCard';
 import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
-import { generateArticleDraft, refineArticleDraft } from '@/lib/api/articles';
+import { generateArticleDraft, getFollowUpQuestions, refineArticleDraft } from '@/lib/api/articles';
 import { ApiError } from '@/lib/api/client';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
+import type { AiDraftArticleResponse } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
 
 type SubStep = 1 | 2 | 3;
@@ -25,7 +26,11 @@ const ARROW_ICON = (
   </svg>
 );
 
-const STEP_LABELS: Record<SubStep, string> = { 1: 'The basics', 2: 'Your input', 3: 'Sources & style' };
+const STEP_LABELS: Record<SubStep, string> = {
+  1: 'Tell us about it',
+  2: 'Quick follow-ups',
+  3: 'Finishing touches',
+};
 
 export interface AiDraftedArticle {
   title: string;
@@ -55,7 +60,8 @@ function WizardNextButton({ onClick, children }: { onClick: () => void; children
   );
 }
 
-// Basics -> input -> sources & style -> generate -> inline draft -> refine.
+// Basics + 3 core questions -> adaptive follow-ups (skipped if none) -> finishing touches ->
+// generate -> inline draft -> refine.
 export function AiDraftWizard({
   categories,
   onDrafted,
@@ -65,10 +71,6 @@ export function AiDraftWizard({
 }) {
   const services = categories.flatMap((c) => c.services);
   const [subStep, setSubStep] = useState<SubStep>(1);
-  const [title, setTitle] = useState('');
-  const [serviceIds, setServiceIds] = useState<string[]>([]);
-  const [countries, setCountries] = useState<string[]>([]);
-  const [state, setState] = useState('');
   const [notes, setNotes] = useState('');
   const [recentDevelopments, setRecentDevelopments] = useState('');
   const [advice, setAdvice] = useState('');
@@ -79,36 +81,60 @@ export function AiDraftWizard({
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
+  const [followUpAnswerMap, setFollowUpAnswerMap] = useState<Record<string, string>>({});
+  const [loadingFollowUps, setLoadingFollowUps] = useState(false);
+
   const [stepError, setStepError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ title: string; body: string } | null>(null);
+  const [draft, setDraft] = useState<AiDraftArticleResponse | null>(null);
+  const [reviewedServiceIds, setReviewedServiceIds] = useState<string[]>([]);
+  const [reviewedCountries, setReviewedCountries] = useState<string[]>([]);
+  const [reviewedState, setReviewedState] = useState('');
   const [refinementNotes, setRefinementNotes] = useState('');
   const [refinementTone, setRefinementTone] = useState('Keep as-is');
   const [refining, setRefining] = useState(false);
 
-  function goToStep2() {
-    if (serviceIds.length === 0 || countries.length === 0) {
-      setStepError('Select at least one service and one country to continue.');
+  async function continueFromStep1() {
+    if (!notes.trim() || !advice.trim()) {
+      setStepError('Share your thoughts and your advice for readers to continue.');
       return;
     }
     setStepError(null);
-    setSubStep(2);
+    setLoadingFollowUps(true);
+    try {
+      const { questions } = await getFollowUpQuestions({
+        notes,
+        recentDevelopments: recentDevelopments || undefined,
+        advice,
+      });
+      setFollowUpQuestions(questions);
+      setSubStep(questions.length > 0 ? 2 : 3);
+    } catch {
+      // Graceful degradation — a broken/unavailable follow-up call shouldn't block the member.
+      setFollowUpQuestions([]);
+      setSubStep(3);
+    } finally {
+      setLoadingFollowUps(false);
+    }
   }
 
   async function generate() {
     setGenError(null);
     setGenerating(true);
     try {
+      const followUpAnswers = followUpQuestions
+        .map((question) => ({ question, answer: (followUpAnswerMap[question] ?? '').trim() }))
+        .filter((qa) => qa.answer.length > 0);
+
       const result = await generateArticleDraft(
         {
-          title: title || undefined,
-          serviceIds,
-          countries,
-          state: state || undefined,
           notes: notes || undefined,
           recentDevelopments: recentDevelopments || undefined,
           advice: advice || undefined,
+          followUpAnswers: followUpAnswers.length > 0 ? followUpAnswers : undefined,
+          followUpQuestionsAsked: followUpQuestions.length > 0 ? followUpQuestions : undefined,
           sourceLinks: links
             .split('\n')
             .map((l) => l.trim())
@@ -120,6 +146,9 @@ export function AiDraftWizard({
         files
       );
       setDraft(result);
+      setReviewedServiceIds(result.serviceIds ?? []);
+      setReviewedCountries(result.countries ?? []);
+      setReviewedState(result.state ?? '');
     } catch (err) {
       setGenError(
         err instanceof ApiError ? err.message : 'Could not generate a draft right now — try again.'
@@ -162,6 +191,51 @@ export function AiDraftWizard({
             className="prose-article text-sm leading-[1.7] text-ink-2 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:text-ink [&_u]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:rounded [&_code]:bg-bg-card [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_a]:text-accent [&_a]:underline"
             dangerouslySetInnerHTML={{ __html: draft.body }}
           />
+          {draft.sources && draft.sources.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line pt-3.5">
+              <span className="text-[11px] font-semibold tracking-wide text-ink-4">SOURCES</span>
+              {draft.sources.map((source, i) => (
+                <a
+                  key={source.url + i}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[12px] text-accent underline underline-offset-2 hover:text-ink"
+                >
+                  {source.title || source.url}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-card-lg border border-line bg-bg-card p-6">
+          <p className="text-xs font-medium text-ink-2">
+            Expertly AI inferred these from your draft — correct anything that&apos;s off before continuing.
+          </p>
+          <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+            <MultiSelect
+              label="Service(s)"
+              placeholder="Select services"
+              options={services.map((s) => ({ value: s.id, label: s.name }))}
+              selected={reviewedServiceIds}
+              onChange={setReviewedServiceIds}
+            />
+            <MultiSelect
+              label="Country"
+              placeholder="Select countries"
+              options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
+              selected={reviewedCountries}
+              onChange={setReviewedCountries}
+            />
+          </div>
+          <Input
+            label="State / province"
+            labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+            value={reviewedState}
+            onChange={(e) => setReviewedState(e.target.value)}
+            placeholder="e.g. California, Maharashtra"
+          />
         </div>
 
         <div className="flex flex-col gap-3 rounded-card-lg border border-line bg-bg-card p-6">
@@ -195,7 +269,15 @@ export function AiDraftWizard({
 
         <div className="flex justify-end">
           <WriteSubmitButton
-            onClick={() => onDrafted({ title: draft.title, body: draft.body, serviceIds, countries, state })}
+            onClick={() =>
+              onDrafted({
+                title: draft.title,
+                body: draft.body,
+                serviceIds: reviewedServiceIds,
+                countries: reviewedCountries,
+                state: reviewedState,
+              })
+            }
           >
             Continue to preview {ARROW_ICON}
           </WriteSubmitButton>
@@ -203,6 +285,9 @@ export function AiDraftWizard({
       </WriteCard>
     );
   }
+
+  const showSpinner = generating || loadingFollowUps;
+  const backFromStep3 = followUpQuestions.length > 0 ? 2 : 1;
 
   return (
     <WriteCard headerIcon={AI_ICON} headerTitle="Expertly AI — a few quick questions">
@@ -237,55 +322,17 @@ export function AiDraftWizard({
         })}
       </div>
 
-      {generating ? (
+      {showSpinner ? (
         <div className="flex flex-col items-center gap-4 py-12 text-center">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-line-2 border-t-accent" />
-          <p className="text-[15px] font-semibold text-ink">Expertly AI is drafting your article…</p>
+          <p className="text-[15px] font-semibold text-ink">
+            {generating ? 'Expertly AI is drafting your article…' : 'Expertly AI is reviewing your answers…'}
+          </p>
           <p className="max-w-[340px] text-[13px] leading-[1.55] text-ink-3">This usually takes just a few seconds.</p>
         </div>
       ) : (
         <div className="mt-2 flex animate-[anvIn_0.3s_cubic-bezier(0.22,1,0.36,1)_both] flex-col gap-5">
           {subStep === 1 && (
-            <>
-              <Input
-                label="Title of the article"
-                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. GST implications for SaaS exports"
-              />
-              <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-                <MultiSelect
-                  label="Service(s)"
-                  placeholder="Select services"
-                  options={services.map((s) => ({ value: s.id, label: s.name }))}
-                  selected={serviceIds}
-                  onChange={setServiceIds}
-                />
-                <MultiSelect
-                  label="Country"
-                  placeholder="Select countries"
-                  options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
-                  selected={countries}
-                  onChange={setCountries}
-                />
-              </div>
-              <Input
-                label="State / province"
-                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                placeholder="e.g. California, Maharashtra"
-              />
-              {stepError && <ErrorBanner message={stepError} />}
-              <div className="mt-1 flex items-center justify-between">
-                <span />
-                <WizardNextButton onClick={goToStep2}>Continue {ARROW_ICON}</WizardNextButton>
-              </div>
-            </>
-          )}
-
-          {subStep === 2 && (
             <>
               <Textarea
                 label="Your thoughts / notes"
@@ -309,15 +356,7 @@ export function AiDraftWizard({
                 onChange={(e) => setAdvice(e.target.value)}
                 placeholder="What should readers actually do with this information?"
               />
-              <div className="mt-1 flex items-center justify-between">
-                <WizardBackStep onClick={() => setSubStep(1)} />
-                <WizardNextButton onClick={() => setSubStep(3)}>Continue {ARROW_ICON}</WizardNextButton>
-              </div>
-            </>
-          )}
 
-          {subStep === 3 && (
-            <>
               <div className="rounded-[14px] border border-line bg-bg-alt p-5">
                 <span className="text-xs font-medium text-ink-2">
                   Source material <span className="font-normal text-ink-4">(optional, but strongly improves quality)</span>
@@ -373,6 +412,45 @@ export function AiDraftWizard({
                 </div>
               </div>
 
+              {stepError && <ErrorBanner message={stepError} />}
+              <div className="mt-1 flex items-center justify-between">
+                <span />
+                <WizardNextButton onClick={continueFromStep1}>Continue {ARROW_ICON}</WizardNextButton>
+              </div>
+            </>
+          )}
+
+          {subStep === 2 && (
+            <>
+              <div className="rounded-[14px] border border-line bg-bg-alt p-5">
+                <p className="text-sm font-semibold text-ink">To make this article sharper, a few quick things:</p>
+                <p className="mt-1 text-[11.5px] text-ink-4">
+                  Answer what you can — leave anything blank you&apos;d rather skip.
+                </p>
+              </div>
+              <div className="flex flex-col gap-4">
+                {followUpQuestions.map((question) => (
+                  <Textarea
+                    key={question}
+                    label={question}
+                    labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+                    rows={2}
+                    value={followUpAnswerMap[question] ?? ''}
+                    onChange={(e) =>
+                      setFollowUpAnswerMap((prev) => ({ ...prev, [question]: e.target.value }))
+                    }
+                  />
+                ))}
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <WizardBackStep onClick={() => setSubStep(1)} />
+                <WizardNextButton onClick={() => setSubStep(3)}>Continue {ARROW_ICON}</WizardNextButton>
+              </div>
+            </>
+          )}
+
+          {subStep === 3 && (
+            <>
               <label className="flex items-center gap-2.5 text-sm text-ink-2">
                 <input type="checkbox" checked={includeVisual} onChange={(e) => setIncludeVisual(e.target.checked)} className="accent-accent" />
                 Let Expertly AI include a table if it&apos;s relevant to the topic
@@ -396,7 +474,7 @@ export function AiDraftWizard({
               {genError && <ErrorBanner message={genError} />}
 
               <div className="mt-1 flex items-center justify-between">
-                <WizardBackStep onClick={() => setSubStep(2)} />
+                <WizardBackStep onClick={() => setSubStep(backFromStep3)} />
                 <WriteSubmitButton onClick={generate}>Generate with Expertly AI {ARROW_ICON}</WriteSubmitButton>
               </div>
             </>

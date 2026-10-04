@@ -792,11 +792,14 @@ create table public.member_profiles (
   -- the data; deliberately not reproduced here (see docs/database-erd.md). Render the label at
   -- the UI layer instead.
   firm_name text,
-  -- Always required, even for an independent practitioner with no firm_name — any well-formed
-  -- URL is accepted (a personal site, or a LinkedIn company/profile page), not just a firm
-  -- domain. Enforced at application-submit time by ApplicationsService.assertComplete(); this
-  -- NOT NULL is defense-in-depth, not the primary enforcement (see root CLAUDE.md).
-  firm_website text not null,
+  -- Nullable: required for every NEW application (any well-formed URL accepted — a personal
+  -- site or a LinkedIn page, not just a firm domain — enforced at submit time by
+  -- ApplicationsService.assertComplete()), but a small number of applications submitted before
+  -- that check existed may genuinely have none. Was NOT NULL until 2026-10-03; relaxed once a
+  -- real approval hit that legacy case and failed at insert — every read path already treated
+  -- this as nullable (MembersRepository, both frontend profile views), so only the insert type
+  -- was actually enforcing non-null.
+  firm_website text,
 
   -- Current location, not a snapshot of where the applicant was at submission time — reuses
   -- membership_applications' region enum/country-as-free-text shape for the same concept, but
@@ -977,6 +980,59 @@ create policy member_profile_edits_select_own
   using (auth.uid() = member_id);
 
 -- ============================================================================
+-- AI draft generations — a write-once audit row per completed POST /v1/articles/ai-draft attempt
+-- (success or failure), written fire-and-forget by AiService. Not a resumable session object —
+-- the live wizard flow stays stateless; this exists purely so generation quality/failure rates
+-- can be reviewed later. See docs/superpowers/specs/2026-10-03-adaptive-article-ai-flow-design.md
+-- §6. No admin-facing read endpoint is built yet — queryable via the Supabase dashboard only.
+-- ============================================================================
+create table public.ai_draft_generations (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  service_ids uuid[] not null default '{}',
+  countries text[] not null default '{}',
+  state text,
+  -- source_file_paths: Storage object paths within the private `ai-draft-sources` bucket for
+  -- every file the member uploaded in this attempt (PDF/JPEG/PNG/WebP sent to the AI natively,
+  -- plus TXT — all persisted regardless of kind). source_links: the pasted `sourceLinks` URLs as
+  -- given, for traceability only — does not imply the AI actually fetched any of them. Both
+  -- audit-only, same no-FK posture as `service_ids` above.
+  source_file_paths text[] not null default '{}',
+  source_links text[] not null default '{}',
+  -- { notes, recentDevelopments, advice } as given in the wizard's first step.
+  core_answers jsonb not null,
+  -- string[] — the full question list ai-followup-questions returned (0-10), echoed back by the
+  -- client as followUpQuestionsAsked. Kept separate from followup_answers below so this table can
+  -- tell "asked but skipped" apart from "never asked".
+  followup_questions jsonb not null default '[]',
+  -- { question, answer }[] — only the ones the member actually answered.
+  followup_answers jsonb not null default '[]',
+  -- { url, title }[] — deduped citations from the AI SDK's own tool-result metadata, if any.
+  sources jsonb not null default '[]',
+  tone text,
+  extra_instructions text,
+  draft_title text,
+  draft_body text,
+  provider text,
+  model text,
+  status text not null, -- 'success' | 'failed'
+  error_message text,
+  latency_ms integer,
+  created_at timestamptz not null default now()
+);
+
+create index ai_draft_generations_author_id_idx on public.ai_draft_generations (author_id);
+
+alter table public.ai_draft_generations enable row level security;
+
+-- Owner-only select, same defense-in-depth posture as member_profile_edits_select_own — RLS is
+-- never the actual enforcement mechanism here (the backend uses the service-role client), but
+-- every table in this repo still gets at least an owner-scoped policy.
+create policy ai_draft_generations_select_own
+  on public.ai_draft_generations for select
+  using (auth.uid() = author_id);
+
+-- ============================================================================
 -- Storage — member-proofs bucket, backing POST /v1/members/:id/uploads (signed-upload-URL flow;
 -- see docs/rest-api.md). Private (not public) — proof files/logos are served back through the
 -- backend, never a direct public URL. Objects are keyed "<memberId>/<filename>", so the RLS
@@ -992,6 +1048,24 @@ create policy member_proofs_owner_rw
   on storage.objects for all
   using (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================================
+-- Storage — ai-draft-sources bucket, backing POST /v1/articles/ai-draft's source-file
+-- persistence. Private (not public) — raw member-uploaded documents/images may contain
+-- confidential client material, so no permanent public URL. Objects keyed
+-- "<authorId>/<generationId>/<n>-<filename>", same owner-folder convention as member-proofs
+-- above. Only the backend's service-role client ever writes here (bypasses RLS); this policy is
+-- the same defense-in-depth posture as every other bucket in this schema.
+-- ============================================================================
+
+insert into storage.buckets (id, name, public)
+values ('ai-draft-sources', 'ai-draft-sources', false)
+on conflict (id) do nothing;
+
+create policy ai_draft_sources_owner_rw
+  on storage.objects for all
+  using (bucket_id = 'ai-draft-sources' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'ai-draft-sources' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ============================================================================
 -- Storage — application-assets bucket, backing POST /v1/applications/me/uploads. Uploads here are

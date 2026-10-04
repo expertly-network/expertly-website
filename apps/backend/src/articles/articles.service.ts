@@ -1,5 +1,4 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import sanitizeHtml from 'sanitize-html';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminArticleListItemDto,
@@ -12,6 +11,7 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
+import { countArticleWords, stripHtml, MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS } from './word-count';
 import { AiService } from '../ai/ai.service';
 import {
   ArticlesRepository,
@@ -21,16 +21,9 @@ import {
   type ServiceDetail,
 } from './articles.repository';
 
-const MIN_WORDS = 400;
-const MAX_WORDS = 2000;
 const EXCERPT_LENGTH = 200;
 
 type ArticlesReviewMode = 'instant' | 'editorial';
-
-// Strips HTML tags, leaving plain text.
-function stripHtml(html: string): string {
-  return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} });
-}
 
 @Injectable()
 export class ArticlesService {
@@ -260,10 +253,10 @@ export class ArticlesService {
 }
 
 function assertWordCount(body: string): void {
-  const wordCount = countWords(body);
-  if (wordCount < MIN_WORDS || wordCount > MAX_WORDS) {
+  const wordCount = countArticleWords(body);
+  if (wordCount < MIN_ARTICLE_WORDS || wordCount > MAX_ARTICLE_WORDS) {
     throw new BadRequestException(
-      `Article body must be between ${MIN_WORDS} and ${MAX_WORDS} words (got ${wordCount}).`
+      `Article body must be between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words (got ${wordCount}).`
     );
   }
 }
@@ -277,14 +270,7 @@ function deriveExcerpt(body: string): string {
 }
 
 function deriveReadTimeMinutes(body: string): number {
-  return Math.max(1, Math.round(countWords(body) / 200));
-}
-
-function countWords(body: string): number {
-  return stripHtml(body)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+  return Math.max(1, Math.round(countArticleWords(body) / 200));
 }
 
 function omitBody(dto: ArticleDto): ArticleListItemDto {

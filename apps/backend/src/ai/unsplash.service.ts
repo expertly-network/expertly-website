@@ -5,7 +5,10 @@ interface UnsplashSearchResult {
 }
 
 const SEARCH_URL = 'https://api.unsplash.com/search/photos';
-const RESULTS_PER_QUERY = 1;
+// >1 so the frontend's "change image"/"try another" controls have something to actually cycle
+// through from a single fetch, instead of silently re-querying (and often landing on the same
+// single result) every click.
+const RESULTS_PER_QUERY = 5;
 const TIMEOUT_MS = 8_000;
 
 // Searches Unsplash for cover image suggestions, keeping the access key server-side.

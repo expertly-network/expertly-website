@@ -381,6 +381,25 @@ published yet."
 **Response `200`:** `ArticleDto`. **Errors:** `401` no/invalid token · `404` not found, or a draft
 the caller can't see.
 
+### `member` `POST /v1/articles/ai-followup-questions`
+
+The AI wizard's step between the initial brief and "Finishing touches" — analyzes the member's
+written brief and returns the minimum useful set of follow-up questions, so the wizard can skip
+straight past this step when the brief is already specific enough. Plain JSON (unlike `ai-draft`
+below — no files here). Same hosted web-search/fetch tool as `ai-draft` is available to the model
+so it can check current facts before deciding what to ask, used only when it would change which
+questions get asked.
+
+**Request:** `AiFollowUpQuestionsRequest` (see `packages/shared-types/article.ts`) —
+`notes`/`advice` required, `recentDevelopments` optional. No `serviceIds`/`countries`/`state` —
+generates purely from the written brief; follow-up question quality comes from the notes content,
+not from taxonomy context, so this endpoint doesn't need the member to have picked anything first.
+
+**Response `201`:** `AiFollowUpQuestionsResponse` — `{ questions: string[] }`, 0 to 10 items. An
+empty array is a valid, expected result — not every brief needs follow-ups. **Errors:** `401` ·
+`403` client account · `400` validation · `503` AI drafting not configured or the provider call
+failed (same causes as `ai-draft`).
+
 ### `member` `POST /v1/articles/ai-draft`
 
 The AI wizard's "Generate" step — generates a `{ title, body }` draft using the backend's fixed,
@@ -392,28 +411,60 @@ client-side, then saves it via `POST /v1/articles` below (typically with `creati
 
 **Request:** `multipart/form-data`, not JSON — a `payload` field carrying the
 `AiDraftArticleRequest` shape (see `packages/shared-types/article.ts`) as a JSON string, plus zero
-or more `files` parts (the wizard's source-document dropzone; PDF/DOCX/TXT). Why multipart: the
-JSON-only fields (`serviceIds`, `countries`, `state`, `notes`, `recentDevelopments`, `advice`,
-`sourceLinks`, `includeVisual`, `tone`, `extraInstructions`, optional `title`) needed to travel
-alongside real file uploads in one request, same reasoning as the membership-application photo
-upload endpoint. Source files are extracted to text server-side (`pdf-parse` for PDF, `mammoth`
-for DOCX, raw UTF-8 for TXT; magic-byte checked via `file-type` first, per root CLAUDE.md's
-non-negotiable upload rule) and **never persisted** — used once to build this one prompt, then
-discarded. `sourceLinks` (max 5) are **not fetched by this backend at all** — they're listed as
-plain text in the prompt, and the model itself decides whether/when to fetch or search a given one
-using the currently-configured `AI_PROVIDER`'s own hosted web tool (`anthropic.tools.
-webFetch_20260209`, `google.tools.urlContext`, or `openai.tools.webSearch` — see `AiService.
-resolveModelWithSourceLinkTool`). This replaced an earlier server-side fetch
-(`apps/backend/src/ai/fetch-safe.ts`, since deleted) that had a DNS-rebinding SSRF gap — moving the
-fetch to the provider's own infrastructure removes that vulnerability class outright rather than
-patching it. OpenAI's tool is search-based, not a guaranteed exact-URL fetch like Anthropic/
-Google's — source-link grounding quality can differ by configured provider. Same `@Roles('member')`
-posture as `POST /v1/articles`.
+or more `files` parts (the wizard's source-document dropzone; PDF, JPEG, PNG, WebP, or TXT — DOCX
+is not supported, see below). Why multipart: the JSON-only fields (`notes`, `recentDevelopments`,
+`advice`, `followUpAnswers`, `followUpQuestionsAsked`, `sourceLinks`, `includeVisual`, `tone`,
+`extraInstructions`) needed to travel alongside real file uploads in one request, same reasoning
+as the membership-application photo upload endpoint. No `title`/`serviceIds`/`countries`/`state`
+— the model infers all four (see Response below) rather than the member picking them beforehand;
+`notes`/`advice` stay optional at the DTO level, matching the existing pattern where the real
+"must be filled in" enforcement is the wizard's own step-1 gate, not a hard server requirement.
 
-**Response `201`:** `AiDraftArticleResponse`. **Errors:** `401` · `403` client account · `400`
-validation (missing/invalid `payload`, unsupported source file type) · `503` AI drafting not
-configured (`AI_PROVIDER`/`AI_MODEL`/matching API key unset) or the provider call itself failed —
-manual article writing is unaffected either way.
+PDF and image uploads are sent to the model as **native documents** (`apps/backend/src/ai/
+prepare-source-file.ts`, magic-byte checked via `file-type` first, per root CLAUDE.md's
+non-negotiable upload rule) — raw bytes, no text extraction, no fidelity loss, so tables/layout/
+charts in a source document are preserved. TXT uploads stay on the previous behavior: embedded as
+literal text in the prompt (capped at 8,000 characters per file). DOCX is not accepted — members
+export to PDF first; this was a deliberate choice over embedding a document-conversion engine
+(LibreOffice) in the backend, given the ongoing CPU/memory/image-size cost that would add for no
+real usage data yet to justify it.
+
+**Every uploaded file is persisted** to a private Supabase Storage bucket (`ai-draft-sources`,
+see `docs/database-erd.md`), linked to the `ai_draft_generations` audit row that also now logs the
+member's pasted `sourceLinks` — both purely for traceability of what an article was actually
+generated from; neither changes what the model receives in the request itself.
+
+The model has web-search/fetch access via the currently-configured `AI_PROVIDER`'s own hosted web
+tool (see `AiService.resolveModelWithSourceLinkTool`), but only OpenAI's `webSearch` tool actually
+searches the open web and reliably produces the `sources` citations below — Anthropic's
+`webFetch_20260209` can only fetch URLs it's already given (the member's `sourceLinks`, or ones
+the model finds some other way), not search for new ones, and Google's `urlContext` doesn't
+populate `sources` without Search grounding separately configured (not done here). Open,
+unprompted research and reliable citations are effectively an OpenAI-only capability today; on
+the other two providers this behaves closer to the old `sourceLinks`-only fetch behavior. Same
+`@Roles('member')` posture as `POST /v1/articles`.
+
+`followUpAnswers` (max 10) carries only the follow-up questions from `ai-followup-questions` above
+that the member actually answered — blanks are omitted client-side. `followUpQuestionsAsked` (max
+10) separately echoes back the *full* question list that endpoint returned, even ones left blank —
+this isn't used in the generation prompt, only recorded in the `ai_draft_generations` audit log
+(see `docs/database-erd.md`) so "asked but skipped" can be told apart from "never asked".
+
+**Response `201`:** `AiDraftArticleResponse` — carries `sources` (URLs the model actually
+fetched/searched while drafting, `{url, title}[]`, null/empty when none) alongside `title`/`body`,
+plus AI-inferred `serviceIds`/`countries`/`state`. The model is given the real active services
+list (`{id, name}` pairs, fetched fresh for every request — never client-supplied) and the real
+countries list alongside the brief, and asked to pick from them; the backend validates every
+returned name against those same lists and resolves matched service names to real ids —
+`serviceIds`/`countries` are empty arrays (not an error) if nothing matched, `state` is `null` if
+none was clearly implied (free text, not validated against a list — same posture as the manual
+write flow). **Errors:** `401` · `403` client account · `400` validation (missing/invalid
+`payload`, unsupported source file type) · `503` AI drafting not configured
+(`AI_PROVIDER`/`AI_MODEL`/matching API key unset) or the provider call itself failed — manual
+article writing is unaffected either way. Every attempt (success or failure) is also recorded,
+fire-and-forget, into `ai_draft_generations` (logging the **inferred** `serviceIds`/`countries`/
+`state`, not client input — there is no client input for these anymore) — see
+`docs/database-erd.md`.
 
 ### `member` `POST /v1/articles/ai-refine`
 
@@ -424,7 +475,10 @@ member's requested changes, returning a complete revised draft (not a diff). Pla
 **Request:** `RefineArticleDraftRequest` — `title`, `body` (the current draft), `refinementNotes`
 (required), `tone` (optional, e.g. "More formal").
 
-**Response `201`:** `AiDraftArticleResponse`. **Errors:** same as `ai-draft` above.
+**Response `201`:** `AiDraftArticleResponse` — `serviceIds`/`countries`/`state`/`sources` are
+absent here (optional on the shared type for exactly this reason): refine never re-infers taxonomy
+or re-fetches citations, only `title`/`body` change. The wizard's review screen keeps whatever the
+member last had selected across a refine. **Errors:** same as `ai-draft` above.
 
 ### `member` `POST /v1/articles/suggest-topics`
 

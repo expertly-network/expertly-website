@@ -1,6 +1,6 @@
 # Expertly Postman collection
 
-`Expertly.postman_collection.json` covers every route in `apps/backend` (64 requests). Structure
+`Expertly.postman_collection.json` covers every route in `apps/backend` (65 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &

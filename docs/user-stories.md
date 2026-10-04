@@ -185,14 +185,21 @@ As a member, I want to write and submit an article so I can build visibility and
       blockquote, inline code, code block, and links. Matches the reference Expertly repo's own
       editor choice; kept in lockstep with `ArticlesService`'s `sanitize-html` allowlist (no
       headings/images/tables in either).
-- [x] AI-drafting path: a 3-step wizard (the basics; your input; sources & style) collects title,
-      practice areas/countries/state, notes/recent developments/advice, uploaded source documents
-      (PDF/DOCX/TXT, parsed server-side, never persisted), links (fetched server-side with SSRF
-      guards), tone, and extra instructions, then `POST /v1/articles/ai-draft` (multipart)
-      generates a `{title, body}` via the backend's fixed `AI_PROVIDER`/`AI_MODEL`. An inline
-      "refine" box (`POST /v1/articles/ai-refine`) can re-prompt the draft before continuing.
-      Nothing is auto-published from a generated draft — the member always continues through the
-      same shared preview step.
+- [x] AI-drafting path: a 3-step wizard (tell us about it; adaptive follow-ups, skipped when the
+      brief is already specific enough; finishing touches) collects notes/recent
+      developments/advice, uploaded source documents (PDF/DOCX/TXT, parsed server-side, never
+      persisted), links (fetched server-side with SSRF guards), tone, and extra instructions — no
+      title/practice-area/country/state input. `POST /v1/articles/ai-draft` (multipart) generates
+      `{title, body}` via the backend's fixed `AI_PROVIDER`/`AI_MODEL`, plus AI-inferred
+      `serviceIds`/`countries`/`state`: the model picks only from the real active services and
+      countries lists given alongside the brief, validated server-side against those same lists
+      (never trusted to self-report valid ids). The draft-review screen shows the inferred
+      title/body alongside editable `MultiSelect`/`Input` fields (pre-filled from the response) so
+      the member can correct anything before continuing — same components step 1 used to host. An
+      inline "refine" box (`POST /v1/articles/ai-refine`) can re-prompt the draft before
+      continuing; it never re-infers the taxonomy, only `title`/`body` change. Nothing is
+      auto-published from a generated draft — the member always continues through the same shared
+      preview step.
 
 ### US-07-02: Editing or withdrawing my article
 As a member, I want to edit or delete my own article before or after publication.

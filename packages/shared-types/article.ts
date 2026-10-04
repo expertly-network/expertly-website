@@ -65,15 +65,22 @@ export class CreateArticleRequest {
 // All fields optional; status changes require the owner or an admin.
 export type UpdateArticleRequest = Partial<CreateArticleRequest & { status: ArticleStatus }>;
 
-// POST /v1/articles/ai-draft — 🔒 member. Generates a draft; does not save it.
+// POST /v1/articles/ai-draft — 🔒 member. Generates a draft; does not save it. Service(s),
+// country/countries, state, and title are no longer client-provided — the AI infers all of them
+// (validated against the real taxonomy) and returns them in AiDraftArticleResponse below.
 export interface AiDraftArticleRequest {
-  title?: string;
-  serviceIds: string[];
-  countries: string[];
-  state?: string;
   notes?: string;
   recentDevelopments?: string;
   advice?: string;
+  /** Max 10. Only questions the member actually answered — blank answers are omitted client-side. */
+  followUpAnswers?: { question: string; answer: string }[];
+  /**
+   * Max 10. The full question list ai-followup-questions returned (echoed back as-is, even the
+   * ones left blank) — distinct from followUpAnswers so the audit log can tell "asked but
+   * skipped" apart from "never asked". Omitted entirely when that endpoint returned zero
+   * questions.
+   */
+  followUpQuestionsAsked?: string[];
   /** Max 5. The model decides whether to fetch/search each one. */
   sourceLinks?: string[];
   /** Presents a comparison as a table if relevant to the topic. */
@@ -82,9 +89,40 @@ export interface AiDraftArticleRequest {
   extraInstructions?: string;
 }
 
+/** POST /v1/articles/ai-draft response's `sources` entries — a URL the model actually fetched/searched. */
+export class ArticleSource {
+  @ApiProperty() url!: string;
+  @ApiProperty() title!: string;
+}
+
+// Shared by ai-draft and ai-refine. serviceIds/countries/state/sources only ever come from
+// ai-draft — ai-refine never re-infers taxonomy or re-fetches citations (see root
+// docs/superpowers/specs/2026-10-04-ai-inferred-article-taxonomy-design.md §2), so they're
+// optional here rather than claiming a presence ai-refine's response never actually has.
 export class AiDraftArticleResponse {
   @ApiProperty() title!: string;
   @ApiProperty() body!: string;
+  /** URLs the model actually fetched/searched while drafting, if any. Null/empty when none. */
+  @ApiPropertyOptional({ type: () => ArticleSource, isArray: true, nullable: true }) sources?: ArticleSource[] | null;
+  /** AI-inferred, validated against the real active services list. Empty if nothing matched. */
+  @ApiPropertyOptional({ type: String, isArray: true }) serviceIds?: string[];
+  /** AI-inferred, validated against the real countries list. Empty if nothing matched. */
+  @ApiPropertyOptional({ type: String, isArray: true }) countries?: string[];
+  /** AI-inferred if clearly implied, otherwise null. Free text, not validated against a list. */
+  @ApiPropertyOptional({ nullable: true, type: String }) state?: string | null;
+}
+
+// POST /v1/articles/ai-followup-questions — 🔒 member. Decides whether follow-up questions would
+// make the article meaningfully more specific/personal, and if so, asks only those (0-10).
+// Generates purely from the written brief — no service/country/state input (see ai-draft above).
+export interface AiFollowUpQuestionsRequest {
+  notes: string;
+  recentDevelopments?: string;
+  advice: string;
+}
+
+export class AiFollowUpQuestionsResponse {
+  @ApiProperty({ type: String, isArray: true }) questions!: string[];
 }
 
 // POST /v1/articles/ai-refine — 🔒 member. Revises the current draft based on requested changes.

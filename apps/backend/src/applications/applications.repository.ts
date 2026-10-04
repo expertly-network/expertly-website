@@ -83,12 +83,7 @@ export type ApplicationRow = Record<string, any>; // eslint-disable-line @typesc
 type MembershipApplicationInsert = Database['public']['Tables']['membership_applications']['Insert'];
 type MembershipApplicationUpdate = Database['public']['Tables']['membership_applications']['Update'];
 
-// `& { slug }`: member_profiles.slug was added in supabase/migrations/0004_tables.sql
-// (2026-09-27) but this environment has no SUPABASE_DB_URL to run `pnpm gen:types` against the
-// live schema, so the generated Database type doesn't know about it yet. Safe to drop this
-// intersection (never hand-edit database.types.ts itself) once types are regenerated after the
-// migration is applied — the generated Insert type will include `slug` natively then.
-export type MemberProfileInsert = Database['public']['Tables']['member_profiles']['Insert'] & { slug: string };
+export type MemberProfileInsert = Database['public']['Tables']['member_profiles']['Insert'];
 
 export interface ServiceDetail {
   name: string;
@@ -197,13 +192,7 @@ export class ApplicationsRepository {
   }
 
   async insertMemberProfile(row: MemberProfileInsert): Promise<void> {
-    // `row`'s `slug` isn't in the generated Insert type yet (see MemberProfileInsert's comment) —
-    // supabase-js's typed `.insert()` rejects unknown properties outright (stricter than a plain
-    // structural cast), so this needs the same "loosely typed at the call site" escape hatch this
-    // file already uses for membership_applications' insert/update above.
-    const { error } = await this.memberProfiles().insert(
-      row as unknown as Database['public']['Tables']['member_profiles']['Insert']
-    );
+    const { error } = await this.memberProfiles().insert(row);
     if (error) throw new InternalServerErrorException('Failed to provision member profile.');
   }
 

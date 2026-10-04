@@ -6,16 +6,23 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { AiDraftArticleResponse, ArticleDto, CoverImageSuggestionsResponse, SuggestTopicsResponse } from '@shared/article';
+import {
+  AiDraftArticleResponse,
+  AiFollowUpQuestionsResponse,
+  ArticleDto,
+  CoverImageSuggestionsResponse,
+  SuggestTopicsResponse,
+} from '@shared/article';
 import type { ArticleListItemDto } from '@shared/article';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { AiService } from '../ai/ai.service';
 import { AiDraftRequestDto } from '../ai/dto/ai-draft-request.dto';
+import { AiFollowUpQuestionsDto } from '../ai/dto/ai-followup-questions.dto';
 import { RefineDraftDto } from '../ai/dto/refine-draft.dto';
 import { SuggestTopicsDto } from '../ai/dto/suggest-topics.dto';
-import { extractSourceFileText } from '../ai/extract-text';
+import { prepareSourceFile, type PreparedSourceFile } from '../ai/prepare-source-file';
 import { UnsplashService } from '../ai/unsplash.service';
 import { CategoriesService } from '../categories/categories.service';
 
@@ -57,16 +64,27 @@ export class ArticlesController {
     return { images };
   }
 
+  // 🔒 member — analyzes the wizard's step-1 brief and returns 0-10 follow-up questions.
+  @Roles('member')
+  @Post('ai-followup-questions')
+  async aiFollowUpQuestions(@Body() dto: AiFollowUpQuestionsDto): Promise<AiFollowUpQuestionsResponse> {
+    const questions = await this.aiService.generateFollowUpQuestions(dto);
+    return { questions };
+  }
+
   @Roles('member')
   @Post('ai-draft')
-  async aiDraft(@Req() request: FastifyRequest): Promise<AiDraftArticleResponse> {
+  async aiDraft(
+    @Req() request: FastifyRequest,
+    @CurrentUser() user: AuthenticatedUser
+  ): Promise<AiDraftArticleResponse> {
     let payload: string | undefined;
-    const sourceFileTexts: string[] = [];
+    const preparedSourceFiles: PreparedSourceFile[] = [];
 
     for await (const part of request.parts()) {
       if (part.type === 'file') {
         const buffer = await part.toBuffer();
-        sourceFileTexts.push(await extractSourceFileText(buffer, part.filename));
+        preparedSourceFiles.push(await prepareSourceFile(buffer, part.filename));
       } else if (part.fieldname === 'payload') {
         payload = part.value as string;
       }
@@ -84,8 +102,11 @@ export class ArticlesController {
     const errors = await validate(dto);
     if (errors.length > 0) throw new BadRequestException('Invalid AI draft request.');
 
-    const serviceNames = await this.articlesService.resolveServiceNamesList(dto.serviceIds);
-    return this.aiService.generateDraft(dto, serviceNames, sourceFileTexts);
+    // No serviceIds come from the client anymore — the model infers them, picking only from
+    // this full active-services candidate list (never trusted beyond what's actually offered).
+    const categories = await this.categoriesService.list();
+    const candidateServices = categories.flatMap((c) => c.services.map((s) => ({ id: s.id, name: s.name })));
+    return this.aiService.generateDraft(dto, candidateServices, preparedSourceFiles, user.id);
   }
 
   // 🔒 member — revises the current draft based on requested changes.

@@ -595,6 +595,39 @@
           "response": []
         },
         {
+          "name": "POST /articles/ai-followup-questions — AI: generate follow-up questions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/ai-followup-questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "ai-followup-questions"
+              ]
+            },
+            "description": "member. Plain JSON (unlike ai-draft below — no files here). Analyzes the step-1 brief (notes/recentDevelopments/advice only — no service/country/state, those are AI-inferred later by ai-draft) and returns the minimum useful set of follow-up questions (0-10) — an empty array is a valid, expected result.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Focus on indirect tax exposure when expanding into the EU.\",\n  \"recentDevelopments\": \"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\n  \"advice\": \"Recommend proactive nexus studies before entering a new market.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
           "name": "POST /articles/ai-draft — AI: generate draft",
           "request": {
             "method": "POST",
@@ -609,20 +642,20 @@
                 "ai-draft"
               ]
             },
-            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF/DOCX/TXT).",
+            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct.",
             "body": {
               "mode": "formdata",
               "formdata": [
                 {
                   "key": "payload",
                   "type": "text",
-                  "value": "{\"title\":\"Cross-Border Tax Planning for Growing Startups\",\"serviceIds\":[\"{{serviceId}}\"],\"countries\":[\"United States\",\"United Kingdom\"],\"state\":\"California\",\"notes\":\"Focus on indirect tax exposure when expanding into the EU.\",\"recentDevelopments\":\"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\"advice\":\"Recommend proactive nexus studies before entering a new market.\",\"sourceLinks\":[\"https://example.com/oecd-pillar-two-overview\"],\"includeVisual\":true,\"tone\":\"Professional, approachable\",\"extraInstructions\":\"Keep it under 1200 words and cite the OECD guidance.\"}"
+                  "value": "{\"notes\":\"Focus on indirect tax exposure when expanding into the EU.\",\"recentDevelopments\":\"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\"advice\":\"Recommend proactive nexus studies before entering a new market.\",\"followUpQuestionsAsked\":[\"Do your typical clients incorporate in Delaware or abroad first?\"],\"followUpAnswers\":[{\"question\":\"Do your typical clients incorporate in Delaware or abroad first?\",\"answer\":\"Delaware first, then set up an EU subsidiary once they have local revenue.\"}],\"sourceLinks\":[\"https://example.com/oecd-pillar-two-overview\"],\"includeVisual\":true,\"tone\":\"Professional, approachable\",\"extraInstructions\":\"Keep it under 1200 words and cite the OECD guidance.\"}"
                 },
                 {
                   "key": "files",
                   "type": "file",
                   "src": [],
-                  "description": "Optional — zero or more PDF/DOCX/TXT source documents."
+                  "description": "Optional — zero or more PDF, JPEG, PNG, WebP, or TXT source documents (DOCX not supported)."
                 }
               ]
             }

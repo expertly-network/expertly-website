@@ -306,6 +306,49 @@ feature, not derived from (and in one case directly contradicting) what the stat
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
 
+## AI draft generations (`supabase/migrations/0004_tables.sql`)
+
+**Source:** `docs/superpowers/specs/2026-10-03-adaptive-article-ai-flow-design.md` §6 — a new
+table, not present in the original static prototype (the prototype's AI drafting was a client-side
+mock with no concept of logging).
+
+**Flow:** a write-once audit row per completed `POST /v1/articles/ai-draft` attempt (success or
+failure), written fire-and-forget by `AiService` so it never delays or fails the member-facing
+response. This is **not** a resumable session store — the wizard flow itself stays stateless,
+re-sending its full state with each request; this table exists purely so generation quality,
+question usefulness, and failure rates can be reviewed later. A member who abandons the wizard
+before clicking Generate leaves no row — a known, accepted gap, not a bug.
+
+### `ai_draft_generations`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `author_id` | uuid FK → `profiles.id` | the member who ran the generation |
+| `service_ids` | uuid[], default `{}` | **AI-inferred**, not client-sent — the model picks from the real active services list given alongside the brief, validated/resolved to real ids before being logged here; same array/no-FK trade-off as `articles.service_ids` otherwise — this table is audit-only, never validated or joined against `services` on read |
+| `countries` | text[], default `{}` | **AI-inferred**, validated against the real countries list (`apps/backend/src/ai/countries.ts`) before being logged here |
+| `state` | text | nullable; **AI-inferred** if clearly implied by the brief, otherwise `null` — free text, not validated against a list |
+| `source_file_paths` | text[], default `{}` | Storage object paths within the private `ai-draft-sources` bucket for every file the member uploaded in this attempt (PDF/JPEG/PNG/WebP sent to the AI natively, plus TXT — all persisted regardless of kind). Audit-only, same no-FK posture as `service_ids` above. |
+| `source_links` | text[], default `{}` | The pasted `sourceLinks` URLs as given, for traceability only — does not imply the AI actually fetched any of them (see `docs/rest-api.md`'s `ai-draft` section for the actual fetch-reliability caveat). |
+| `core_answers` | jsonb NOT NULL | `{ notes, recentDevelopments, advice }` as given in the wizard's first step |
+| `followup_questions` | jsonb NOT NULL, default `[]` | the full question list `ai-followup-questions` returned (0-10), echoed back by the client as `followUpQuestionsAsked` — kept separate from `followup_answers` so this table can tell "asked but skipped" apart from "never asked" |
+| `followup_answers` | jsonb NOT NULL, default `[]` | `{ question, answer }[]` — only the ones the member actually answered |
+| `sources` | jsonb NOT NULL, default `[]` | `{ url, title }[]` — deduped citations from the AI SDK's own tool-result metadata, never from the model's self-reported JSON |
+| `tone`, `extra_instructions`, `draft_title`, `draft_body` | text | nullable; the generated output and the wizard's finishing-touches fields, for reviewing quality later |
+| `provider`, `model` | text | nullable; `process.env.AI_PROVIDER`/`AI_MODEL` at the time of the call |
+| `status` | text NOT NULL | `'success' \| 'failed'` |
+| `error_message` | text | nullable; set only when `status = 'failed'` |
+| `latency_ms` | integer | nullable |
+| `created_at` | timestamptz | |
+
+RLS enabled with an owner-only select policy (`ai_draft_generations_select_own`), same posture as
+`member_profile_edits_select_own` — defense-in-depth only, since the backend's service-role client
+is the actual write path. **No admin-facing read endpoint exists yet** — querying this table today
+means the Supabase dashboard directly; a real admin view belongs with the "admin/ops overview
+dashboard" already listed as beyond-roadmap in `master-tdd.md`. A second private bucket,
+`ai-draft-sources`, backs `source_file_paths` above — same owner-scoped-RLS-as-defense-in-depth
+posture as `member-proofs`.
+
 ## Events (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 
 **Source:** `design/static_html/assets/members.js`'s `EXPERTLY_EVENTS` (the prototype's own event
@@ -406,10 +449,10 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 |---|---|---|
 | `id` | uuid PK, own generated value | internal surrogate key — not exposed in the API, nothing else references it |
 | `profile_id` | uuid, unique, FK → `profiles.id` | the "real" identity — this is `MemberDto.id`, and what every other table's `member_id` column references |
-| `slug` | text, unique, not null | added 2026-09-27. Server-generated at provisioning time (`ApplicationsService.reviewApplication()`, from the applicant's name) via `generateUniqueSlug()` — the same mechanism `events`/`articles` use for their own slugs (`apps/backend/src/common/slugify.ts`): kebab-case, `-2`/`-3`/... suffix on collision. Never regenerated afterward, even if the member's name changes later — same "permanent identifier" rule those slugs follow. Exposed on `MemberListItemDto`/`MemberDto`, and since 2026-09-27 the routing key for profiles: `GET /v1/members/:slug` and the frontend's `/members/[slug]`. `profile_id` (UUID) stays the key for owner/admin write routes and every foreign key. Note: `apps/backend/src/supabase/database.types.ts` predates this column (no `SUPABASE_DB_URL` in this environment to run `pnpm gen:types`), so slug queries are loosely typed at the call site until types are regenerated — don't hand-edit the generated file. |
+| `slug` | text, unique, not null | added 2026-09-27. Server-generated at provisioning time (`ApplicationsService.reviewApplication()`, from the applicant's name) via `generateUniqueSlug()` — the same mechanism `events`/`articles` use for their own slugs (`apps/backend/src/common/slugify.ts`): kebab-case, `-2`/`-3`/... suffix on collision. Never regenerated afterward, even if the member's name changes later — same "permanent identifier" rule those slugs follow. Exposed on `MemberListItemDto`/`MemberDto`, and since 2026-09-27 the routing key for profiles: `GET /v1/members/:slug` and the frontend's `/members/[slug]`. `profile_id` (UUID) stays the key for owner/admin write routes and every foreign key. |
 | `headline`, `bio` | text | |
 | `firm_name` | text, nullable | **Null, not the prototype's literal `'Independent'` string** — render that label at the UI layer. Baking display text into data was a deliberate thing *not* to reproduce. |
-| `firm_website` | text, **not null** | Added 2026-09-29. Required even for an independent practitioner with no `firm_name` — any well-formed URL is accepted (a personal site, or a LinkedIn company/profile page), not just a firm domain. Enforced at application-submit time (`ApplicationsService.assertComplete()`, on the entry marked `isCurrent`); this `NOT NULL` is defense-in-depth, not the primary enforcement. |
+| `firm_website` | text, nullable | Added 2026-09-29 as `NOT NULL`, relaxed to nullable 2026-10-03 — required for every *new* application regardless of `firm_name` (any well-formed URL accepted — a personal site or a LinkedIn page, not just a firm domain — enforced at submit time by `ApplicationsService.assertComplete()`), but a small number of applications submitted before that check existed may genuinely have none; approving one of those now inserts `null` rather than failing. Every read path (`MembersRepository`, both frontend profile views) already treated this as nullable. |
 | `years_of_experience` | smallint, check 0–60 | drives tier, same shape as the application's own field |
 | `rate_min_cents`, `rate_max_cents` | int, check `max > min` | **Named to match `membership_applications.rate_min_cents`/`rate_max_cents`** — same concept, not `fee_range_*` as an earlier draft of this section had it |
 | `rate_currency` | text, default `'USD'` | ISO 4217 code — the prototype only ever shows `'$'`, not a real currency code; every seed profile is USD, stored properly so a future non-USD member doesn't need a schema change |
