@@ -207,9 +207,22 @@ export class ApplicationsService {
       throw new BadRequestException(`Unsupported file type for ${kind}.`);
     }
 
-    const existing = await this.applicationsRepository.findLatestForUpload(user.id);
-    if (!existing || existing.status !== 'draft') {
+    let existing = await this.applicationsRepository.findLatestForUpload(user.id);
+    if (existing && existing.status !== 'draft') {
       throw new BadRequestException('No draft application to attach this file to.');
+    }
+    if (!existing) {
+      // Root cause of the "LinkedIn photo silently never appears" bug: connecting LinkedIn (step
+      // 1) triggers an auto photo-import before the applicant has ever saved anything — there's
+      // no draft row yet at that point, since the first save only happens on step 1's
+      // Continue/Skip. saveOrSubmit() already creates a draft from nothing the same way; mirror
+      // that here instead of requiring a save to have happened first. Same role restriction
+      // saveOrSubmit() enforces, since this can now create a row — the page-level /apply gate
+      // isn't a substitute for a service-layer check (see docs/auth.md).
+      if (user.role !== 'client') {
+        throw new ForbiddenException('Only client accounts can manage a membership application.');
+      }
+      existing = await this.applicationsRepository.insert({ applicant_id: user.id });
     }
 
     const existingDocuments = (existing.documents ?? []) as Row[];
