@@ -7,6 +7,6 @@ import { UnsplashService } from './unsplash.service';
 @Module({
   imports: [AuthModule],
   providers: [AiService, UnsplashService, AiDraftGenerationsRepository],
-  exports: [AiService, UnsplashService],
+  exports: [AiService, UnsplashService, AiDraftGenerationsRepository],
 })
 export class AiModule {}

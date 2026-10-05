@@ -480,6 +480,11 @@ create table public.articles (
   -- Set when status = 'rejected' in editorial review mode; null otherwise. Same shape as
   -- membership_applications.rejection_reason.
   rejection_reason text,
+  -- The ai_draft_generations row whose draft this article was saved from (the member's last
+  -- successful generation in the wizard), so admins can trace an article back to the inputs it
+  -- was generated from. Null for manually written articles. FK added after
+  -- ai_draft_generations is created, further down this file.
+  ai_generation_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -1010,6 +1015,7 @@ create table public.ai_draft_generations (
   -- { url, title }[] — deduped citations from the AI SDK's own tool-result metadata, if any.
   sources jsonb not null default '[]',
   tone text,
+  include_visual boolean not null default false,
   extra_instructions text,
   draft_title text,
   draft_body text,
@@ -1022,6 +1028,15 @@ create table public.ai_draft_generations (
 );
 
 create index ai_draft_generations_author_id_idx on public.ai_draft_generations (author_id);
+create index ai_draft_generations_created_at_idx on public.ai_draft_generations (created_at desc);
+
+-- Deferred from articles above (ai_draft_generations didn't exist yet at that point). set null,
+-- not cascade — losing the audit row must never delete the member's article.
+alter table public.articles
+  add constraint articles_ai_generation_id_fkey
+  foreign key (ai_generation_id) references public.ai_draft_generations (id) on delete set null;
+
+create index articles_ai_generation_id_idx on public.articles (ai_generation_id);
 
 alter table public.ai_draft_generations enable row level security;
 

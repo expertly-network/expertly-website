@@ -1,6 +1,6 @@
 # Expertly Postman collection
 
-`Expertly.postman_collection.json` covers every route in `apps/backend` (65 requests). Structure
+`Expertly.postman_collection.json` covers every route in `apps/backend` (67 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
@@ -47,7 +47,7 @@ so the whole thing is runnable without the frontend.
    automatically (collection-level auth), so you never paste a token by hand.
 2. Most list endpoints (`GET /categories`, `GET /admin/applications`, `GET /admin/events`, ...)
    return real ids in their response. Copy those into the matching environment variable
-   (`categoryId`, `serviceId`, `applicationId`, `articleId`, `eventId`, `memberId`, `memberSlug`,
+   (`categoryId`, `serviceId`, `applicationId`, `articleId`, `aiGenerationId`, `eventId`, `memberId`, `memberSlug`,
    `consultationId`, `memberEditId`) to drive the detail/update/delete requests instead of the
    placeholder UUIDs they ship with.
 3. Every request body is a realistic, editable mock matching the DTO in

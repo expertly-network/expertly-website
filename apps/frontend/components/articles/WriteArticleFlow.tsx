@@ -62,6 +62,14 @@ export function WriteArticleFlow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ArticleDto | null>(null);
+  // Set once the member takes the AI path to the preview step. A new article saved from here is
+  // created as creationMode 'ai', linked to the generation it came from (admins can then see the
+  // inputs it was generated from).
+  const [usedAi, setUsedAi] = useState(false);
+  const [aiGenerationId, setAiGenerationId] = useState<string | null>(null);
+  const creationFields = usedAi
+    ? { creationMode: 'ai' as const, ...(aiGenerationId ? { aiGenerationId } : {}) }
+    : { creationMode: 'manual' as const };
 
   function updateManual(patch: Partial<ManualArticleFormState>) {
     setManual((prev) => ({ ...prev, ...patch }));
@@ -85,7 +93,7 @@ export function WriteArticleFlow({
         await updateArticle(editArticle.id, payload);
         router.push(`/articles/${editArticle.id}`);
       } else {
-        await createArticle({ ...payload, creationMode: 'manual' });
+        await createArticle({ ...payload, ...creationFields });
         router.push('/articles');
       }
     } catch (err) {
@@ -114,7 +122,7 @@ export function WriteArticleFlow({
         const article = await updateArticle(editArticle.id, isLive ? payload : { ...payload, status: 'published' });
         router.push(`/articles/${article.id}`);
       } else {
-        const article = await createArticle({ ...payload, creationMode: 'manual' });
+        const article = await createArticle({ ...payload, ...creationFields });
         setResult(article);
         setStep('success');
       }
@@ -229,6 +237,8 @@ export function WriteArticleFlow({
                 state: draft.state,
                 coverImageUrl,
               }));
+              setUsedAi(true);
+              setAiGenerationId(draft.generationId);
               setStep('preview');
             }}
           />

@@ -450,7 +450,10 @@ that the member actually answered — blanks are omitted client-side. `followUpQ
 this isn't used in the generation prompt, only recorded in the `ai_draft_generations` audit log
 (see `docs/database-erd.md`) so "asked but skipped" can be told apart from "never asked".
 
-**Response `201`:** `AiDraftArticleResponse` — carries `sources` (URLs the model actually
+**Response `201`:** `AiDraftArticleResponse` — carries `generationId` (added 2026-10-04,
+additive: the id of this attempt's `ai_draft_generations` audit row — send it back as
+`aiGenerationId` on `POST /v1/articles` so the saved article links to what it was generated
+from; never present on `ai-refine`'s response), `sources` (URLs the model actually
 fetched/searched while drafting, `{url, title}[]`, null/empty when none) alongside `title`/`body`,
 plus AI-inferred `serviceIds`/`countries`/`state`. The model is given the real active services
 list (`{id, name}` pairs, fetched fresh for every request — never client-supplied) and the real
@@ -530,6 +533,11 @@ check — "member or admin" fits the ranked model directly.
 - `creationMode` — optional, `'manual' | 'ai'`, purely descriptive of which authoring path
   produced the row (defaults `'manual'`); not an authorization signal, so accepting it directly
   from the client is fine.
+- `aiGenerationId` — optional UUID (added 2026-10-04, additive), the `generationId` from the
+  `ai-draft` response the article was saved from. Must belong to the caller (`400` otherwise); an
+  id with no matching row is tolerated and saved as `null` (the audit insert is fire-and-forget
+  and may have failed — that must never block saving). When set, `creationMode` is forced to
+  `'ai'`. `POST` only — not part of `UpdateArticleRequest`, and `PATCH` never changes the link.
 - `excerpt`, `readTimeMinutes` are never accepted — always server-derived from `body`.
 - `body` must be 800–2000 words (from the design's own "Write it yourself" validation copy) —
   only enforced when the resulting status isn't `'draft'` — checked in `ArticlesService`, not
@@ -576,7 +584,8 @@ admin's `admin_role`).
 past decisions); omit for the default queue (`pending_review`).
 
 **Response `200`:** `AdminArticleListItemDto[]` — lighter than `ArticleDto` (no `body`), newest
-first.
+first. Carries `aiGenerationId: string | null` (added 2026-10-04, additive) — set when the article
+was saved from an AI draft; links to `GET /v1/admin/ai-generations/:id` below.
 
 ### 🛡️ `manageArticles` `PATCH /v1/admin/articles/:id`
 
@@ -589,7 +598,45 @@ required when rejecting.
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not admin or lacks `manageArticles` ·
 `400` article isn't `pending_review`, or rejecting without a reason.
 
+### 🛡️ `manageArticles` `GET /v1/admin/ai-generations`
+
+The admin AI-generations log — one row per `POST /v1/articles/ai-draft` attempt (success or
+failure), read from `ai_draft_generations` (see `docs/database-erd.md`). Read-only. Same guard
+chain as `GET /v1/admin/articles`: `@Roles('admin')` + `@RequiresPermission('manageArticles')`.
+
+**Query params:** `status` (optional, `success | failed`), `authorId` (optional UUID). Anything
+else is rejected (`forbidNonWhitelisted`).
+
+**Response `200`:** `AdminAiGenerationListItemDto[]`, newest first, **capped at the 200 most
+recent** (no pagination yet) — `id`, `authorId`, `authorName`, `status`, `draftTitle` (null when
+failed), `provider`, `model`, `latencyMs`, `errorMessage`, `article` (`{ id, title, status }` of
+the article saved from it via `articles.ai_generation_id`, or `null` if never saved), `createdAt`.
+
+### 🛡️ `manageArticles` `GET /v1/admin/ai-generations/:id`
+
+Full detail of one attempt: everything the member gave the wizard next to what the AI returned.
+Same guard chain as above.
+
+**Response `200`:** `AdminAiGenerationDetailDto` — the list-item fields above, plus:
+- `inputs` — `notes`, `recentDevelopments`, `advice` (step 1); `followUps: { question, answer |
+  null }[]` (every question the AI asked, in order — `answer: null` means the member skipped it);
+  `sourceLinks`; `sourceFiles: { filename, url | null }[]` (`url` is a **10-minute signed URL**
+  into the private `ai-draft-sources` bucket, `null` if the object can't be signed); `includeVisual`,
+  `tone`, `extraInstructions` (step 3).
+- `output` — `title`, `body` (re-sanitized with the article allowlist before returning, since the
+  admin page renders it as HTML), `sources` (citations), `services` (AI-inferred ids resolved to
+  `ArticleService`, unknown ids dropped), `countries`, `state`. All null/empty for a failed attempt.
+
+`output` is the AI's **original** draft. Later `ai-refine` passes and the member's own edits
+before saving aren't logged — compare against the linked `article` for the saved version.
+
+**Errors:** `401` · `403` not admin or lacks `manageArticles` · `400` `id` isn't a UUID · `404`
+not found.
+
 ## Articles — not built yet (explicitly deferred)
+
+- Admin AI-generations log: pagination beyond the 200 most recent, and logging `ai-refine` passes
+  (only the original `ai-draft` output is recorded today).
 
 - Tags, AI-generated summary bullet points, view/like/comment counters — none of these are real
   persisted per-article data (tags are a cosmetic, client-derived suggestion shown during writing,

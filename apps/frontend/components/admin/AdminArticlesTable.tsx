@@ -57,6 +57,14 @@ function AdminArticleRow({
           {article.title}
         </Link>
         <div className="mt-1 text-xs text-ink-3">by {article.authorName}</div>
+        {article.aiGenerationId && (
+          <Link
+            href={`/admin/ai-generations/${article.aiGenerationId}`}
+            className="mt-1.5 inline-block text-xs text-accent underline underline-offset-2 hover:text-ink"
+          >
+            Written with AI — view inputs
+          </Link>
+        )}
       </td>
       <td className="px-6 py-4 text-sm text-ink-2">
         {article.services.map((s) => s.name).join(', ') || '—'}

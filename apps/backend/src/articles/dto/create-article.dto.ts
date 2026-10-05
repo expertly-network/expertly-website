@@ -46,4 +46,9 @@ export class CreateArticleDto {
   @IsOptional()
   @IsIn(CREATION_MODES)
   creationMode?: ArticleCreationMode;
+
+  // The ai-draft response's generationId. Must be one of the caller's own generations.
+  @IsOptional()
+  @IsUUID()
+  aiGenerationId?: string;
 }

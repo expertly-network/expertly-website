@@ -10,7 +10,14 @@ import type {
   MemberProfileEditDto,
 } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
-import type { AdminArticleListItemDto, ArticleDto, ArticleListItemDto } from '@shared/article';
+import type {
+  AdminAiGenerationDetailDto,
+  AdminAiGenerationListItemDto,
+  AdminArticleListItemDto,
+  AiGenerationStatus,
+  ArticleDto,
+  ArticleListItemDto,
+} from '@shared/article';
 import type { EventDto } from '@shared/event';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
 
@@ -259,6 +266,50 @@ export async function getAdminArticlesServer(status?: string): Promise<AdminArti
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(body?.message ?? 'Failed to load articles for review.', res.status);
+  }
+
+  return res.json();
+}
+
+// Admin AI-generations log — newest first, optionally narrowed to one status.
+export async function getAdminAiGenerationsServer(status?: AiGenerationStatus): Promise<AdminAiGenerationListItemDto[]> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/ai-generations${qs}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load AI generations.', res.status);
+  }
+
+  return res.json();
+}
+
+// One AI generation's full inputs + output, or null if signed out or not found.
+export async function getAdminAiGenerationServer(id: string): Promise<AdminAiGenerationDetailDto | null> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/ai-generations/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (res.status === 400 || res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load AI generation.', res.status);
   }
 
   return res.json();
