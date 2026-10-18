@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal } from '@/components/ui';
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
+import { MemberRecommendations } from '@/components/members/tabs/MemberRecommendations';
 import { formatMonthYear, initialsOf } from '@/lib/members/format';
 import type { MemberDto, MemberProfileEditDto, MemberTestimonial } from '@shared/member';
 
@@ -86,20 +87,6 @@ export function ReviewsTab({
   const edit = (section: 'testimonials' | 'awards') => (isOwnProfile ? () => onEdit(section) : undefined);
   const hasTestimonials = member.testimonials.length > 0;
   const hasAwards = member.awards.length > 0;
-
-  if (!hasTestimonials && !hasAwards && !isOwnProfile) {
-    return (
-      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-line">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="var(--ink-4)" strokeWidth="1.6" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <div className="mb-1 text-profile-item font-semibold text-ink">No reviews yet</div>
-        <div className="text-caption text-ink-3">Client testimonials and recognition will appear here.</div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-7">
@@ -204,6 +191,8 @@ export function ReviewsTab({
           )}
         </section>
       )}
+
+      <MemberRecommendations memberId={member.id} memberName={member.name} isOwnProfile={isOwnProfile} />
 
       <Modal open={openTestimonial !== null} onClose={closeModal} title="Client testimonial">
         {openTestimonial && (

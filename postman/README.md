@@ -48,7 +48,7 @@ so the whole thing is runnable without the frontend.
 2. Most list endpoints (`GET /categories`, `GET /admin/applications`, `GET /admin/events`, ...)
    return real ids in their response. Copy those into the matching environment variable
    (`categoryId`, `serviceId`, `applicationId`, `articleId`, `aiGenerationId`, `eventId`, `memberId`, `memberSlug`,
-   `consultationId`, `memberEditId`) to drive the detail/update/delete requests instead of the
+   `consultationId`, `memberEditId`, `recommendationId`) to drive the detail/update/delete requests instead of the
    placeholder UUIDs they ship with.
 3. Every request body is a realistic, editable mock matching the DTO in
    `packages/shared-types/` — edit in place and hit Send.

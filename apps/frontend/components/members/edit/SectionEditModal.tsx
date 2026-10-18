@@ -2,8 +2,12 @@
 
 import { useState } from 'react';
 import { Modal, Input, Textarea, Button } from '@/components/ui';
+import { ImageCropper } from '@/components/ui/ImageCropper';
+import { sortWorkHistory, workHistoryErrors } from '@/lib/members/work-history-check';
 import {
   EMPTY_ROW,
+  KEY_CLIENTS_MAX,
+  VERIFICATION_METHOD_OPTIONS,
   SECTION_CONFIG,
   SECTION_TITLES,
   type FieldSpec,
@@ -19,7 +23,7 @@ type Row = Record<string, unknown>;
 // Sections whose proof is embedded per row (payload[i].proofAttachments) rather than shared
 // across the whole batch via the modal-level proofFileUrl/proofLink fields.
 function hasPerItemProof(config: SectionConfig): boolean {
-  return config.shape === 'list-per-item-proof';
+  return config.shape === 'list-per-item-proof' || config.shape === 'clients';
 }
 
 function rowAttachments(row: Row): ProofAttachment[] {
@@ -47,36 +51,108 @@ function initialPayload(member: MemberDto, section: MemberEditSection): Row | Ro
     case 'contact':
       return {
         contactEmail: member.contactEmail ?? '',
+        workEmail: member.workEmail ?? '',
         contactPhone: member.contactPhone ?? '',
         linkedinUrl: member.linkedinUrl ?? '',
         website: member.website ?? '',
       };
     case 'engagements':
       return member.engagements.length
-        ? member.engagements.map(({ id: _id, ...rest }) => rest)
+        ? member.engagements.map(({ isVerified: _v, clientName, clientEmail, verificationMethodOther, ...rest }) => ({
+            ...rest,
+            clientName: clientName ?? '',
+            clientEmail: clientEmail ?? '',
+            verificationMethodOther: verificationMethodOther ?? '',
+            proofAttachments: rest.proofAttachments ?? [],
+          }))
         : [{ ...EMPTY_ROW.engagements }];
     case 'education':
       return member.educations.length
-        ? member.educations.map(({ id: _id, ...rest }) => rest)
+        ? member.educations.map(({ isVerified: _v, ...rest }) => rest)
         : [{ ...EMPTY_ROW.education }];
     case 'work_experiences':
       return member.workExperiences.length
-        ? member.workExperiences.map(({ id: _id, ...rest }) => rest)
+        ? sortWorkHistory(member.workExperiences.map(({ isVerified: _v, ...rest }) => rest))
         : [{ ...EMPTY_ROW.work_experiences }];
     case 'key_clients':
       // Carried through unchanged unless a new file is uploaded.
       return member.keyClients.length
-        ? member.keyClients.map((c) => ({ name: c.name, logoUrl: c.logoUrl, logoUploadPath: undefined }))
+        ? member.keyClients.map((c) => ({
+            id: c.id,
+            name: c.name,
+            logoUrl: c.logoUrl,
+            logoUploadPath: undefined,
+            proofAttachments: c.proofAttachments ?? [],
+          }))
         : [{ ...EMPTY_ROW.key_clients }];
     case 'testimonials':
       return member.testimonials.length
-        ? member.testimonials.map(({ id: _id, isVerified: _v, ...rest }) => rest)
+        ? member.testimonials.map(({ isVerified: _v, ...rest }) => ({ ...rest, proofAttachments: rest.proofAttachments ?? [] }))
         : [{ ...EMPTY_ROW.testimonials }];
     case 'awards':
       return member.awards.length
-        ? member.awards.map(({ id: _id, ...rest }) => rest)
+        ? member.awards.map(({ isVerified: _v, ...rest }) => ({ ...rest, proofAttachments: rest.proofAttachments ?? [] }))
         : [{ ...EMPTY_ROW.awards }];
   }
+}
+
+// Strips UI-only keys and blank optional values before submit; sorts work history newest-first.
+function cleanPayload(section: MemberEditSection, data: Row | Row[]): Row | Row[] {
+  if (!Array.isArray(data)) return data;
+  const rows = data.map((row) => {
+    const { logoPreview: _p, ...rest } = row;
+    const out: Row = { ...rest };
+    if (section === 'engagements') {
+      if (typeof out.clientEmail === 'string' && !out.clientEmail.trim()) delete out.clientEmail;
+      const methods = Array.isArray(out.verificationMethods) ? (out.verificationMethods as string[]) : [];
+      if (!methods.includes('other') || !String(out.verificationMethodOther ?? '').trim()) {
+        delete out.verificationMethodOther;
+      }
+    }
+    return out;
+  });
+  return section === 'work_experiences' ? sortWorkHistory(rows) : rows;
+}
+
+function VerificationMethods({
+  row,
+  onChange,
+}: {
+  row: Row;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const selected = Array.isArray(row.verificationMethods) ? (row.verificationMethods as string[]) : [];
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="text-xs font-medium text-ink-2">How can this engagement be verified?</legend>
+      <div className="flex flex-col gap-1.5">
+        {VERIFICATION_METHOD_OPTIONS.map((opt) => (
+          <label key={opt.value} className="flex items-center gap-2 text-sm text-ink-2">
+            <input
+              type="checkbox"
+              checked={selected.includes(opt.value)}
+              onChange={(e) =>
+                onChange(
+                  'verificationMethods',
+                  e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value)
+                )
+              }
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+      {selected.includes('other') && (
+        <Input
+          label="Describe the other method"
+          type="text"
+          maxLength={300}
+          value={String(row.verificationMethodOther ?? '')}
+          onChange={(e) => onChange('verificationMethodOther', e.target.value)}
+        />
+      )}
+    </fieldset>
+  );
 }
 
 function Field({
@@ -88,6 +164,7 @@ function Field({
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
+  if (spec.type === 'verification-methods') return null;
   if (spec.type === 'textarea') {
     return (
       <Textarea
@@ -114,6 +191,8 @@ function Field({
         label={spec.label}
         type="number"
         required={spec.required}
+        min={spec.min}
+        max={spec.max}
         value={value === undefined || value === null ? '' : String(value)}
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
       />
@@ -152,6 +231,7 @@ export function SectionEditModal({
   const [uploadingRow, setUploadingRow] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingCrop, setPendingCrop] = useState<{ rowIndex: number; file: File } | null>(null);
 
   // Reset local state whenever a new section is opened.
   const [openedSection, setOpenedSection] = useState<MemberEditSection | null>(null);
@@ -163,6 +243,7 @@ export function SectionEditModal({
     setProofLink('');
     setLinkDrafts({});
     setUploadingRow(null);
+    setPendingCrop(null);
     setError(null);
   }
 
@@ -201,12 +282,13 @@ export function SectionEditModal({
     setData(rows.filter((_, i) => i !== index));
   }
 
-  const proofSatisfied = needsSharedProof
-    ? Boolean(proofFile) || proofLink.trim().length > 0
-    : needsPerItemProof
-      ? (rows ?? []).every((row) => rowAttachments(row).length > 0)
-      : true;
-  const canSubmit = proofSatisfied && hasRequiredFieldsFilled(config, data) && !submitting;
+  // Proof is optional everywhere; without it an admin can still approve the item, just not
+  // with the Verified badge.
+  const dateErrors: Record<number, string> =
+    activeSection === 'work_experiences' && rows ? workHistoryErrors(rows) : {};
+  const hasDateErrors = Object.keys(dateErrors).length > 0;
+  const atCap = rows !== null && rows.length >= (config.maxItems ?? Infinity);
+  const canSubmit = hasRequiredFieldsFilled(config, data) && !hasDateErrors && !submitting;
 
   // Uploads immediately per row, not deferred to submit like proof files.
   async function handleLogoUpload(rowIndex: number, file: File) {
@@ -218,6 +300,7 @@ export function SectionEditModal({
       });
       await uploadToSignedUrl(uploadUrl, file);
       updateField(rowIndex, 'logoUploadPath', path);
+      updateField(rowIndex, 'logoPreview', URL.createObjectURL(file));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Logo upload failed. Please try again.');
     }
@@ -278,9 +361,10 @@ export function SectionEditModal({
         proofFileUrl = path;
       }
 
+      const payload = cleanPayload(section, data as Row | Row[]);
       const body = {
         section,
-        payload: data,
+        payload,
         ...(needsSharedProof
           ? { proofFileUrl, proofLink: proofMode === 'link' ? proofLink.trim() || undefined : undefined }
           : {}),
@@ -301,6 +385,24 @@ export function SectionEditModal({
       <div className="flex flex-col gap-4">
         {rows ? (
           <>
+            {activeSection === 'key_clients' && (
+              <div className="rounded-xl border border-line bg-bg-alt p-3 text-xs text-ink-2">
+                <p className="font-medium text-ink">Before you add key clients</p>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  <li>
+                    We may randomly call or email a client to verify the relationship.
+                  </li>
+                  <li>
+                    You must have worked with the client directly, not a generic client of the
+                    organisation you did the work through.
+                  </li>
+                  <li>
+                    Up to {KEY_CLIENTS_MAX} key clients ({rows.length} of {KEY_CLIENTS_MAX} used). Clients
+                    with proof attached show as Verified.
+                  </li>
+                </ul>
+              </div>
+            )}
             {rows.map((row, i) => (
               <div key={i} className="rounded-xl border border-line p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -318,39 +420,60 @@ export function SectionEditModal({
                   )}
                 </div>
                 <div className="flex flex-col gap-3">
-                  {config.fields.map((spec) => (
-                    <Field
-                      key={spec.key}
-                      spec={spec}
-                      value={row[spec.key]}
-                      onChange={(value) => updateField(i, spec.key, value)}
-                    />
-                  ))}
+                  {config.fields.map((spec) =>
+                    spec.type === 'verification-methods' ? (
+                      <VerificationMethods
+                        key={spec.key}
+                        row={row}
+                        onChange={(key, value) => updateField(i, key, value)}
+                      />
+                    ) : (
+                      <Field
+                        key={spec.key}
+                        spec={spec}
+                        value={row[spec.key]}
+                        onChange={(value) => updateField(i, spec.key, value)}
+                      />
+                    )
+                  )}
+                  {dateErrors[i] && (
+                    <p role="alert" className="text-xs text-error">
+                      {dateErrors[i]}
+                    </p>
+                  )}
                 </div>
                 {config.shape === 'clients' && (
                   <div className="mt-3">
-                    {typeof row.logoUrl === 'string' && !row.logoUploadPath && (
+                    {typeof row.logoPreview === 'string' ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={row.logoUrl} alt="" className="mb-2 h-8 object-contain" />
-                    )}
-                    <label className="text-xs font-medium text-ink-2">Logo</label>
+                      <img src={row.logoPreview} alt="" className="mb-2 h-16 w-16 rounded-input object-cover" />
+                    ) : typeof row.logoUrl === 'string' && !row.logoUploadPath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={row.logoUrl} alt="" className="mb-2 h-16 w-16 rounded-input object-contain" />
+                    ) : null}
+                    <label className="text-xs font-medium text-ink-2">Logo (cropped to a square)</label>
                     <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleLogoUpload(i, file);
+                        if (file) setPendingCrop({ rowIndex: i, file });
+                        e.target.value = '';
                       }}
                       className="mt-1 block text-sm"
                     />
                     {row.logoUploadPath ? (
-                      <p className="mt-1 text-xs text-ok">New logo uploaded.</p>
+                      <p className="mt-1 text-xs text-ok">New logo cropped and uploaded.</p>
                     ) : null}
                   </div>
                 )}
                 {needsPerItemProof && (
                   <div className="mt-3 rounded-xl border border-line p-3">
-                    <p className="text-xs font-medium text-ink-2">Proof for this item</p>
+                    <p className="text-xs font-medium text-ink-2">Proof for this item (optional)</p>
+                    <p className="mt-0.5 text-xs text-ink-3">
+                      Attach proof to be eligible for the Verified badge. Without it, an admin can still
+                      approve this item, but it will not be marked Verified.
+                    </p>
                     {rowAttachments(row).length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1.5">
                         {rowAttachments(row).map((attachment, ai) => (
@@ -410,16 +533,11 @@ export function SectionEditModal({
                         Add link
                       </button>
                     </div>
-                    {rowAttachments(row).length === 0 && (
-                      <p className="mt-2 text-xs text-error">
-                        Please attach at least one file or link as proof for this item.
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
             ))}
-            {rows.length < (config.maxItems ?? Infinity) && (
+            {!atCap && (
               <button
                 type="button"
                 onClick={addRow}
@@ -427,6 +545,11 @@ export function SectionEditModal({
               >
                 + Add another
               </button>
+            )}
+            {atCap && activeSection === 'key_clients' && (
+              <p className="text-xs text-ink-3">
+                You have reached the maximum of {KEY_CLIENTS_MAX} key clients. Remove one to add another.
+              </p>
             )}
           </>
         ) : (
@@ -444,7 +567,11 @@ export function SectionEditModal({
 
         {needsSharedProof && (
           <div className="rounded-xl border border-line p-4">
-            <p className="text-xs font-medium text-ink-2">Proof</p>
+            <p className="text-xs font-medium text-ink-2">Proof (optional)</p>
+            <p className="mt-0.5 text-xs text-ink-3">
+              Proof is needed for the Verified badge. Without it, an admin can still approve the changes
+              but they will not be marked Verified.
+            </p>
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
@@ -477,11 +604,6 @@ export function SectionEditModal({
                 className="mt-3 w-full rounded-input border border-line px-3 py-2 text-sm outline-none focus:border-ink"
               />
             )}
-            {!proofSatisfied && (
-              <p className="mt-2 text-xs text-error">
-                Please attach a file or a link as proof before submitting.
-              </p>
-            )}
           </div>
         )}
 
@@ -495,6 +617,17 @@ export function SectionEditModal({
           {submitting ? 'Submitting…' : 'Submit for review'}
         </Button>
       </div>
+      {pendingCrop && (
+        <ImageCropper
+          file={pendingCrop.file}
+          onCancel={() => setPendingCrop(null)}
+          onConfirm={(cropped) => {
+            const { rowIndex } = pendingCrop;
+            setPendingCrop(null);
+            void handleLogoUpload(rowIndex, cropped);
+          }}
+        />
+      )}
     </Modal>
   );
 }

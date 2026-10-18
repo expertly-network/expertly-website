@@ -829,6 +829,9 @@ create table public.member_profiles (
   availability_notes text,
 
   contact_email citext,
+  -- Optional professional address, separate from contact_email (which is seeded from the
+  -- application / LinkedIn). Shown on the profile contact tab only when set.
+  work_email citext,
   contact_phone text,
   linkedin_url text,
   website text,
@@ -943,8 +946,8 @@ create policy member_services_select_all
 -- sections, it wholesale-replaces the matching jsonb column on member_profiles (a single UPDATE,
 -- assigning each item a fresh application-generated id); for headline_bio/contact, the matching
 -- member_profiles columns are overwritten directly. This is a deliberate whole-section-request
--- workflow (the admin UI approves/rejects one edit request at a time, not per item), confirmed
--- from the actual admin UI. Not built by this migration: the endpoint logic that performs that
+-- workflow (the admin UI reviews one edit request at a time; for array sections the admin decides per
+-- item — see item_reviews below — and only accepted items reach the live column). Not built by this migration: the endpoint logic that performs that
 -- replace-on-approval — see apps/backend/src/members/.
 --
 -- `member_id` references member_profiles(profile_id), not member_profiles(id) — so it holds the
@@ -962,6 +965,12 @@ create table public.member_profile_edits (
   proof_link text,
   status public.member_edit_status not null default 'pending',
   review_note text,
+  -- Per-item decisions for the array-shaped sections (null for headline_bio/contact and for
+  -- edits reviewed whole): [{ index, decision: 'approved_verified'|'approved_hygiene'|'rejected',
+  -- reason }]. `index` points into this row's (immutable) payload. Accepted items are applied to
+  -- the live profile (approved_verified -> isVerified=true, approved_hygiene -> false); rejected
+  -- items are dropped and their reason is what the member sees.
+  item_reviews jsonb check (item_reviews is null or jsonb_typeof(item_reviews) = 'array'),
   reviewed_by uuid references public.profiles (id),
   reviewed_at timestamptz,
   submitted_at timestamptz not null default now(),
@@ -983,6 +992,43 @@ alter table public.member_profile_edits enable row level security;
 create policy member_profile_edits_select_own
   on public.member_profile_edits for select
   using (auth.uid() = member_id);
+
+-- ============================================================================
+-- member_recommendations — a peer recommendation one active member writes for another. Published
+-- immediately (no moderation); the recommended member can hide/unhide it (is_hidden) but not edit
+-- or delete it. One recommendation per (author, recipient) pair. Author != recipient is enforced
+-- here too, not just in the API.
+-- ============================================================================
+create table public.member_recommendations (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.member_profiles (profile_id) on delete cascade,
+  recipient_id uuid not null references public.member_profiles (profile_id) on delete cascade,
+  body text not null check (char_length(body) between 10 and 2000),
+  is_hidden boolean not null default false,
+  hidden_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint member_recommendations_not_self check (author_id <> recipient_id),
+  constraint member_recommendations_unique_pair unique (author_id, recipient_id)
+);
+
+create index member_recommendations_recipient_id_idx on public.member_recommendations (recipient_id);
+
+create trigger set_member_recommendations_updated_at
+  before update on public.member_recommendations
+  for each row execute function public.set_updated_at();
+
+alter table public.member_recommendations enable row level security;
+
+-- Defense-in-depth only (service-role backend bypasses): visible ones are public information,
+-- hidden ones only to the recipient.
+create policy member_recommendations_select_visible
+  on public.member_recommendations for select
+  using (is_hidden = false);
+
+create policy member_recommendations_select_recipient
+  on public.member_recommendations for select
+  using (auth.uid() = recipient_id);
 
 -- ============================================================================
 -- AI draft generations — a write-once audit row per completed POST /v1/articles/ai-draft attempt

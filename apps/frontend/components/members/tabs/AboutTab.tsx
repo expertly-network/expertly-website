@@ -1,24 +1,7 @@
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
-import type { MemberDto, MemberKeyClient, MemberProfileEditDto } from '@shared/member';
-
-// Cycled by index, same palette design/static_html/member-profile.html uses for a Key Client's
-// fallback initial-letter icon when it has no logoUrl.
-const CLIENT_ICON_COLORS = [
-  '#0A66C2', '#F97316', '#16A34A', '#7C3AED', '#DC2626', '#0891B2', '#B45309', '#1D4ED8', '#9333EA', '#059669',
-];
-
-// Enough cards per half-strip to overflow the widest content column, so a member with only 1–3
-// clients still gets a continuous marquee instead of a short row that visibly jumps back.
-const MIN_CARDS_PER_LOOP = 8;
-
-function marqueeCards(clients: MemberKeyClient[]): { client: MemberKeyClient; colorIndex: number }[] {
-  const indexed = clients.map((client, colorIndex) => ({ client, colorIndex }));
-  let half = indexed;
-  while (half.length < MIN_CARDS_PER_LOOP) half = [...half, ...indexed];
-  // Rendered twice back to back so the marquee's translateX(-50%) loops seamlessly.
-  return [...half, ...half];
-}
+import { KeyClientsRows } from '@/components/members/KeyClientsRows';
+import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
 export function AboutTab({
   member,
@@ -127,43 +110,7 @@ export function AboutTab({
               onEdit={edit('key_clients')}
             />
           ) : (
-            // `.mp-clients-outer` / `.mp-clients-grid` — auto-scrolling marquee, pauses on hover.
-            <div
-              className="group relative overflow-hidden"
-              style={{
-                maskImage: 'linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%)',
-              }}
-            >
-              <ul
-                aria-label="Key clients"
-                className="flex w-max animate-marquee gap-2.5 group-hover:[animation-play-state:paused] motion-reduce:animate-none"
-              >
-                {marqueeCards(member.keyClients).map(({ client, colorIndex }, i) => (
-                  <li
-                    key={`${client.id}-${i}`}
-                    // Only the first copy of each client is announced to screen readers.
-                    aria-hidden={i >= member.keyClients.length ? true : undefined}
-                    className="flex min-w-[160px] flex-none items-center gap-3 rounded-panel border border-[#e4ede9] bg-bg-card py-2.5 pl-2.5 pr-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-shadow hover:border-line-2 hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)]"
-                  >
-                    {client.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={client.logoUrl} alt="" className="h-11 w-11 flex-none rounded-[11px] object-cover" />
-                    ) : (
-                      <span
-                        className="flex h-11 w-11 flex-none items-center justify-center rounded-[11px] font-mono text-lg font-extrabold text-bg-card"
-                        style={{ background: CLIENT_ICON_COLORS[colorIndex % CLIENT_ICON_COLORS.length] }}
-                      >
-                        {client.name.charAt(0)}
-                      </span>
-                    )}
-                    <span className="whitespace-nowrap text-[15px] font-semibold leading-[1.25] text-ink">
-                      {client.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <KeyClientsRows clients={member.keyClients} />
           )}
         </section>
       )}

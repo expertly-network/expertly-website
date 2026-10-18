@@ -26,10 +26,15 @@ export class MemberWorkExperience {
   @ApiProperty() id!: string;
   @ApiProperty() title!: string;
   @ApiProperty() company!: string;
+  /** 1-12, optional. */
+  @ApiProperty({ nullable: true, type: Number }) startMonth!: number | null;
   @ApiProperty() startYear!: number;
+  @ApiProperty({ nullable: true, type: Number }) endMonth!: number | null;
   @ApiProperty({ nullable: true, type: Number }) endYear!: number | null;
   @ApiProperty() isCurrent!: boolean;
   @ApiProperty({ nullable: true, type: String }) description!: string | null;
+  /** Set by the admin's per-item review ('approved_verified'); drives the Verified badge. */
+  @ApiProperty() isVerified!: boolean;
 }
 
 export class MemberEducation {
@@ -38,14 +43,33 @@ export class MemberEducation {
   @ApiProperty() institution!: string;
   @ApiProperty({ nullable: true, type: String }) field!: string | null;
   @ApiProperty({ nullable: true, type: Number }) endYear!: number | null;
+  @ApiProperty() isVerified!: boolean;
 }
+
+const ENGAGEMENT_VERIFICATION_METHODS = [
+  'engagement_letter',
+  'client_deliverable',
+  'mail_confirmation_pdf',
+  'newsletter_transaction_update',
+  'other',
+] as const;
+export type EngagementVerificationMethod = (typeof ENGAGEMENT_VERIFICATION_METHODS)[number];
 
 export class MemberEngagement {
   @ApiProperty() id!: string;
   @ApiProperty() title!: string;
   @ApiProperty() organization!: string;
+  /** Required when submitting; null only on legacy/seeded items that predate the field. */
+  @ApiProperty({ nullable: true, type: String }) clientName!: string | null;
+  @ApiProperty({ nullable: true, type: String }) clientEmail!: string | null;
+  @ApiProperty({ enum: ENGAGEMENT_VERIFICATION_METHODS, isArray: true }) verificationMethods!: EngagementVerificationMethod[];
+  /** Free-text description of the method; only meaningful when verificationMethods includes 'other'. */
+  @ApiProperty({ nullable: true, type: String }) verificationMethodOther!: string | null;
   @ApiProperty({ nullable: true, type: Number }) year!: number | null;
   @ApiProperty({ nullable: true, type: String }) url!: string | null;
+  @ApiProperty() isVerified!: boolean;
+  /** Present only for the owning member and admins (private proof); omitted for other viewers. */
+  @ApiPropertyOptional({ type: () => ProofAttachment, isArray: true }) proofAttachments?: ProofAttachment[];
 }
 
 export class MemberQualification {
@@ -71,6 +95,8 @@ export class MemberTestimonial {
   @ApiProperty({ nullable: true, type: String }) serviceName!: string | null;
   @ApiProperty({ nullable: true, type: String }) occurredOn!: string | null;
   @ApiProperty() isVerified!: boolean;
+  /** Owner/admin only. */
+  @ApiPropertyOptional({ type: () => ProofAttachment, isArray: true }) proofAttachments?: ProofAttachment[];
 }
 
 export class MemberAward {
@@ -79,12 +105,20 @@ export class MemberAward {
   @ApiProperty({ nullable: true, type: String }) issuingBody!: string | null;
   @ApiProperty({ nullable: true, type: Number }) year!: number | null;
   @ApiProperty({ nullable: true, type: String }) description!: string | null;
+  @ApiProperty() isVerified!: boolean;
+  /** Owner/admin only. */
+  @ApiPropertyOptional({ type: () => ProofAttachment, isArray: true }) proofAttachments?: ProofAttachment[];
 }
 
+/** Max key clients per member (20), enforced on submission by the backend. */
 export class MemberKeyClient {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
   @ApiProperty({ nullable: true, type: String }) logoUrl!: string | null;
+  /** Verified row vs unverified row on the profile. */
+  @ApiProperty() isVerified!: boolean;
+  /** Owner/admin only. */
+  @ApiPropertyOptional({ type: () => ProofAttachment, isArray: true }) proofAttachments?: ProofAttachment[];
 }
 
 // GET /v1/members list-view shape. No child arrays, no self-edit state.
@@ -116,6 +150,8 @@ export class MemberDto extends MemberListItemDto {
   @ApiProperty({ nullable: true, type: String }) availabilityNotes!: string | null;
   @ApiProperty() isAvailable!: boolean;
   @ApiProperty({ nullable: true, type: String }) contactEmail!: string | null;
+  /** Optional professional address, separate from contactEmail. Show on the contact tab only when set. */
+  @ApiProperty({ nullable: true, type: String }) workEmail!: string | null;
   @ApiProperty({ nullable: true, type: String }) contactPhone!: string | null;
   @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) website!: string | null;
@@ -175,6 +211,7 @@ export class HeadlineBioEditPayload {
 
 export class ContactEditPayload {
   @ApiProperty({ nullable: true, type: String }) contactEmail!: string | null;
+  @ApiProperty({ nullable: true, type: String }) workEmail!: string | null;
   @ApiProperty({ nullable: true, type: String }) contactPhone!: string | null;
   @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) website!: string | null;
@@ -192,14 +229,34 @@ export class ProofAttachment {
 
 // Proof/asset lives per-item for these sections, embedded in each array element — a member can
 // attach any mix of multiple files and links to a single item.
-export type EngagementsEditPayload = (Omit<MemberEngagement, 'id'> & { proofAttachments?: ProofAttachment[] })[];
-export type TestimonialsEditPayload = (Omit<MemberTestimonial, 'id' | 'isVerified'> & { proofAttachments?: ProofAttachment[] })[];
-export type AwardsEditPayload = (Omit<MemberAward, 'id'> & { proofAttachments?: ProofAttachment[] })[];
-export type KeyClientsEditPayload = (Omit<MemberKeyClient, 'id'> & { logoUploadPath?: string })[];
+//
+// Every item may carry `id` — the live item's id when the member is editing an existing item
+// (keeps the id stable, and lets a rejected change fall back to the live version). Omit `id` for
+// a brand-new item. `isVerified` is server-owned and never accepted from the client. Proof is
+// OPTIONAL everywhere; without it an admin can still approve the item, just not as verified.
+export type EditItem<T> = Omit<T, 'id' | 'isVerified' | 'proofAttachments'> & {
+  id?: string;
+  proofAttachments?: ProofAttachment[];
+};
+export type EngagementsEditPayload = (Omit<EditItem<MemberEngagement>, 'clientName' | 'clientEmail' | 'verificationMethods' | 'verificationMethodOther'> & {
+  clientName: string;
+  clientEmail?: string | null;
+  verificationMethods?: EngagementVerificationMethod[];
+  verificationMethodOther?: string | null;
+})[];
+export type TestimonialsEditPayload = EditItem<MemberTestimonial>[];
+export type AwardsEditPayload = EditItem<MemberAward>[];
+/** At most 20 items. */
+export type KeyClientsEditPayload = (EditItem<MemberKeyClient> & { logoUploadPath?: string })[];
 
-// education / work_experiences: one shared proof for the whole batch, not per item.
-export type EducationEditPayload = Omit<MemberEducation, 'id'>[];
-export type WorkExperiencesEditPayload = Omit<MemberWorkExperience, 'id'>[];
+// education / work_experiences: one shared proof for the whole batch (edit-level proofFileUrl /
+// proofLink), not per item. Work history must not overlap and is stored newest-first.
+export type EducationEditPayload = (Omit<MemberEducation, 'id' | 'isVerified'> & { id?: string })[];
+export type WorkExperiencesEditPayload = (Omit<MemberWorkExperience, 'id' | 'isVerified' | 'startMonth' | 'endMonth'> & {
+  id?: string;
+  startMonth?: number | null;
+  endMonth?: number | null;
+})[];
 
 export type MemberEditPayload =
   | { section: 'headline_bio'; payload: HeadlineBioEditPayload }
@@ -243,15 +300,77 @@ export class MemberProfileEditDto {
   @ApiProperty({ nullable: true, type: String }) proofLink!: string | null;
   @ApiProperty({ enum: ['pending', 'verified', 'rejected'] }) status!: MemberEditStatus;
   @ApiProperty({ nullable: true, type: String }) reviewNote!: string | null;
+  /** Per-item decisions (array sections only); null if the edit was reviewed whole or is pending. */
+  @ApiProperty({ nullable: true, type: () => MemberEditItemReview, isArray: true }) itemReviews!: MemberEditItemReview[] | null;
   @ApiProperty({ nullable: true, type: String }) reviewedBy!: string | null;
   @ApiProperty({ nullable: true, type: String }) reviewedAt!: string | null;
   @ApiProperty() submittedAt!: string;
 }
 
+/**
+ * Per-item admin decision.
+ *  - approved_verified: applied, goes live WITH the Verified badge. The item must have proof
+ *    (item.proofAttachments, or for education/work_experiences the edit-level proofFileUrl/proofLink).
+ *  - approved_hygiene: applied, goes live WITHOUT the badge. `reason` required, shown to the member.
+ *  - rejected: not applied (the live version of that item, if any, stays). `reason` required.
+ */
+const MEMBER_EDIT_ITEM_DECISIONS = ['approved_verified', 'approved_hygiene', 'rejected'] as const;
+export type MemberEditItemDecision = (typeof MEMBER_EDIT_ITEM_DECISIONS)[number];
+
+export class MemberEditItemReview {
+  /** Index into the edit's payload array. */
+  @ApiProperty() index!: number;
+  @ApiProperty({ enum: MEMBER_EDIT_ITEM_DECISIONS }) decision!: MemberEditItemDecision;
+  @ApiProperty({ nullable: true, type: String }) reason!: string | null;
+}
+
+export class ReviewMemberEditItemRequest {
+  @ApiProperty() index!: number;
+  @ApiProperty({ enum: MEMBER_EDIT_ITEM_DECISIONS }) decision!: MemberEditItemDecision;
+  /** Required for approved_hygiene and rejected. */
+  @ApiPropertyOptional() reason?: string;
+}
+
+/**
+ * PATCH /v1/admin/member-edits/:id. Two modes:
+ *  - whole-edit (headline_bio, contact, or legacy): { status, reviewNote? } — reviewNote required for 'rejected'.
+ *  - per-item (array sections): { items: [...] } covering EVERY payload index exactly once; `status`
+ *    is derived (verified if any item accepted, else rejected) and may be omitted. `reviewNote` optional.
+ */
 export class ReviewMemberEditRequest {
-  @ApiProperty({ enum: ['verified', 'rejected'] }) status!: 'verified' | 'rejected';
-  /** Required when status is 'rejected' — shown to the member as the reason. */
+  @ApiPropertyOptional({ enum: ['verified', 'rejected'] }) status?: 'verified' | 'rejected';
   @ApiPropertyOptional() reviewNote?: string;
+  @ApiPropertyOptional({ type: () => ReviewMemberEditItemRequest, isArray: true }) items?: ReviewMemberEditItemRequest[];
+}
+
+// ---- Member recommendations (Reviews & Recognition tab) ----
+
+export class MemberRecommendationAuthor {
+  @ApiProperty() id!: string;
+  @ApiProperty() slug!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() initials!: string;
+  @ApiProperty({ nullable: true, type: String }) photoUrl!: string | null;
+}
+
+export class MemberRecommendationDto {
+  @ApiProperty() id!: string;
+  /** The recommended member's profile id. */
+  @ApiProperty() recipientId!: string;
+  @ApiProperty({ type: () => MemberRecommendationAuthor }) author!: MemberRecommendationAuthor;
+  @ApiProperty() body!: string;
+  /** Hidden by the recipient. Hidden ones are only returned to the recipient (and admins). */
+  @ApiProperty() isHidden!: boolean;
+  @ApiProperty() createdAt!: string;
+}
+
+export class CreateRecommendationRequest {
+  /** 10-2000 characters, plain text. */
+  @ApiProperty() body!: string;
+}
+
+export class UpdateRecommendationRequest {
+  @ApiProperty() isHidden!: boolean;
 }
 
 /** `status` query param of GET /v1/admin/member-edits. */

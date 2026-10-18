@@ -328,6 +328,9 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
               {member.contactEmail && (
                 <ContactLine label="Email" value={member.contactEmail} href={`mailto:${member.contactEmail}`} />
               )}
+              {member.workEmail && (
+                <ContactLine label="Work email" value={member.workEmail} href={`mailto:${member.workEmail}`} />
+              )}
               {member.contactPhone && (
                 <ContactLine
                   label="Phone"
@@ -380,6 +383,7 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
                 {member.keyClients.map((client) => (
                   <Text key={client.id} style={s.client}>
                     {client.name}
+                    {client.isVerified ? '  ·  Verified' : ''}
                   </Text>
                 ))}
               </View>

@@ -229,6 +229,25 @@ net. Unlike the write path, *reading* an article's services back deliberately do
 by `is_active` — an already-published article should keep showing the real name of a service even
 if it's since been deactivated.
 
+### `member_recommendations` (2026-10-10)
+
+A peer recommendation one active member writes for another (Reviews & Recognition tab). Published
+immediately, no moderation.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `author_id` | uuid FK → `member_profiles.profile_id`, cascade | |
+| `recipient_id` | uuid FK → `member_profiles.profile_id`, cascade | |
+| `body` | text, check length 10–2000 | plain text |
+| `is_hidden` | bool, default `false` | toggled only by the recipient |
+| `hidden_at` | timestamptz, nullable | |
+| `created_at`, `updated_at` | timestamptz | |
+
+Constraints: `author_id <> recipient_id`; unique `(author_id, recipient_id)` (one recommendation per
+pair). RLS: visible rows public, hidden rows to the recipient only (defense-in-depth; the backend
+enforces access).
+
 ### Design decisions — divergences from the static prototype
 
 These are deliberate product decisions made explicitly with the person who commissioned this
@@ -464,6 +483,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `is_available` | bool, default `true` | |
 | `availability_notes` | text, nullable | |
 | `contact_email`, `contact_phone`, `linkedin_url`, `website` | nullable | editable via the `contact` self-edit section |
+| `work_email` | citext, nullable | Optional professional address, separate from `contact_email` (application / LinkedIn-sourced). Editable via the `contact` section; shown on the profile contact tab only when set. |
 | `is_verified` | bool, default `false` | the overall "Expertly Verified" badge — distinct from the per-item `is_verified` flags on credentials/testimonials |
 | `photo_path` | text, nullable | Same convention as `membership_applications.photo_path`: a Storage path within the (public) `application-assets` bucket, copied verbatim from the source application's `photo_path` on approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL. Resolved to a plain, permanent URL at read time (`MembersService`/`ArticlesRepository`) — **never a signed URL**, since this column is read back directly with no read-time refresh. (An earlier version of this column, named `photo_url`, held a baked-in 1-hour signed URL that went dead an hour after approval — that was the original bug this design fixes.) |
 | `status` | enum `active`\|`deactivated` | admin-controlled; deactivating does not delete the row |
@@ -526,14 +546,16 @@ no DB-generated id the way a real table's `uuid` PK would provide.
 
 | Column | Item shape | Notes |
 |---|---|---|
-| `work_experiences` | `title`, `company`, `startYear`, `endYear`, `isCurrent`, `description` | |
-| `educations` | `degree`, `institution`, `field`, `endYear` | |
-| `engagements` | `title`, `organization`, `year`, `url` | |
+| `work_experiences` | `title`, `company`, `startMonth?`, `startYear`, `endMonth?`, `endYear`, `isCurrent`, `description`, `isVerified` | Stored newest-first; date ranges must not overlap (a current role counts as ending today; touching at a boundary month is allowed; a missing month counts as January) — enforced server-side on application save and on self-edit submit/approval. |
+| `educations` | `degree`, `institution`, `field`, `endYear`, `isVerified` | |
+| `engagements` | `title`, `organization`, `clientName` (required on submit), `clientEmail?`, `verificationMethods[]` (`engagement_letter`\|`client_deliverable`\|`mail_confirmation_pdf`\|`newsletter_transaction_update`\|`other`), `verificationMethodOther?`, `year`, `url`, `isVerified`, `proofAttachments[]` | `clientName` is null only on legacy/seeded rows |
 | `qualifications` | `name`, `year` | **confirmed distinct from `credentials`** — no issuing body, no verification flag |
 | `credentials` | `name`, `issuingBody`, `year`, `isVerified` | per-item verification flag lives inside the jsonb object — no per-item admin query/index need today, only ever read back as part of the whole profile |
 | `testimonials` | `quote`, `clientName`, `clientTitle`, `clientCompany`, `serviceName`, `occurredOn` (ISO date string), `isVerified` | `occurredOn` is a real date, not the prototype's free-text `"March 2026"` — format at render time. No `rating`/star field — confirmed absent from every seeded testimonial; don't confuse with the unrelated Peer Connect post-meeting rating. |
-| `awards` | `title`, `issuingBody`, `year`, `description` | |
-| `keyClients` (`key_clients` column) | `name`, `logoUrl` | reconciles the two logo sources noted above into one field |
+| `awards` | `title`, `issuingBody`, `year`, `description`, `isVerified`, `proofAttachments[]` | |
+| `keyClients` (`key_clients` column) | `name`, `logoUrl`, `isVerified`, `proofAttachments[]` | reconciles the two logo sources noted above into one field. Max 20 per member. |
+
+**Per-item `isVerified` (2026-10-10).** Every list section's items carry `isVerified` (set by the admin's per-item decision: `approved_verified` = true, `approved_hygiene` = false; application-derived work history/education are true). **`proofAttachments` now persist on live items** (engagements, testimonials, awards, key_clients) so a post-approval edit can prefill them; they are exposed by `GET /v1/members/:slug` only to the owner and admins, never to other viewers. Items edited by the member keep their `id` (the payload may carry the live `id`).
 
 `qualifications` and `credentials` have no self-edit or admin-write endpoint yet (not in
 `MemberEditSection`, not in `UpdateAdminMemberDto`) — that gap predates this change and carries
@@ -554,6 +576,7 @@ table — a legitimate simplification, not a shortcut being flagged.
 | `proof_file_url`, `proof_link` | text, nullable | only used for the `education`/`work_experiences` batch-proof case (see below) |
 | `status` | enum `pending`\|`verified`\|`rejected` | |
 | `review_note` | text, nullable | |
+| `item_reviews` | jsonb, nullable | Per-item admin decisions for array sections: `[{ index, decision: 'approved_verified'\|'approved_hygiene'\|'rejected', reason }]` (`index` into the immutable `payload`). Null for `headline_bio`/`contact`, whole-edit reviews, and pending rows. |
 | `reviewed_by` | FK → `profiles.id`, nullable | |
 | `reviewed_at` | timestamptz, nullable | |
 | `submitted_at`, `created_at`, `updated_at` | timestamptz | |
@@ -586,11 +609,13 @@ itself). `proofAttachments` is stripped out when an approved edit is written int
 `member_profiles` column (see below) — it's moderation evidence, never part of the public profile.
 
 On approval, `payload` becomes the live value for that member+section: for the array-shaped
-sections, the matching `jsonb` column on `member_profiles` is overwritten wholesale (a single
-`UPDATE`, each item assigned a fresh application-generated `id`); for `headline_bio`/`contact`, the
+sections, the matching `jsonb` column on `member_profiles` is rebuilt in a single `UPDATE` from the
+payload **per item** (2026-10-10): accepted items are written (id kept if the payload item carried a live `id`, else freshly generated; `isVerified` per decision), a rejected item falls back to its live version (or is dropped if it was new), live items the member left out are removed, and if every item is rejected the live column is untouched; for `headline_bio`/`contact`, the
 matching `member_profiles` columns are overwritten directly. This is a deliberate whole-section-
-request workflow (the admin UI approves/rejects one edit request at a time, not per item) — keep it
+request workflow (the admin reviews one edit request at a time, deciding per item for array sections) — keep it
 as-is, it's not a prototype shortcut.
+
+**Proof is optional for members everywhere (2026-10-10).** No submission is rejected for missing proof. Proof only gates the *verified* outcome: the admin can approve an item `approved_verified` only if it has proof (item `proofAttachments`, or for `education`/`work_experiences` the edit-level `proof_file_url`/`proof_link`).
 
 **A real shortcut, flagged rather than reproduced:** the prototype's self-edit UI collapses every
 array item down to one free-text line on save (`parseRowText`, `member-profile.html:2345-2355` —

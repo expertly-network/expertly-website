@@ -5,6 +5,7 @@ import type { ApplicationRegion, MembershipTier } from '@shared/membership-appli
 import type {
   MemberAward,
   MemberCredential,
+  MemberEditItemDecision,
   MemberEditSection,
   MemberEditStatus,
   MemberEducation,
@@ -38,6 +39,7 @@ const MEMBER_PROFILE_COLUMNS = [
   'is_available',
   'availability_notes',
   'contact_email',
+  'work_email',
   'contact_phone',
   'linkedin_url',
   'website',
@@ -70,6 +72,7 @@ const MEMBER_PROFILE_EDIT_COLUMNS = [
   'proof_link',
   'status',
   'review_note',
+  'item_reviews',
   'reviewed_by',
   'reviewed_at',
   'submitted_at',
@@ -96,6 +99,7 @@ export interface MemberProfileRow {
   is_available: boolean;
   availability_notes: string | null;
   contact_email: string | null;
+  work_email: string | null;
   contact_phone: string | null;
   linkedin_url: string | null;
   website: string | null;
@@ -129,6 +133,7 @@ export interface MemberProfileEditRow {
   proof_link: string | null;
   status: MemberEditStatus;
   review_note: string | null;
+  item_reviews: { index: number; decision: MemberEditItemDecision; reason: string | null }[] | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   submitted_at: string;
@@ -410,11 +415,18 @@ export class MembersRepository {
 
   async applyContactEdit(
     memberId: string,
-    contact: { contactEmail: string | null; contactPhone: string | null; linkedinUrl: string | null; website: string | null }
+    contact: {
+      contactEmail: string | null;
+      workEmail: string | null;
+      contactPhone: string | null;
+      linkedinUrl: string | null;
+      website: string | null;
+    }
   ): Promise<void> {
     const { error } = await this.memberProfiles()
       .update({
         contact_email: contact.contactEmail,
+        work_email: contact.workEmail,
         contact_phone: contact.contactPhone,
         linkedin_url: contact.linkedinUrl,
         website: contact.website,

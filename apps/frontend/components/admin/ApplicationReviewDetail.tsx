@@ -47,8 +47,77 @@ function todayIsoDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-export function ApplicationReviewDetail({ application }: { application: ApplicationDto }) {
+type ListEntry = { title: string; detail?: string };
+
+function locationOf(a: ApplicationDto): string {
+  return (
+    [
+      [a.city, a.state, a.country].filter(Boolean).join(', '),
+      REGIONS.find((r) => r.value === a.region)?.label ?? a.region,
+    ]
+      .filter(Boolean)
+      .join(' · ') || '—'
+  );
+}
+
+function phoneOf(a: ApplicationDto): string {
+  return a.phone ? `${a.phoneCountryCode ?? ''} ${a.phone}` : '—';
+}
+
+function rateOf(a: ApplicationDto): string {
+  return a.rateMinCents != null && a.rateMaxCents != null
+    ? `${formatCents(a.rateMinCents)} – ${formatCents(a.rateMaxCents)} / hour`
+    : '—';
+}
+
+function workEntries(a: ApplicationDto): ListEntry[] {
+  return a.workExperiences.map((w) => ({
+    title: `${w.title} at ${w.company}`,
+    detail: [w.city, formatDateRange(w.startMonth, w.startYear, w.isCurrent, w.endMonth, w.endYear)]
+      .filter(Boolean)
+      .join(' · '),
+  }));
+}
+
+function educationEntries(a: ApplicationDto): ListEntry[] {
+  return a.educations.map((e) => ({
+    title: e.fieldOfStudy ? `${e.degree} in ${e.fieldOfStudy}` : e.degree,
+    detail: [e.institution, e.startYear || e.endYear ? `${e.startYear ?? '—'} – ${e.endYear ?? '—'}` : undefined]
+      .filter(Boolean)
+      .join(' · '),
+  }));
+}
+
+function serviceEntries(a: ApplicationDto): ListEntry[] {
+  return [...a.servicePreferences]
+    .sort((x, y) => x.priority - y.priority)
+    .map((p) => ({
+      title: p.customLabel ? `${p.serviceName} (${p.customLabel})` : p.serviceName,
+      detail: PRIORITY_LABEL[p.priority],
+    }));
+}
+
+function referenceEntries(a: ApplicationDto): ListEntry[] {
+  return a.peerReferences.map((r) => ({
+    title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
+    detail: [r.email, r.phone].filter(Boolean).join(' · '),
+  }));
+}
+
+/**
+ * `previous` is an optional earlier version of the same application (e.g. before a resubmission).
+ * When supplied, every field that differs is highlighted in red (old struck through, new shown).
+ * The current API exposes no prior snapshot, so callers omit it today and nothing is highlighted.
+ */
+export function ApplicationReviewDetail({
+  application,
+  previous = null,
+}: {
+  application: ApplicationDto;
+  previous?: ApplicationDto | null;
+}) {
   const router = useRouter();
+  const prev = previous;
   const sortedPreferences = [...application.servicePreferences].sort((a, b) => a.priority - b.priority);
 
   const [rejecting, setRejecting] = useState(false);
@@ -120,65 +189,43 @@ export function ApplicationReviewDetail({ application }: { application: Applicat
               <div className="mt-1 text-xs text-ink-3">{application.contactEmail}</div>
             </div>
           </div>
-          <ReviewRow label="Phone" value={application.phone ? `${application.phoneCountryCode ?? ''} ${application.phone}` : '—'} />
+          <ReviewRow label="Phone" value={phoneOf(application)} previous={prev ? phoneOf(prev) : undefined} />
+          <ReviewRow label="Location" value={locationOf(application)} previous={prev ? locationOf(prev) : undefined} />
           <ReviewRow
-            label="Location"
-            value={[
-              [application.city, application.state, application.country].filter(Boolean).join(', '),
-              REGIONS.find((r) => r.value === application.region)?.label ?? application.region,
-            ]
-              .filter(Boolean)
-              .join(' · ') || '—'}
+            label="LinkedIn"
+            value={application.linkedinUrl ?? '—'}
+            href={application.linkedinUrl ?? undefined}
+            previous={prev ? (prev.linkedinUrl ?? '—') : undefined}
           />
-          <ReviewRow label="LinkedIn" value={application.linkedinUrl ?? '—'} href={application.linkedinUrl ?? undefined} />
-          <ReviewRow label="Bio" value={application.bio ?? '—'} multiline />
+          <ReviewRow label="Bio" value={application.bio ?? '—'} multiline previous={prev ? (prev.bio ?? '—') : undefined} />
           <ReviewRow
             label="Experience"
             value={application.yearsOfExperience != null ? `${application.yearsOfExperience} years` : '—'}
+            previous={prev ? (prev.yearsOfExperience != null ? `${prev.yearsOfExperience} years` : '—') : undefined}
           />
           <ReviewListRow
             label="Work history"
-            items={application.workExperiences.map((w) => ({
-              title: `${w.title} at ${w.company}`,
-              detail: [
-                w.city,
-                formatDateRange(w.startMonth, w.startYear, w.isCurrent, w.endMonth, w.endYear),
-              ]
-                .filter(Boolean)
-                .join(' · '),
+            items={application.workExperiences.map((w, idx) => ({
+              ...workEntries(application)[idx],
               link: w.companyUrl ? { href: w.companyUrl, label: 'Company site' } : undefined,
             }))}
+            previousItems={prev ? workEntries(prev) : null}
           />
           <ReviewListRow
             label="Education"
-            items={application.educations.map((e) => ({
-              title: e.fieldOfStudy ? `${e.degree} in ${e.fieldOfStudy}` : e.degree,
-              detail: [e.institution, e.startYear || e.endYear ? `${e.startYear ?? '—'} – ${e.endYear ?? '—'}` : undefined]
-                .filter(Boolean)
-                .join(' · '),
-            }))}
+            items={educationEntries(application)}
+            previousItems={prev ? educationEntries(prev) : null}
           />
           <ReviewListRow
             label="Services"
-            items={sortedPreferences.map((p) => ({
-              title: p.customLabel ? `${p.serviceName} (${p.customLabel})` : p.serviceName,
-              detail: PRIORITY_LABEL[p.priority],
-            }))}
+            items={serviceEntries(application)}
+            previousItems={prev ? serviceEntries(prev) : null}
           />
-          <ReviewRow
-            label="Rate"
-            value={
-              application.rateMinCents != null && application.rateMaxCents != null
-                ? `${formatCents(application.rateMinCents)} – ${formatCents(application.rateMaxCents)} / hour`
-                : '—'
-            }
-          />
+          <ReviewRow label="Rate" value={rateOf(application)} previous={prev ? rateOf(prev) : undefined} />
           <ReviewListRow
             label="Peer references"
-            items={application.peerReferences.map((r) => ({
-              title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
-              detail: [r.email, r.phone].filter(Boolean).join(' · '),
-            }))}
+            items={referenceEntries(application)}
+            previousItems={prev ? referenceEntries(prev) : null}
           />
           <ReviewListRow
             label="Documents"

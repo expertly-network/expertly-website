@@ -11,6 +11,8 @@ import { fromBuffer as sniffFileType } from 'file-type';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminMemberEditsDetailDto,
+  MemberEditItemDecision,
+  MemberEditItemReview,
   AdminMemberListItemDto,
   MemberDto,
   MemberEditStatusFilter,
@@ -24,9 +26,23 @@ import { CreateUploadDto } from './dto/create-upload.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import {
+  ARRAY_SECTIONS,
+  PER_ITEM_PROOF_SECTIONS,
+  badRequest,
+  hasItemProof,
+  isArraySection,
+  normalizeLiveItem,
+  normalizeLiveSection,
+  validateAndPrepareEditPayload,
+  type SectionItem,
+} from './member-sections';
+import { assertValidWorkHistory, sortWorkHistoryNewestFirst, type WorkSpan } from '../common/work-history';
+import {
   MembersRepository,
   type MemberProfileDetailRow,
+  type MemberProfileEditInsert,
   type MemberProfileEditRow,
+  type MemberProfileEditUpdate,
   type MemberProfileRow,
   type MemberProfileUpdate,
   type ProfileIdentityRow,
@@ -41,10 +57,6 @@ const SECTION_TO_COLUMN = {
   awards: 'awards',
   key_clients: 'key_clients',
 } as const;
-
-// These sections carry proof embedded per item (payload[i].proofAttachments) rather than the
-// shared proof_file_url/proof_link columns education/work_experiences use for the whole batch.
-const PER_ITEM_PROOF_SECTIONS = ['engagements', 'testimonials', 'awards'] as const;
 
 interface ProofAttachmentInput {
   type?: unknown;
@@ -67,7 +79,13 @@ const LOGO_MIME_TO_EXT: Record<string, string> = {
 };
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
-type EditPayloadItem = Record<string, unknown>;
+type EditPayloadItem = SectionItem;
+
+// Resolved per-item decision used when applying an array-section edit.
+interface ItemDecision {
+  decision: MemberEditItemDecision;
+  reason: string | null;
+}
 
 // Membership runs 12 months from membership_started_at; flagged "due-soon" 30 days out.
 const RENEWAL_PERIOD_MONTHS = 12;
@@ -138,23 +156,28 @@ export class MembersService {
       this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
     ]);
 
+    // Private proof (storage paths / links) is only for the owning member (to prefill edits) and
+    // admins — never other viewers.
+    const includeProof = row.profile_id === user.id || user.role === 'admin';
+
     return {
       ...this.toListDto(row, profilesById, servicesByMember),
       firmWebsite: row.firm_website,
       availabilityNotes: row.availability_notes,
       isAvailable: row.is_available,
       contactEmail: row.contact_email,
+      workEmail: row.work_email,
       contactPhone: row.contact_phone,
       linkedinUrl: row.linkedin_url,
       website: row.website,
-      workExperiences: row.work_experiences ?? [],
-      educations: row.educations ?? [],
-      engagements: row.engagements ?? [],
+      workExperiences: normalizeLiveSection('work_experiences', row.work_experiences, includeProof) as unknown as MemberDto['workExperiences'],
+      educations: normalizeLiveSection('education', row.educations, includeProof) as unknown as MemberDto['educations'],
+      engagements: normalizeLiveSection('engagements', row.engagements, includeProof) as unknown as MemberDto['engagements'],
       qualifications: row.qualifications ?? [],
       credentials: row.credentials ?? [],
-      testimonials: row.testimonials ?? [],
-      awards: row.awards ?? [],
-      keyClients: row.key_clients ?? [],
+      testimonials: normalizeLiveSection('testimonials', row.testimonials, includeProof) as unknown as MemberDto['testimonials'],
+      awards: normalizeLiveSection('awards', row.awards, includeProof) as unknown as MemberDto['awards'],
+      keyClients: normalizeLiveSection('key_clients', row.key_clients, includeProof) as unknown as MemberDto['keyClients'],
     };
   }
 
@@ -168,13 +191,13 @@ export class MembersService {
 
   async createEdit(memberId: string, user: AuthenticatedUser, dto: CreateMemberEditDto): Promise<MemberProfileEditDto> {
     this.assertOwner(memberId, user);
-    this.validateEditPayloadShape(dto);
-    this.assertOwnedFilePaths(memberId, dto.section, dto.payload, dto.proofFileUrl);
+    const payload = validateAndPrepareEditPayload(dto.section, dto.payload);
+    this.assertOwnedFilePaths(memberId, dto.section, payload, dto.proofFileUrl);
 
     const inserted = await this.membersRepository.insertEdit({
       member_id: memberId,
       section: dto.section,
-      payload: dto.payload,
+      payload: payload as MemberProfileEditInsert['payload'],
       proof_file_url: dto.proofFileUrl ?? null,
       proof_link: dto.proofLink ?? null,
     });
@@ -258,7 +281,10 @@ export class MembersService {
     const profile = profilesById.get(memberId);
     const [edits, fileUrls] = await Promise.all([
       this.toEditDtos(editRows),
-      this.membersRepository.createSignedProofUrls(editRows.flatMap((e) => this.proofPathsOf(e)), PROOF_URL_TTL_SECONDS),
+      this.membersRepository.createSignedProofUrls(
+        [...editRows.flatMap((e) => this.proofPathsOf(e)), ...this.currentProofPaths(row)],
+        PROOF_URL_TTL_SECONDS
+      ),
     ]);
 
     return {
@@ -281,22 +307,42 @@ export class MembersService {
 
   async adminReviewEdit(id: string, admin: AuthenticatedUser, dto: ReviewMemberEditDto): Promise<MemberProfileEditDto> {
     const reviewNote = dto.reviewNote?.trim() || null;
-    if (dto.status === 'rejected' && !reviewNote) {
-      throw new BadRequestException('A reason is required when rejecting an edit — it is shown to the member.');
-    }
 
     const edit = await this.membersRepository.findEditById(id);
     if (edit.status !== 'pending') {
       throw new ConflictException('This edit has already been reviewed.');
     }
 
-    if (dto.status === 'verified') {
-      await this.applyEdit(edit);
+    let status: 'verified' | 'rejected';
+    let itemReviews: MemberEditItemReview[] | null = null;
+
+    if (dto.items) {
+      // Per-item review of an array section: accepted items go live, rejected ones are dropped.
+      const decisions = this.resolveItemDecisions(edit, dto.items);
+      itemReviews = decisions.map((d, index) => ({ index, decision: d.decision, reason: d.reason }));
+      status = decisions.some((d) => d.decision !== 'rejected') ? 'verified' : 'rejected';
+      if (dto.status && dto.status !== status) {
+        throw badRequest(
+          'REVIEW_STATUS_MISMATCH',
+          `status '${dto.status}' contradicts the item decisions (they result in '${status}'). Omit status when sending items.`
+        );
+      }
+      if (status === 'verified') await this.applyEdit(edit, decisions);
+    } else {
+      if (!dto.status) {
+        throw badRequest('REVIEW_DECISION_REQUIRED', 'Send either status or per-item decisions (items).');
+      }
+      status = dto.status;
+      if (status === 'rejected' && !reviewNote) {
+        throw badRequest('REVIEW_REASON_REQUIRED', 'A reason is required when rejecting an edit — it is shown to the member.');
+      }
+      if (status === 'verified') await this.applyEdit(edit);
     }
 
     const updated = await this.membersRepository.updateEditDecision(id, {
-      status: dto.status,
+      status,
       review_note: reviewNote,
+      item_reviews: itemReviews as unknown as MemberProfileEditUpdate['item_reviews'],
       reviewed_by: admin.id,
       reviewed_at: new Date().toISOString(),
     });
@@ -315,8 +361,58 @@ export class MembersService {
     }
   }
 
-  // Replaces the section's rows on approval; headline_bio/contact overwrite columns directly.
-  private async applyEdit(edit: MemberProfileEditRow): Promise<void> {
+  // Validates the admin's per-item decisions against the pending edit: coverage of every payload
+  // index exactly once, a reason where one is required, and proof for approved_verified.
+  private resolveItemDecisions(edit: MemberProfileEditRow, items: ReviewMemberEditDto['items']): ItemDecision[] {
+    if (!isArraySection(edit.section) || !Array.isArray(edit.payload)) {
+      throw badRequest('ITEM_REVIEW_NOT_SUPPORTED', `Per-item review isn't available for ${edit.section} edits — send status instead.`);
+    }
+    const payload = edit.payload as EditPayloadItem[];
+    const decisions = new Array<ItemDecision | undefined>(payload.length).fill(undefined);
+
+    for (const entry of items ?? []) {
+      if (entry.index >= payload.length) {
+        throw badRequest('ITEM_REVIEW_INDEX_INVALID', `items[].index ${entry.index} is out of range (payload has ${payload.length} items).`);
+      }
+      if (decisions[entry.index]) {
+        throw badRequest('ITEM_REVIEW_INDEX_INVALID', `items[].index ${entry.index} appears more than once.`);
+      }
+      const reason = entry.reason?.trim() || null;
+      if (entry.decision !== 'approved_verified' && !reason) {
+        throw badRequest(
+          'ITEM_REVIEW_REASON_REQUIRED',
+          `A reason is required for '${entry.decision}' (item ${entry.index}) — it is shown to the member.`
+        );
+      }
+      if (entry.decision === 'approved_verified' && !this.itemHasProof(edit, payload[entry.index])) {
+        throw badRequest(
+          'VERIFIED_REQUIRES_PROOF',
+          `Item ${entry.index} has no proof attached, so it can't be approved as verified. Use approved_hygiene instead.`
+        );
+      }
+      decisions[entry.index] = { decision: entry.decision, reason: entry.decision === 'approved_verified' ? null : reason };
+    }
+
+    const missing = decisions.flatMap((d, i) => (d ? [] : [i]));
+    if (missing.length > 0) {
+      throw badRequest('ITEM_REVIEW_INCOMPLETE', `Every item needs a decision. Missing: ${missing.join(', ')}.`);
+    }
+    return decisions as ItemDecision[];
+  }
+
+  // Per-item sections: that item's own proofAttachments. education / work_experiences: the
+  // edit-level proof file or link covering the batch.
+  private itemHasProof(edit: MemberProfileEditRow, item: EditPayloadItem): boolean {
+    if ((PER_ITEM_PROOF_SECTIONS as readonly string[]).includes(edit.section)) return hasItemProof(item);
+    return Boolean(edit.proof_file_url || edit.proof_link);
+  }
+
+  // Applies an approved edit. headline_bio/contact overwrite columns directly. Array sections
+  // rebuild the live list from the payload: accepted items are written (verified iff
+  // approved_verified), rejected items fall back to their live version (or are dropped if new),
+  // and live items the member left out of the payload are removed. With no explicit decisions
+  // (whole-edit approval) every item is accepted and is verified iff it has proof.
+  private async applyEdit(edit: MemberProfileEditRow, decisions?: ItemDecision[]): Promise<void> {
     const { member_id: memberId, section, payload } = edit;
 
     if (section === 'headline_bio') {
@@ -327,26 +423,63 @@ export class MembersService {
 
     if (section === 'contact') {
       const p = payload as {
-        contactEmail: string | null;
-        contactPhone: string | null;
-        linkedinUrl: string | null;
-        website: string | null;
+        contactEmail?: string | null;
+        workEmail?: string | null;
+        contactPhone?: string | null;
+        linkedinUrl?: string | null;
+        website?: string | null;
       };
-      await this.membersRepository.applyContactEdit(memberId, p);
+      await this.membersRepository.applyContactEdit(memberId, {
+        contactEmail: p.contactEmail?.trim() || null,
+        workEmail: p.workEmail?.trim() || null,
+        contactPhone: p.contactPhone ?? null,
+        linkedinUrl: p.linkedinUrl ?? null,
+        website: p.website ?? null,
+      });
       return;
     }
 
     const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
-    if (!column) throw new BadRequestException(`Unknown edit section: ${section}`);
+    if (!column || !ARRAY_SECTIONS.includes(section)) throw new BadRequestException(`Unknown edit section: ${section}`);
 
-    // proofAttachments is moderation-only evidence, embedded in the edit payload for review —
-    // it must never land in the public member_profiles column the applied item is written to.
-    let items: EditPayloadItem[] = (payload as EditPayloadItem[]).map(({ proofAttachments: _proofAttachments, ...item }) => ({
-      id: randomUUID(),
-      ...item,
-    }));
-    if (section === 'key_clients') {
-      items = await Promise.all(items.map((item) => this.publishClientLogo(memberId, item)));
+    const live = await this.membersRepository.findDetailByProfileId(memberId);
+    if (!live) throw new NotFoundException('Member profile not found.');
+    const liveItems = normalizeLiveSection(section, live[column as keyof MemberProfileDetailRow], true);
+    const liveById = new Map(liveItems.map((item) => [item.id as string, item]));
+
+    const submitted = payload as EditPayloadItem[];
+    const resolved: ItemDecision[] =
+      decisions ??
+      submitted.map((item) => ({
+        decision: this.itemHasProof(edit, item) ? 'approved_verified' : 'approved_hygiene',
+        reason: null,
+      }));
+
+    // Nothing accepted: leave the live section exactly as it is (including items the member
+    // would have removed).
+    if (resolved.every((d) => d.decision === 'rejected')) return;
+
+    let items: EditPayloadItem[] = [];
+    for (let i = 0; i < submitted.length; i++) {
+      // isVerified / logoUploadPath are never trusted from the payload.
+      const { isVerified: _ignored, ...item } = submitted[i];
+      const liveMatch = typeof item.id === 'string' ? liveById.get(item.id) : undefined;
+
+      if (resolved[i].decision === 'rejected') {
+        if (liveMatch) items.push(liveMatch);
+        continue;
+      }
+      const accepted: EditPayloadItem = {
+        ...item,
+        id: liveMatch ? (liveMatch.id as string) : randomUUID(),
+        isVerified: resolved[i].decision === 'approved_verified',
+      };
+      items.push(section === 'key_clients' ? await this.publishClientLogo(memberId, accepted) : accepted);
+    }
+
+    if (section === 'work_experiences') {
+      assertValidWorkHistory(items as unknown as WorkSpan[]);
+      items = sortWorkHistoryNewestFirst(items as unknown as (WorkSpan & EditPayloadItem)[]);
     }
     await this.membersRepository.applySectionEdit(memberId, column, section, items);
   }
@@ -414,61 +547,38 @@ export class MembersService {
     }
   }
 
+  // Admin sees the live sections including private proof, so the diff can show what's attached.
   private currentSectionValues(row: MemberProfileDetailRow): AdminMemberEditsDetailDto['current'] {
     return {
       headline_bio: { headline: row.headline, bio: row.bio },
       contact: {
         contactEmail: row.contact_email,
+        workEmail: row.work_email,
         contactPhone: row.contact_phone,
         linkedinUrl: row.linkedin_url,
         website: row.website,
       },
-      engagements: row.engagements ?? [],
-      education: row.educations ?? [],
-      work_experiences: row.work_experiences ?? [],
-      key_clients: row.key_clients ?? [],
-      testimonials: row.testimonials ?? [],
-      awards: row.awards ?? [],
+      engagements: normalizeLiveSection('engagements', row.engagements, true) as unknown as AdminMemberEditsDetailDto['current']['engagements'],
+      education: normalizeLiveSection('education', row.educations, true) as unknown as AdminMemberEditsDetailDto['current']['education'],
+      work_experiences: normalizeLiveSection('work_experiences', row.work_experiences, true) as unknown as AdminMemberEditsDetailDto['current']['work_experiences'],
+      key_clients: normalizeLiveSection('key_clients', row.key_clients, true) as unknown as AdminMemberEditsDetailDto['current']['key_clients'],
+      testimonials: normalizeLiveSection('testimonials', row.testimonials, true) as unknown as AdminMemberEditsDetailDto['current']['testimonials'],
+      awards: normalizeLiveSection('awards', row.awards, true) as unknown as AdminMemberEditsDetailDto['current']['awards'],
     };
   }
 
-  private validateEditPayloadShape(dto: CreateMemberEditDto): void {
-    if (dto.section === 'headline_bio') {
-      const p = dto.payload as { headline?: unknown; bio?: unknown };
-      if (typeof p.headline !== 'string' || typeof p.bio !== 'string') {
-        throw new BadRequestException('headline_bio payload requires headline and bio strings.');
-      }
-      return;
-    }
-    if (dto.section === 'contact') {
-      return; // all fields nullable — nothing to require
-    }
-    if (!Array.isArray(dto.payload)) {
-      throw new BadRequestException(`${dto.section} payload must be an array.`);
-    }
-
-    if (PER_ITEM_PROOF_SECTIONS.includes(dto.section as (typeof PER_ITEM_PROOF_SECTIONS)[number])) {
-      for (const item of dto.payload as Record<string, unknown>[]) {
-        this.validateProofAttachments(dto.section, item.proofAttachments);
+  // Private proof files attached to live items, so the admin can open them too.
+  private currentProofPaths(row: MemberProfileDetailRow): string[] {
+    const paths: string[] = [];
+    for (const items of [row.engagements, row.testimonials, row.awards, row.key_clients]) {
+      for (const item of (Array.isArray(items) ? items : []) as unknown as EditPayloadItem[]) {
+        const normalized = normalizeLiveItem('engagements', item, true);
+        for (const a of normalized.proofAttachments as ProofAttachmentInput[]) {
+          if (a.type === 'file' && typeof a.url === 'string' && a.url) paths.push(a.url);
+        }
       }
     }
-  }
-
-  private validateProofAttachments(section: string, value: unknown): void {
-    if (value === undefined) return;
-    if (!Array.isArray(value)) {
-      throw new BadRequestException(`${section} item proofAttachments must be an array.`);
-    }
-    for (const attachment of value as ProofAttachmentInput[]) {
-      const validType = attachment.type === 'file' || attachment.type === 'link';
-      const validUrl = typeof attachment.url === 'string' && attachment.url.trim().length > 0;
-      const validLabel = typeof attachment.label === 'string' && attachment.label.trim().length > 0;
-      if (!validType || !validUrl || !validLabel) {
-        throw new BadRequestException(
-          `${section} item proofAttachments entries require type ('file'|'link'), url, and label.`
-        );
-      }
-    }
+    return paths;
   }
 
   private computeDueState(membershipStartedAt: string): RenewalDueState {
@@ -556,6 +666,7 @@ export class MembersService {
       proofLink: row.proof_link,
       status: row.status,
       reviewNote: row.review_note,
+      itemReviews: row.item_reviews ?? null,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
       submittedAt: row.submitted_at,

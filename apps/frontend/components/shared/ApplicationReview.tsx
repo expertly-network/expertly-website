@@ -4,6 +4,7 @@
 // presentation lives here.
 
 import { Badge, type BadgeVariant } from '@/components/ui';
+import { ChangedValue } from '@/components/shared/ChangedValue';
 import type { ApplicationStatus } from '@shared/membership-application';
 
 export const STATUS_LABEL: Record<ApplicationStatus, string> = {
@@ -35,16 +36,22 @@ export function ReviewRow({
   value,
   multiline,
   href,
+  previous,
 }: {
   label: string;
   value: string;
   multiline?: boolean;
   href?: string;
+  /** Admin review only: the prior value. When given and different, the change is shown in red. */
+  previous?: string | null;
 }) {
+  const changed = previous !== undefined && previous !== null && previous.trim() !== value.trim();
   return (
     <div className={`grid grid-cols-[140px_1fr] gap-4 px-6 py-3.5 text-sm ${multiline ? 'items-start' : 'items-center'}`}>
       <span className="text-mono-label text-ink-3">{label}</span>
-      {href ? (
+      {changed ? (
+        <ChangedValue before={previous === '—' ? '' : previous} after={value === '—' ? '' : value} className={multiline ? 'whitespace-pre-wrap' : ''} />
+      ) : href ? (
         <a
           href={href}
           target="_blank"
@@ -65,21 +72,41 @@ export function ReviewRow({
 export function ReviewListRow({
   label,
   items,
+  previousItems,
 }: {
   label: string;
   items: { title: string; detail?: string; link?: { href: string; label: string } }[];
+  /** Admin review only: the prior entries. New/edited entries show in red, dropped ones struck through. */
+  previousItems?: { title: string; detail?: string }[] | null;
 }) {
+  const prev = previousItems ?? null;
+  const prevByTitle = new Map((prev ?? []).map((p) => [p.title, p]));
+  const currentTitles = new Set(items.map((i) => i.title));
+  const removed = (prev ?? []).filter((p) => !currentTitles.has(p.title));
   return (
     <div className="grid grid-cols-[140px_1fr] items-start gap-4 px-6 py-3.5 text-sm">
       <span className="mt-0.5 text-mono-label text-ink-3">{label}</span>
-      {items.length === 0 ? (
+      {items.length === 0 && removed.length === 0 ? (
         <span className="text-ink">—</span>
       ) : (
         <div className="flex flex-col gap-3">
-          {items.map((item, i) => (
+          {items.map((item, i) => {
+            const old = prev ? prevByTitle.get(item.title) : undefined;
+            const isNew = prev !== null && !old;
+            return (
             <div key={i}>
-              <div className="text-ink">{item.title}</div>
-              {item.detail && <div className="mt-0.5 text-xs text-ink-3">{item.detail}</div>}
+              <div className="text-ink">
+                {isNew ? <ChangedValue before="" after={item.title} /> : item.title}
+              </div>
+              {item.detail && (
+                <div className="mt-0.5 text-xs text-ink-3">
+                  {old && (old.detail ?? '') !== item.detail ? (
+                    <ChangedValue before={old.detail} after={item.detail} />
+                  ) : (
+                    item.detail
+                  )}
+                </div>
+              )}
               {item.link && (
                 <a
                   href={item.link.href}
@@ -90,6 +117,13 @@ export function ReviewListRow({
                   {item.link.label}
                 </a>
               )}
+            </div>
+            );
+          })}
+          {removed.map((r, i) => (
+            <div key={`removed-${i}`}>
+              <ChangedValue before={r.title} after="" />
+              {r.detail && <div className="mt-0.5 text-xs text-ink-3 line-through">{r.detail}</div>}
             </div>
           ))}
         </div>

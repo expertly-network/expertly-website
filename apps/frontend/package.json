@@ -19,6 +19,7 @@
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
+    "country-state-city": "^3.2.1",
     "geist": "^1.7.2",
     "jose": "^6.2.8",
     "next": "14.2.18",

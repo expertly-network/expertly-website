@@ -230,6 +230,7 @@ export function ApplicationWizard() {
               saving={saving}
               saveError={saveError}
               onBack={() => goBack(4)}
+              onEditStep={goBack}
               onSubmit={handleSubmit}
             />
           )}

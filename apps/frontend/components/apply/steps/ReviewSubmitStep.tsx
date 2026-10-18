@@ -87,6 +87,24 @@ function ConfettiBurst() {
   );
 }
 
+// Header strip for one reviewed section, with an Edit link back to the wizard step that owns it.
+// Entered data lives in the wizard's form state, so jumping back and forth loses nothing.
+function SectionHeader({ title, onEdit }: { title: string; onEdit: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 bg-bg-alt px-6 py-3">
+      <span className="text-mono-label text-ink">{title}</span>
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Edit ${title.toLowerCase()}`}
+        className="rounded-input px-2 py-1 text-xs font-medium text-accent underline hover:text-ink"
+      >
+        Edit
+      </button>
+    </div>
+  );
+}
+
 export function ReviewSubmitStep({
   form,
   update,
@@ -94,6 +112,7 @@ export function ReviewSubmitStep({
   saving,
   saveError,
   onBack,
+  onEditStep,
   onSubmit,
 }: {
   form: WizardFormState;
@@ -102,6 +121,8 @@ export function ReviewSubmitStep({
   saving?: boolean;
   saveError?: string | null;
   onBack: () => void;
+  /** Jumps to a wizard step (2 = Identity, 3 = Background, 4 = Services) keeping entered data. */
+  onEditStep: (step: number) => void;
   onSubmit: () => void;
 }) {
   const [consentTerms, setConsentTerms] = useState(false);
@@ -205,7 +226,8 @@ export function ReviewSubmitStep({
       <h2 className="text-heading text-ink">Ready to submit.</h2>
       <p className="mt-2 text-lede text-ink-3">Review your details, then choose your membership plan.</p>
 
-      <div className="mt-7 rounded-2xl border border-line bg-bg-card divide-y divide-line">
+      <div className="mt-7 overflow-hidden rounded-2xl border border-line bg-bg-card divide-y divide-line">
+        <SectionHeader title="Identity" onEdit={() => onEditStep(2)} />
         <div className="flex items-center gap-[18px] px-6 py-5">
           <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
             {form.photoUrl ? (
@@ -226,6 +248,7 @@ export function ReviewSubmitStep({
         <ReviewRow label="Location" value={[location, regionLabel].filter(Boolean).join(' · ') || '—'} />
         <ReviewRow label="LinkedIn" value={form.linkedinUrl} href={form.linkedinUrl || undefined} />
         <ReviewRow label="Bio" value={form.bio} multiline />
+        <SectionHeader title="Background" onEdit={() => onEditStep(3)} />
         <ReviewRow label="Experience" value={`${form.yearsOfExperience} years`} />
         <ReviewListRow
           label="Work history"
@@ -255,6 +278,16 @@ export function ReviewSubmitStep({
             }))}
         />
         <ReviewListRow
+          label="Peer references"
+          items={form.peerReferences
+            .filter((r) => r.name.trim())
+            .map((r) => ({
+              title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
+              detail: [r.email, r.phone].filter(Boolean).join(' · '),
+            }))}
+        />
+        <SectionHeader title="Services & rates" onEdit={() => onEditStep(4)} />
+        <ReviewListRow
           label="Services"
           items={[...form.servicePreferences]
             .sort((a, b) => a.priority - b.priority)
@@ -266,15 +299,6 @@ export function ReviewSubmitStep({
         <ReviewRow
           label="Rate"
           value={`$${form.rateMinDollars} – $${form.rateMaxDollars} / hour`}
-        />
-        <ReviewListRow
-          label="Peer references"
-          items={form.peerReferences
-            .filter((r) => r.name.trim())
-            .map((r) => ({
-              title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
-              detail: [r.email, r.phone].filter(Boolean).join(' · '),
-            }))}
         />
       </div>
 

@@ -1005,7 +1005,7 @@
                 "edits"
               ]
             },
-            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```",
+            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```\n\n**Updated 2026-10-10.** Proof is optional everywhere. Items may carry `id` (live item id when editing) — live items now return their `proofAttachments` so you can resend them. Server rules: engagements need `clientName` (+ optional `clientEmail`, `verificationMethods` from engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other, `verificationMethodOther`); key_clients max 20; work_experiences must not overlap (stored newest-first); contact accepts `workEmail`.\n\n**To test engagements instead, replace the whole body with:**\n```json\n{\n  \"section\": \"engagements\",\n  \"payload\": [\n    {\n      \"title\": \"Cross-border restructuring\",\n      \"organization\": \"Acme Holdings\",\n      \"clientName\": \"Jane Doe\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"verificationMethods\": [\"engagement_letter\", \"other\"],\n      \"verificationMethodOther\": \"Signed scope email\",\n      \"year\": 2024,\n      \"url\": null,\n      \"proofAttachments\": [{ \"type\": \"link\", \"url\": \"https://example.com/letter.pdf\", \"label\": \"Engagement letter\" }]\n    }\n  ]\n}\n```\n\n**To test contact instead, replace the whole body with:**\n```json\n{\n  \"section\": \"contact\",\n  \"payload\": {\n    \"contactEmail\": \"priya@example.com\",\n    \"workEmail\": \"priya@firm.example.com\",\n    \"contactPhone\": \"+65 5555 0100\",\n    \"linkedinUrl\": \"https://www.linkedin.com/in/priya-menon\",\n    \"website\": null\n  }\n}\n```",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"section\": \"headline_bio\",\n  \"payload\": {\n    \"headline\": \"Cross-Border Tax & Transfer Pricing Advisor\",\n    \"bio\": \"I help fast-growing companies manage multi-jurisdiction tax exposure as they scale internationally.\"\n  }\n}",
@@ -1035,6 +1035,95 @@
               ]
             },
             "description": "🔒 Owner-only. Any status, newest first — drives the \"pending verification\" badge."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /members/{{memberId}}/recommendations — List recommendations for a member",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "recommendations"
+              ]
+            },
+            "description": "🔒 any signed-in role. `:id` is the recommended member's UUID. Returns non-hidden recommendations; the recipient (and admins) also get hidden ones (`isHidden: true`)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /members/{{memberId}}/recommendations — Write a recommendation for another member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "recommendations"
+              ]
+            },
+            "description": "🔑 member (active) — `{{memberId}}` is the member being recommended, must be an active member other than you. Publishes immediately. `body` 10–2000 chars. Errors: 403 RECOMMENDATION_SELF / RECOMMENDATION_AUTHOR_NOT_ACTIVE_MEMBER, 404 RECOMMENDATION_RECIPIENT_NOT_FOUND, 409 RECOMMENDATION_ALREADY_EXISTS.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Worked with her on a cross-border restructuring; clear, rigorous and easy to collaborate with.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /members/{{memberId}}/recommendations/{{recommendationId}} — Hide or unhide a recommendation about me",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/recommendations/{{recommendationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "recommendations",
+                "{{recommendationId}}"
+              ]
+            },
+            "description": "🔑 member — only the recommended member (`{{memberId}}` must be you). Shipped body hides; send `{ \"isHidden\": false }` to unhide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isHidden\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         }
@@ -1975,7 +2064,7 @@
               "response": []
             },
             {
-              "name": "PATCH /admin/member-edits/{{memberEditId}} — Review edit (verify or reject)",
+              "name": "PATCH /admin/member-edits/{{memberEditId}} — Review edit (per item, or whole edit)",
               "request": {
                 "method": "PATCH",
                 "header": [
@@ -1995,10 +2084,10 @@
                     "{{memberEditId}}"
                   ]
                 },
-                "description": "🛡️ manageMembers. Shipped body verifies. On verify: for list sections, replaces the member’s items wholesale; for headline_bio/contact, overwrites those columns directly.\n\n**To test Reject instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"reviewNote\": \"Please attach a proof document for this engagement before resubmitting.\"\n}\n```",
+                "description": "🛡️ manageMembers. Shipped body is the per-item review for an array-section edit (engagements, education, work_experiences, key_clients, testimonials, awards): `items` must cover every payload index exactly once. Decisions: `approved_verified` (live WITH Verified badge; item must have proof, else 400 VERIFIED_REQUIRES_PROOF), `approved_hygiene` (live WITHOUT badge; `reason` required, shown to member), `rejected` (not applied; `reason` required). `status` is derived (verified if any item accepted) — omit it. Accepted items go live, rejected items are dropped (a live item stays as-is); decisions are stored in `itemReviews`.\n\n**To review a headline_bio / contact edit (or approve the whole edit) instead, replace the whole body with:**\n```json\n{\n  \"status\": \"verified\"\n}\n```\n\n**To reject the whole edit instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"reviewNote\": \"Please attach a proof document for this engagement before resubmitting.\"\n}\n```",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"status\": \"verified\"\n}",
+                  "raw": "{\n  \"items\": [\n    {\n      \"index\": 0,\n      \"decision\": \"approved_verified\"\n    },\n    {\n      \"index\": 1,\n      \"decision\": \"approved_hygiene\",\n      \"reason\": \"Proof not attached\"\n    },\n    {\n      \"index\": 2,\n      \"decision\": \"rejected\",\n      \"reason\": \"Could not confirm this client relationship\"\n    }\n  ],\n  \"reviewNote\": \"Thanks for the update.\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"

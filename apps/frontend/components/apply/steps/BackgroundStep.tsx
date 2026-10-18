@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
+import { findOverlaps, isEndBeforeStart, sortWorkHistoryNewestFirst } from '@/lib/apply/work-history';
 import {
   EMPTY_EDUCATION,
   EMPTY_WORK_EXPERIENCE,
@@ -34,6 +35,27 @@ export function BackgroundStep({
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Newest-first on arrival (resumed drafts / LinkedIn imports); re-sorted again on Next.
+  useEffect(() => {
+    const sorted = sortWorkHistoryNewestFirst(form.workExperiences);
+    if (sorted.some((w, i) => w !== form.workExperiences[i])) update({ workExperiences: sorted });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Live date problems per card: end before start, or overlapping another role.
+  const dateErrors = useMemo(() => {
+    const overlaps = findOverlaps(form.workExperiences);
+    return form.workExperiences.map((w, i): string | undefined => {
+      if (isEndBeforeStart(w)) return 'End date is before the start date.';
+      if (overlaps[i] !== -1) {
+        const other = form.workExperiences[overlaps[i]];
+        const name = [other.title, other.company].filter((x) => x.trim()).join(' at ') || `Experience ${overlaps[i] + 1}`;
+        return `These dates overlap with ${name}. Roles can't cover the same period.`;
+      }
+      return undefined;
+    });
+  }, [form.workExperiences]);
+
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
     if (form.yearsOfExperience === '') e.yearsOfExperience = 'Years of experience is required.';
@@ -46,6 +68,10 @@ export function BackgroundStep({
       // past roles stay optional — any URL works, including a LinkedIn company/profile page.
       else if (w.isCurrent && !w.companyUrl?.trim())
         e[`workExperiences.${i}.companyUrl`] = 'Add a website for your current position.';
+    });
+    dateErrors.forEach((msg, i) => {
+      if (msg && !e[`workExperiences.${i}.title`] && !e[`workExperiences.${i}.company`] && !e[`workExperiences.${i}.startYear`])
+        e[`workExperiences.${i}.dates`] = msg;
     });
     // One entry must be marked as the applicant's current position — it becomes the approved
     // member's firm name, so it can't be silently absent (backend enforces this too, at submit).
@@ -76,6 +102,8 @@ export function BackgroundStep({
       return;
     }
     setErrors({});
+    // Persist newest-first (the backend also sorts; this keeps what the applicant sees in step).
+    update({ workExperiences: sortWorkHistoryNewestFirst(form.workExperiences) });
     onNext();
   }
 
@@ -288,6 +316,12 @@ export function BackgroundStep({
                 </div>
               </div>
             </div>
+
+            {dateErrors[i] && (
+              <span id={`workExperiences.${i}.dates`} tabIndex={-1} className="mt-2 block text-xs text-error">
+                {dateErrors[i]}
+              </span>
+            )}
 
             <label className="mt-4 flex items-center gap-2 text-sm text-ink-2">
               <input

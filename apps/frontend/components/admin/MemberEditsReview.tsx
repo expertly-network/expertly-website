@@ -1,19 +1,54 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Button, Card, Textarea, type BadgeVariant } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { SECTION_TITLES } from '@/components/members/edit/sectionFieldConfig';
 import { reviewMemberEdit } from '@/lib/api/members';
 import { ApiError } from '@/lib/api/client';
-import { countChanges, diffEdit, type FieldChange, type ItemChange, type ItemView } from '@/lib/members/edit-diff';
-import type { AdminMemberEditsDetailDto, MemberProfileEditDto, ProofAttachment } from '@shared/member';
+import { ChangedSegments, ChangedValue } from '@/components/shared/ChangedValue';
+import {
+  countChanges,
+  diffEdit,
+  metaSegments,
+  viewOfItem,
+  type FieldChange,
+  type ItemChange,
+  type ItemView,
+} from '@/lib/members/edit-diff';
+import type {
+  AdminMemberEditsDetailDto,
+  MemberEditItemDecision,
+  MemberProfileEditDto,
+  ProofAttachment,
+  ReviewMemberEditItemRequest,
+} from '@shared/member';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
-// Sections where every item is expected to carry its own proof (docs/master-tdd.md §7).
-const PER_ITEM_PROOF_SECTIONS = new Set(['engagements', 'testimonials', 'awards']);
+// Sections where each item carries its own proof; education / work_experiences share one
+// edit-level proof for the whole batch.
+const PER_ITEM_PROOF_SECTIONS = new Set(['engagements', 'testimonials', 'awards', 'key_clients']);
+
+const DECISION_OPTIONS: { value: MemberEditItemDecision; label: string; short: string }[] = [
+  { value: 'approved_verified', label: 'Approve + Verified badge', short: 'Verified' },
+  { value: 'approved_hygiene', label: 'Approve, no badge', short: 'Live, no badge' },
+  { value: 'rejected', label: 'Reject', short: 'Rejected' },
+];
+
+const DECISION_BADGE: Record<MemberEditItemDecision, BadgeVariant> = {
+  approved_verified: 'success',
+  approved_hygiene: 'warning',
+  rejected: 'danger',
+};
+
+const NO_PROOF_REASON = 'Proof not attached.';
+
+interface ItemDecisionState {
+  decision: MemberEditItemDecision | null;
+  reason: string;
+}
 
 const KIND_BADGE: Record<ItemChange['kind'], { label: string; variant: BadgeVariant }> = {
   added: { label: 'Added', variant: 'success' },
@@ -93,13 +128,13 @@ function FieldDiff({ fields }: { fields: FieldChange[] }) {
             {f.label}
             {f.changed && <Badge variant="info">Changed</Badge>}
           </span>
-          <span className={`whitespace-pre-wrap break-words ${f.changed ? 'text-ink-3 line-through decoration-ink-4' : 'text-ink-2'}`}>
+          <span className={`whitespace-pre-wrap break-words ${f.changed ? 'text-error line-through decoration-error' : 'text-ink-2'}`}>
             <span className="mr-1.5 text-xs text-ink-4 no-underline min-[641px]:hidden">Current:</span>
             {f.before || '—'}
           </span>
           <span
             className={`whitespace-pre-wrap break-words rounded-md ${
-              f.changed ? 'bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] px-2 py-1 font-medium text-ink' : 'text-ink-2'
+              f.changed ? 'bg-[color-mix(in_oklab,var(--error)_8%,transparent)] px-2 py-1 font-medium text-error' : 'text-ink-2'
             }`}
           >
             <span className="mr-1.5 text-xs font-normal text-ink-4 min-[641px]:hidden">Proposed:</span>
@@ -120,12 +155,91 @@ function Logo({ view, fileUrls }: { view: ItemView; fileUrls: Record<string, str
   );
 }
 
-function ItemBody({ view, struck }: { view: ItemView; struck?: boolean }) {
+function ItemBody({ view, before, struck }: { view: ItemView; before?: ItemView | null; struck?: boolean }) {
+  if (struck) {
+    return (
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-error line-through decoration-error">{view.title || 'Untitled'}</div>
+        {view.meta && <div className="mt-0.5 break-words text-xs text-error line-through decoration-error">{view.meta}</div>}
+      </div>
+    );
+  }
   return (
-    <div className={`min-w-0 ${struck ? 'text-ink-3 line-through decoration-ink-4' : ''}`}>
-      <div className="text-sm font-semibold text-ink">{view.title || 'Untitled'}</div>
-      {view.meta && <div className="mt-0.5 break-words text-xs text-ink-3">{view.meta}</div>}
-      {view.body && <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-ink-2">{view.body}</p>}
+    <div className="min-w-0">
+      <div className="text-sm font-semibold text-ink">
+        {before ? <ChangedValue before={before.title} after={view.title || 'Untitled'} /> : view.title || 'Untitled'}
+      </div>
+      {(view.meta || before?.meta) && (
+        <div className="mt-0.5 break-words text-xs text-ink-3">
+          {before ? <ChangedSegments before={metaSegments(before.meta)} after={metaSegments(view.meta)} /> : view.meta}
+        </div>
+      )}
+      {(view.body || before?.body) && (
+        <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-ink-2">
+          {before ? <ChangedValue before={before.body} after={view.body} /> : view.body}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DecisionControl({
+  hasProof,
+  state,
+  onChange,
+  disabled,
+}: {
+  hasProof: boolean;
+  state: ItemDecisionState;
+  onChange: (next: ItemDecisionState) => void;
+  disabled: boolean;
+}) {
+  function pick(decision: MemberEditItemDecision) {
+    // Pre-fill the most common hygiene reason so the admin only has to confirm it.
+    const reason = decision === 'approved_hygiene' && !state.reason && !hasProof ? NO_PROOF_REASON : state.reason;
+    onChange({ decision, reason: decision === 'approved_verified' ? '' : reason });
+  }
+  const needsReason = state.decision === 'approved_hygiene' || state.decision === 'rejected';
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      <div role="group" aria-label="Decision" className="flex flex-wrap gap-2">
+        {DECISION_OPTIONS.map((opt) => {
+          const blocked = opt.value === 'approved_verified' && !hasProof;
+          const active = state.decision === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={active}
+              disabled={disabled || blocked}
+              title={blocked ? 'Attach proof to verify — the member did not provide any.' : undefined}
+              onClick={() => pick(opt.value)}
+              className={`rounded-input border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                active
+                  ? opt.value === 'rejected'
+                    ? 'border-error bg-[color-mix(in_oklab,var(--error)_10%,transparent)] text-error'
+                    : 'border-accent bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-accent'
+                  : 'border-line bg-bg-card text-ink-2 hover:border-line-2'
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      {!hasProof && <p className="mt-1.5 text-xs text-ink-3">No proof attached, so the Verified badge is unavailable.</p>}
+      {needsReason && (
+        <div className="mt-2.5">
+          <Textarea
+            label={state.decision === 'rejected' ? 'Rejection note (shown to the member)' : 'Why no badge? (shown to the member)'}
+            rows={2}
+            value={state.reason}
+            disabled={disabled}
+            onChange={(e) => onChange({ ...state, reason: e.target.value })}
+            placeholder={state.decision === 'rejected' ? 'e.g. The certificate does not match the award title.' : NO_PROOF_REASON}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -134,31 +248,37 @@ function ItemsDiff({
   items,
   section,
   fileUrls,
+  hasBatchProof,
+  decisions,
+  onDecision,
+  disabled,
 }: {
   items: ItemChange[];
   section: string;
   fileUrls: Record<string, string>;
+  hasBatchProof: boolean;
+  decisions: Record<number, ItemDecisionState>;
+  onDecision: (index: number, next: ItemDecisionState) => void;
+  disabled: boolean;
 }) {
   const [showUnchanged, setShowUnchanged] = useState(false);
   const unchanged = items.filter((i) => i.kind === 'unchanged').length;
   const visible = showUnchanged ? items : items.filter((i) => i.kind !== 'unchanged');
-  const needsProof = PER_ITEM_PROOF_SECTIONS.has(section);
-
-  if (items.length === 0) {
-    return <p className="text-sm text-ink-3">The member cleared this section — approving removes every entry.</p>;
-  }
+  const perItemProof = PER_ITEM_PROOF_SECTIONS.has(section);
 
   return (
     <div className="flex flex-col gap-2.5">
       {visible.length === 0 && <p className="text-sm text-ink-3">No entries changed — this resubmits the section as-is.</p>}
       {visible.map((change, i) => {
         const badge = KIND_BADGE[change.kind];
+        const hasProof = perItemProof ? change.proofAttachments.length > 0 : hasBatchProof;
+        const state = change.index !== null ? decisions[change.index] : undefined;
         return (
           <div
             key={i}
-            className={`rounded-xl border px-4 py-3 ${
-              change.kind === 'unchanged' ? 'border-line bg-bg-card opacity-70' : 'border-line bg-bg-card'
-            }`}
+            className={`rounded-xl border bg-bg-card px-4 py-3 ${
+              change.kind === 'changed' || change.kind === 'added' ? 'border-[color-mix(in_oklab,var(--error)_40%,transparent)]' : 'border-line'
+            } ${change.kind === 'unchanged' ? 'opacity-80' : ''}`}
           >
             <div className="flex items-start gap-3">
               <Logo view={change.item} fileUrls={fileUrls} />
@@ -167,21 +287,26 @@ function ItemsDiff({
                   <Badge variant={badge.variant}>{badge.label}</Badge>
                   {change.item.logoUploadPath && <Badge variant="brand">New logo</Badge>}
                 </div>
-                <ItemBody view={change.item} struck={change.kind === 'removed'} />
-                {change.before && (
-                  <div className="mt-2 rounded-lg bg-bg-alt px-3 py-2">
-                    <div className="mb-1 text-mono-label text-ink-4">Currently</div>
-                    <ItemBody view={change.before} />
-                  </div>
+                <ItemBody view={change.item} before={change.before} struck={change.kind === 'removed'} />
+                {change.kind === 'removed' && (
+                  <p className="mt-1.5 text-xs text-ink-3">Dropped by the member — removed from the live profile when you submit.</p>
                 )}
-                {change.kind !== 'removed' && (change.proofAttachments.length > 0 || needsProof) && (
+                {change.kind !== 'removed' && perItemProof && (
                   <div className="mt-2.5">
                     {change.proofAttachments.length > 0 ? (
                       <ProofLinks attachments={change.proofAttachments} fileUrls={fileUrls} />
                     ) : (
-                      change.kind !== 'unchanged' && <Badge variant="warning">No proof attached</Badge>
+                      <Badge variant="warning">No proof attached</Badge>
                     )}
                   </div>
+                )}
+                {change.index !== null && state && (
+                  <DecisionControl
+                    hasProof={hasProof}
+                    state={state}
+                    disabled={disabled}
+                    onChange={(next) => onDecision(change.index as number, next)}
+                  />
                 )}
               </div>
             </div>
@@ -194,7 +319,9 @@ function ItemsDiff({
           onClick={() => setShowUnchanged((v) => !v)}
           className="self-start text-xs font-medium text-ink-3 underline hover:text-ink"
         >
-          {showUnchanged ? 'Hide unchanged entries' : `Show ${unchanged} unchanged ${unchanged === 1 ? 'entry' : 'entries'}`}
+          {showUnchanged
+            ? 'Hide unchanged entries'
+            : `Show ${unchanged} unchanged ${unchanged === 1 ? 'entry' : 'entries'} (pre-set — still submitted with your decisions)`}
         </button>
       )}
     </div>
@@ -217,13 +344,100 @@ function PendingEditCard({
   const changes = countChanges(diff);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  const [busy, setBusy] = useState<'approve' | 'reject' | 'items' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [overallNote, setOverallNote] = useState('');
 
   const batchProof: ProofAttachment[] = [
     ...(edit.proofFileUrl ? [{ type: 'file' as const, url: edit.proofFileUrl, label: 'Supporting document' }] : []),
     ...(edit.proofLink ? [{ type: 'link' as const, url: edit.proofLink, label: edit.proofLink }] : []),
   ];
+  const hasBatchProof = batchProof.length > 0;
+  const perItemProof = PER_ITEM_PROOF_SECTIONS.has(edit.section);
+
+  // Per-item mode applies to array sections that actually carry entries; headline_bio / contact
+  // and a fully cleared section are reviewed as a whole.
+  const itemChanges = diff.shape === 'items' ? diff.items : [];
+  const proposedItems = itemChanges.filter((c) => c.index !== null);
+  const perItemMode = diff.shape === 'items' && proposedItems.length > 0;
+
+  const [decisions, setDecisions] = useState<Record<number, ItemDecisionState>>(() => {
+    const init: Record<number, ItemDecisionState> = {};
+    for (const c of proposedItems) {
+      if (c.index === null) continue;
+      const hasProof = perItemProof ? c.proofAttachments.length > 0 : hasBatchProof;
+      if (c.kind === 'unchanged') {
+        // Unchanged entries are resubmitted too; pre-set them so only real changes need attention.
+        init[c.index] = hasProof
+          ? { decision: 'approved_verified', reason: '' }
+          : { decision: 'approved_hygiene', reason: NO_PROOF_REASON };
+      } else {
+        init[c.index] = { decision: null, reason: '' };
+      }
+    }
+    return init;
+  });
+
+  function setDecision(index: number, next: ItemDecisionState) {
+    setDecisions((d) => ({ ...d, [index]: next }));
+  }
+
+  function autoFill() {
+    setDecisions((d) => {
+      const out = { ...d };
+      for (const c of proposedItems) {
+        if (c.index === null || out[c.index]?.decision !== null) continue;
+        const hasProof = perItemProof ? c.proofAttachments.length > 0 : hasBatchProof;
+        out[c.index] = hasProof
+          ? { decision: 'approved_verified', reason: '' }
+          : { decision: 'approved_hygiene', reason: NO_PROOF_REASON };
+      }
+      return out;
+    });
+  }
+
+  const undecided = proposedItems.filter((c) => c.index !== null && decisions[c.index]?.decision === null).length;
+  const missingReason = proposedItems.filter((c) => {
+    const st = c.index !== null ? decisions[c.index] : undefined;
+    return st && (st.decision === 'approved_hygiene' || st.decision === 'rejected') && !st.reason.trim();
+  }).length;
+  const counts = {
+    approved_verified: 0,
+    approved_hygiene: 0,
+    rejected: 0,
+  };
+  for (const st of Object.values(decisions)) if (st.decision) counts[st.decision] += 1;
+
+  async function submitItems() {
+    if (undecided > 0) {
+      setError(`Decide every entry first — ${undecided} still need a decision.`);
+      return;
+    }
+    if (missingReason > 0) {
+      setError('Add a reason for every entry that is rejected or approved without the badge.');
+      return;
+    }
+    const items: ReviewMemberEditItemRequest[] = proposedItems.flatMap((c) => {
+      const st = c.index !== null ? decisions[c.index] : undefined;
+      if (c.index === null || !st || st.decision === null) return [];
+      return [
+        {
+          index: c.index,
+          decision: st.decision,
+          ...(st.decision === 'approved_verified' ? {} : { reason: st.reason.trim() }),
+        },
+      ];
+    });
+    setError(null);
+    setBusy('items');
+    try {
+      await reviewMemberEdit(edit.id, { items, ...(overallNote.trim() ? { reviewNote: overallNote.trim() } : {}) });
+      onDecided();
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to submit these decisions.'));
+      setBusy(null);
+    }
+  }
 
   async function decide(status: 'verified' | 'rejected') {
     if (status === 'rejected' && !reason.trim()) {
@@ -257,8 +471,18 @@ function PendingEditCard({
       <div className="mt-5">
         {diff.shape === 'fields' ? (
           <FieldDiff fields={diff.fields} />
+        ) : perItemMode ? (
+          <ItemsDiff
+            items={diff.items}
+            section={edit.section}
+            fileUrls={detail.fileUrls}
+            hasBatchProof={hasBatchProof}
+            decisions={decisions}
+            onDecision={setDecision}
+            disabled={busy !== null}
+          />
         ) : (
-          <ItemsDiff items={diff.items} section={edit.section} fileUrls={detail.fileUrls} />
+          <p className="text-sm text-ink-3">The member cleared this section — approving removes every entry.</p>
         )}
       </div>
 
@@ -270,7 +494,31 @@ function PendingEditCard({
       )}
 
       <div className="mt-5 border-t border-line pt-5">
-        {rejecting ? (
+        {perItemMode ? (
+          <div className="flex flex-col gap-3">
+            <Textarea
+              label="Overall note (optional)"
+              rows={2}
+              value={overallNote}
+              disabled={busy !== null}
+              onChange={(e) => setOverallNote(e.target.value)}
+            />
+            <p className="text-xs text-ink-3">
+              {counts.approved_verified} verified · {counts.approved_hygiene} live without badge · {counts.rejected} rejected
+              {undecided > 0 && ` · ${undecided} undecided`}
+            </p>
+            <div className="flex flex-wrap gap-2 max-[480px]:flex-col">
+              <Button onClick={submitItems} disabled={busy !== null}>
+                {busy === 'items' ? 'Submitting…' : 'Submit decisions'}
+              </Button>
+              {undecided > 0 && (
+                <Button variant="secondary" onClick={autoFill} disabled={busy !== null}>
+                  Pre-fill undecided (verify if proof, else no badge)
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : rejecting ? (
           <div className="flex flex-col gap-3">
             <Textarea
               label="Reason for rejecting (shown to the member)"
@@ -308,6 +556,34 @@ function PendingEditCard({
   );
 }
 
+// ── A reviewed edit: per-item outcomes ───────────────────────────────────────────────────────
+
+function ItemOutcomes({ edit }: { edit: MemberProfileEditDto }) {
+  const reviews = edit.itemReviews;
+  if (!reviews || reviews.length === 0) return null;
+  const payload = Array.isArray(edit.payload) ? (edit.payload as Record<string, unknown>[]) : [];
+  const label = (decision: MemberEditItemDecision) => DECISION_OPTIONS.find((o) => o.value === decision)?.short ?? decision;
+  return (
+    <ul className="mt-2 flex flex-col gap-1.5">
+      {[...reviews]
+        .sort((a, b) => a.index - b.index)
+        .map((r) => {
+          const item = payload[r.index];
+          const title = item ? viewOfItem(edit.section, item).title : '';
+          return (
+            <li key={r.index} className="flex flex-wrap items-start gap-2 text-sm">
+              <Badge variant={DECISION_BADGE[r.decision]}>{label(r.decision)}</Badge>
+              <span className="min-w-0 break-words text-ink-2">
+                {title || `Entry ${r.index + 1}`}
+                {r.reason && <span className="text-ink-3"> — {r.reason}</span>}
+              </span>
+            </li>
+          );
+        })}
+    </ul>
+  );
+}
+
 // ── Page body ────────────────────────────────────────────────────────────────────────────────
 
 export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDto }) {
@@ -320,6 +596,11 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
   const [approvingAll, setApprovingAll] = useState(false);
   const [allError, setAllError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(pending.length === 0);
+
+  // Once the last pending edit is decided, open the history so the per-item outcomes are visible.
+  useEffect(() => {
+    if (pending.length === 0) setShowHistory(true);
+  }, [pending.length]);
 
   function refresh() {
     router.refresh();
@@ -380,6 +661,7 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
                           {edit.reviewedAt && ` · decided ${DATE_FORMAT.format(new Date(edit.reviewedAt))}`}
                         </div>
                         {edit.reviewNote && <p className="mt-1 text-sm text-ink-2">{edit.reviewNote}</p>}
+                        <ItemOutcomes edit={edit} />
                       </div>
                       <Badge variant={decision.variant}>{decision.label}</Badge>
                     </li>
@@ -421,15 +703,16 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
             <div className="text-mono-label text-ink-3">Pending changes</div>
             <div className="mt-1 text-stat text-ink">{pending.length}</div>
             <p className="mt-1 text-caption text-ink-3">
-              Approving publishes a section to the live profile straight away. Rejecting keeps the current
-              version and shows your reason to the member.
+              List sections are decided entry by entry (verified, live without badge, or rejected, with a
+              reason the member sees). Headline, bio and contact are approved or rejected whole.
             </p>
             {pending.length > 1 && (
               <div className="mt-4">
                 {confirmAll ? (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-ink-2">
-                      Publish all {pending.length} sections to {member.name}&apos;s live profile?
+                      Publish all {pending.length} sections to {member.name}&apos;s live profile? List entries go
+                      live with the Verified badge only where proof is attached; the rest go live without it.
                     </p>
                     <Button onClick={approveAll} disabled={approvingAll} fullWidth>
                       {approvingAll ? 'Approving…' : `Yes, approve all ${pending.length}`}

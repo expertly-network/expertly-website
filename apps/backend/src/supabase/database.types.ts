@@ -391,6 +391,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          item_reviews: Json | null;
           member_id: string;
           payload: NonNullable<Json>;
           proof_file_url: string | null;
@@ -406,6 +407,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          item_reviews?: Json | null;
           member_id: string;
           payload: NonNullable<Json>;
           proof_file_url?: string | null;
@@ -421,6 +423,7 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          item_reviews?: Json | null;
           member_id?: string;
           payload?: NonNullable<Json>;
           proof_file_url?: string | null;
@@ -488,6 +491,7 @@ export type Database = {
           testimonials: NonNullable<Json>;
           updated_at: string;
           website: string | null;
+          work_email: string | null;
           work_experiences: NonNullable<Json>;
           years_of_experience: number;
         };
@@ -528,6 +532,7 @@ export type Database = {
           testimonials?: NonNullable<Json>;
           updated_at?: string;
           website?: string | null;
+          work_email?: string | null;
           work_experiences?: NonNullable<Json>;
           years_of_experience: number;
         };
@@ -568,6 +573,7 @@ export type Database = {
           testimonials?: NonNullable<Json>;
           updated_at?: string;
           website?: string | null;
+          work_email?: string | null;
           work_experiences?: NonNullable<Json>;
           years_of_experience?: number;
         };
@@ -585,6 +591,54 @@ export type Database = {
             isOneToOne: true;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_recommendations: {
+        Row: {
+          author_id: string;
+          body: string;
+          created_at: string;
+          hidden_at: string | null;
+          id: string;
+          is_hidden: boolean;
+          recipient_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          author_id: string;
+          body: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          is_hidden?: boolean;
+          recipient_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          author_id?: string;
+          body?: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          is_hidden?: boolean;
+          recipient_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_recommendations_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "member_profiles";
+            referencedColumns: ["profile_id"];
+          },
+          {
+            foreignKeyName: "member_recommendations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_profiles";
+            referencedColumns: ["profile_id"];
           },
         ];
       };

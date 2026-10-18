@@ -2,12 +2,12 @@
 
 import { useRef, useState } from 'react';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
-import { COUNTRIES, PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
+import { LocationFields } from '@/components/apply/LocationFields';
+import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
@@ -211,47 +211,12 @@ export function IdentityStep({
         </div>
 
         {/* Region is no longer picked here — the backend derives it server-side from country. */}
-        <Select
-          id="country"
-          label="Country"
-          value={form.country}
-          onChange={(e) => {
-            update({ country: e.target.value });
-            clearError('country');
-          }}
-          error={errors.country}
-          required
-        >
-          <option value="">Select country…</option>
-          {COUNTRIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </Select>
-
-        <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <Input
-            label="State / Province"
-            labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
-            name="state"
-            placeholder="e.g. California"
-            value={form.state}
-            onChange={(e) => update({ state: e.target.value })}
-          />
-          <Input
-            label="City"
-            labelRight={
-              form.importedFields.has('city') ? (
-                <ImportedTag />
-              ) : (
-                <span className="text-xs font-normal text-ink-3">optional</span>
-              )
-            }
-            name="city"
-            placeholder="e.g. London"
-            value={form.city}
-            onChange={(e) => update({ city: e.target.value })}
-          />
-        </div>
+        <LocationFields
+          form={form}
+          update={update}
+          countryError={errors.country}
+          onCountryChange={() => clearError('country')}
+        />
 
         <Input
           label="LinkedIn URL"

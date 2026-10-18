@@ -24,6 +24,7 @@ import { CouponPreviewDto } from './dto/coupon-preview.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
 import { deriveRegion } from './constants/country-region';
+import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/work-history';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import { ApplicationsRepository, type ApplicationRow, type ServiceDetail } from './applications.repository';
 
@@ -110,6 +111,13 @@ export class ApplicationsService {
     for (const [column, key] of Object.entries(WRITABLE_COLUMNS)) {
       const value = dto[key];
       if (value !== undefined) patch[column] = value;
+    }
+
+    // Work history is validated (no end-before-start, no overlapping ranges) and stored
+    // newest-first regardless of the order the client sent it in.
+    if (dto.workExperiences !== undefined) {
+      assertValidWorkHistory(dto.workExperiences);
+      patch.work_experiences = sortWorkHistoryNewestFirst(dto.workExperiences);
     }
 
     // Re-derive region whenever country is part of this write, so it never drifts out of sync
@@ -352,7 +360,9 @@ export class ApplicationsService {
       title: string;
       company: string;
       companyUrl?: string;
+      startMonth?: number;
       startYear: number;
+      endMonth?: number;
       endYear?: number;
       isCurrent: boolean;
     }[];
@@ -392,14 +402,18 @@ export class ApplicationsService {
       // (id-keyed, no city/firmSize/companyUrl/startMonth/endMonth, description instead) — same
       // { id: randomUUID(), ...item } convention MembersService uses when a member's own
       // self-edit gets applied to these same jsonb columns.
-      work_experiences: workExperiences.map((w) => ({
+      // isVerified: the admin vetted these (with the application's documents) by approving it.
+      work_experiences: sortWorkHistoryNewestFirst(workExperiences).map((w) => ({
         id: randomUUID(),
         title: w.title,
         company: w.company,
+        startMonth: w.startMonth ?? null,
         startYear: w.startYear,
+        endMonth: w.endMonth ?? null,
         endYear: w.endYear ?? null,
         isCurrent: w.isCurrent,
         description: null,
+        isVerified: true,
       })),
       educations: educations.map((e) => ({
         id: randomUUID(),
@@ -407,6 +421,7 @@ export class ApplicationsService {
         institution: e.institution,
         field: e.fieldOfStudy ?? null,
         endYear: e.endYear ?? null,
+        isVerified: true,
       })),
       // Same bucket, same path as the source application — application-assets is public now, so
       // no file copy and no signing is needed, just carry the path forward as-is.

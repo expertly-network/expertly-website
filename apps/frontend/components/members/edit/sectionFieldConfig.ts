@@ -4,13 +4,14 @@ import type { MemberEditSection } from '@shared/member';
 export type FieldSpec =
   | { key: string; label: string; type: 'text' | 'url' | 'email' | 'tel'; required?: boolean }
   | { key: string; label: string; type: 'textarea'; required?: boolean }
-  | { key: string; label: string; type: 'number'; required?: boolean }
+  | { key: string; label: string; type: 'number'; required?: boolean; min?: number; max?: number }
+  | { key: string; label: string; type: 'verification-methods' }
   | { key: string; label: string; type: 'checkbox' };
 
 export type SectionShape =
   | 'fields' // single structured form, no proof — headline_bio, contact
   | 'list-shared-proof' // repeatable rows, one proof for the whole batch — education, work_experiences
-  | 'list-per-item-proof' // repeatable rows, proof per row — engagements, testimonials, awards
+  | 'list-per-item-proof' // repeatable rows, optional proof per row — engagements, testimonials, awards
   | 'clients'; // repeatable rows, per-row logo upload instead of proof — key_clients
 
 export interface SectionConfig {
@@ -18,6 +19,18 @@ export interface SectionConfig {
   fields: FieldSpec[];
   maxItems?: number; // only meaningful for list/clients shapes
 }
+
+// Key clients cap (mirrors the backend's KEY_CLIENTS_LIMIT_EXCEEDED rule; shared-types is type-only).
+export const KEY_CLIENTS_MAX = 20;
+
+// Mirrors ENGAGEMENT_VERIFICATION_METHODS in shared-types (type-only folder, so kept local).
+export const VERIFICATION_METHOD_OPTIONS = [
+  { value: 'engagement_letter', label: 'Engagement letter' },
+  { value: 'client_deliverable', label: 'Client deliverable' },
+  { value: 'mail_confirmation_pdf', label: 'Mail confirmation (PDF)' },
+  { value: 'newsletter_transaction_update', label: 'Newsletter / transaction update' },
+  { value: 'other', label: 'Other' },
+] as const;
 
 export const SECTION_TITLES: Record<MemberEditSection, string> = {
   headline_bio: 'Headline & Bio',
@@ -42,6 +55,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
     shape: 'fields',
     fields: [
       { key: 'contactEmail', label: 'Email', type: 'email' },
+      { key: 'workEmail', label: 'Work email (optional)', type: 'email' },
       { key: 'contactPhone', label: 'Phone', type: 'tel' },
       { key: 'linkedinUrl', label: 'LinkedIn URL', type: 'url' },
       { key: 'website', label: 'Website', type: 'url' },
@@ -53,8 +67,11 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
     fields: [
       { key: 'title', label: 'Title', type: 'text', required: true },
       { key: 'organization', label: 'Organization', type: 'text', required: true },
+      { key: 'clientName', label: 'Client name', type: 'text', required: true },
+      { key: 'clientEmail', label: 'Client email (optional)', type: 'email' },
       { key: 'year', label: 'Year', type: 'number' },
       { key: 'url', label: 'URL', type: 'url' },
+      { key: 'verificationMethods', label: 'How can this engagement be verified?', type: 'verification-methods' },
     ],
   },
   education: {
@@ -73,7 +90,9 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
     fields: [
       { key: 'title', label: 'Job title', type: 'text', required: true },
       { key: 'company', label: 'Company', type: 'text', required: true },
+      { key: 'startMonth', label: 'Start month (1-12, optional)', type: 'number', min: 1, max: 12 },
       { key: 'startYear', label: 'Start year', type: 'number', required: true },
+      { key: 'endMonth', label: 'End month (1-12, optional)', type: 'number', min: 1, max: 12 },
       { key: 'endYear', label: 'End year', type: 'number' },
       { key: 'isCurrent', label: 'I currently work here', type: 'checkbox' },
       { key: 'description', label: 'Description', type: 'textarea' },
@@ -81,7 +100,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
   },
   key_clients: {
     shape: 'clients',
-    maxItems: 12,
+    maxItems: KEY_CLIENTS_MAX,
     fields: [{ key: 'name', label: 'Client name', type: 'text', required: true }],
   },
   testimonials: {
@@ -110,17 +129,29 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
 
 // Empty-row factories for "+ Add another" in SectionEditModal.
 export const EMPTY_ROW: Record<string, Record<string, unknown>> = {
-  engagements: { title: '', organization: '', year: undefined, url: '', proofAttachments: [] },
+  engagements: {
+    title: '',
+    organization: '',
+    clientName: '',
+    clientEmail: '',
+    year: undefined,
+    url: '',
+    verificationMethods: [],
+    verificationMethodOther: '',
+    proofAttachments: [],
+  },
   education: { degree: '', institution: '', field: '', endYear: undefined },
   work_experiences: {
     title: '',
     company: '',
+    startMonth: undefined,
     startYear: undefined,
+    endMonth: undefined,
     endYear: undefined,
     isCurrent: false,
     description: '',
   },
-  key_clients: { name: '', logoUrl: null, logoUploadPath: undefined },
+  key_clients: { name: '', logoUrl: null, logoUploadPath: undefined, proofAttachments: [] },
   testimonials: {
     quote: '',
     clientName: '',

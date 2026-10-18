@@ -88,6 +88,7 @@ ever runs, so a malformed body from a non-client caller surfaces as `400` first,
   while one is pending or already succeeded. (`approved` is blocked here for defense-in-depth;
   in practice it's already unreachable, since an approved applicant's role has flipped to
   `member` and this endpoint requires `role: 'client'`.)
+- `workExperiences` in the body (2026-10-10) → validated and stored **newest-first**: an end before its start is `400 WORK_HISTORY_END_BEFORE_START`; overlapping date ranges are `400 WORK_HISTORY_OVERLAP` (a current role counts as ending today; touching in a boundary month is fine; missing months count as January). Items accept optional `startMonth`/`endMonth` (1-12). Approval now carries months and sets `isVerified: true` on the provisioned work history/education.
 - `status: 'submitted'` in the body → after merging, the **merged row** (not just this call's
   body) must satisfy every requirement the old one-shot `POST /v1/applications` used to enforce
   (all identity/background/services/rates fields present, `workExperiences`/`educations`/
@@ -857,7 +858,7 @@ owner-only `/:id/uploads` and `/:id/edits`, and admin `PATCH /v1/admin/members/:
 the UUID (`MemberDto.id`): those compare it directly against the caller's JWT, never appear in the
 browser's address bar, and the UUID remains the key every other table references.
 
-Full profile — all `member_profiles` columns, all 8 child arrays, `memberServices`. **Requires
+Full profile — all `member_profiles` columns (incl. `workEmail`, added 2026-10-10), all 8 child arrays, `memberServices`. List items carry `isVerified`; `proofAttachments` appear on items **only for the owner/admins**. Work history is returned newest-first. **Requires
 sign-in** (any authenticated role) — a deliberate product decision, not something the static
 prototype itself consistently enforces; see `docs/database-erd.md`'s "Design decisions" note.
 
@@ -889,21 +890,35 @@ same pattern as `PATCH /v1/articles/:id`'s owner-or-admin check but stricter —
 here, since this is a submission, not a direct write). Creates a `pending` `member_profile_edits`
 row; **never touches the live profile** — that only happens on admin approval (see below).
 
-**Request:** `CreateMemberEditRequest` — `{ section, payload, proofFileUrl?, proofLink? }`. Shape of
+**Request:** `CreateMemberEditRequest` — `{ section, payload, proofFileUrl?, proofLink? }`.
+
+**Updated 2026-10-10 (additive):** proof is **optional everywhere** for members. Payload items may
+carry `id` (the live item's id when editing an existing item — keep it so a rejected change falls
+back to the live version and the id stays stable); `isVerified` is server-owned and ignored. Live
+items now return their `proofAttachments` to the owner so the edit modal can prefill them. New
+per-section validation (`400` with `{ code, message }`): `engagements` — `clientName` required
+(`ENGAGEMENT_CLIENT_NAME_REQUIRED`), `clientEmail?` valid email (`ENGAGEMENT_CLIENT_EMAIL_INVALID`),
+`verificationMethods?` unique subset of `engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other`
+and `verificationMethodOther?` ≤ 300 chars (`ENGAGEMENT_VERIFICATION_METHODS_INVALID`);
+`key_clients` — max 20 items (`KEY_CLIENTS_LIMIT_EXCEEDED`), `name` required (`KEY_CLIENT_NAME_REQUIRED`),
+optional `proofAttachments`; `work_experiences` — `startYear` int, `isCurrent` bool, optional
+`startMonth`/`endMonth` 1-12, no end-before-start (`WORK_HISTORY_END_BEFORE_START`), no overlapping
+ranges (`WORK_HISTORY_OVERLAP`); stored newest-first; `contact` — adds `workEmail`, emails must be
+valid (`CONTACT_EMAIL_INVALID`). Other codes: `PAYLOAD_NOT_ARRAY`, `PAYLOAD_ITEM_INVALID`,
+`HEADLINE_BIO_INVALID`, `CONTACT_PAYLOAD_INVALID`, `PROOF_ATTACHMENTS_INVALID`, `WORK_HISTORY_INVALID`. Shape of
 `payload` depends on `section` (see `packages/shared-types/member.ts` for the per-section
 discriminated union) and matches the section's actual base-data shape — **not** the prototype's
 flattened single-string-per-item shortcut (see `docs/database-erd.md`).
 
 Proof shape also depends on `section`: `education`/`work_experiences` use the top-level
 `proofFileUrl`/`proofLink` (one shared proof for the whole batch); `engagements`/`testimonials`/
-`awards` instead carry proof **per item**, as `payload[i].proofAttachments?:
+`awards`/`key_clients` instead carry proof **per item**, as `payload[i].proofAttachments?:
 {type: 'file'|'link', url, label}[]` — a member can attach any mix of multiple files and links to
 a single item, not just one or the other. The DTO only validates `payload` is present (its exact
 shape is section-dependent, so class-validator can't express it) — `MembersService
 .validateEditPayloadShape()` does the real per-section check, including that every
 `proofAttachments` entry (when present) has a valid `type`/`url`/`label`. `proofAttachments` is
-moderation-only evidence: on admin approval it is stripped before the item is written into the
-live `member_profiles` column, so it's never exposed on the public `GET /v1/members/:slug` response.
+private evidence: since 2026-10-10 it is **kept** on the live item (so editing prefills it) but is only returned to the item's owner and admins, never to other viewers of `GET /v1/members/:slug`.
 
 **One pending edit per section.** Submitting closes any older still-`pending` edit for the same
 member + section (status `rejected`, `reviewNote: "Replaced by a newer submission."`,
@@ -975,12 +990,33 @@ in one call. `:id` is the member's UUID (`400` if malformed, `404` if no such me
 
 ### 🛡️ `manageMembers` `PATCH /v1/admin/member-edits/:id`
 
-Approve or reject one edit request. `{ status: 'verified' | 'rejected', reviewNote?: string }` —
-**`reviewNote` is required (non-blank) when rejecting** (added 2026-09-27): it's shown to the
-member on their own profile as the reason. On `verified`: for the array-shaped sections, replaces
-that member's items for the section wholesale with `payload`'s items (`proofAttachments` stripped);
-for `headline_bio`/`contact`, overwrites the corresponding `member_profiles` columns directly.
-Sets `reviewedBy`/`reviewedAt` to the caller/now either way.
+Review one edit request. Two modes:
+
+**1. Whole-edit** (`headline_bio`, `contact`, or legacy array behaviour): `{ status: 'verified' |
+'rejected', reviewNote?: string }` — `reviewNote` required (non-blank) when rejecting (`400
+REVIEW_REASON_REQUIRED`). On `verified` for an array section without `items`, every item is
+accepted, `isVerified` = the item has proof.
+
+**2. Per-item** (array sections, added 2026-10-10): `{ items: [{ index, decision, reason? }], reviewNote? }`.
+`items` must cover **every** payload index exactly once (`ITEM_REVIEW_INCOMPLETE`,
+`ITEM_REVIEW_INDEX_INVALID`). `decision`:
+- `approved_verified` — applied, live **with** the Verified badge (`isVerified: true`). The item must
+  have proof: its own `proofAttachments` (engagements/testimonials/awards/key_clients) or the
+  edit-level `proofFileUrl`/`proofLink` (education/work_experiences), else `400 VERIFIED_REQUIRES_PROOF`.
+- `approved_hygiene` — applied, live **without** the badge. `reason` required (shown to the member,
+  e.g. "proof not attached"), else `400 ITEM_REVIEW_REASON_REQUIRED`.
+- `rejected` — not applied. `reason` required. If the payload item carried a live `id`, that live
+  item stays untouched; a brand-new item is dropped.
+`status` may be omitted; the edit's status is derived: `verified` if any item was accepted, else
+`rejected`. A supplied `status` that contradicts this is `400 REVIEW_STATUS_MISMATCH`. Per-item
+mode on `headline_bio`/`contact` is `400 ITEM_REVIEW_NOT_SUPPORTED`; neither `status` nor `items`
+is `400 REVIEW_DECISION_REQUIRED`. The decisions are stored on the edit as `itemReviews`
+(`[{index, decision, reason}]`) and returned in `MemberProfileEditDto.itemReviews` (null for
+whole-edit reviews) so the member sees each item's reason. If every item is rejected the live
+section is left exactly as it was (including items the member had removed). Accepted items keep
+`proofAttachments`. Work history is re-validated (overlap) and re-sorted on apply — if an accepted
+item would overlap a retained live one the review is `400 WORK_HISTORY_OVERLAP`. `contact`
+approval now also writes `workEmail`. No email is sent.
 
 **Key-client logos are published on approval.** A newly uploaded logo sits in the private
 `member-proofs` bucket as the item's `logoUploadPath`; the public profile reads `logoUrl`. On
@@ -991,9 +1027,32 @@ to its public URL; `logoUploadPath` is dropped. Items without a new upload keep 
 nothing reads.) A logo that fails the check makes the whole approval `400` with a message naming
 the client — reject the edit with a reason instead.
 
-**Response `200`:** `MemberProfileEditDto`. **Errors:** `400` rejecting without a `reviewNote`, or
+**Response `200`:** `MemberProfileEditDto`. **Errors:** `400` (codes above), or
 an invalid key-client logo · `409` if the edit is no longer `pending` (already reviewed, or
 replaced by a newer submission).
+
+### 🔒 `GET /v1/members/:id/recommendations`
+
+Added 2026-10-10. `:id` = recommended member's UUID (`MemberDto.id`). Any signed-in role. Returns
+non-hidden recommendations newest first; the recipient and admins also receive hidden ones
+(`isHidden: true`). **Response `200`:** `MemberRecommendationDto[]` — `{ id, recipientId, author:
+{ id, slug, name, initials, photoUrl }, body, isHidden, createdAt }`. **Errors:** `404` unknown or
+non-active member (the owner can still read their own).
+
+### 🔑 `POST /v1/members/:id/recommendations`
+
+`@Roles('member')`. The caller must be an **active member** writing for **another active member**.
+**Request:** `{ body: string }` (10–2000 chars, trimmed, plain text). Published immediately.
+**Response `201`:** `MemberRecommendationDto`. **Errors:** `400` validation · `403`
+`RECOMMENDATION_SELF` (recommending yourself) or `RECOMMENDATION_AUTHOR_NOT_ACTIVE_MEMBER` ·
+`404` `RECOMMENDATION_RECIPIENT_NOT_FOUND` (not an active member) · `409`
+`RECOMMENDATION_ALREADY_EXISTS` (one per author/recipient pair).
+
+### 🔑 `PATCH /v1/members/:id/recommendations/:recommendationId`
+
+`@Roles('member')`, only the **recommended member** (`:id` must equal the caller). **Request:**
+`{ isHidden: boolean }` — hide/unhide. **Response `200`:** `MemberRecommendationDto`. **Errors:**
+`403` caller isn't the recipient · `404` recommendation not found under this member.
 
 ## Member directory & profiles — not built yet (explicitly deferred)
 

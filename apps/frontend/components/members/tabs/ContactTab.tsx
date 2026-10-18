@@ -57,6 +57,9 @@ export function ContactTab({
   if (member.contactEmail) {
     items.push({ label: 'Email', value: member.contactEmail, href: `mailto:${member.contactEmail}`, external: false, icon: ICONS.email });
   }
+  if (member.workEmail) {
+    items.push({ label: 'Work email', value: member.workEmail, href: `mailto:${member.workEmail}`, external: false, icon: ICONS.email });
+  }
   if (member.contactPhone) {
     items.push({ label: 'Phone', value: member.contactPhone, href: `tel:${member.contactPhone.replace(/\s/g, '')}`, external: false, icon: ICONS.phone });
   }
