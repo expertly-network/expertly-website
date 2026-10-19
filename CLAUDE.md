@@ -191,7 +191,7 @@ it was wrong, then implement against the corrected version.
 ```
 ✅ TypeScript strict mode everywhere — no 'any', no exceptions
 ✅ NestJS backend uses Fastify adapter (not Express)
-✅ All API responses go through ResponseInterceptor (envelope + camelCase)
+✅ Controllers return plain camelCase DTOs (no envelope, no response interceptor)
 ✅ Frontend uses Next.js App Router with Server and Client Components
 ✅ All frontend API calls go through apiClient (never raw fetch)
 ✅ All database access from backend uses Supabase service role client
@@ -205,12 +205,12 @@ it was wrong, then implement against the corrected version.
 ✅ Slugs are always generated server-side — never client-side
 ```
 
-**Not yet applicable:** no table has a vector/embedding column today — semantic/AI search is
-explicitly not scoped (see `docs/master-tdd.md` Section 8.3). Don't add `vector(...)` columns or
-call an embedding API speculatively. If that decision is ever made, the rule to reinstate is:
-never `SELECT *` from a table that gains an embedding column, and use Google's `gemini-embedding-001`
-(`outputDimensionality: 768`) via the v1beta REST API directly — not the `@google/generative-ai`
-SDK, which doesn't support that model.
+**Embeddings (AI search):** `search_documents.embedding` is `halfvec(768)`, populated with OpenAI
+`text-embedding-3-small` at `dimensions: 768` through a small typed REST client
+(`apps/backend/src/search/openai.client.ts`). Never `SELECT *` from a table with an embedding
+column, always name the columns. Embeddings are produced only by the worker
+(`apps/backend/src/search-worker/`) and for query topics at search time. See `docs/rest-api.md`
+"AI search" and `docs/database-erd.md` "AI search". No other table has a vector column.
 
 ### Security
 ```
@@ -225,7 +225,11 @@ SDK, which doesn't support that model.
 client-selectable), routed through the Vercel `ai` SDK rather than a per-provider proprietary
 client. The system prompt explicitly instructs the model to treat the member's topic/notes as
 untrusted source material, never as instructions to itself — see `docs/rest-api.md` for the
-full contract. No other AI/LLM integration exists elsewhere in the repo.
+full contract. AI search (`POST /v1/search`, `apps/backend/src/search/`) is the other LLM
+integration: it calls OpenAI directly (`OPENAI_CHAT_MODEL`, `OPENAI_EMBED_MODEL`) rather than
+through the `ai` SDK, because the tuned planner/judge prompts need strict `json_schema` output.
+Its prompts are verbatim and pinned by a test — never edit one to make a test pass. Contact
+details must never reach OpenAI or a response (redaction regexes + tests in `search/redaction.*`).
 
 ### Error handling
 ```
@@ -279,7 +283,8 @@ areas, membership applications, articles, member directory & profiles, events (b
 admin CRUD — the public suggestion-queue submission flow is the one piece still open, see
 `docs/master-tdd.md` Section 10 item 4). Next, in order: consultations → perks/templates/learnings
 → the events suggestion queue → Peer Connect (its own dedicated scoping session) → beyond-roadmap
-(notifications, admin/ops overview dashboard, search, renewal billing).
+(notifications, admin/ops overview dashboard, renewal billing). AI search is built
+(`docs/rest-api.md` "AI search").
 
 ## Session closing checklist
 

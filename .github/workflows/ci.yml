@@ -39,6 +39,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Backend unit + in-process e2e tests (redaction, prompts, card ordering, search endpoint).
+      # They need no secrets: Supabase and OpenAI are faked inside the tests.
+      - name: Test
+        run: pnpm test
+
       - name: Build
         run: pnpm build
         env:

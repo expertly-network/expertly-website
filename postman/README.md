@@ -1,11 +1,11 @@
 # Expertly Postman collection
 
-`Expertly.postman_collection.json` covers every route in `apps/backend` (67 requests). Structure
+`Expertly.postman_collection.json` covers every route in `apps/backend` (68 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
    Services, Membership Applications, Articles, Events, Member Directory & Profiles,
-   Consultations) hold only non-admin requests. Every 🛡️ admin-only route lives in the single
+   Consultations, AI Search) hold only non-admin requests. Every 🛡️ admin-only route lives in the single
    top-level **Admin** folder instead, in a sub-folder named after the same resource (e.g. public
    `Articles` vs. `Admin → Articles`) — never mixed into the public/member folder it'd otherwise
    belong to. This keeps a resource folder from being cluttered with routes only an admin can call.

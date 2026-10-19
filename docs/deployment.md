@@ -77,6 +77,44 @@ request's hostname**:
 Adding a third domain (e.g. a staging environment) means adding one entry to `API_HOSTS`, not a
 new image or a new Coolify app.
 
+## Search worker (second app, same image)
+
+AI search needs a background process besides the API: it rebuilds search cards from the outbox,
+embeds new/changed cards, and runs daily cleanup. It is **the same image** as `expertly-backend`
+started with a different command — a second Coolify resource, not a second repo or image
+(`apps/backend/src/worker.ts`; verified: the production image contains
+`dist/apps/backend/src/worker.js` and runs it with the command below).
+
+| Setting | Value |
+|---|---|
+| Resource type | Docker Image |
+| Image | `ghcr.io/expertly-network/expertly-backend:latest` (same tag as the API) |
+| Start command (override the image's `CMD`) | `node dist/apps/backend/src/worker.js` (same as `pnpm start:worker`) |
+| Domains / exposed port | **none** — it listens on no port |
+| Healthcheck | **disabled** — `/v1/health` belongs to the API only; the worker has no HTTP server, so a path healthcheck would mark it permanently unhealthy and trigger rollbacks |
+| Replicas | **1** (the outbox claim is multi-worker safe, but two embedders just double-spend OpenAI calls) |
+| Stop timeout | ≥ 60 s if Coolify exposes it (custom Docker option `--stop-timeout 60`): on SIGTERM the worker finishes the batch in flight, which can take up to ~30 s (OpenAI timeout) |
+
+Environment variables for the worker app:
+
+| Variable | Notes |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | same values as the API; service-role key only ever on the backend |
+| `OPENAI_API_KEY` | required (embeddings) |
+| `OPENAI_EMBED_MODEL` | `text-embedding-3-small` (must stay 768-dimensional; the model is part of `embedding_model` on every card) |
+| `OPENAI_CHAT_MODEL` | `gpt-4.1-mini`. The worker does not call chat models; set it anyway so both apps share one env list (the **API** needs it) |
+| `SEARCH_OUTBOX_WORKER_ENABLED` | `false` until cutover step 3 in `docs/ai-search/CUTOVER.md`, then `true`. While `false` the worker still embeds and cleans up, but does not rebuild cards |
+
+The API app additionally needs `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, `OPENAI_EMBED_MODEL` for
+`POST /v1/search`; it does not need `SEARCH_OUTBOX_WORKER_ENABLED` (the API process runs no loops).
+
+Redeploys: the CI "Trigger Coolify redeploy" step currently passes two app UUIDs
+(`COOLIFY_BACKEND_DEPLOY_UUID`, `COOLIFY_FRONTEND_DEPLOY_UUID`). The worker app needs its own
+secret `COOLIFY_WORKER_DEPLOY_UUID` appended to that `uuid=` list, otherwise it keeps running an
+old image after a deploy. (Not yet edited in `.github/workflows/ci.yml` — do it when the worker
+app exists.) The worker logs to stdout; look for `Search worker running.` and the
+`Embedder loop started` / `Outbox loop` lines in Coolify's log view.
+
 ## CI/CD pipeline
 
 `.github/workflows/ci.yml`, on every push to `main`:

@@ -1,5 +1,4 @@
-import { getArticlesServer, getEventsServer, getMembersServer } from '@/lib/api/server';
-import { buildMembersQueryString } from '@/lib/api/members';
+import { getEventsServer } from '@/lib/api/server';
 import { EventsHeroOrbit } from '@/components/events/EventsHeroOrbit';
 import { EventsHeroSearch } from '@/components/events/EventsHeroSearch';
 import { EventsList } from '@/components/events/EventsList';
@@ -14,13 +13,7 @@ export const metadata = {
 };
 
 export default async function EventsPage() {
-  const [events, members, articles] = await Promise.all([
-    getEventsServer({ upcoming: false }),
-    getMembersServer(
-      buildMembersQueryString({ sort: 'featured', serviceId: [], country: [], page: 1, pageSize: 50 })
-    ),
-    getArticlesServer(),
-  ]);
+  const events = await getEventsServer({ upcoming: false });
 
   return (
     <div>
@@ -48,7 +41,7 @@ export default async function EventsPage() {
             Conferences, summits, and professional meetings curated for the Expertly network: in
             person, hybrid, or on-demand.
           </p>
-          <EventsHeroSearch members={members} articles={articles} events={events} />
+          <EventsHeroSearch />
         </PageContainer>
       </section>
 

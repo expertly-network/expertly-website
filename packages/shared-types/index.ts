@@ -5,3 +5,4 @@ export type * from './article';
 export type * from './member';
 export type * from './event';
 export type * from './consultation-request';
+export type * from './search';

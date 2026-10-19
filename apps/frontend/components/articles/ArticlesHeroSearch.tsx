@@ -2,17 +2,9 @@
 
 import { useState } from 'react';
 import { SearchModal } from '@/components/home/SearchModal';
-import type { MemberListItemDto } from '@shared/member';
-import type { ArticleListItemDto } from '@shared/article';
 
 // Opens the same cross-entity search modal the home page uses.
-export function ArticlesHeroSearch({
-  members,
-  articles,
-}: {
-  members: MemberListItemDto[];
-  articles: ArticleListItemDto[];
-}) {
+export function ArticlesHeroSearch() {
   const [open, setOpen] = useState(false);
 
   return (
@@ -29,7 +21,7 @@ export function ArticlesHeroSearch({
         </span>
       </button>
 
-      <SearchModal open={open} onClose={() => setOpen(false)} members={members} articles={articles} />
+      <SearchModal open={open} onClose={() => setOpen(false)} />
     </>
   );
 }

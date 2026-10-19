@@ -4,18 +4,9 @@ import { useState } from 'react';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { SearchModal } from '@/components/home/SearchModal';
-import type { MemberListItemDto } from '@shared/member';
-import type { ArticleListItemDto } from '@shared/article';
 
-// No real search backend yet — this panel is a static preview, but clicking it opens a
-// functional search modal over already-fetched data.
-export function AiSearchTeaser({
-  members,
-  articles,
-}: {
-  members: MemberListItemDto[];
-  articles: ArticleListItemDto[];
-}) {
+// This panel is a static preview; clicking it opens the AI search modal (POST /v1/search).
+export function AiSearchTeaser() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
@@ -77,7 +68,7 @@ export function AiSearchTeaser({
               </span>
             </div>
             <div className="flex h-[220px] items-center justify-center px-5 text-center text-xs text-ink-3">
-              Click to search real members and articles.
+              Click to ask a question.
             </div>
             <div className="flex items-center justify-between border-t border-line px-5 py-3 text-[11px] text-ink-3">
               <span>↑↓ navigate · ↵ open · esc close</span>
@@ -87,12 +78,7 @@ export function AiSearchTeaser({
         </button>
       </PageContainer>
 
-      <SearchModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        members={members}
-        articles={articles}
-      />
+      <SearchModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </section>
   );
 }

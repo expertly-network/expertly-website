@@ -132,7 +132,7 @@ export default async function HomePage() {
   return (
     <div>
       <StellarOrbitHero avatarUrls={heroAvatarUrls} />
-      <AiSearchTeaser members={members} articles={articles} />
+      <AiSearchTeaser />
 
       {/* Featured members — split layout, panel on the left */}
       {members.length > 0 && (

@@ -10,6 +10,7 @@ import { RecommendationsModule } from './recommendations/recommendations.module'
 import { EventsModule } from './events/events.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { ArticlesModule } from './articles/articles.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ArticlesModule } from './articles/articles.module';
     EventsModule,
     ConsultationsModule,
     ArticlesModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

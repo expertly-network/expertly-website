@@ -7,7 +7,8 @@
     "dev:kill": "bash scripts/kill-dev.sh",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "turbo": "^2.10.9"
