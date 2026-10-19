@@ -1,17 +1,9 @@
 import { ArticlesHeroSearch } from '@/components/articles/ArticlesHeroSearch';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Eyebrow } from '@/components/ui';
-import type { ArticleListItemDto } from '@shared/article';
-import type { MemberListItemDto } from '@shared/member';
 
 // Shared by /articles and /articles/write so the write flow keeps this header.
-export function ArticlesHero({
-  members,
-  articles,
-}: {
-  members: MemberListItemDto[];
-  articles: ArticleListItemDto[];
-}) {
+export function ArticlesHero() {
   return (
     <section className="bg-ink py-16">
       <PageContainer>
@@ -23,7 +15,7 @@ export function ArticlesHero({
           Peer-reviewed analysis and expert commentary from verified finance &amp; legal
           professionals.
         </p>
-        <ArticlesHeroSearch members={members} articles={articles} />
+        <ArticlesHeroSearch />
       </PageContainer>
     </section>
   );

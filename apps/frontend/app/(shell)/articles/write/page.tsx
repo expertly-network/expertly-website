@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getArticleServer, getArticlesServer, getMembersServer, getCategoriesServer } from '@/lib/api/server';
-import { buildMembersQueryString } from '@/lib/api/members';
+import { getArticleServer, getCategoriesServer } from '@/lib/api/server';
 import { ArticlesHero } from '@/components/articles/ArticlesHero';
 import { ArticlesTabsNav } from '@/components/articles/ArticlesTabsNav';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -27,12 +26,8 @@ export default async function WriteArticlePage({
     redirect('/articles');
   }
 
-  const [categories, articles, members, editArticle] = await Promise.all([
+  const [categories, editArticle] = await Promise.all([
     getCategoriesServer(),
-    getArticlesServer(),
-    getMembersServer(
-      buildMembersQueryString({ sort: 'featured', serviceId: [], country: [], page: 1, pageSize: 50 })
-    ),
     searchParams.edit ? getArticleServer(searchParams.edit) : Promise.resolve(null),
   ]);
 
@@ -43,7 +38,7 @@ export default async function WriteArticlePage({
 
   return (
     <div>
-      <ArticlesHero members={members} articles={articles} />
+      <ArticlesHero />
 
       <section className="py-12">
         <PageContainer>

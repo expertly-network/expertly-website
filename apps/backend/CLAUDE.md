@@ -97,3 +97,12 @@ safety net on these; skipping the check is a data-integrity bug, not a shortcut.
 Per root CLAUDE.md, a backend session is verified standalone — curl or a REST client, no frontend
 required. Type-check with `pnpm typecheck` or, if the workspace package manager is unavailable in
 your environment, `./node_modules/.bin/tsc --noEmit` directly from this directory.
+
+## Tests and background worker
+
+- `pnpm test` (Vitest + SWC, so Nest decorator metadata works). Tests live next to the code as
+  `*.test.ts`; `tsconfig.build.json` keeps them out of the build but `pnpm typecheck` covers them.
+  `search/search.e2e.test.ts` runs the real controller/guards over a stub auth guard.
+- `src/worker.ts` is a second entry point (no HTTP port): `pnpm worker` locally,
+  `node dist/apps/backend/src/worker.js` (`pnpm start:worker`) as the second Coolify app. It
+  handles SIGTERM gracefully (finishes the in-flight batch). It shares `SearchModule` with the API.

@@ -1,10 +1,4 @@
-import {
-  getArticlesServer,
-  getMembersServer,
-  getMyArticlesServer,
-  getCategoriesServer,
-} from '@/lib/api/server';
-import { buildMembersQueryString } from '@/lib/api/members';
+import { getArticlesServer, getMyArticlesServer, getCategoriesServer } from '@/lib/api/server';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { ArticlesHero } from '@/components/articles/ArticlesHero';
 import { ArticlesTabsSection } from '@/components/articles/ArticlesTabsSection';
@@ -21,12 +15,9 @@ export default async function ArticlesPage({
 }: {
   searchParams: { tab?: string };
 }) {
-  const [articles, categories, members, profile] = await Promise.all([
+  const [articles, categories, profile] = await Promise.all([
     getArticlesServer(),
     getCategoriesServer(),
-    getMembersServer(
-      buildMembersQueryString({ sort: 'featured', serviceId: [], country: [], page: 1, pageSize: 50 })
-    ),
     getSessionUser(),
   ]);
   // Only a vetted member (or admin) can author an article — matches
@@ -37,7 +28,7 @@ export default async function ArticlesPage({
 
   return (
     <div>
-      <ArticlesHero members={members} articles={articles} />
+      <ArticlesHero />
 
       <section className="py-12">
         <PageContainer>

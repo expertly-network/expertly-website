@@ -406,6 +406,61 @@ endpoint is not — `status` already models the moderation state that future ses
 schema change should be required when it ships. See `docs/rest-api.md`'s Events section for the
 exact current contract.
 
+## AI search (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
+
+Backend-only: RLS is on with **no policies** and nothing is granted to `anon`/`authenticated`; only
+the NestJS service-role client reads or writes these. Functions are `service_role`-only. Extensions:
+`vector` (halfvec) and `pg_trgm` (schema `extensions`).
+
+### `search_documents`
+One denormalised "card" per published/active member, published article and published event.
+`LIST`-partitioned by `doc_type` (`search_documents_member|article|event`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | from `search_documents_seq`; PK is `(doc_type, id)` |
+| `doc_type` | text, check `member`\|`article`\|`event` | partition key |
+| `source_id` | uuid | `member_profiles.profile_id` / `articles.id` / `events.id`; unique with `(doc_type, chunk_index)` |
+| `chunk_index` | smallint, default 0 | always 0 today |
+| `title`, `search_name` | text | `search_name` = title + firm/organiser, for trigram name matching |
+| `content` | text | the card text (line labels like `About:`, `Key clients:` are load-bearing — the judge prompt depends on them). Emails/phones are redacted **before** storing |
+| `content_hash` | text | `md5(title \|\| '\n' \|\| content)` |
+| `service_ids` `uuid[]`, `countries` `text[]`, `city` | | filter columns |
+| `event_start`, `event_end`, `rate_min_cents`, `rate_max_cents`, `is_available`, `doc_date` | | type-specific filters |
+| `embedding` | `halfvec(768)` | OpenAI `text-embedding-3-small` at 768 dimensions |
+| `embedding_model`, `embedded_hash` | text | a row is "pending" while `embedded_hash is distinct from content_hash` |
+| `tsv` | tsvector, generated | title weight A + content weight B |
+
+Indexes: GIN on `tsv`, `search_name` (trigram), `service_ids`, `countries`; btree on `doc_date`,
+`event_start`, `rate_min_cents`; partial index on pending rows; HNSW (`halfvec_cosine_ops`, m=16,
+ef_construction=64) per partition.
+
+### `search_outbox`
+Rebuild to-do list. Triggers `search_sync_*` on `member_profiles`, `member_services`, `profiles`,
+`articles`, `events`, `services` call `search_trg()` → `search_enqueue()`. One pending row per
+`(doc_type, source_id)` (partial unique index); a duplicate refreshes `enqueued_at`.
+Columns: `id`, `doc_type`, `source_id`, `enqueued_at`, `processed_at`, `attempts`, `failed`,
+`last_error`, `claimed_at` (set by `search_outbox_claim`; a claim older than 5 minutes is abandoned).
+Deleting a source row deletes its card directly in the trigger.
+
+### `search_query_log`
+Every question: `id`, `user_id`, `source` (`user`\|`eval`), `question`, `plan` (planner JSON),
+`applied`, `result_refs`, `answer`, `degraded text[]`, `ms`, `feedback` (-1/1), `feedback_note`,
+`created_at`.
+
+### Functions
+`search_hybrid` (meaning + words + names, Reciprocal Rank Fusion), `search_match_services`,
+`search_pending_embeddings`, `search_store_embedding` (rejects stale writes by hash),
+`search_enqueue`, `search_trg`, `search_outbox_claim`, `search_outbox_complete` (5 attempts, then
+`failed`). Card building, the embedding
+loop, rate limiting, caching and settings live in code, not in the database.
+
+### Related grant (not search-specific)
+`anon` has column-level `SELECT` on 33 `member_profiles` columns — **not** `contact_email`,
+`contact_phone`, `linkedin_url` (contact details) or `application_id`, `renewal_payment_status`
+(internal) — and no write privileges. Columns added later are hidden from `anon` until added
+to the grant list in `0004_tables.sql` on purpose.
+
 ## ⚠️ Resolved: live database vs. migration file drift
 
 A prior session found that the live database didn't match the `0001_initial_schema.sql` file (a
