@@ -1346,6 +1346,43 @@
       ]
     },
     {
+      "name": "AI Search",
+      "item": [
+        {
+          "name": "POST /search — Ask a question (or send feedback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"members who specialize in M&A tax\",\n  \"scope\": \"all\",\n  \"limit\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "🔒 Auth, any role. Natural-language search over members, articles and events. `query` 2–500 chars (`400` otherwise); `scope` `all`|`members`|`articles`|`events`; `limit` 1–20. Response: `{ logId, answer, results, applied, degraded, ms }` — `answer` is composed from `results` only; each result may carry `relevance`, `match` and a one-line `reason` when a topic was searched. Rate limit 10/min + 100/hour per user → `429` `{ statusCode, error, message, retryAfterSeconds: 30 }` (counted per API instance). Takes several seconds (two AI calls).\n\nTo send feedback on an answer instead, replace the whole body with:\n```json\n{\n  \"action\": \"feedback\",\n  \"logId\": \"<the logId from a previous answer>\",\n  \"rating\": 1,\n  \"note\": \"optional, max 500 chars\"\n}\n```\n`rating` is `1` or `-1`; response `{ ok: true }`; scoped to your own question; feedback has its own limit of 30/min."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Admin",
       "item": [
         {

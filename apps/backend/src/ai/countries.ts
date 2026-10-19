@@ -32,3 +32,20 @@ export const ALL_COUNTRIES: string[] = [
   'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam',
   'Yemen', 'Zambia', 'Zimbabwe',
 ];
+
+// AI search: maps a lower-case alias the planner may return to the canonical country name.
+// Anything not listed passes through trimmed.
+const COUNTRY_ALIASES: Record<string, string> = {
+  gb: 'United Kingdom', uk: 'United Kingdom', 'u.k.': 'United Kingdom', britain: 'United Kingdom',
+  'great britain': 'United Kingdom', england: 'United Kingdom',
+  us: 'United States', usa: 'United States', 'u.s.': 'United States', 'u.s.a.': 'United States',
+  america: 'United States', 'united states of america': 'United States',
+  uae: 'United Arab Emirates', 'u.a.e.': 'United Arab Emirates', emirates: 'United Arab Emirates',
+  hk: 'Hong Kong', korea: 'South Korea', 'republic of korea': 'South Korea',
+  bharat: 'India', holland: 'Netherlands', 'the netherlands': 'Netherlands',
+};
+
+export function normalizeCountry(input: string): string {
+  const trimmed = input.replace(/^ +| +$/g, '');
+  return COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+}

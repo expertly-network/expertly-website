@@ -1,6 +1,18 @@
 # AI-powered search across members, articles, and events
 
-Status: approved (Round 1 scope), pending implementation. Date: 2026-09-10.
+> **SUPERSEDED (2026-10-12).** This round-1 design (planner → ILIKE query → synthesize, public
+> `GET /v1/search`, Tier-1/2/3 field tiers, no embeddings) was replaced by the hybrid AI search that
+> shipped as `POST /v1/search` (signed-in only; vector + full-text + trigram search, a tuned planner
+> and judge, a background worker, per-user rate limits). Source of truth now:
+> `docs/rest-api.md` "AI search", `docs/database-erd.md` "AI search", `apps/backend/src/search/`.
+> What carried over: the AI never writes SQL; contact details (email/phone/LinkedIn) and internal
+> moderation fields are never searchable or returned; the visible search boxes are a later
+> frontend session. What changed: embeddings ARE used (OpenAI `text-embedding-3-small`, 768-d);
+> rate limiting exists (it was an open question here); the stage-1 planner on the `ai_search`
+> branch was dropped in favour of the tuned one. Kept below for history only.
+
+
+Status: superseded — see banner. Date: 2026-09-10.
 
 ## Problem
 

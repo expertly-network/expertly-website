@@ -97,3 +97,9 @@ safety net on these; skipping the check is a data-integrity bug, not a shortcut.
 Per root CLAUDE.md, a backend session is verified standalone — curl or a REST client, no frontend
 required. Type-check with `pnpm typecheck` or, if the workspace package manager is unavailable in
 your environment, `./node_modules/.bin/tsc --noEmit` directly from this directory.
+
+## Background worker
+
+- `src/worker.ts` is a second entry point (no HTTP port): `pnpm worker` locally,
+  the second Coolify app (same image, env `APP_ENTRY=worker` — see `docs/deployment.md`). It
+  handles SIGTERM gracefully (finishes the in-flight batch). It shares `SearchModule` with the API.

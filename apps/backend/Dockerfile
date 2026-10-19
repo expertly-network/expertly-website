@@ -28,4 +28,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/deploy ./
 
 EXPOSE 4000
-CMD ["node", "dist/apps/backend/src/main.js"]
+# One image, two Coolify apps: the API (default, `main`) and the search worker (APP_ENTRY=worker).
+# Coolify's Docker Image apps have no start-command override, so the entry is picked by env var.
+# `exec` keeps node as PID 1 so Coolify's SIGTERM reaches it (graceful shutdown).
+CMD ["sh", "-c", "case \"${APP_ENTRY:-main}\" in main|worker) exec node \"dist/apps/backend/src/${APP_ENTRY:-main}.js\" ;; *) echo \"Unknown APP_ENTRY: $APP_ENTRY (expected main or worker)\" >&2; exit 1 ;; esac"]

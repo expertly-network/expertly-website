@@ -1,22 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef } from 'react';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { SearchModal } from '@/components/home/SearchModal';
-import type { MemberListItemDto } from '@shared/member';
-import type { ArticleListItemDto } from '@shared/article';
+import { SearchBox } from '@/components/search/SearchBox';
 
-// No real search backend yet — this panel is a static preview, but clicking it opens a
-// functional search modal over already-fetched data.
-export function AiSearchTeaser({
-  members,
-  articles,
-}: {
-  members: MemberListItemDto[];
-  articles: ArticleListItemDto[];
-}) {
-  const [modalOpen, setModalOpen] = useState(false);
+// The panel's top row is a real search input: type, press Enter, and the AI search modal opens
+// with the results (POST /v1/search). "Try Expertly" just moves the cursor into that input.
+export function AiSearchTeaser() {
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <section className="border-b border-line bg-bg-alt py-24">
@@ -58,41 +50,32 @@ export function AiSearchTeaser({
               </span>
             </li>
           </ul>
-          <Button type="button" onClick={() => setModalOpen(true)} className="mt-8">
+          <Button type="button" onClick={() => inputRef.current?.focus()} className="mt-8">
             Try Expertly →
           </Button>
         </div>
 
-        <button type="button" onClick={() => setModalOpen(true)} className="block w-full text-left">
-          <Card padding="md" className="!p-0 transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.08)]">
-            <div className="flex items-center gap-2.5 border-b border-line px-5 py-4">
-              <span aria-hidden="true" className="text-accent">
+        <Card padding="md" className="!p-0 transition-shadow focus-within:shadow-[0_8px_28px_rgba(0,0,0,0.08)]">
+          <SearchBox
+            inputRef={inputRef}
+            placeholder="M&A tax advisor in Singapore under $500/hr"
+            buttonLabel="Search"
+            leading={
+              <span aria-hidden="true" className="flex-none text-accent">
                 ⌕
               </span>
-              <span className="flex-1 text-[15px] text-ink-3">
-                M&amp;A tax advisor in Singapore under $500/hr
-              </span>
-              <span className="rounded-full border border-line-2 bg-bg-alt px-2 py-1 text-[10px] font-medium text-ink-3">
-                Click to search
-              </span>
-            </div>
-            <div className="flex h-[220px] items-center justify-center px-5 text-center text-xs text-ink-3">
-              Click to search real members and articles.
-            </div>
-            <div className="flex items-center justify-between border-t border-line px-5 py-3 text-[11px] text-ink-3">
-              <span>↑↓ navigate · ↵ open · esc close</span>
-              <span>Powered by Expertly</span>
-            </div>
-          </Card>
-        </button>
+            }
+            className="border-b border-line py-3 pl-5 pr-3"
+          />
+          <div className="flex h-[220px] items-center justify-center px-5 text-center text-xs text-ink-3">
+            Type a question and press Enter. Results open with an answer in a few seconds.
+          </div>
+          <div className="flex items-center justify-end border-t border-line px-5 py-3 text-[11px] text-ink-3 sm:justify-between">
+            <span className="hidden sm:inline">↵ search · esc close</span>
+            <span>Powered by Expertly</span>
+          </div>
+        </Card>
       </PageContainer>
-
-      <SearchModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        members={members}
-        articles={articles}
-      />
     </section>
   );
 }

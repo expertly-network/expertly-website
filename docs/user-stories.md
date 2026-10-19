@@ -442,13 +442,30 @@ moderation surface separately.
 
 ---
 
-## US-18 — Search & Discovery 🔭
+## US-18 — Search & Discovery ⚠️ Built, mobile layout not yet verified
 
 ### US-18-01: Searching across members, articles, and events at once
-As a visitor or user, I want one search bar on the homepage that searches members, articles, and
-events together.
-- [ ] This is an aggregation layer over each resource's existing search/filter endpoints, not a
-      new data model
-- [ ] Full-text search (Postgres `tsvector`) is sufficient at current data volume — do not add
-      vector/embedding columns or call an embedding API for this; that's a separate, uncommitted
-      decision (`docs/master-tdd.md` Section 8.3)
+As a signed-in user, I want to ask one question in plain language and get matching members,
+articles, and events together, with a short answer explaining the best matches.
+(Validated against what was built — the earlier draft's "aggregation layer, full-text only, no
+embeddings" premise was superseded; see `docs/rest-api.md` "AI search".)
+- [x] One endpoint, `POST /v1/search`, covers all three types; an optional `scope` narrows it to
+      one (the articles/events pages search their own type)
+- [x] Signed-in users only; a guest gets `401` and the search modal offers "Sign in to search"
+- [x] Matches on meaning (embeddings), words (full-text `tsvector`) and names (trigram) over one
+      `search_documents` index, kept current by the background worker from DB-trigger events
+- [x] An AI planner turns the question into typed filters (types, countries, city, practice area,
+      dates, max hourly rate, count); the AI never writes SQL
+- [x] An AI judge re-scores candidates, drops weak ones, and gives each a one-line reason shown
+      under the result; the short answer above the results is composed from the shown results
+      only (never names a result that isn't listed, never shows internal numbers); if no filter
+      combination matches, soft filters are relaxed one at a time and the answer says so
+- [x] The search boxes (home panel, articles hero, events hero) are typed into in place; pressing
+      Enter / the button opens the results modal running that question (an empty box does nothing)
+- [x] If an OpenAI step fails, search still answers (keyword/filter results) and flags it in
+      `degraded` instead of erroring
+- [x] Emails and phone numbers never reach OpenAI or the response (redaction on card text and on
+      the outgoing response)
+- [x] Rate limited per user (10/min, 100/hour; feedback 30/min) with `429` + `retryAfterSeconds`
+- [x] Thumbs up/down feedback on an answer, scoped to the asker's own log entry
+- [ ] Search modal checked at 375px and 1440px (root `CLAUDE.md` Code Quality Bar)

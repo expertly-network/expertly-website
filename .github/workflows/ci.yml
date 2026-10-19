@@ -102,8 +102,11 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
 
       # Coolify deploys prebuilt GHCR images (not a git-triggered build), so the
-      # only way to auto-deploy on push is to hit its per-app deploy webhook
-      # directly once the new :latest image has been pushed above.
+      # only way to auto-deploy on push is to call its deploy API once the new
+      # :latest images have been pushed above. It deploys by TAG, not by app id:
+      # every Coolify app tagged `autodeploy` (backend, frontend, search worker)
+      # is redeployed. To add/remove an app from auto-deploy, tag/untag it in
+      # Coolify — no CI or GitHub-secret change needed.
       #
       # force=true (not false): both old and new images share the same :latest
       # tag, and force=false let Coolify's deploy trigger return success while
@@ -112,6 +115,7 @@ jobs:
       # well before that push). force=true makes it always re-pull and restart.
       - name: Trigger Coolify redeploy
         run: |
+          # Prints Coolify's response so the deploy log shows which apps were queued.
           curl --fail-with-body -X POST \
-            "http://91.108.104.17:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_BACKEND_DEPLOY_UUID }},${{ secrets.COOLIFY_FRONTEND_DEPLOY_UUID }}&force=true" \
+            "https://coolify.shreyansmaloo.site/api/v1/deploy?tag=autodeploy&force=true" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}"

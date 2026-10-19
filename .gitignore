@@ -9,3 +9,6 @@ dist/
 .DS_Store
 supabase/.temp/
 .superpowers/
+
+# Local-only, contains real admin credentials filled in by hand — never commit.
+supabase/trigger_embeddings_via_api.py

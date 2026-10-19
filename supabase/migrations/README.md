@@ -21,3 +21,16 @@ Every schema change gets folded back into these four files instead of accumulati
 `0006`, ... — together they're always the full, current, ground-truth schema, rebuildable from
 scratch. The day this repo ships to production, that stops: from then on every change is a new,
 additive, numbered migration, and these four files are never edited again.
+
+**AI search lives in the same four files** (extensions in `0001`; functions in `0003` — wrapped in
+`set check_function_bodies = off` because the `LANGUAGE sql` ones read tables that `0004`
+creates later; tables, triggers, RLS and grants in `0004`). The `0004` column-level grant on
+`member_profiles` hides `contact_email`, `contact_phone`, `linkedin_url`, `application_id` and
+`renewal_payment_status` from `anon` (33 columns granted).
+
+**Rebuilding a dev database from scratch** (fresh Supabase project): run `0001`–`0004`, then the
+`0005`–`0007` dev seeds in order (the seed inserts fire the search triggers, so the outbox fills
+itself); start the worker so it builds the cards and then
+embeds them (`pnpm worker`).
+Cards are derived data — nothing about search needs to be restored from a dump.
+

@@ -76,7 +76,7 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | Perks, templates, learnings | 📋 Roadmap — no schema yet | none |
 | Newsletter subscriptions, signup-source tracking | 📋 Roadmap — no schema yet | none |
 | Notifications (any kind) | 🔭 Beyond-roadmap — no schema | none |
-| Vector embeddings / AI search | 🔭 Beyond-roadmap — no schema | none |
+| Vector embeddings / AI search | ✅ Built | `search_documents`, `search_outbox`, `search_query_log` (see `docs/database-erd.md` "AI search") |
 
 The `events`/`consultation_requests`/`peer_connect_*` tables were created in the initial schema
 migration ahead of their API work — don't assume "table exists" means "feature is built." Verify
@@ -129,7 +129,7 @@ pixel/behavior reference per root `CLAUDE.md`'s methodology.
 | Events | ✅ Built — homepage teaser, standalone `/events` browse page, admin CRUD at `/admin/events` | `events.html` | `GET /v1/events?upcoming=false` backs the standalone page's month-grouped, client-filtered list (date preset/country/format); `/admin/events` covers direct create/edit/delete. No public suggestion-queue submission endpoint yet — "Suggest an event" is a `mailto:` link. See `docs/rest-api.md` |
 | Perks / Templates / Learnings | 📋 Roadmap | `perks.html`, `templates.html`, `learnings.html` | Identical CRUD shape ×3; public-vs-member-gated is an open product call |
 | Newsletter subscriptions | 📋 Roadmap | `index.html` (footer capture) | Plain email capture, unrelated to accounts |
-| Global cross-entity search | 📋 Roadmap → 🔭 expanded below | `index.html` (homepage search bar) | Low priority per roadmap; see Section 8 for a fuller shape |
+| Global cross-entity search | ✅ `POST /v1/search` built; the existing search modal (home, articles, events) now calls it | `index.html` (homepage search bar) | See `docs/rest-api.md` "AI search" |
 | `membership.html` | N/A | `membership.html` | Confirmed fully static marketing/pricing — no backend needed |
 
 ---
@@ -187,10 +187,11 @@ queues to summarize.
 priority, no new domain." Beyond that literal read, worth eventually considering: faceted filtering
 already exists per-resource (`GET /v1/members` has search/filter/sort per `docs/rest-api.md`) —
 a real cross-entity search is an aggregation layer over those, not a new data model. Full-text
-(Postgres `tsvector`) is sufficient for the current data volume; vector/embedding-based semantic
-search is explicitly **not** scoped — there is no embedding column in any current migration, and
-adding one is a separate, later decision, not a default. Don't add `vector(...)` columns or call
-an embedding API speculatively.
+(Postgres `tsvector`) alone was judged sufficient at the time; the decision since made is a hybrid
+AI search — meaning (embeddings) + words (`tsvector`) + names (trigram), planned and judged by an LLM
+— built as `POST /v1/search` (`docs/rest-api.md` "AI search"). The visible search boxes
+(homepage + Members/Articles/Events pages) are a separate frontend session against that fixed
+contract.
 
 ### 8.4 — Billing & renewal payments
 `member_renewal_policy` (global config: validity period, due-soon threshold) already exists
@@ -225,8 +226,9 @@ What to read for a given task. "Docs" lists what to open; "User stories" points 
 | Perks / Templates / Learnings (new session) | `docs/roadmap.md` §Perks..., Section 6 | US-14 |
 | Newsletter / signup-source | `docs/roadmap.md` §Smaller/adjacent | US-15 |
 | Design tokens / components | `docs/design-system.md` | — |
+| AI search (API + background worker) | `docs/rest-api.md` "AI search", `docs/database-erd.md` "AI search", `docs/deployment.md` (worker app) | US-18 |
 | Deployment / CI | `docs/deployment.md` | — |
-| Anything not yet scoped | Section 8, then `docs/roadmap.md`'s methodology | US-16, US-17, US-18 |
+| Anything not yet scoped | Section 8, then `docs/roadmap.md`'s methodology | US-16, US-17 |
 
 ---
 
@@ -246,7 +248,7 @@ for what turned out to already have schema:
 5. **Peer Connect** — schema exists but is the largest remaining feature (matching algorithm,
    video-call integration, AI transcription); its own dedicated scoping session, build last.
 6. **Beyond-roadmap** (Section 8), only once at least two of the above are live: notifications,
-   admin/ops overview dashboard, search, renewal billing.
+   admin/ops overview dashboard, renewal billing (search backend is built).
 
 ---
 

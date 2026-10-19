@@ -18,7 +18,8 @@ the detail and the "why" behind each non-obvious piece.
 
 The app runs on a Hostinger VPS (`91.108.104.17`, DNS name `shreyansmaloo.site`) via
 **[Coolify](https://coolify.io)**, a self-hosted PaaS. Coolify dashboard:
-`http://shreyansmaloo.site:8000`. Traefik is Coolify's built-in reverse proxy/TLS terminator
+`https://coolify.shreyansmaloo.site` (the old `http://shreyansmaloo.site:8000` /
+`http://91.108.104.17:8000` still answer, but are plain HTTP — don't send tokens there). Traefik is Coolify's built-in reverse proxy/TLS terminator
 (`coolify-proxy` container) — it is not configured by hand.
 
 Both apps are **Docker Image**-type Coolify resources (Coolify pulls a prebuilt tag, it does not
@@ -77,6 +78,44 @@ request's hostname**:
 Adding a third domain (e.g. a staging environment) means adding one entry to `API_HOSTS`, not a
 new image or a new Coolify app.
 
+## Search worker (second app, same image)
+
+AI search needs a background process besides the API: it rebuilds search cards from the outbox,
+embeds new/changed cards, and runs daily cleanup. It is **the same image** as `expertly-backend`
+started with a different command — a second Coolify resource, not a second repo or image
+(`apps/backend/src/worker.ts`; verified: the production image contains
+`dist/apps/backend/src/worker.js` and runs it with the command below).
+
+| Setting | Value |
+|---|---|
+| Resource type | Docker Image |
+| Image | `ghcr.io/expertly-network/expertly-backend:latest` (same tag as the API) |
+| Entry point | env var `APP_ENTRY=worker`. Coolify's Docker Image apps have no start-command override, so the image's `CMD` (`apps/backend/Dockerfile`) runs `dist/apps/backend/src/${APP_ENTRY:-main}.js` — unset on the API app (runs `main.js`), `worker` here (runs `worker.js`, same as `pnpm start:worker`). Any other value exits with an error |
+| Domains / exposed port | **none** — it listens on no port |
+| Healthcheck | **disabled** — `/v1/health` belongs to the API only; the worker has no HTTP server, so a path healthcheck would mark it permanently unhealthy and trigger rollbacks |
+| Replicas | **1** (the outbox claim is multi-worker safe, but two embedders just double-spend OpenAI calls) |
+| Stop grace period | **60 s** (Advanced → Operations): on SIGTERM the worker finishes the batch in flight, which can take up to ~30 s (OpenAI timeout) |
+
+Environment variables for the worker app:
+
+| Variable | Notes |
+|---|---|
+| `APP_ENTRY` | `worker` (see "Entry point" above) |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | same values as the API; service-role key only ever on the backend |
+| `OPENAI_API_KEY` | required (embeddings) |
+| `OPENAI_EMBED_MODEL` | `text-embedding-3-small` (must stay 768-dimensional; the model is part of `embedding_model` on every card) |
+| `OPENAI_CHAT_MODEL` | `gpt-4.1-mini`. The worker does not call chat models; set it anyway so both apps share one env list (the **API** needs it) |
+
+The API app additionally needs `OPENAI_API_KEY` for `POST /v1/search` (`OPENAI_CHAT_MODEL` /
+`OPENAI_EMBED_MODEL` default to the values above when unset). It must **not** set `APP_ENTRY` (the
+API process runs no loops).
+
+Redeploys: the worker app carries the Coolify tag `autodeploy`, so the CI "Trigger Coolify
+redeploy" step (which deploys by tag — see below) redeploys it with the API on every push to
+`main`. The Coolify app is `expertly-search-worker` (`urxutbn4gxgcucqjkyj16k8g`) in the `dev`
+environment. The worker logs to stdout; look for `Search worker running.` and the
+`Embedder loop started` / `Outbox loop` lines in Coolify's log view.
+
 ## CI/CD pipeline
 
 `.github/workflows/ci.yml`, on every push to `main`:
@@ -92,12 +131,16 @@ new image or a new Coolify app.
    prebuilt-image resources rather than git-triggered builds, Coolify's own git-source webhooks
    (GitHub/GitLab/etc., visible under each app's *Webhooks* settings page) don't apply — those
    exist for apps Coolify builds from a repo checkout. Instead this step `curl`s Coolify's generic
-   API deploy endpoint directly:
+   API deploy endpoint directly, **by tag**:
    ```bash
-   curl -X POST "http://91.108.104.17:8000/api/v1/deploy?uuid=<backend-uuid>,<frontend-uuid>&force=true" \
+   curl -X POST "https://coolify.shreyansmaloo.site/api/v1/deploy?tag=autodeploy&force=true" \
      -H "Authorization: Bearer <token>"
    ```
-   `uuid` accepts a **comma-separated list** — one call redeploys both apps. Note it's `POST`, not
+   Every Coolify app tagged **`autodeploy`** is redeployed — today `expertly-backend`,
+   `expertly-frontend` and `expertly-search-worker` (the `Outline Docs` service is deliberately
+   untagged). To put a new app on auto-deploy, add the tag on its **Tags** page in Coolify; no CI
+   or GitHub-secret change is needed. (This replaced an earlier `?uuid=<id>,<id>` call that needed
+   one GitHub secret per app id.) Note it's `POST`, not
    `GET` (the API used to be `GET`; Coolify returns a `405` with a "this endpoint has changed to a
    POST request" body if you use the old verb — easy to hit if copying older Coolify docs/examples).
 
@@ -106,11 +149,8 @@ new image or a new Coolify app.
    actual re-pull/restart — the CI step showed green but the running container kept serving a
    build from well before that push. `force=true` always re-pulls and restarts.
 
-   Each app's deploy-webhook URL/UUID is on its **Settings → Webhooks** page ("Deploy webhook"
-   section, distinct from the "Manual Git webhooks" section below it).
-
 So: push to `main` → lint/typecheck/build gate → both images rebuilt and pushed → Coolify
-redeploys both apps with the new images. Fully automatic, no manual "Redeploy" click needed.
+redeploys every `autodeploy`-tagged app with the new images. Fully automatic, no manual "Redeploy" click needed.
 
 ### Required GitHub Actions secrets (repo `expertly-network/expertly-website`)
 
@@ -120,8 +160,6 @@ redeploys both apps with the new images. Fully automatic, no manual "Redeploy" c
 | `NEXT_PUBLIC_SUPABASE_URL` | Frontend build-arg — baked into the client bundle |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Frontend build-arg — baked into the client bundle (public-by-design, safe to bake in) |
 | `COOLIFY_API_TOKEN` | Bearer token for the deploy-trigger step. Created under Coolify → **Keys & Tokens → API Tokens**, scoped to the `Deploy` permission only (least privilege — it can't read/write anything else). **Expires 2027-08-18** — needs manual rotation before then, since an expired token fails the deploy step silently-ish (the `curl` will just 401). |
-| `COOLIFY_BACKEND_DEPLOY_UUID` | `expertly-backend`'s Coolify app UUID (`pyb3wjiep9opemlwduxj8j2i`) |
-| `COOLIFY_FRONTEND_DEPLOY_UUID` | `expertly-frontend`'s Coolify app UUID (`km7kyiq8xt7dn6al3fw3e0sm`) |
 
 The three `NEXT_PUBLIC_*` secrets must be set for the frontend to work: the Dockerfile has a
 fallback default for the API URL only, so an unset Supabase URL/key still builds successfully but

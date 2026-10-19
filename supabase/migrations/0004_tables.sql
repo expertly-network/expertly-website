@@ -897,6 +897,20 @@ create trigger set_member_profiles_updated_at
 
 alter table public.member_profiles enable row level security;
 
+-- Contact details are for signed-in users only. Guests (anon) get column-level SELECT on
+-- everything EXCEPT contact_email, contact_phone, linkedin_url (contact details) and
+-- application_id, renewal_payment_status (internal) — 33 columns — and no write privileges at
+-- all. (The NestJS backend uses the service-role client and is unaffected.) A column added to
+-- member_profiles later is NOT visible to anon until it is added to this list on purpose.
+revoke all on table public.member_profiles from anon;
+grant select (
+  id, profile_id, slug, status, member_tier, is_verified, is_available, headline, bio,
+  firm_name, firm_website, website, city, state, country, region, years_of_experience,
+  rate_currency, rate_min_cents, rate_max_cents, availability_notes, photo_path,
+  work_experiences, educations, engagements, key_clients, qualifications, credentials, awards,
+  testimonials, membership_started_at, created_at, updated_at
+) on public.member_profiles to anon;
+
 -- Defense-in-depth only (service-role backend bypasses this) — mirrors articles_select_published:
 -- an active member's directory-listed profile is meant to be public information regardless of the
 -- API-layer sign-in gate on the full-detail endpoint (that gate is a product/engagement decision,
@@ -1147,11 +1161,145 @@ create policy ai_draft_sources_owner_rw
 -- select policy at all — the public flag already bypasses read access control entirely.
 -- ============================================================================
 
-insert into storage.buckets (id, name, public)
-values ('application-assets', 'application-assets', true)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('application-assets', 'application-assets', true, 5242880)   -- 5 MB
 on conflict (id) do nothing;
 
 create policy application_assets_owner_all
   on storage.objects for all
   using (bucket_id = 'application-assets' and (storage.foldername(name))[3] = auth.uid()::text)
   with check (bucket_id = 'application-assets' and (storage.foldername(name))[3] = auth.uid()::text);
+
+-- ============================================================================
+-- Storage — legal bucket: the public Terms of Service, Privacy Policy and LinkedIn data-use pages
+-- linked from apps/frontend/lib/legal.ts. The three HTML files are uploaded by hand in the Supabase
+-- dashboard (this only creates the bucket). Public read, so no policies; nothing writes here from
+-- the app.
+-- ============================================================================
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('legal', 'legal', true, 2000000, array['text/html'])   -- 2 MB, HTML only
+on conflict (id) do nothing;
+
+-- ============================================================================
+-- AI search — index, outbox, query log (functions: 0003_functions.sql "AI search functions";
+-- extensions: 0001). Backend-only: RLS on with NO policies and nothing granted to
+-- anon/authenticated; only the NestJS service-role client touches these. See
+-- docs/rest-api.md "AI search" and apps/backend/src/search/.
+-- ============================================================================
+
+create sequence if not exists public.search_documents_seq;
+
+-- The search index: one denormalised "card" per member / article / event, in one table. Not
+-- partitioned: at this size every query is a sequential scan anyway, and search_hybrid
+-- filters with `doc_type = any(...)`, which per-partition indexes don't help. Type-specific
+-- columns get partial indexes instead.
+create table public.search_documents (
+  id             bigint      not null default nextval('public.search_documents_seq'),
+  doc_type       text        not null check (doc_type in ('member','article','event')),
+  source_id      uuid        not null,
+  chunk_index    smallint    not null default 0,
+  title          text        not null,
+  search_name    text        not null,
+  content        text        not null,
+  content_hash   text        not null,
+  service_ids    uuid[]      not null default '{}',
+  countries      text[]      not null default '{}',
+  city           text,
+  event_start    timestamptz,
+  event_end      timestamptz,
+  rate_min_cents integer,
+  rate_max_cents integer,
+  is_available   boolean,
+  doc_date       timestamptz not null default now(),
+  embedding      halfvec(768),
+  embedding_model text,
+  embedded_hash  text,
+  tsv            tsvector generated always as (
+                   setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                   setweight(to_tsvector('english', coalesce(content, '')), 'B')
+                 ) stored,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  primary key (id),
+  unique (doc_type, source_id, chunk_index)   -- also serves doc_type filters (leading column)
+);
+
+create index search_documents_tsv_idx         on public.search_documents using gin (tsv);
+create index search_documents_name_trgm_idx   on public.search_documents using gin (search_name extensions.gin_trgm_ops);
+create index search_documents_service_ids_idx on public.search_documents using gin (service_ids);
+create index search_documents_countries_idx   on public.search_documents using gin (countries);
+create index search_documents_doc_date_idx    on public.search_documents (doc_date desc);
+create index search_documents_pending_idx     on public.search_documents (updated_at)
+  where embedded_hash is distinct from content_hash;
+
+-- One vector (HNSW) index over all cards. m=16, ef_construction=64. Per-type partial HNSW
+-- indexes wouldn't be chosen for search_hybrid's `doc_type = any(p_doc_types)` filter.
+create index search_documents_emb_idx on public.search_documents
+  using hnsw (embedding halfvec_cosine_ops) with (m = 16, ef_construction = 64);
+
+-- Type-specific filter indexes (partial: only that type has the column set)
+create index search_documents_event_start_idx on public.search_documents (event_start)
+  where doc_type = 'event';
+create index search_documents_member_rate_idx on public.search_documents (rate_min_cents)
+  where doc_type = 'member';
+
+
+-- The to-do list of cards that need rebuilding (one pending note per record)
+create table public.search_outbox (
+  id           bigint generated always as identity primary key,
+  doc_type     text        not null check (doc_type in ('member','article','event')),
+  source_id    uuid        not null,
+  enqueued_at  timestamptz not null default now(),
+  processed_at timestamptz,
+  attempts     integer     not null default 0,
+  failed       boolean     not null default false,
+  last_error   text,
+  claimed_at   timestamptz  -- set by search_outbox_claim(); NULL = unclaimed
+);
+create unique index search_outbox_pending_uidx on public.search_outbox (doc_type, source_id)
+  where processed_at is null;
+create index search_outbox_done_idx on public.search_outbox (processed_at)
+  where processed_at is not null;
+
+
+-- Log of every real question (feedback, analytics, rate limit counting)
+create table public.search_query_log (
+  id            uuid        primary key default gen_random_uuid(),
+  user_id       uuid,
+  source        text        not null default 'user' check (source in ('user','eval')),
+  question      text        not null,
+  plan          jsonb,
+  applied       jsonb,
+  result_refs   jsonb       not null default '[]'::jsonb,
+  answer        text,
+  degraded      text[]      not null default '{}',
+  ms            integer,
+  feedback      smallint    check (feedback in (-1, 1)),
+  feedback_note text,
+  created_at    timestamptz not null default now()
+);
+create index search_query_log_time_idx on public.search_query_log (created_at desc);
+create index search_query_log_user_idx on public.search_query_log (user_id, created_at desc);
+
+
+-- Keep the search index in step with its source tables (one pending note per record).
+create trigger search_sync_articles       after insert or delete or update on public.articles
+  for each row execute function public.search_trg();
+create trigger search_sync_events         after insert or delete or update on public.events
+  for each row execute function public.search_trg();
+create trigger search_sync_member_profiles after insert or delete or update on public.member_profiles
+  for each row execute function public.search_trg();
+create trigger search_sync_member_services after insert or delete or update on public.member_services
+  for each row execute function public.search_trg();
+create trigger search_sync_profiles       after update of first_name, last_name, status, deleted_at on public.profiles
+  for each row execute function public.search_trg();
+create trigger search_sync_services       after update of name on public.services
+  for each row execute function public.search_trg();
+
+alter table public.search_documents         enable row level security;
+alter table public.search_outbox            enable row level security;
+alter table public.search_query_log         enable row level security;
+
+revoke all on table public.search_documents, public.search_outbox, public.search_query_log
+  from anon, authenticated;

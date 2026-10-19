@@ -1234,6 +1234,97 @@ missing or under 10 characters.
   `deleteContent` permission; no endpoint exists for it, and no product decision has been made on
   retention/deletion policy for this resource.
 
+## AI search
+
+Backing `apps/backend/src/search/` (API) and `apps/backend/src/search-worker/` (background worker).
+Schema: `docs/database-erd.md` → "AI search". Shared types: `packages/shared-types/search.ts`.
+Natural-language questions over members, articles and events. The AI never writes SQL: a planner
+turns the question into typed filters, the database does a hybrid (meaning + words + names) search,
+and a judge re-scores the candidates and gives each a one-line reason. The short `answer` is then
+composed **in code from the returned `results` only** (best matches + the top one's reason, plus
+notes about relaxed filters) — it never names anything that isn't in `results`, and never refers to
+the judge's internal candidate numbers. (Until 2026-10-20 the judge wrote the answer itself, which
+could mention candidates that were filtered out afterwards.)
+
+### 🔒 `POST /v1/search`
+
+Signed in, any role. Responses are plain camelCase DTOs (no envelope), like every other route.
+
+**Request** (`SearchRequestDto`) — a question:
+
+| Field | Type | Notes |
+|---|---|---|
+| `query` | string, required | 2–500 characters after trimming (`400` otherwise) |
+| `scope` | `'all'`\|`'members'`\|`'articles'`\|`'events'`, optional | default `all`; anything else is `400` |
+| `limit` | integer 1–20, optional | otherwise the number in the question, else 10 |
+
+**Response `200`** (`SearchResponse`): `{ logId, answer, results, applied, degraded, ms }`.
+
+- `results[]` is a union discriminated by `type`: `MemberSearchResult` (`name`, `slug`, `headline`,
+  `firm`, `location`, `services`, `available`, `rate: { minCents, maxCents, currency } | null`),
+  `ArticleSearchResult` (`title`, `slug`, `excerpt`, `countries`, `publishedAt`, `readTimeMinutes`),
+  `EventSearchResult` (`title`, `slug`, `summary`, `startsAt`, `endsAt`, `location`, `format`,
+  `isFree`, `registrationUrl`). When a topic was searched each also carries `relevance` (0–10),
+  `match` (`{ score, label: 'strong'|'good'|'possible', tier: 'best'|'related' }`) and `reason`
+  (the judge's one-line explanation of why it fits — additive 2026-10-20, optional). Public display
+  fields only.
+- `applied` — the filters actually used (`types`, `topic`, `countries`, `city`, `serviceIds`,
+  `dateFrom`, `dateTo`, `maxHourlyRateUsd`, `relaxed`). `relaxed` lists soft filters dropped
+  because nothing matched, in order: practice area → city → country.
+- `degraded` — stages that fell back, in `'planner'`\|`'embedding'`\|`'judge'`. Results are still
+  returned (planner down → plain keyword search; embedding down → keyword only; judge down →
+  unscored top results with a generic answer).
+- `logId` — id of the `search_query_log` row for this question (`null` if logging failed).
+
+**Privacy:** member contact details (email, phone, LinkedIn) never reach OpenAI or the client. Card
+text is redacted before it is stored/embedded, and the answer and results are scrubbed again on
+the way out.
+
+**Feedback** — same route, `action: 'feedback'`:
+
+```json
+{ "action": "feedback", "logId": "<logId from an answer>", "rating": 1, "note": "optional, max 500" }
+```
+
+`rating` is `1` or `-1`. Response `200`: `{ ok: true }`. The update is scoped to the caller's own
+`search_query_log` row; rating someone else's `logId` is accepted but changes nothing.
+
+**Errors:** `400` (validation, query length, missing `logId`/`rating` for feedback), `401` (not
+signed in), `429`.
+
+**Rate limits** — `429` with body `{ statusCode: 429, error, message, retryAfterSeconds: 30 }`:
+
+- questions: **10 per minute and 100 per hour** per user;
+- `action: 'feedback'`: its own, looser **30 per minute** (separate counter).
+
+Counts are kept in memory, so they are **per API instance** (a second API instance has its own
+counters). Keyed by user id (IP only as a fallback).
+
+**Latency:** several seconds is normal — it is two sequential AI calls plus the database. Measured
+on dev (5 sequential questions, 40 documents): median ≈ 7.4 s, worst ≈ 15.5 s end-to-end; planner
+≈ 1.6 s, judge ≈ 3.1 s, hybrid search + hydration ≈ 2.2 s, embedding ≈ 0.5 s (cached topics: 0).
+The first call after a cold start is the slowest.
+
+**Worker:** cards are rebuilt and embedded by a separate process (`pnpm worker`, one container,
+no HTTP port): an embedder loop (~1 min) and an outbox loop (~15 s). Search works without the worker for already-indexed content,
+but new/changed members, articles and events only appear once it has run.
+
+**Old → new names** (the contract this replaces was the `ai-search` Supabase Edge Function; nothing
+consumed it yet, so there is no compatibility shim):
+
+| Old (Edge Function) | New |
+|---|---|
+| `log_id` (request and response) | `logId` |
+| `retry_after_seconds` | `retryAfterSeconds` |
+| result `rate.min_cents` / `max_cents` | `rate.minCents` / `maxCents` |
+| article `published_at`, `read_time_minutes` | `publishedAt`, `readTimeMinutes` |
+| event `starts_at`, `ends_at`, `is_free`, `registration_url` | `startsAt`, `endsAt`, `isFree`, `registrationUrl` |
+| `applied.service_ids`, `date_from`, `date_to`, `max_hourly_rate_usd` | `applied.serviceIds`, `dateFrom`, `dateTo`, `maxHourlyRateUsd` |
+| error body `{ error }` only | `{ statusCode, error, message }` (+ `retryAfterSeconds` on 429) |
+| `search_query_log.applied` (stored snake_case) | stored camelCase from now on; older rows keep the old keys |
+
+Operational command (in `apps/backend`): `pnpm worker` (the background worker, locally).
+
 ## Account
 
 ### 🔑 `GET /v1/me/contact`

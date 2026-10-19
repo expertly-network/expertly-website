@@ -119,7 +119,7 @@ baked into the frontend at image build time.
 
 **This section covers the `dev` Coolify environment only — production deployment hasn't been set
 up yet and will get its own documentation when it is.** The app runs on a Hostinger VPS via
-[Coolify](https://coolify.io) (dashboard: `http://shreyansmaloo.site:8000`), currently reachable at
+[Coolify](https://coolify.io) (dashboard: `https://coolify.shreyansmaloo.site`), currently reachable at
 `https://dev.expertly.network` (frontend) / `https://dev-api.expertly.network` (backend). As an
 interim arrangement the production domain names (`expertly.network`, `api.expertly.network`) are
 also routed to these same dev-environment containers for now — see the scope note at the top of

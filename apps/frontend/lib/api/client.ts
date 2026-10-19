@@ -4,7 +4,9 @@ import { getApiBaseUrlClient } from '@/lib/api/base-url.client';
 export class ApiError extends Error {
   constructor(
     message: string,
-    public readonly statusCode: number
+    public readonly statusCode: number,
+    /** Present on a 429 from POST /v1/search: seconds to wait before retrying. */
+    public readonly retryAfterSeconds?: number
   ) {
     super(message);
     this.name = 'ApiError';
@@ -68,7 +70,8 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     const message = Array.isArray(body?.message)
       ? body.message.join(' ')
       : (body?.message ?? `Request failed with status ${res.status}`);
-    throw new ApiError(message, res.status);
+    const retryAfterSeconds = typeof body?.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined;
+    throw new ApiError(message, res.status, retryAfterSeconds);
   }
 
   // 204/empty responses have no body to parse.
