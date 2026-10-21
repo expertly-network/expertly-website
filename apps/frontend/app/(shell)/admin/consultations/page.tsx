@@ -17,7 +17,7 @@ export default async function AdminConsultationsPage() {
     redirect('/login?returnTo=/admin/consultations');
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   const requests = await getAdminConsultationsServer();

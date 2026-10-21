@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Sends an already-activated member to their dashboard, everyone else to the application.
+      // Sends an already-activated member to the home page, everyone else to the application.
       let destination: string;
       if (intent === 'member') {
         const {
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
         const { data: profile } = user
           ? await supabase.from('profiles').select('role').eq('id', user.id).single()
           : { data: null };
-        destination = profile?.role === 'member' ? '/dashboard' : '/apply';
+        destination = profile?.role === 'member' ? '/' : '/apply';
       } else {
         destination = returnTo;
       }

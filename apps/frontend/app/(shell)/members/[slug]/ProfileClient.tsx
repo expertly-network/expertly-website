@@ -36,9 +36,11 @@ export function ProfileClient({
 
   return (
     <PageContainer className="pb-28 pt-10 max-[720px]:pt-5 min-[1024px]:pb-20">
-      <ProfileHeader member={member} />
+      <ProfileHeader member={member} isOwnProfile={isOwnProfile} />
       <div className="mt-5 flex items-start gap-6 max-[1023px]:flex-col">
-        <div className="min-w-0 flex-1">
+        {/* w-full: stacked (flex-col + items-start) the column would otherwise size to the tab
+            bar's natural width and overflow a 375px screen instead of letting the tabs scroll. */}
+        <div className="w-full min-w-0 flex-1">
           <ProfileTabs
             member={member}
             edits={edits}

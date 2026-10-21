@@ -1,6 +1,8 @@
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
 import { KeyClientsRows } from '@/components/members/KeyClientsRows';
+import { FormattedText } from '@/components/shared/FormattedText';
+import { externalHref } from '@/lib/members/format';
 import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
 export function AboutTab({
@@ -32,7 +34,7 @@ export function AboutTab({
           {member.headline && (
             <p className="mb-3 text-base font-semibold leading-normal text-ink">{member.headline}</p>
           )}
-          {member.bio && <p className="whitespace-pre-line text-profile-body text-ink-3">{member.bio}</p>}
+          {member.bio && <FormattedText text={member.bio} className="text-profile-body text-ink-3" />}
           {!hasBio && (
             <ProfileSectionEmpty
               title="No bio yet."
@@ -79,7 +81,7 @@ export function AboutTab({
                 </span>
                 {eng.url && (
                   <a
-                    href={eng.url}
+                    href={externalHref(eng.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Open link for ${eng.title}`}

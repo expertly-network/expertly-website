@@ -38,8 +38,10 @@ export function sortWorkHistoryNewestFirst<T extends WorkSpan>(items: T[], now: 
   return [...items].sort((a, b) => startOf(b) - startOf(a) || endOf(b, now) - endOf(a, now));
 }
 
-// Rejects an end before its start, and any two roles whose date ranges overlap (touching at a
-// boundary month is allowed). Error bodies carry a stable `code` for the frontend.
+// Rejects an end before its start. Overlapping roles are allowed: people genuinely hold
+// concurrent positions (e.g. a co-founder role alongside regional "Expansion to …" sub-roles at
+// the same firm), so the frontend only warns about overlaps and never blocks on them.
+// Error bodies carry a stable `code` for the frontend.
 export function assertValidWorkHistory(items: WorkSpan[], now: Date = new Date()): void {
   for (const w of items) {
     if (endOf(w, now) < startOf(w)) {
@@ -47,17 +49,6 @@ export function assertValidWorkHistory(items: WorkSpan[], now: Date = new Date()
         code: 'WORK_HISTORY_END_BEFORE_START',
         message: `The end date for ${label(w)} is before its start date.`,
       });
-    }
-  }
-  const sorted = sortWorkHistoryNewestFirst(items, now);
-  for (let i = 0; i < sorted.length; i++) {
-    for (let j = i + 1; j < sorted.length; j++) {
-      if (startOf(sorted[i]) < endOf(sorted[j], now) && startOf(sorted[j]) < endOf(sorted[i], now)) {
-        throw new BadRequestException({
-          code: 'WORK_HISTORY_OVERLAP',
-          message: `Work history overlaps: ${label(sorted[i])} and ${label(sorted[j])} cover the same dates.`,
-        });
-      }
     }
   }
 }

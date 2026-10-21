@@ -53,12 +53,14 @@ export function EventRow({
   );
 
   return (
+    // id + target: styles let the homepage calendar deep-link (/events#event-<id>) to this row.
     <div
-      className={
+      id={`event-${event.id}`}
+      className={`scroll-mt-24 rounded-xl target:ring-2 target:ring-accent target:ring-offset-4 ${
         isMonthFirst
           ? 'grid grid-cols-[140px_1fr_180px_auto] items-center gap-x-9 rounded-xl bg-[color-mix(in_oklab,var(--accent)_6%,var(--bg-card))] px-5 py-7 -mx-5 my-2 max-[900px]:grid-cols-1 max-[900px]:gap-y-3 max-[900px]:px-4 max-[900px]:-mx-4'
           : 'grid grid-cols-[140px_1fr_180px_auto] items-center gap-x-9 border-b border-line py-7 max-[900px]:grid-cols-1 max-[900px]:gap-y-3'
-      }
+      }`}
     >
       <div>
         <span className="mb-[5px] block font-mono text-[10px] tracking-[0.12em] text-ink-4">Date</span>
@@ -69,9 +71,9 @@ export function EventRow({
 
       <div className="min-w-0">
         <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
-          {event.eventType && <Badge variant="neutral">{event.eventType}</Badge>}
+          {event.eventType && <Badge variant={isMonthFirst ? 'surface' : 'neutral'}>{event.eventType}</Badge>}
           {event.eventFormat && (
-            <Badge variant={event.eventFormat === 'in_person' ? 'neutral' : 'brand'}>
+            <Badge variant={isMonthFirst ? 'surface' : event.eventFormat === 'in_person' ? 'neutral' : 'brand'}>
               {FORMAT_LABEL[event.eventFormat]}
             </Badge>
           )}

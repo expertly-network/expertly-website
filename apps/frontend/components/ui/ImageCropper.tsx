@@ -12,15 +12,24 @@ interface Size {
 }
 
 // Fixed 1:1 crop tool: drag to reposition, slider to zoom. Emits a square PNG File.
+// What's being cropped, for the dialog's copy — the crop itself is the same square either way.
+const SUBJECT_COPY = {
+  logo: { title: 'Crop logo', hint: 'Logos are shown as squares (1:1).', confirm: 'Use cropped logo' },
+  photo: { title: 'Crop profile photo', hint: 'Your photo is shown as a square (1:1).', confirm: 'Use this photo' },
+} as const;
+
 export function ImageCropper({
   file,
   onCancel,
   onConfirm,
+  subject = 'logo',
 }: {
   file: File;
   onCancel: () => void;
   onConfirm: (cropped: File) => void;
+  subject?: keyof typeof SUBJECT_COPY;
 }) {
+  const copy = SUBJECT_COPY[subject];
   const [src, setSrc] = useState<string | null>(null);
   const [natural, setNatural] = useState<Size | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -87,7 +96,7 @@ export function ImageCropper({
         setFailed(true);
         return;
       }
-      const name = file.name.replace(/\.[^.]+$/, '') || 'logo';
+      const name = file.name.replace(/\.[^.]+$/, '') || subject;
       onConfirm(new File([blob], `${name}.png`, { type: 'image/png' }));
     }, 'image/png');
   }
@@ -96,13 +105,13 @@ export function ImageCropper({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Crop logo"
+      aria-label={copy.title}
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
     >
       <div className="w-full max-w-sm rounded-xl bg-bg-card p-5">
-        <h3 className="text-base font-medium text-ink">Crop logo</h3>
+        <h3 className="text-base font-medium text-ink">{copy.title}</h3>
         <p className="mt-1 text-xs text-ink-3">
-          Logos are shown as squares (1:1). Drag to reposition and use the slider to zoom.
+          {copy.hint} Drag to reposition and use the slider to zoom.
         </p>
         <div
           className="mx-auto mt-4 touch-none select-none overflow-hidden rounded-input border border-line-2 bg-bg-alt"
@@ -125,7 +134,7 @@ export function ImageCropper({
             <img
               ref={imgRef}
               src={src}
-              alt="Logo to crop"
+              alt={`${copy.title} preview`}
               draggable={false}
               onLoad={handleLoad}
               onError={() => setFailed(true)}
@@ -158,7 +167,7 @@ export function ImageCropper({
             Cancel
           </Button>
           <Button size="sm" fullWidth onClick={handleConfirm} disabled={!natural || failed}>
-            Use cropped logo
+            {copy.confirm}
           </Button>
         </div>
       </div>

@@ -50,6 +50,14 @@ export function formatWorkPeriod(
 }
 
 // "https://www.m2kadvisors.in/" -> "m2kadvisors.in"
+// Stored URLs may lack a scheme ("www.m2kadvisors.com" passes @IsUrl) — as an <a href> that's
+// a relative path, which opened /members/www.m2kadvisors.com (404). Always link absolutely.
+export function externalHref(url: string): string {
+  const trimmed = url.trim();
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
+  return `https://${trimmed.replace(/^\/+/, '')}`;
+}
+
 export function displayHost(url: string): string {
   return url
     .replace(/^https?:\/\//, '')

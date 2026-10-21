@@ -57,9 +57,14 @@ export function normalizeLiveItem(section: MemberEditSection, item: SectionItem,
   }
   if (section === 'engagements') {
     out.clientName = item.clientName ?? null;
-    out.clientEmail = item.clientEmail ?? null;
     out.verificationMethods = Array.isArray(item.verificationMethods) ? item.verificationMethods : [];
     out.verificationMethodOther = item.verificationMethodOther ?? null;
+  }
+  // A client's email exists only so the Expertly team can randomly verify the relationship — it's
+  // a third party's address, so like proof it's visible to the owning member and admins only.
+  if (section === 'engagements' || section === 'testimonials') {
+    if (includeProof) out.clientEmail = item.clientEmail ?? null;
+    else delete out.clientEmail;
   }
   if ((PER_ITEM_PROOF_SECTIONS as readonly string[]).includes(section)) {
     if (includeProof) out.proofAttachments = Array.isArray(item.proofAttachments) ? item.proofAttachments : [];
@@ -123,6 +128,12 @@ function validateEngagement(item: SectionItem): void {
   }
 }
 
+function validateTestimonial(item: SectionItem): void {
+  if (item.clientEmail != null && item.clientEmail !== '' && !isEmail(item.clientEmail)) {
+    throw badRequest('TESTIMONIAL_CLIENT_EMAIL_INVALID', 'clientEmail must be a valid email address.');
+  }
+}
+
 function validateContact(payload: unknown): void {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw badRequest('CONTACT_PAYLOAD_INVALID', 'contact payload must be an object.');
@@ -173,6 +184,7 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
     for (const item of items) validateProofAttachments(section, item.proofAttachments);
   }
   if (section === 'engagements') items.forEach(validateEngagement);
+  if (section === 'testimonials') items.forEach(validateTestimonial);
   if (section === 'key_clients') {
     if (items.length > MAX_KEY_CLIENTS) {
       throw badRequest('KEY_CLIENTS_LIMIT_EXCEEDED', `You can list at most ${MAX_KEY_CLIENTS} key clients.`);

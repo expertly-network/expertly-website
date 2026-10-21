@@ -16,6 +16,8 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
    * starting height before content is measured.
    */
   autoGrow?: boolean;
+  /** Appends a red asterisk to the label — see Input's identical prop. */
+  markRequired?: boolean;
 }
 
 export function Textarea({
@@ -25,6 +27,7 @@ export function Textarea({
   id,
   error,
   autoGrow,
+  markRequired,
   value,
   className = '',
   ...textareaProps
@@ -43,7 +46,10 @@ export function Textarea({
     <div className="flex flex-col gap-1.5">
       {(label || labelRight) && (
         <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
-          <span>{label}</span>
+          <span>
+            {label}
+            {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+          </span>
           {labelRight}
         </label>
       )}

@@ -12,6 +12,7 @@ export function MultiSelect({
   placeholder,
   allowCustom = false,
   error,
+  markRequired = false,
 }: {
   label: string;
   options: FilterPopoverOption[];
@@ -21,6 +22,8 @@ export function MultiSelect({
   /** Adds a free-text row that lets the typed value be selected even if not in options. */
   allowCustom?: boolean;
   error?: string;
+  /** Appends a red asterisk to the label — see Input's identical prop. */
+  markRequired?: boolean;
 }) {
   const [customValue, setCustomValue] = useState('');
 
@@ -41,7 +44,10 @@ export function MultiSelect({
 
   return (
     <div className="flex flex-col">
-      <label className="mb-2 block text-[13px] font-semibold text-ink">{label}</label>
+      <label className="mb-2 block text-[13px] font-semibold text-ink">
+        {label}
+        {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+      </label>
       <FilterPopover
         label={placeholder ?? label}
         options={options}

@@ -396,7 +396,7 @@
                 "linkedin-import"
               ]
             },
-            "description": "🔒 Auth. Fetch-and-normalize only — does NOT save. Frontend merges the result and saves via POST /applications/me.",
+            "description": "🔒 Auth. Fetch-and-normalize only — does NOT save. Frontend merges the result and saves via POST /applications/me. Returns every LinkedIn role (sub-roles at one firm included, may overlap) up to 15, with `description`, education up to 5, and `photoUrl` — the 800px LinkedIn photo to pass to POST /applications/me/photo/linkedin as `sourceUrl`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"linkedinUrl\": \"https://www.linkedin.com/in/jordanreyes\"\n}",
@@ -413,7 +413,12 @@
           "name": "POST /applications/me/photo/linkedin — Import profile photo from LinkedIn",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/applications/me/photo/linkedin",
               "host": [
@@ -426,7 +431,16 @@
                 "linkedin"
               ]
             },
-            "description": "🔒 Auth. No request body. Best-effort — pulls the `picture` claim off the caller’s linked LinkedIn identity. Never overwrites an existing photo."
+            "description": "🔒 Auth. Best-effort — stores a LinkedIn profile photo on the caller's draft through the same path as a manual upload. Shipped body uses `sourceUrl`: the high-res `photoUrl` returned by POST /applications/me/linkedin-import (must be `https://media.licdn.com/...`, anything else is 400; redirects are refused). Replace the example URL with a real one from an import response.\n\n**To use the linked LinkedIn identity's (low-res, ~100px) `picture` claim instead, replace the whole body with:**\n```json\n{}\n```\n\nThe frontend only replaces a photo it imported itself — never a manual upload.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceUrl\": \"https://media.licdn.com/dms/image/v2/EXAMPLE/profile-displayphoto-crop_800_800/0/0\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
@@ -1005,7 +1019,7 @@
                 "edits"
               ]
             },
-            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```\n\n**Updated 2026-10-10.** Proof is optional everywhere. Items may carry `id` (live item id when editing) — live items now return their `proofAttachments` so you can resend them. Server rules: engagements need `clientName` (+ optional `clientEmail`, `verificationMethods` from engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other, `verificationMethodOther`); key_clients max 20; work_experiences must not overlap (stored newest-first); contact accepts `workEmail`.\n\n**To test engagements instead, replace the whole body with:**\n```json\n{\n  \"section\": \"engagements\",\n  \"payload\": [\n    {\n      \"title\": \"Cross-border restructuring\",\n      \"organization\": \"Acme Holdings\",\n      \"clientName\": \"Jane Doe\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"verificationMethods\": [\"engagement_letter\", \"other\"],\n      \"verificationMethodOther\": \"Signed scope email\",\n      \"year\": 2024,\n      \"url\": null,\n      \"proofAttachments\": [{ \"type\": \"link\", \"url\": \"https://example.com/letter.pdf\", \"label\": \"Engagement letter\" }]\n    }\n  ]\n}\n```\n\n**To test contact instead, replace the whole body with:**\n```json\n{\n  \"section\": \"contact\",\n  \"payload\": {\n    \"contactEmail\": \"priya@example.com\",\n    \"workEmail\": \"priya@firm.example.com\",\n    \"contactPhone\": \"+65 5555 0100\",\n    \"linkedinUrl\": \"https://www.linkedin.com/in/priya-menon\",\n    \"website\": null\n  }\n}\n```",
+            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```\n\n**Updated 2026-10-10.** Proof is optional everywhere. Items may carry `id` (live item id when editing) — live items now return their `proofAttachments` so you can resend them. Server rules: engagements need `clientName` (+ optional `clientEmail`, `verificationMethods` from engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other, `verificationMethodOther`); key_clients max 20; work_experiences may overlap (concurrent roles; stored newest-first; only end-before-start is rejected); contact accepts `workEmail`; testimonials accept optional `clientEmail` (2026-10-21). `clientEmail` on engagements/testimonials is only returned to the owner/admin.\n\n**To test engagements instead, replace the whole body with:**\n```json\n{\n  \"section\": \"engagements\",\n  \"payload\": [\n    {\n      \"title\": \"Cross-border restructuring\",\n      \"organization\": \"Acme Holdings\",\n      \"clientName\": \"Jane Doe\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"verificationMethods\": [\"engagement_letter\", \"other\"],\n      \"verificationMethodOther\": \"Signed scope email\",\n      \"year\": 2024,\n      \"url\": null,\n      \"proofAttachments\": [{ \"type\": \"link\", \"url\": \"https://example.com/letter.pdf\", \"label\": \"Engagement letter\" }]\n    }\n  ]\n}\n```\n\n**To test contact instead, replace the whole body with:**\n```json\n{\n  \"section\": \"contact\",\n  \"payload\": {\n    \"contactEmail\": \"priya@example.com\",\n    \"workEmail\": \"priya@firm.example.com\",\n    \"contactPhone\": \"+65 5555 0100\",\n    \"linkedinUrl\": \"https://www.linkedin.com/in/priya-menon\",\n    \"website\": null\n  }\n}\n```\n\n**To test testimonials instead, replace the whole body with:**\n```json\n{\n  \"section\": \"testimonials\",\n  \"payload\": [\n    {\n      \"quote\": \"Clear, practical advice on our Singapore holding structure.\",\n      \"clientName\": \"Jane Doe\",\n      \"clientTitle\": \"CFO\",\n      \"clientCompany\": \"Acme Holdings\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"serviceName\": \"International Tax\",\n      \"occurredOn\": \"2026-03-01\",\n      \"proofAttachments\": []\n    }\n  ]\n}\n```",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"section\": \"headline_bio\",\n  \"payload\": {\n    \"headline\": \"Cross-Border Tax & Transfer Pricing Advisor\",\n    \"bio\": \"I help fast-growing companies manage multi-jurisdiction tax exposure as they scale internationally.\"\n  }\n}",
@@ -1035,6 +1049,39 @@
               ]
             },
             "description": "🔒 Owner-only. Any status, newest first — drives the \"pending verification\" badge."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /members/{{memberId}} — Update my availability and/or photo (live immediately)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}"
+              ]
+            },
+            "description": "🔑 member, owner-only (`{{memberId}}` must be you). Any combination of `isAvailable`, `availabilityNotes` (≤200; `null`/`\"\"` clears) and `photoUploadPath` — at least one (`400 NOTHING_TO_UPDATE`). Applies immediately, no admin review. Returns the updated `MemberDto`.\n\nShipped body sets availability only. For a photo: first `POST /members/{{memberId}}/uploads` with `{ fileName, contentType }`, PUT the image bytes to the returned `uploadUrl`, then send the returned `path` as `photoUploadPath` (JPEG/PNG/WebP, ≤5MB — else `400 PHOTO_INVALID_TYPE` / `PHOTO_TOO_LARGE`).\n\n**To update the photo too, replace the whole body with:**\n```json\n{\n  \"isAvailable\": true,\n  \"availabilityNotes\": null,\n  \"photoUploadPath\": \"{{memberId}}/1761022800000-profile-photo.png\"\n}\n```",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isAvailable\": false,\n  \"availabilityNotes\": \"Travelling — back from 4 Nov\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
@@ -1223,7 +1270,7 @@
           "response": []
         },
         {
-          "name": "PATCH /consultations/{{consultationId}} — Respond to request (complete or decline)",
+          "name": "PATCH /consultations/{{consultationId}} — Decide (member) or rate (requester)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1242,44 +1289,10 @@
                 "{{consultationId}}"
               ]
             },
-            "description": "🔒 Owner (the target member). Shipped body completes it. `responseMessage` required, 10–500 chars. No re-opening once decided.\n\n**To test Decline instead, replace the whole body with:**\n```json\n{\n  \"status\": \"declined\",\n  \"responseMessage\": \"Thanks for reaching out — this is outside my practice area, but I've suggested another member who specializes in EU VAT.\"\n}\n```",
+            "description": "🔒 Either participant, authorized per field. Shipped body is the member's decision: `status` (`completed`|`declined`) + `responseMessage` (10–500 chars), sent together — only the request's member. Never mix a decision and a rating (`400 MIXED_UPDATE`); empty body is `400 NOTHING_TO_UPDATE`.\n\n**To rate as the requester instead (only once `completed` — `pending`/`declined` return 409), replace the whole body with:**\n```json\n{\n  \"rating\": 5\n}\n```",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"completed\",\n  \"responseMessage\": \"Happy to help — sent a follow-up email with next steps and a proposed engagement scope.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "PATCH /consultations/{{consultationId}}/rating — Rate a decided request",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/consultations/{{consultationId}}/rating",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "consultations",
-                "{{consultationId}}",
-                "rating"
-              ]
-            },
-            "description": "🔒 Owner (the requester). Only once `status` is no longer `pending`. Integer 1–5.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rating\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"

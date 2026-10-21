@@ -1,5 +1,5 @@
-// Client-side mirror of apps/backend/src/common/work-history.ts, so the wizard can sort and flag
-// overlapping roles inline before saving. The backend remains the authority and re-checks.
+// Client-side mirror of apps/backend/src/common/work-history.ts, so the wizard can sort roles and
+// flag bad dates inline before saving. Overlaps are only a warning (the backend allows them).
 
 export interface WorkSpan {
   startYear: number;

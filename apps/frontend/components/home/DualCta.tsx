@@ -1,7 +1,8 @@
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
-export function DualCta() {
+// Members already have the practitioner side, so their CTA points at publishing instead of /apply.
+export function DualCta({ showApply = true }: { showApply?: boolean }) {
   return (
     <section className="border-b border-line py-24">
       <PageContainer>
@@ -70,9 +71,15 @@ export function DualCta() {
                   </li>
                 ))}
               </ul>
-              <Button href="/apply" variant="secondary-dark" className="mt-10">
-                Apply for membership
-              </Button>
+              {showApply ? (
+                <Button href="/apply" variant="secondary-dark" className="mt-10">
+                  Apply for membership
+                </Button>
+              ) : (
+                <Button href="/articles/write" variant="secondary-dark" className="mt-10">
+                  Write an article
+                </Button>
+              )}
             </div>
           </Card>
         </div>

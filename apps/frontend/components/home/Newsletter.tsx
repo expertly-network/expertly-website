@@ -17,7 +17,9 @@ export function Newsletter() {
       <PageContainer>
         <Card
           padding="lg"
-          className="relative overflow-hidden bg-ink"
+          // No overflow-hidden: the decoration is a CSS background (stays inside the rounded card
+          // anyway), and clipping cut the region/country dropdowns off after ~3 options.
+          className="relative bg-ink"
           style={{
             backgroundImage:
               'radial-gradient(1200px 600px at 15% -10%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 60%), repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 32px), repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 32px)',
@@ -60,7 +62,7 @@ export function Newsletter() {
                 type="email"
                 placeholder="you@firm.com"
                 required
-                className="w-full rounded-input border border-white/20 bg-white/10 px-3.5 py-3 text-sm text-bg placeholder:text-white/40"
+                className="w-full rounded-input border border-white/20 bg-white/10 px-3.5 py-3 text-sm text-bg placeholder:text-white/65"
               />
               <Button type="submit" variant="secondary-dark">
                 Subscribe

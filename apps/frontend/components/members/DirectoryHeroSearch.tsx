@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
 
@@ -10,6 +10,12 @@ export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(filters.q ?? '');
+
+  // The URL is the source of truth — when it changes elsewhere (e.g. "Reset filters" clears every
+  // param), the box follows instead of keeping stale text like "zzzxqq".
+  useEffect(() => {
+    setQ(filters.q ?? '');
+  }, [filters.q]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();

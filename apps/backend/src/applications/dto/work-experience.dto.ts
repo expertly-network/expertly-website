@@ -1,14 +1,4 @@
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Max, MaxLength, Min } from 'class-validator';
 import type { FirmSize } from '@shared/membership-application';
 
 const FIRM_SIZES: FirmSize[] = ['solo', '2_10', '11_50', '51_200', '200_plus'];
@@ -55,4 +45,9 @@ export class WorkExperienceDto {
 
   @IsBoolean()
   isCurrent!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
 }

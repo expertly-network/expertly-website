@@ -7,7 +7,7 @@ import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportingLoader } from '@/components/apply/ImportingLoader';
 import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
-import { importLinkedIn } from '@/lib/api/applications';
+import { importLinkedIn, importLinkedInPhoto } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 import { hasLinkedInIdentity, linkLinkedInIdentity } from '@/lib/auth/linkedin';
 import { LINKEDIN_DATA_USE_URL } from '@/lib/legal';
@@ -140,6 +140,18 @@ export function LinkedInImportStep({
       if (result.city) {
         patch.city = result.city;
         importedFields.add('city');
+      }
+      // Upgrade to the scrape's full-size photo, unless the applicant uploaded their own.
+      if (result.photoUrl && (!form.photoUrl || form.importedFields.has('photoUrl'))) {
+        try {
+          const withPhoto = await importLinkedInPhoto(result.photoUrl);
+          if (withPhoto.photoUrl) {
+            patch.photoUrl = withPhoto.photoUrl;
+            importedFields.add('photoUrl');
+          }
+        } catch {
+          // Best-effort — keep whatever photo is already there.
+        }
       }
       // Set after update(), which would otherwise clear these same keys.
       update(patch);

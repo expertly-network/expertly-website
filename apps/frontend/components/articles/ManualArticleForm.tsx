@@ -8,6 +8,7 @@ import { RichTextEditor } from '@/components/articles/RichTextEditor';
 import { getCoverImageSuggestions, suggestTopics } from '@/lib/api/articles';
 import type { CategoryDto } from '@shared/category';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
+import { MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS, countArticleWords } from '@/lib/articles/word-count';
 
 const DOCUMENT_ICON = (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -15,9 +16,6 @@ const DOCUMENT_ICON = (
     <polyline points="14,2 14,8 20,8" />
   </svg>
 );
-
-const MIN_WORDS = 800;
-const MAX_WORDS = 2000;
 
 export interface ManualArticleFormState {
   title: string;
@@ -43,23 +41,10 @@ const EMPTY: ManualArticleFormState = {
 
 export { EMPTY as EMPTY_MANUAL_ARTICLE_FORM };
 
-// Strips HTML tags before counting so markup doesn't inflate the count.
-function wordCount(html: string): number {
-  if (typeof document === 'undefined') return 0;
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  const text = (div.textContent ?? '').trim();
-  return text ? text.split(/\s+/).length : 0;
-}
-
-// Cosmetic only, never persisted — derived from selected services and the title.
-function suggestTags(title: string, serviceNames: string[]): string[] {
-  const titleWords = title
-    .split(/\s+/)
-    .map((w) => w.replace(/[^a-zA-Z]/g, ''))
-    .filter((w) => w.length > 4)
-    .slice(0, 3);
-  return [...new Set([...serviceNames, ...titleWords])].slice(0, 5);
+// Cosmetic only, never persisted — the article's real taxonomy (services, then countries).
+// Single title words were dropped: they produced fragments like "Internal" / "Audit" / "Practices".
+function suggestTags(serviceNames: string[], countries: string[]): string[] {
+  return [...new Set([...serviceNames, ...countries])].slice(0, 5);
 }
 
 // Title, service(s)/countries, content, auto-selected cover image, and suggested tags.
@@ -80,13 +65,15 @@ export function ManualArticleForm({
   savingDraft: boolean;
 }) {
   const services = categories.flatMap((c) => c.services);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // Errors stay hidden until the first Preview attempt, then re-validate live on every change, so
+  // fixing a field (picking a topic chip, a service, typing more words) clears its message at once.
+  const [showErrors, setShowErrors] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(true);
   const [coverImageOptions, setCoverImageOptions] = useState<string[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [coverImageLoading, setCoverImageLoading] = useState(true);
-  const words = wordCount(value.body);
+  const words = countArticleWords(value.body);
 
   const selectedServices = services.filter((s) => value.serviceIds.includes(s.id));
   const selectedCustomServices = selectedServices.filter((s) => s.isCustom);
@@ -103,13 +90,18 @@ export function ManualArticleForm({
     }
   }
 
-  async function loadCoverImages(query: string) {
+  // `keepCurrent`: reopening a saved draft keeps its chosen cover (first in the rotation) instead
+  // of replacing it with a fresh suggestion.
+  async function loadCoverImages(query: string, keepCurrent = false) {
     setCoverImageLoading(true);
     try {
-      const { images } = await getCoverImageSuggestions(query || undefined);
+      const { images: suggested } = await getCoverImageSuggestions(query || undefined);
+      const current = value.coverImageUrl;
+      const images =
+        keepCurrent && current ? [current, ...suggested.filter((url) => url !== current)] : suggested;
       setCoverImageOptions(images);
       setCoverImageIndex(0);
-      if (images.length > 0) onChange({ coverImageUrl: images[0] });
+      if (images.length > 0 && !(keepCurrent && current)) onChange({ coverImageUrl: images[0] });
     } catch {
       setCoverImageOptions([]);
     } finally {
@@ -123,7 +115,7 @@ export function ManualArticleForm({
     if (mounted.current) return;
     mounted.current = true;
     loadTopics([]);
-    loadCoverImages('');
+    loadCoverImages('', true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -139,19 +131,19 @@ export function ManualArticleForm({
     if (!value.title.trim()) e.title = 'Title is required.';
     if (value.serviceIds.length === 0) e.serviceIds = 'Select at least one service.';
     if (value.countries.length === 0) e.countries = 'Select at least one country.';
-    if (words < MIN_WORDS || words > MAX_WORDS) {
-      e.body = `Article content must be between ${MIN_WORDS} and ${MAX_WORDS} words (currently ${words}).`;
+    if (words < MIN_ARTICLE_WORDS || words > MAX_ARTICLE_WORDS) {
+      e.body = `Article content must be between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words (currently ${words}).`;
     }
     return e;
   }
 
+  const errors = showErrors ? validate() : {};
+
   function handlePreview() {
-    const fieldErrors = validate();
-    if (Object.keys(fieldErrors).length > 0) {
-      setErrors(fieldErrors);
+    if (Object.keys(validate()).length > 0) {
+      setShowErrors(true);
       return;
     }
-    setErrors({});
     onPreview();
   }
 
@@ -165,6 +157,7 @@ export function ManualArticleForm({
           error={errors.title}
           placeholder="e.g. Navigating Stamp Duty on Cross-Border Mergers"
           required
+          markRequired
         />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <span className="text-xs text-ink-3">
@@ -206,6 +199,7 @@ export function ManualArticleForm({
             loadCoverImages(names.join(' '));
           }}
           error={errors.serviceIds}
+          markRequired
         />
         <MultiSelect
           label="Country"
@@ -214,6 +208,7 @@ export function ManualArticleForm({
           selected={value.countries}
           onChange={(countries) => onChange({ countries })}
           error={errors.countries}
+          markRequired
         />
       </div>
 
@@ -259,7 +254,7 @@ export function ManualArticleForm({
           <span className="mt-1.5 block text-xs text-error">{errors.body}</span>
         ) : (
           <span className="mt-1.5 block text-xs text-ink-3">
-            Minimum {MIN_WORDS} words, maximum {MAX_WORDS} words.
+            Minimum {MIN_ARTICLE_WORDS} words, maximum {MAX_ARTICLE_WORDS} words.
           </span>
         )}
       </div>
@@ -291,7 +286,7 @@ export function ManualArticleForm({
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-ink-2">Suggested tags</span>
           <div className="flex flex-wrap gap-2">
-            {suggestTags(value.title, selectedServices.map((s) => s.name)).map((tag) => (
+            {suggestTags(selectedServices.map((s) => s.name), value.countries).map((tag) => (
               <span
                 key={tag}
                 className="rounded-full border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-1.5 text-[11.5px] font-semibold tracking-[0.02em] text-accent"

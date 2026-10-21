@@ -243,7 +243,7 @@ export function ConsultationCard(props: ConsultationCardProps) {
 
         <ConsultationMessageThread requestId={request.id} viewerId={viewerId} locked={request.status !== 'pending'} />
 
-        {props.variant === 'mine' && request.status !== 'pending' && (
+        {props.variant === 'mine' && request.status === 'completed' && (
           <ConsultationRating requestId={request.id} initialRating={request.rating} />
         )}
       </div>

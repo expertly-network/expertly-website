@@ -6,6 +6,7 @@ import type {
   CouponPreviewResponse,
   LinkedInImportRequest,
   LinkedInImportResponse,
+  LinkedInPhotoImportRequest,
   UpdateApplicationRequest,
 } from '@shared/membership-application';
 
@@ -42,9 +43,16 @@ export function previewCoupon(body: CouponPreviewRequest): Promise<CouponPreview
   });
 }
 
-/** Best-effort: imports the profile photo from the caller's linked LinkedIn identity, if any. */
-export function importLinkedInPhoto(): Promise<ApplicationDto> {
-  return apiFetch<ApplicationDto>('/applications/me/photo/linkedin', { method: 'POST' });
+/**
+ * Best-effort: imports a LinkedIn profile photo — `sourceUrl` (the high-res photo from the
+ * LinkedIn import) when given, otherwise the linked LinkedIn identity's low-res picture.
+ */
+export function importLinkedInPhoto(sourceUrl?: string): Promise<ApplicationDto> {
+  const body: LinkedInPhotoImportRequest = sourceUrl ? { sourceUrl } : {};
+  return apiFetch<ApplicationDto>('/applications/me/photo/linkedin', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 export function uploadApplicationFile(kind: 'photo' | 'document', file: File): Promise<ApplicationDto> {

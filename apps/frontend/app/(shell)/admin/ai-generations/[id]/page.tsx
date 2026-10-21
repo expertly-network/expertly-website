@@ -17,7 +17,7 @@ export default async function AdminAiGenerationDetailPage({ params }: { params: 
     redirect(`/login?returnTo=/admin/ai-generations/${params.id}`);
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   const generation = await getAdminAiGenerationServer(params.id);

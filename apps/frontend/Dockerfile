@@ -44,6 +44,9 @@ ENV HOSTNAME=0.0.0.0
 # .next/standalone, hence "apps/frontend/..." destinations below, not "./".
 COPY --from=build /app/apps/frontend/.next/standalone ./
 COPY --from=build /app/apps/frontend/.next/static ./apps/frontend/.next/static
+# standalone output doesn't include public/ — without it /fonts/pdf/*.ttf 404s and the profile
+# PDF export fails on font load.
+COPY --from=build /app/apps/frontend/public ./apps/frontend/public
 
 EXPOSE 3000
 CMD ["node", "apps/frontend/server.js"]

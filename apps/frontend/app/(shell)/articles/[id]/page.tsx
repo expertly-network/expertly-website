@@ -10,12 +10,21 @@ import { RelatedArticles } from '@/components/articles/RelatedArticles';
 import { ArticleNewsletterCard } from '@/components/articles/ArticleNewsletterCard';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Badge, Button } from '@/components/ui';
+import type { ArticleDto } from '@shared/article';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: '2-digit',
   year: 'numeric',
 });
+
+// Only the author/admin can open a non-published article (the API 404s everyone else), so this
+// banner is what tells them it isn't public — and why there's nothing to share yet.
+const STATUS_NOTICE: Record<Exclude<ArticleDto['status'], 'published'>, { label: string; body: string }> = {
+  draft: { label: 'Draft', body: 'Only you can see this article. Publish it to make it public.' },
+  pending_review: { label: 'Pending review', body: 'The Expertly team is reviewing this article — it isn’t public yet.' },
+  rejected: { label: 'Not approved', body: 'This article wasn’t approved. Edit and resubmit it to publish.' },
+};
 
 const LEGAL_DISCLAIMER =
   "The views expressed in this article are those of the author and do not constitute legal, tax, or financial advice. This content is published for informational purposes only. Readers should seek independent professional advice before acting on any information contained herein.";
@@ -32,11 +41,18 @@ const META_ICON_PROPS = {
   className: 'flex-none text-ink-4',
 };
 
-// Only published articles get real Open Graph data; others fall back to generic metadata.
+// Only published articles get real Open Graph data; a signed-in reader's draft/pending article
+// still gets its own tab title. Runs before the page streams, so an unknown id is a real 404.
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const publicArticles = await getArticlesServer();
   const article = publicArticles.find((a) => a.id === params.id);
-  if (!article) return {};
+  if (!article) {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) notFound();
+    const own = await getArticleServer(params.id);
+    if (!own) notFound();
+    return { title: `${own.title} — Expertly`, robots: { index: false } };
+  }
 
   return {
     title: `${article.title} — Expertly`,
@@ -100,6 +116,12 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
       <PageContainer className="grid items-start gap-10 py-10 lg:grid-cols-[1fr_312px]">
         <article className="overflow-hidden rounded-3xl border border-line bg-bg-card shadow-[0_1px_2px_rgba(0,0,0,0.02),0_24px_48px_-30px_rgba(0,0,0,0.22)]">
           <div className="px-6 pb-10 pt-8 min-[640px]:px-12 min-[640px]:pb-14 min-[640px]:pt-10">
+            {article.status !== 'published' && (
+              <div className="mb-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <Badge variant="warning">{STATUS_NOTICE[article.status].label}</Badge>
+                <span className="text-sm text-amber-700">{STATUS_NOTICE[article.status].body}</span>
+              </div>
+            )}
             <h1 className="text-article-title text-ink">{article.title}</h1>
 
             <div className="mt-[18px] flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
@@ -143,7 +165,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
                     Edit
                   </Button>
                 )}
-                <ArticleShareBar title={article.title} />
+                {article.status === 'published' && <ArticleShareBar title={article.title} />}
               </div>
             </div>
 

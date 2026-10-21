@@ -80,6 +80,13 @@ const MEMBER_PROFILE_EDIT_COLUMNS = [
 
 const PROFILE_IDENTITY_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'avatar_url', 'initials'] as const;
 
+// The columns PATCH /members/:id may write (owner, applied immediately).
+export interface MemberSelfUpdate {
+  is_available?: boolean;
+  availability_notes?: string | null;
+  photo_path?: string;
+}
+
 export interface MemberProfileRow {
   profile_id: string;
   slug: string;
@@ -406,6 +413,17 @@ export class MembersRepository {
 
     if (error || !updated) throw new InternalServerErrorException('Failed to record review decision.');
     return updated as unknown as MemberProfileEditRow;
+  }
+
+  // PATCH /members/:id — the owner's directly-editable columns.
+  async updateOwnFields(memberId: string, patch: MemberSelfUpdate): Promise<void> {
+    const { data, error } = await this.memberProfiles()
+      .update(patch)
+      .eq('profile_id', memberId)
+      .select('profile_id')
+      .maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to update member profile.');
+    if (!data) throw new NotFoundException('Member profile not found.');
   }
 
   async applyHeadlineBioEdit(memberId: string, headline: string, bio: string): Promise<void> {

@@ -12,7 +12,7 @@ import { ConsultationsRepository, type ConsultationMessageRow } from './consulta
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 import { UpdateConsultationStatusDto } from './dto/update-consultation-status.dto';
 import { CreateConsultationMessageDto } from './dto/create-consultation-message.dto';
-import { RateConsultationRequestDto } from './dto/rate-consultation-request.dto';
+import { UpdateConsultationDto } from './dto/update-consultation.dto';
 
 const DEFAULT_LIMIT = 3;
 const DEFAULT_WINDOW_DAYS = 1;
@@ -175,11 +175,26 @@ export class ConsultationsService {
     return this.enrichWithServiceInfo(withRequester);
   }
 
-  async updateStatus(
-    id: string,
-    member: AuthenticatedUser,
-    dto: UpdateConsultationStatusDto
-  ): Promise<ConsultationRequestDto> {
+  // PATCH :id — one endpoint, two participants, authorized per field. A request carries either the
+  // member's decision (status + responseMessage) or the requester's rating, never both — they're
+  // different people, so a mixed body is a client bug, not a partial success.
+  async update(id: string, user: AuthenticatedUser, dto: UpdateConsultationDto): Promise<ConsultationRequestDto> {
+    const deciding = dto.status !== undefined || dto.responseMessage !== undefined;
+    const rating = dto.rating !== undefined;
+    if (!deciding && !rating) {
+      throw new BadRequestException({ code: 'NOTHING_TO_UPDATE', message: 'Send a decision (status + responseMessage) or a rating.' });
+    }
+    if (deciding && rating) {
+      throw new BadRequestException({ code: 'MIXED_UPDATE', message: 'A decision and a rating come from different participants — send them separately.' });
+    }
+    return deciding ? this.decide(id, user, dto) : this.rate(id, user, dto.rating as number);
+  }
+
+  // Member-only — the member the request was sent to.
+  private async decide(id: string, member: AuthenticatedUser, dto: UpdateConsultationDto): Promise<ConsultationRequestDto> {
+    if (dto.status === undefined || dto.responseMessage === undefined) {
+      throw new BadRequestException({ code: 'DECISION_INCOMPLETE', message: 'status and responseMessage must be sent together.' });
+    }
     const existing = await this.repository.findById(id);
     if (existing.memberId !== member.id) {
       throw new ForbiddenException('You can only update your own consultation requests.');
@@ -191,23 +206,20 @@ export class ConsultationsService {
     return updated;
   }
 
-  // Requester-only — settable once the member has decided (status != 'pending'); the message
-  // thread closes to new messages on the requester's side at that point and this replaces it.
-  async rateRequest(
-    id: string,
-    requester: AuthenticatedUser,
-    dto: RateConsultationRequestDto
-  ): Promise<ConsultationRequestDto> {
+  // Requester-only — once the member has completed the request; the message thread closes on the
+  // requester's side at that point and the rating replaces it.
+  private async rate(id: string, requester: AuthenticatedUser, rating: number): Promise<ConsultationRequestDto> {
     const existing = await this.repository.findById(id);
     if (existing.requesterId !== requester.id) {
       throw new ForbiddenException('You can only rate your own consultation requests.');
     }
-    if (existing.status === 'pending') {
-      throw new ConflictException('This request has not been decided yet.');
+    // Only a completed consultation is a conversation worth rating — a declined one never happened.
+    if (existing.status !== 'completed') {
+      throw new ConflictException('Only completed consultations can be rated.');
     }
-    const updated = await this.repository.updateRating(id, requester.id, dto.rating);
+    const updated = await this.repository.updateRating(id, requester.id, rating);
     if (!updated) {
-      throw new ConflictException('This request has not been decided yet.');
+      throw new ConflictException('Only completed consultations can be rated.');
     }
     return updated;
   }

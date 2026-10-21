@@ -25,6 +25,7 @@ import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
 import {
   ARRAY_SECTIONS,
   PER_ITEM_PROOF_SECTIONS,
@@ -39,6 +40,7 @@ import {
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst, type WorkSpan } from '../common/work-history';
 import {
   MembersRepository,
+  type MemberSelfUpdate,
   type MemberProfileDetailRow,
   type MemberProfileEditInsert,
   type MemberProfileEditRow,
@@ -78,6 +80,14 @@ const LOGO_MIME_TO_EXT: Record<string, string> = {
   'image/gif': 'gif',
 };
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+// Member profile photos: same magic-byte check, no GIFs (a profile photo shouldn't animate).
+const PHOTO_MIME_TO_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+};
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 type EditPayloadItem = SectionItem;
 
@@ -151,13 +161,17 @@ export class MembersService {
       throw new NotFoundException('Member profile not found.');
     }
 
+    return this.toDetailDto(row, user);
+  }
+
+  // Full profile shape for GET :slug and PATCH :id. Private proof (and client emails) only for the
+  // owning member and admins.
+  private async toDetailDto(row: MemberProfileDetailRow, user: AuthenticatedUser): Promise<MemberDto> {
     const [profilesById, servicesByMember] = await Promise.all([
       this.membersRepository.findProfilesByIds([row.profile_id]),
       this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
     ]);
 
-    // Private proof (storage paths / links) is only for the owning member (to prefill edits) and
-    // admins — never other viewers.
     const includeProof = row.profile_id === user.id || user.role === 'admin';
 
     return {
@@ -205,6 +219,44 @@ export class MembersService {
 
     const [dto_] = await this.toEditDtos([inserted]);
     return dto_;
+  }
+
+  // PATCH :id — availability and/or photo, applied together and immediately (product decision,
+  // 2026-10-21: no admin review for these). A new photo sits in the private member-proofs bucket;
+  // it's validated by magic bytes and copied to a fresh public path, so caches never serve the
+  // old one. Validation runs before anything is written, so a bad photo leaves availability as-is.
+  async updateOwnProfile(memberId: string, user: AuthenticatedUser, dto: UpdateMemberDto): Promise<MemberDto> {
+    this.assertOwner(memberId, user);
+    if (dto.isAvailable === undefined && dto.availabilityNotes === undefined && dto.photoUploadPath === undefined) {
+      throw new BadRequestException({ code: 'NOTHING_TO_UPDATE', message: 'Send at least one field to update.' });
+    }
+
+    const patch: MemberSelfUpdate = {};
+    if (dto.isAvailable !== undefined) patch.is_available = dto.isAvailable;
+    if (dto.availabilityNotes !== undefined) patch.availability_notes = dto.availabilityNotes?.trim() || null;
+    if (dto.photoUploadPath !== undefined) patch.photo_path = await this.publishProfilePhoto(memberId, dto.photoUploadPath);
+
+    await this.membersRepository.updateOwnFields(memberId, patch);
+    const row = await this.membersRepository.findDetailByProfileId(memberId);
+    if (!row) throw new NotFoundException('Member profile not found.');
+    return this.toDetailDto(row, user);
+  }
+
+  private async publishProfilePhoto(memberId: string, uploadPath: string): Promise<string> {
+    this.assertOwnedPath(memberId, uploadPath);
+    const buffer = await this.membersRepository.downloadProofFile(uploadPath);
+    const sniffed = await sniffFileType(buffer);
+    const ext = sniffed ? PHOTO_MIME_TO_EXT[sniffed.mime] : undefined;
+    if (!sniffed || !ext) {
+      throw new BadRequestException({ code: 'PHOTO_INVALID_TYPE', message: 'Profile photos must be a JPEG, PNG, or WebP image.' });
+    }
+    if (buffer.length > MAX_PHOTO_BYTES) {
+      throw new BadRequestException({ code: 'PHOTO_TOO_LARGE', message: 'Profile photos must be under 5MB.' });
+    }
+    const publicPath = `members/${memberId}/profile-photo-${randomUUID()}.${ext}`;
+    await this.membersRepository.uploadPublicAsset(publicPath, buffer, sniffed.mime);
+    this.logger.log(`Member ${memberId} updated their profile photo (${publicPath})`);
+    return publicPath;
   }
 
   async listMyEdits(memberId: string, user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {

@@ -31,7 +31,7 @@ const STATS = [
 ];
 
 // Static trust-signal marketing copy, not data.
-export function DirectorySidebar() {
+export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) {
   return (
     <aside className="sticky top-6 flex flex-col gap-4 max-[1023px]:static max-[1023px]:order-first">
       <Card padding="md">
@@ -51,26 +51,28 @@ export function DirectorySidebar() {
           ))}
         </div>
       </Card>
-      <Card padding="md" className="relative overflow-hidden bg-ink max-[859px]:hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full"
-          style={{
-            background:
-              'radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%)',
-          }}
-        />
-        <span className="relative font-mono text-[9px] font-bold tracking-[0.14em] text-white/40">
-          FOR PRACTITIONERS
-        </span>
-        <h3 className="relative mt-2 text-title text-bg-card">Join the network.</h3>
-        <p className="relative mt-2 text-sm text-white/60">
-          Apply for membership and get discovered by clients globally. Keep 100% of your fees.
-        </p>
-        <Button href="/apply" variant="secondary-dark" className="relative mt-4" fullWidth>
-          Apply for membership →
-        </Button>
-      </Card>
+      {showApply && (
+        <Card padding="md" className="relative overflow-hidden bg-ink max-[859px]:hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full"
+            style={{
+              background:
+                'radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%)',
+            }}
+          />
+          <span className="relative font-mono text-[9px] font-bold tracking-[0.14em] text-white/40">
+            FOR PRACTITIONERS
+          </span>
+          <h3 className="relative mt-2 text-title text-bg-card">Join the network.</h3>
+          <p className="relative mt-2 text-sm text-white/60">
+            Apply for membership and get discovered by clients globally. Keep 100% of your fees.
+          </p>
+          <Button href="/apply" variant="secondary-dark" className="relative mt-4" fullWidth>
+            Apply for membership →
+          </Button>
+        </Card>
+      )}
     </aside>
   );
 }

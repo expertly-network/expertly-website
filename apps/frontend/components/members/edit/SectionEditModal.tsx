@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Modal, Input, Textarea, Button } from '@/components/ui';
 import { ImageCropper } from '@/components/ui/ImageCropper';
-import { sortWorkHistory, workHistoryErrors } from '@/lib/members/work-history-check';
+import { sortWorkHistory, workHistoryErrors, workHistoryWarnings } from '@/lib/members/work-history-check';
 import {
   EMPTY_ROW,
   KEY_CLIENTS_MAX,
@@ -87,7 +87,11 @@ function initialPayload(member: MemberDto, section: MemberEditSection): Row | Ro
         : [{ ...EMPTY_ROW.key_clients }];
     case 'testimonials':
       return member.testimonials.length
-        ? member.testimonials.map(({ isVerified: _v, ...rest }) => ({ ...rest, proofAttachments: rest.proofAttachments ?? [] }))
+        ? member.testimonials.map(({ isVerified: _v, ...rest }) => ({
+            ...rest,
+            clientEmail: rest.clientEmail ?? '',
+            proofAttachments: rest.proofAttachments ?? [],
+          }))
         : [{ ...EMPTY_ROW.testimonials }];
     case 'awards':
       return member.awards.length
@@ -102,8 +106,10 @@ function cleanPayload(section: MemberEditSection, data: Row | Row[]): Row | Row[
   const rows = data.map((row) => {
     const { logoPreview: _p, ...rest } = row;
     const out: Row = { ...rest };
+    if ((section === 'engagements' || section === 'testimonials') && typeof out.clientEmail === 'string' && !out.clientEmail.trim()) {
+      delete out.clientEmail;
+    }
     if (section === 'engagements') {
-      if (typeof out.clientEmail === 'string' && !out.clientEmail.trim()) delete out.clientEmail;
       const methods = Array.isArray(out.verificationMethods) ? (out.verificationMethods as string[]) : [];
       if (!methods.includes('other') || !String(out.verificationMethodOther ?? '').trim()) {
         delete out.verificationMethodOther;
@@ -286,6 +292,8 @@ export function SectionEditModal({
   // with the Verified badge.
   const dateErrors: Record<number, string> =
     activeSection === 'work_experiences' && rows ? workHistoryErrors(rows) : {};
+  const dateWarnings: Record<number, string> =
+    activeSection === 'work_experiences' && rows ? workHistoryWarnings(rows) : {};
   const hasDateErrors = Object.keys(dateErrors).length > 0;
   const atCap = rows !== null && rows.length >= (config.maxItems ?? Infinity);
   const canSubmit = hasRequiredFieldsFilled(config, data) && !hasDateErrors && !submitting;
@@ -441,6 +449,7 @@ export function SectionEditModal({
                       {dateErrors[i]}
                     </p>
                   )}
+                  {!dateErrors[i] && dateWarnings[i] && <p className="text-xs text-amber-700">{dateWarnings[i]}</p>}
                 </div>
                 {config.shape === 'clients' && (
                   <div className="mt-3">

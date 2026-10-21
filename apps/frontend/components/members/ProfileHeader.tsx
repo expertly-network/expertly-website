@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import type { MemberDto } from '@shared/member';
+import { ChangePhotoButton } from '@/components/members/ChangePhotoButton';
 
 type PdfState = 'idle' | 'generating' | 'error';
 
@@ -11,7 +12,7 @@ const ACTION_BTN =
   'inline-flex w-[120px] items-center justify-center gap-1.5 whitespace-nowrap rounded-input border-[1.5px] border-line-2 bg-bg-card px-3.5 py-2 font-mono text-caption font-semibold text-ink transition-colors hover:border-ink-3 hover:bg-bg-alt disabled:cursor-wait disabled:opacity-60 max-[639px]:w-auto max-[639px]:flex-1';
 
 // Tier badge reads "Seasoned Professional" for that tier, plainly "Member" otherwise.
-export function ProfileHeader({ member }: { member: MemberDto }) {
+export function ProfileHeader({ member, isOwnProfile = false }: { member: MemberDto; isOwnProfile?: boolean }) {
   const [copied, setCopied] = useState(false);
   const [pdfState, setPdfState] = useState<PdfState>('idle');
 
@@ -137,6 +138,7 @@ export function ProfileHeader({ member }: { member: MemberDto }) {
                   {member.initials}
                 </div>
               )}
+              {isOwnProfile && <ChangePhotoButton memberId={member.id} />}
               {member.isVerified && (
                 <div className="absolute -bottom-1.5 -right-1.5 z-[3] flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-card bg-accent">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">

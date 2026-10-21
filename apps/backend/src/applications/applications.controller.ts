@@ -7,7 +7,7 @@ import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { ApplicationDto, CouponPreviewResponse, LinkedInImportResponse } from '@shared/membership-application';
 import { ApplicationsService } from './applications.service';
 import { UpdateApplicationDto } from './dto/update-application.dto';
-import { LinkedInImportRequestDto } from './dto/linkedin-import-request.dto';
+import { LinkedInImportRequestDto, LinkedInPhotoImportRequestDto } from './dto/linkedin-import-request.dto';
 import { UploadApplicationFileDto } from './dto/upload-application-file.dto';
 import { CouponPreviewDto } from './dto/coupon-preview.dto';
 
@@ -43,10 +43,14 @@ export class ApplicationsController {
     return this.applicationsService.previewCoupon(dto);
   }
 
-  // Best-effort: imports the profile photo from the caller's linked LinkedIn identity, if any.
+  // 🔒 any signed-in user — imports a LinkedIn profile photo into the caller's own draft:
+  // `sourceUrl` (media.licdn.com only, from the LinkedIn import) or the linked identity's picture.
   @Post('me/photo/linkedin')
-  importLinkedInPhoto(@CurrentUser() user: AuthenticatedUser): Promise<ApplicationDto> {
-    return this.applicationsService.importPhotoFromLinkedIn(user);
+  importLinkedInPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: LinkedInPhotoImportRequestDto
+  ): Promise<ApplicationDto> {
+    return this.applicationsService.importPhotoFromLinkedIn(user, dto.sourceUrl);
   }
 
   // Uploads a photo or document file for the caller's draft application.

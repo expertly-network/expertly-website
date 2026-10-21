@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Input, Button } from '@/components/ui';
 import { ConsultationCard } from '@/components/consultations/ConsultationCard';
 import { ConsultationStats } from '@/components/consultations/ConsultationStats';
+import { downloadTranscript } from '@/lib/consultations/transcript';
 import type { ConsultationRequestDto, ConsultationStatus } from '@shared/consultation-request';
 
 type Filter = 'all' | ConsultationStatus;
@@ -74,14 +75,19 @@ export function MyConsultationsList({
             </button>
           ))}
         </div>
-        <Input
-          label=""
-          aria-label="Search by member or firm…"
-          placeholder="Search by member or firm…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full min-[640px]:w-64"
-        />
+        <div className="flex flex-1 items-center gap-3 max-[640px]:flex-col max-[640px]:items-stretch min-[640px]:w-auto min-[640px]:flex-none">
+          <Input
+            label=""
+            aria-label="Search by member or firm…"
+            placeholder="Search by member or firm…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full min-[640px]:w-64"
+          />
+          <Button variant="secondary" size="sm" onClick={() => downloadTranscript(initialRequests, 'mine')}>
+            Download transcript
+          </Button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

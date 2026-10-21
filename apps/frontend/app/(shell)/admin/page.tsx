@@ -96,7 +96,7 @@ export default async function AdminPage() {
     redirect('/login?returnTo=/admin');
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   return (

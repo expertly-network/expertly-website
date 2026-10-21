@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useUrlTab } from '@/lib/hooks/useUrlTab';
 import { AboutTab } from '@/components/members/tabs/AboutTab';
 import { CredentialsTab } from '@/components/members/tabs/CredentialsTab';
 import { ArticlesTab } from '@/components/members/tabs/ArticlesTab';
@@ -8,14 +8,16 @@ import { ReviewsTab } from '@/components/members/tabs/ReviewsTab';
 import { ContactTab } from '@/components/members/tabs/ContactTab';
 import type { MemberDto, MemberEditSection, MemberProfileEditDto } from '@shared/member';
 
+// `key` doubles as the ?tab= value (useUrlTab), so it's lowercase and URL-friendly.
 const TABS = [
-  { key: 'About', label: 'About' },
-  { key: 'Credentials', label: 'Credentials' },
-  { key: 'Articles', label: 'Articles' },
-  { key: 'Reviews', label: 'Reviews & Recognition' },
-  { key: 'Contact', label: 'Contact Information' },
+  { key: 'about', label: 'About' },
+  { key: 'credentials', label: 'Credentials' },
+  { key: 'articles', label: 'Articles' },
+  { key: 'reviews', label: 'Reviews & Recognition' },
+  { key: 'contact', label: 'Contact Information' },
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
+const TAB_KEYS = TABS.map((t) => t.key);
 
 export function ProfileTabs({
   member,
@@ -28,7 +30,7 @@ export function ProfileTabs({
   isOwnProfile: boolean;
   onEdit: (section: MemberEditSection) => void;
 }) {
-  const [active, setActive] = useState<Tab>('About');
+  const [active, setActive] = useUrlTab<Tab>(TAB_KEYS, 'about');
 
   return (
     <div>
@@ -54,19 +56,19 @@ export function ProfileTabs({
 
       {/* `.mp-tab-content` */}
       <div role="tabpanel" className="rounded-panel border border-line bg-bg-card p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] max-[640px]:p-5">
-        {active === 'About' && (
+        {active === 'about' && (
           <AboutTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
-        {active === 'Credentials' && (
+        {active === 'credentials' && (
           <CredentialsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
-        {active === 'Articles' && (
+        {active === 'articles' && (
           <ArticlesTab authorId={member.id} isOwnProfile={isOwnProfile} />
         )}
-        {active === 'Reviews' && (
+        {active === 'reviews' && (
           <ReviewsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
-        {active === 'Contact' && (
+        {active === 'contact' && (
           <ContactTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
       </div>

@@ -16,7 +16,7 @@ export default async function AdminMemberEditsPage() {
     redirect('/login?returnTo=/admin/member-edits');
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   // Every status, so the table can filter pending/reviewed client-side without a refetch.

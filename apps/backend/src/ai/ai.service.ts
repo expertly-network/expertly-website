@@ -290,7 +290,7 @@ export class AiService {
   // Generating/refining text is an unreliable way to hit an exact length — the model is told to
   // aim for 800-2000 words but can still undershoot the hard MIN_ARTICLE_WORDS floor (the same
   // bound POST/PATCH /v1/articles enforces), which would otherwise surface as an opaque "Article
-  // body must be between 400 and 2000 words" error only once the member tries to save. One bounded
+  // body must be between 800 and 2000 words" error only once the member tries to save. One bounded
   // correction pass (never a loop) fixes this invisibly before the draft is ever shown.
   private async ensureWordCount(output: ArticleDraftOutput): Promise<ArticleDraftOutput> {
     const wordCount = countArticleWords(output.body);

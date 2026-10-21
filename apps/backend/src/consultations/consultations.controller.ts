@@ -4,9 +4,8 @@ import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { ConsultationMessageDto, ConsultationRequestDto } from '@shared/consultation-request';
 import { ConsultationsService } from './consultations.service';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
-import { UpdateConsultationStatusDto } from './dto/update-consultation-status.dto';
 import { CreateConsultationMessageDto } from './dto/create-consultation-message.dto';
-import { RateConsultationRequestDto } from './dto/rate-consultation-request.dto';
+import { UpdateConsultationDto } from './dto/update-consultation.dto';
 
 // 🔑 Auth on create; 🔒 Owner on the rest — ownership/role checks live in ConsultationsService,
 // not here.
@@ -45,23 +44,15 @@ export class ConsultationsController {
     return this.service.findReceived(user);
   }
 
+  // 🔒 Owner — either participant, authorized per field in the service: the member sends
+  // `status` + `responseMessage` to decide, the requester sends `rating` once it's completed.
   @Patch(':id')
-  updateStatus(
+  update(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: UpdateConsultationStatusDto
+    @Body() dto: UpdateConsultationDto
   ): Promise<ConsultationRequestDto> {
-    return this.service.updateStatus(id, user, dto);
-  }
-
-  // 🔒 Owner — the request's own requester, checked in the service.
-  @Patch(':id/rating')
-  rate(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: RateConsultationRequestDto
-  ): Promise<ConsultationRequestDto> {
-    return this.service.rateRequest(id, user, dto);
+    return this.service.update(id, user, dto);
   }
 
   // 🔒 Owner — either participant (requester or member) on this request, checked in the service.

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -7,6 +7,7 @@ import { MemberDto, MemberListItemDto, MemberProfileEditDto, UploadResponse } fr
 import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
 
 function toArray(value?: string | string[]): string[] | undefined {
   if (value === undefined) return undefined;
@@ -68,6 +69,18 @@ export class MembersController {
     @Body() dto: CreateMemberEditDto
   ): Promise<MemberProfileEditDto> {
     return this.membersService.createEdit(id, user, dto);
+  }
+
+  // 🔑 member, owner-only — the member's directly-editable fields (availability switch + note,
+  // profile photo), any combination in one request. Applies immediately, no moderation queue.
+  @Roles('member')
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateMemberDto
+  ): Promise<MemberDto> {
+    return this.membersService.updateOwnProfile(id, user, dto);
   }
 
   @Get(':id/edits')

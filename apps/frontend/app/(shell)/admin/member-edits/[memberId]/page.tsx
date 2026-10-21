@@ -16,7 +16,7 @@ export default async function AdminMemberEditsDetailPage({ params }: { params: {
     redirect(`/login?returnTo=/admin/member-edits/${params.memberId}`);
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   const detail = await getAdminMemberEditsDetailServer(params.memberId);

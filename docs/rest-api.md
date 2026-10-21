@@ -88,7 +88,7 @@ ever runs, so a malformed body from a non-client caller surfaces as `400` first,
   while one is pending or already succeeded. (`approved` is blocked here for defense-in-depth;
   in practice it's already unreachable, since an approved applicant's role has flipped to
   `member` and this endpoint requires `role: 'client'`.)
-- `workExperiences` in the body (2026-10-10) → validated and stored **newest-first**: an end before its start is `400 WORK_HISTORY_END_BEFORE_START`; overlapping date ranges are `400 WORK_HISTORY_OVERLAP` (a current role counts as ending today; touching in a boundary month is fine; missing months count as January). Items accept optional `startMonth`/`endMonth` (1-12). Approval now carries months and sets `isVerified: true` on the provisioned work history/education.
+- `workExperiences` in the body (2026-10-10) → validated and stored **newest-first**: an end before its start is `400 WORK_HISTORY_END_BEFORE_START` (a current role counts as ending today; missing months count as January). Overlapping date ranges are allowed (2026-10-21: `WORK_HISTORY_OVERLAP` is no longer returned — concurrent roles are real; the UI only warns). Items accept optional `startMonth`/`endMonth` (1-12). Approval now carries months and sets `isVerified: true` on the provisioned work history/education.
 - `status: 'submitted'` in the body → after merging, the **merged row** (not just this call's
   body) must satisfy every requirement the old one-shot `POST /v1/applications` used to enforce
   (all identity/background/services/rates fields present, `workExperiences`/`educations`/
@@ -176,12 +176,28 @@ when the raw scrape still exceeds that, happens at the last word boundary with a
 `POST` handler with no `@HttpCode()` override — confirmed live, not `200` as previously documented
 here.)
 
+**2026-10-21:** every scraped role is returned (previously only the first 5, so a long or
+sub-role-heavy history lost its older jobs), capped at 15 after dropping unusable entries; sub-roles
+at one company come through as separate rows that may overlap in time. Each role now carries an
+optional `description` (≤2000 chars), which `WorkExperienceInput`/`POST /v1/applications/me`
+accept and approval copies onto the member's work history. Education is capped at 5 (was 3).
+New optional `photoUrl`: the scraper's 800×800 LinkedIn photo (`https://media.licdn.com/...` only)
+— send it to `POST /v1/applications/me/photo/linkedin` as `sourceUrl`. `POST /v1/applications/me`
+now accepts up to 15 `workExperiences` and 5 `educations`.
+
 ### 🔒 `POST /v1/applications/me/photo/linkedin`
 
 Added 2026-09-26. Best-effort: pulls the `picture` claim off the caller's linked LinkedIn OAuth
 identity (via the Supabase Admin API — `auth.identities`, not a public-schema table) and stores it
 through the exact same path as a manual photo upload below. Never overwrites a photo the applicant
-already has; the frontend only calls this when `photoUrl` is still unset. No request body.
+already has; the frontend only calls this when `photoUrl` is still unset (or still the photo it
+imported itself).
+
+**Request (optional, 2026-10-21):** `LinkedInPhotoImportRequest` — `{ sourceUrl?: string }`. When
+given, that image is fetched instead of the OAuth `picture` claim (which is ~100×100 and looked
+blurred on profiles). Must be an `https://media.licdn.com/...` URL — anything else is `400`
+(server-side fetch, so the host is pinned); redirects are refused. Use the `photoUrl` returned by
+`POST /v1/applications/me/linkedin-import`. An empty body (`{}`) or no body keeps the old behavior.
 
 **Response `200`:** `ApplicationDto`, same shape as the manual upload endpoint. **Errors:** `404`
 no LinkedIn identity linked or it has no `picture` claim · `502` the picture URL couldn't be
@@ -900,10 +916,14 @@ per-section validation (`400` with `{ code, message }`): `engagements` — `clie
 (`ENGAGEMENT_CLIENT_NAME_REQUIRED`), `clientEmail?` valid email (`ENGAGEMENT_CLIENT_EMAIL_INVALID`),
 `verificationMethods?` unique subset of `engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other`
 and `verificationMethodOther?` ≤ 300 chars (`ENGAGEMENT_VERIFICATION_METHODS_INVALID`);
+`testimonials` (2026-10-21) — optional `clientEmail?` valid email (`TESTIMONIAL_CLIENT_EMAIL_INVALID`),
+for the team's random verification. **`clientEmail` on engagements and testimonials is owner/admin-only
+in `GET /v1/members/:slug`** (omitted for every other viewer, like `proofAttachments`) — it's a
+third party's address;
 `key_clients` — max 20 items (`KEY_CLIENTS_LIMIT_EXCEEDED`), `name` required (`KEY_CLIENT_NAME_REQUIRED`),
 optional `proofAttachments`; `work_experiences` — `startYear` int, `isCurrent` bool, optional
-`startMonth`/`endMonth` 1-12, no end-before-start (`WORK_HISTORY_END_BEFORE_START`), no overlapping
-ranges (`WORK_HISTORY_OVERLAP`); stored newest-first; `contact` — adds `workEmail`, emails must be
+`startMonth`/`endMonth` 1-12, no end-before-start (`WORK_HISTORY_END_BEFORE_START`); overlapping
+ranges allowed (2026-10-21); stored newest-first; `contact` — adds `workEmail`, emails must be
 valid (`CONTACT_EMAIL_INVALID`). Other codes: `PAYLOAD_NOT_ARRAY`, `PAYLOAD_ITEM_INVALID`,
 `HEADLINE_BIO_INVALID`, `CONTACT_PAYLOAD_INVALID`, `PROOF_ATTACHMENTS_INVALID`, `WORK_HISTORY_INVALID`. Shape of
 `payload` depends on `section` (see `packages/shared-types/member.ts` for the per-section
@@ -941,6 +961,31 @@ Owner's own edit requests, any status, newest first — drives the "pending veri
 Owner-only, same posture as `GET /v1/articles/me`.
 
 **Response `200`:** `MemberProfileEditDto[]`.
+
+### 🔑 `PATCH /v1/members/:id`
+
+Added 2026-10-21. The member updates their **directly-editable** fields — any combination in one
+request, at least one (`400 NOTHING_TO_UPDATE`). Owner-only (`:id` must be the caller — `403`
+otherwise). Applies **immediately**, no moderation queue (product decision). Vetted profile content
+(bio, engagements, clients, testimonials, …) is not here — it goes through `POST /v1/members/:id/edits`.
+(Briefly shipped as separate `PATCH /v1/members/:id/availability` and `…/photo` routes on 2026-10-21;
+consolidated here the same day, before any external consumer — not a `/v2`-worthy break.)
+
+**Request:** `UpdateMemberRequest`, every field optional:
+- `isAvailable?: boolean` — the "Available for consultations" switch (profile sidebar + mobile CTA
+  bar). Previously a DB default (`true`) no one could change.
+- `availabilityNotes?: string | null` — ≤ 200 chars, shown under the status; omit to keep, `null`
+  or `""` to clear.
+- `photoUploadPath?: string` — new profile photo. Upload the (cropped) image first with
+  `POST /v1/members/:id/uploads` (signed URL into the private `member-proofs` bucket), then send the
+  returned `path` (must start with `<id>/`). Magic-byte checked: JPEG, PNG or WebP only
+  (`400 PHOTO_INVALID_TYPE`), ≤ 5MB (`400 PHOTO_TOO_LARGE`). Copied to a fresh public path in
+  `application-assets` (`members/<id>/profile-photo-<uuid>.<ext>`) so caches never serve the old one.
+
+All validation runs before anything is written — a rejected photo leaves availability unchanged.
+
+**Response `200`:** the updated `MemberDto` (same shape as `GET /v1/members/:slug` for the owner).
+**Errors:** `400` validation · `403` not your profile · `404` no member profile.
 
 ### 🛡️ `manageMembers` `GET /v1/admin/members`
 
@@ -1014,8 +1059,8 @@ is `400 REVIEW_DECISION_REQUIRED`. The decisions are stored on the edit as `item
 (`[{index, decision, reason}]`) and returned in `MemberProfileEditDto.itemReviews` (null for
 whole-edit reviews) so the member sees each item's reason. If every item is rejected the live
 section is left exactly as it was (including items the member had removed). Accepted items keep
-`proofAttachments`. Work history is re-validated (overlap) and re-sorted on apply — if an accepted
-item would overlap a retained live one the review is `400 WORK_HISTORY_OVERLAP`. `contact`
+`proofAttachments`. Work history is re-validated (end-before-start) and re-sorted on apply; overlaps with
+retained live items are allowed. `contact`
 approval now also writes `workEmail`. No email is sent.
 
 **Key-client logos are published on approval.** A newly uploaded logo sits in the private
@@ -1161,14 +1206,24 @@ member); this is deliberately not reproduced. Each row is enriched with `request
 
 ### 🔒 `PATCH /v1/consultations/:id`
 
-Owner (the target member) transitions `pending` → `completed`/`declined`. No intermediate state,
-no cancel, no re-opening a decided request. `responseMessage` is required (10–500 chars) on every
-transition — the requester sees it on their own `/mine` list, so a bare status flip with no
-explanation isn't enough context for them.
+The one update endpoint for a consultation request, used by **both participants** and authorized
+per field (2026-10-21: the requester's rating moved here from the former
+`PATCH /v1/consultations/:id/rating`, removed the same day — pre-production, our frontend was the
+only caller). A request carries one of two shapes, never both:
 
-**Request:** `UpdateConsultationStatusRequest`. **Response `200`:** `ConsultationRequestDto`.
-**Errors:** `401` · `403` caller isn't the request's `memberId` · `404` not found · `409` already
-decided · `400` `responseMessage` missing or under 10 characters.
+- **Decision — the target member only.** `status` (`completed`|`declined`) + `responseMessage`
+  (10–500 chars), sent together. `pending` → `completed`/`declined`; no intermediate state, no
+  cancel, no re-opening a decided request. The requester sees `responseMessage` on their `/mine`
+  list, so a bare status flip with no explanation isn't enough context.
+- **Rating — the requester only.** `rating`, integer 1–5, once the member has marked the request
+  **completed** (a `declined` request can't be rated — there was no conversation). This replaces
+  the now-closed message composer on the requester's side.
+
+**Request:** `UpdateConsultationRequest` (all fields optional). **Response `200`:** `ConsultationRequestDto`.
+**Errors:** `401` · `403` wrong participant for the fields sent (decision by a non-member, rating by a
+non-requester) · `404` not found · `409` already decided / not `completed` for a rating · `400`
+validation, or `NOTHING_TO_UPDATE` (empty body), `MIXED_UPDATE` (decision and rating together),
+`DECISION_INCOMPLETE` (`status` without `responseMessage` or vice versa).
 
 ### 🔒 `GET /v1/consultations/:id/messages`
 
@@ -1183,20 +1238,11 @@ request's `requesterId` nor `memberId` · `404` request not found.
 
 Either participant posts a message — only while `status` is `'pending'`. Once the member decides
 (`completed`/`declined`), the conversation closes to new messages on both sides; the requester
-rates it instead (see `PATCH /v1/consultations/:id/rating` below).
+rates it instead (`rating` on `PATCH /v1/consultations/:id` above).
 
 **Request:** `CreateConsultationMessageRequest` (`body`, 1–2000 chars). **Response `201`:**
 `ConsultationMessageDto`. **Errors:** `401` · `403` · `404` · `409` request already decided ·
 `400` `body` missing or over 2000 characters.
-
-### 🔒 `PATCH /v1/consultations/:id/rating`
-
-The requester rates the conversation 1–5, once the member has decided (`status` is no longer
-`'pending'`) — this is what replaces the now-closed message composer on the requester's side.
-
-**Request:** `RateConsultationRequestRequest` (`rating`, integer 1–5). **Response `200`:**
-`ConsultationRequestDto`. **Errors:** `401` · `403` caller isn't the request's `requesterId` ·
-`404` not found · `409` request is still `pending` · `400` `rating` not an integer 1–5.
 
 ### 🛡️ `manageConsultations` `GET /v1/admin/consultations`
 

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
 import type { MemberDto } from '@shared/member';
-import { displayHost, formatMonthYear, formatRate, formatWorkPeriod } from '@/lib/members/format';
+import { displayHost, externalHref, formatMonthYear, formatRate, formatWorkPeriod } from '@/lib/members/format';
 
 // The downloadable member profile — a single-column, read-top-to-bottom document rather than
 // the web page's tabbed layout. Rendered by @react-pdf/renderer, which draws to PDF primitives
@@ -69,19 +69,30 @@ const s = StyleSheet.create({
     paddingTop: 22,
   },
   identityText: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  name: { fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: -0.3 },
+  // Explicit lineHeight: the page's 1.45 isn't applied to this line box, so the badge row below
+  // started inside the name's descenders.
+  name: { fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: -0.3, lineHeight: 1.25 },
+  // Badges sit on their own row under the name: next to a 20pt name they wrapped unpredictably
+  // and floated off its baseline. Each is a fixed-height View with the label centred inside —
+  // react-pdf paints a styled <Text>'s background around its line box, which put the label
+  // off-centre in an oversized pill.
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5 },
   chip: {
-    fontSize: 7.5,
-    fontWeight: 600,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    height: 14,
+    paddingHorizontal: 7,
+    borderRadius: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
-  verifiedChip: { color: C.accent, backgroundColor: '#e0f4ee', flexDirection: 'row', alignItems: 'center', gap: 3 },
-  seasonedChip: { color: C.seasonedText, backgroundColor: C.seasonedBg },
-  memberChip: { color: C.ink3, backgroundColor: C.line },
-  designation: { fontSize: 11, fontWeight: 500, color: C.ink3, marginTop: 3 },
+  chipText: { fontSize: 7, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1 },
+  verifiedChip: { backgroundColor: '#e0f4ee' },
+  verifiedText: { color: C.accent },
+  seasonedChip: { backgroundColor: C.seasonedBg },
+  seasonedText: { color: C.seasonedText },
+  memberChip: { backgroundColor: C.line },
+  memberText: { color: C.ink3 },
+  designation: { fontSize: 11, fontWeight: 500, color: C.ink3, marginTop: 7 },
   stats: { fontSize: 9, color: C.ink3, marginTop: 6 },
   qrBox: { alignItems: 'center', width: 84 },
   qr: { width: 76, height: 76 },
@@ -285,17 +296,19 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
               <Text style={s.initials}>{member.initials}</Text>
             )}
             <View style={s.identityText}>
-              <View style={s.nameRow}>
-                <Text style={s.name}>{member.name}</Text>
+              <Text style={s.name}>{member.name}</Text>
+              <View style={s.badgeRow}>
                 {member.isVerified && (
                   <View style={[s.chip, s.verifiedChip]}>
-                    <Check size={7} />
-                    <Text>Expertly Verified</Text>
+                    <Check size={6.5} />
+                    <Text style={[s.chipText, s.verifiedText]}>Expertly Verified</Text>
                   </View>
                 )}
-                <Text style={[s.chip, isSeasoned ? s.seasonedChip : s.memberChip]}>
-                  {isSeasoned ? 'Seasoned Professional' : 'Member'}
-                </Text>
+                <View style={[s.chip, isSeasoned ? s.seasonedChip : s.memberChip]}>
+                  <Text style={[s.chipText, isSeasoned ? s.seasonedText : s.memberText]}>
+                    {isSeasoned ? 'Seasoned Professional' : 'Member'}
+                  </Text>
+                </View>
               </View>
               {designation ? <Text style={s.designation}>{designation}</Text> : null}
               <Text style={s.stats}>{stats}</Text>
@@ -342,13 +355,13 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
                 <ContactLine label="LinkedIn" value={displayHost(member.linkedinUrl)} href={member.linkedinUrl} />
               )}
               {member.website && (
-                <ContactLine label="Website" value={displayHost(member.website)} href={member.website} />
+                <ContactLine label="Website" value={displayHost(member.website)} href={externalHref(member.website)} />
               )}
               {member.firmWebsite && (
                 <ContactLine
                   label={firm ? 'Company' : 'Company site'}
                   value={firm ? `${firm} · ${displayHost(member.firmWebsite)}` : displayHost(member.firmWebsite)}
-                  href={member.firmWebsite}
+                  href={externalHref(member.firmWebsite)}
                 />
               )}
               <ContactLine label="Profile" value={displayHost(profileUrl)} href={profileUrl} />

@@ -16,7 +16,7 @@ export default async function AdminApplicationsPage() {
     redirect('/login?returnTo=/admin/applications');
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   const applications = await getAdminApplicationsServer();

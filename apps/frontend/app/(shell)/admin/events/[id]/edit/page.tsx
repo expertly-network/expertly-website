@@ -15,7 +15,7 @@ export default async function EditAdminEventPage({ params }: { params: { id: str
     redirect(`/login?returnTo=/admin/events/${params.id}/edit`);
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   const event = await getAdminEventServer(params.id);

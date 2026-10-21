@@ -8,6 +8,7 @@ import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
 import { generateArticleDraft, getFollowUpQuestions, refineArticleDraft } from '@/lib/api/articles';
 import { ApiError } from '@/lib/api/client';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
+import { MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS, countArticleWords } from '@/lib/articles/word-count';
 import type { AiDraftArticleResponse } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
 
@@ -87,7 +88,8 @@ export function AiDraftWizard({
   const [followUpAnswerMap, setFollowUpAnswerMap] = useState<Record<string, string>>({});
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
 
-  const [stepError, setStepError] = useState<string | null>(null);
+  // Inline, per field — a banner below the fold left members hunting for what was missing.
+  const [stepErrors, setStepErrors] = useState<{ notes?: string; advice?: string }>({});
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AiDraftArticleResponse | null>(null);
@@ -100,13 +102,21 @@ export function AiDraftWizard({
   const [refinementNotes, setRefinementNotes] = useState('');
   const [refinementTone, setRefinementTone] = useState('Keep as-is');
   const [refining, setRefining] = useState(false);
+  // The review step's gate — the same 800–2000-word rule and required service/country as a
+  // manually written article, checked before "Continue to preview" instead of failing at publish.
+  const [reviewAttempted, setReviewAttempted] = useState(false);
 
   async function continueFromStep1() {
-    if (!notes.trim() || !advice.trim()) {
-      setStepError('Share your thoughts and your advice for readers to continue.');
+    const errors = {
+      notes: notes.trim() ? undefined : 'Share your own take — the AI writes from your perspective.',
+      advice: advice.trim() ? undefined : 'Add your advice for readers.',
+    };
+    if (errors.notes || errors.advice) {
+      setStepErrors(errors);
+      document.getElementById(errors.notes ? 'ai-notes' : 'ai-advice')?.focus();
       return;
     }
-    setStepError(null);
+    setStepErrors({});
     setLoadingFollowUps(true);
     try {
       const { questions } = await getFollowUpQuestions({
@@ -164,19 +174,21 @@ export function AiDraftWizard({
     }
   }
 
-  async function rephrase() {
-    if (!draft || !refinementNotes.trim()) return;
+  async function rephrase(notesOverride?: string) {
+    const notesToSend = (notesOverride ?? refinementNotes).trim();
+    if (!draft || !notesToSend) return;
     setGenError(null);
+    setReviewAttempted(false);
     setRefining(true);
     try {
       const result = await refineArticleDraft({
         title: draft.title,
         body: draft.body,
-        refinementNotes,
+        refinementNotes: notesToSend,
         tone: refinementTone === 'Keep as-is' ? undefined : refinementTone,
       });
       setDraft(result);
-      setRefinementNotes('');
+      if (!notesOverride) setRefinementNotes('');
     } catch (err) {
       setGenError(err instanceof ApiError ? err.message : 'Could not apply that refinement — try again.');
     } finally {
@@ -185,6 +197,18 @@ export function AiDraftWizard({
   }
 
   if (draft) {
+    const draftWords = countArticleWords(draft.body);
+    const wordsOk = draftWords >= MIN_ARTICLE_WORDS && draftWords <= MAX_ARTICLE_WORDS;
+    const reviewErrors = {
+      serviceIds: reviewedServiceIds.length === 0 ? 'Select at least one service.' : undefined,
+      countries: reviewedCountries.length === 0 ? 'Select at least one country.' : undefined,
+    };
+    const canContinue = wordsOk && !reviewErrors.serviceIds && !reviewErrors.countries;
+    const lengthFixNote =
+      draftWords < MIN_ARTICLE_WORDS
+        ? `Expand the article to between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words with more depth and practical detail — keep the same facts and structure, no padding.`
+        : `Condense the article to between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words — keep the key facts and structure.`;
+
     return (
       <WriteCard headerIcon={AI_ICON} headerTitle="Expertly AI drafted your article">
         <div className="rounded-xl bg-bg-alt px-5 py-[18px]">
@@ -226,6 +250,8 @@ export function AiDraftWizard({
               options={services.map((s) => ({ value: s.id, label: s.name }))}
               selected={reviewedServiceIds}
               onChange={setReviewedServiceIds}
+              error={reviewAttempted ? reviewErrors.serviceIds : undefined}
+              markRequired
             />
             <MultiSelect
               label="Country"
@@ -233,6 +259,8 @@ export function AiDraftWizard({
               options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
               selected={reviewedCountries}
               onChange={setReviewedCountries}
+              error={reviewAttempted ? reviewErrors.countries : undefined}
+              markRequired
             />
           </div>
           <Input
@@ -261,7 +289,7 @@ export function AiDraftWizard({
             <div className="flex items-end">
               <button
                 type="button"
-                onClick={rephrase}
+                onClick={() => rephrase()}
                 disabled={refining || !refinementNotes.trim()}
                 className="w-full rounded-[9px] border-[1.5px] border-line-2 bg-bg-card px-[18px] py-2.5 text-[13.5px] font-semibold text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -273,9 +301,31 @@ export function AiDraftWizard({
 
         {genError && <ErrorBanner message={genError} />}
 
-        <div className="flex justify-end">
+        {!wordsOk && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-700">
+              This draft is {draftWords} words. Articles need {MIN_ARTICLE_WORDS}–{MAX_ARTICLE_WORDS} words — the
+              same rule as writing it yourself.
+            </p>
+            <button
+              type="button"
+              onClick={() => rephrase(lengthFixNote)}
+              disabled={refining}
+              className="rounded-[9px] border-[1.5px] border-amber-300 bg-bg-card px-4 py-2 text-[13px] font-semibold text-amber-700 transition-colors hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {refining ? 'Working…' : draftWords < MIN_ARTICLE_WORDS ? 'Expand with Expertly AI' : 'Condense with Expertly AI'}
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-3">
+          <span className={`text-xs ${wordsOk ? 'text-ink-3' : 'text-amber-700'}`}>{draftWords} words</span>
           <WriteSubmitButton
-            onClick={() =>
+            onClick={() => {
+              if (!canContinue) {
+                setReviewAttempted(true);
+                return;
+              }
               onDrafted({
                 generationId,
                 title: draft.title,
@@ -283,8 +333,8 @@ export function AiDraftWizard({
                 serviceIds: reviewedServiceIds,
                 countries: reviewedCountries,
                 state: reviewedState,
-              })
-            }
+              });
+            }}
           >
             Continue to preview {ARROW_ICON}
           </WriteSubmitButton>
@@ -342,10 +392,16 @@ export function AiDraftWizard({
           {subStep === 1 && (
             <>
               <Textarea
+                id="ai-notes"
                 label="Your thoughts / notes"
+                markRequired
                 rows={4}
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                error={stepErrors.notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  if (stepErrors.notes) setStepErrors((prev) => ({ ...prev, notes: undefined }));
+                }}
                 placeholder="What's your own take on this? Give the AI your perspective to write from."
               />
               <Textarea
@@ -357,10 +413,16 @@ export function AiDraftWizard({
                 placeholder="e.g. a new circular, amendment, or ruling the article should reference"
               />
               <Textarea
+                id="ai-advice"
                 label="Your advice / comments for readers"
+                markRequired
                 rows={3}
                 value={advice}
-                onChange={(e) => setAdvice(e.target.value)}
+                error={stepErrors.advice}
+                onChange={(e) => {
+                  setAdvice(e.target.value);
+                  if (stepErrors.advice) setStepErrors((prev) => ({ ...prev, advice: undefined }));
+                }}
                 placeholder="What should readers actually do with this information?"
               />
 
@@ -419,7 +481,6 @@ export function AiDraftWizard({
                 </div>
               </div>
 
-              {stepError && <ErrorBanner message={stepError} />}
               <div className="mt-1 flex items-center justify-between">
                 <span />
                 <WizardNextButton onClick={continueFromStep1}>Continue {ARROW_ICON}</WizardNextButton>

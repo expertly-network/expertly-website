@@ -18,6 +18,11 @@ import type { ApplicationRegion, BillingPeriod } from '@shared/membership-applic
 import { WorkExperienceDto } from './work-experience.dto';
 import { EducationDto } from './education.dto';
 import { PeerReferenceDto } from './peer-reference.dto';
+
+// Room for a full LinkedIn history (incl. several sub-roles at one firm). The LinkedIn import
+// provider caps at these same numbers; the wizard mirrors them in BackgroundStep.
+export const WORK_EXPERIENCES_MAX = 15;
+export const EDUCATIONS_MAX = 5;
 import { ServicePreferenceDto } from './service-preference.dto';
 
 const REGIONS: ApplicationRegion[] = [
@@ -87,14 +92,14 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(5)
+  @ArrayMaxSize(WORK_EXPERIENCES_MAX)
   @ValidateNested({ each: true })
   @Type(() => WorkExperienceDto)
   workExperiences?: WorkExperienceDto[];
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(EDUCATIONS_MAX)
   @ValidateNested({ each: true })
   @Type(() => EducationDto)
   educations?: EducationDto[];

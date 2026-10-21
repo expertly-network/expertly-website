@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/auth/session-claims';
 import { ArticlesHero } from '@/components/articles/ArticlesHero';
 import { ArticlesTabsSection } from '@/components/articles/ArticlesTabsSection';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { SuccessNotice } from '@/components/shared/SuccessNotice';
 
 export const metadata = {
   title: 'Articles — Expertly',
@@ -13,7 +14,7 @@ export const metadata = {
 export default async function ArticlesPage({
   searchParams,
 }: {
-  searchParams: { tab?: string };
+  searchParams: { tab?: string; saved?: string };
 }) {
   const [articles, categories, profile] = await Promise.all([
     getArticlesServer(),
@@ -32,6 +33,11 @@ export default async function ArticlesPage({
 
       <section className="py-12">
         <PageContainer>
+          {searchParams.saved === 'draft' && (
+            <div className="mb-6">
+              <SuccessNotice message="Draft saved. It's private to you until you publish it." />
+            </div>
+          )}
           <ArticlesTabsSection
             articles={articles}
             categories={categories}

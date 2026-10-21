@@ -171,32 +171,49 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                     className="absolute inset-0 grid grid-cols-7 content-start gap-x-1 gap-y-[3px] overflow-hidden px-[5px] pb-[5px] pt-8"
                     style={{ gridAutoRows: '26px' }}
                   >
-                    {week.weekEvs.map(({ ev, col, span }) => (
-                      <button
-                        key={ev.id}
-                        type="button"
-                        title={ev.title}
-                        className={`flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] px-2.5 text-left transition-all ${
-                          ev.isPast
-                            ? 'border-ink-4 bg-[color-mix(in_oklab,var(--ink-4)_10%,var(--bg))] opacity-45'
-                            : 'border-accent bg-[linear-gradient(90deg,color-mix(in_oklab,var(--accent)_20%,var(--bg-card))_0%,color-mix(in_oklab,var(--accent)_8%,var(--bg-card))_100%)] hover:shadow-[0_3px_18px_color-mix(in_oklab,var(--accent)_30%,transparent)] hover:-translate-y-px'
-                        }`}
-                        style={{ gridColumn: `${col} / span ${span}` }}
-                      >
-                        {ev.cc && (
+                    {week.weekEvs.map(({ ev, col, span }) => {
+                      const content = (
+                        <>
+                          {ev.cc && (
+                            <span
+                              className={`flex-none font-mono text-[8px] font-extrabold tracking-[0.1em] ${ev.isPast ? 'text-ink-3' : 'text-accent'}`}
+                            >
+                              {ev.cc}
+                            </span>
+                          )}
                           <span
-                            className={`flex-none font-mono text-[8px] font-extrabold tracking-[0.1em] ${ev.isPast ? 'text-ink-3' : 'text-accent'}`}
+                            className={`flex-1 truncate text-xs font-semibold tracking-[-0.01em] ${ev.isPast ? 'text-ink-4' : 'text-ink'}`}
                           >
-                            {ev.cc}
+                            {ev.title}
                           </span>
-                        )}
+                        </>
+                      );
+                      const style = { gridColumn: `${col} / span ${span}` };
+                      // Past events are context only — no click affordance. Upcoming ones jump to
+                      // their row on /events (there are no per-event pages yet).
+                      return ev.isPast ? (
                         <span
-                          className={`flex-1 truncate text-xs font-semibold tracking-[-0.01em] ${ev.isPast ? 'text-ink-4' : 'text-ink'}`}
+                          key={ev.id}
+                          title={ev.title}
+                          className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] border-ink-4 bg-[color-mix(in_oklab,var(--ink-4)_10%,var(--bg))] px-2.5 text-left opacity-45"
+                          style={style}
                         >
-                          {ev.title}
+                          {content}
                         </span>
-                      </button>
-                    ))}
+                      ) : (
+                        // A plain <a>, not <Link>: client-side navigation doesn't update the
+                        // CSS :target state that highlights the row on /events.
+                        <a
+                          key={ev.id}
+                          href={`/events#event-${ev.id}`}
+                          title={ev.title}
+                          className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] border-accent bg-[linear-gradient(90deg,color-mix(in_oklab,var(--accent)_20%,var(--bg-card))_0%,color-mix(in_oklab,var(--accent)_8%,var(--bg-card))_100%)] px-2.5 text-left transition-all hover:-translate-y-px hover:shadow-[0_3px_18px_color-mix(in_oklab,var(--accent)_30%,transparent)]"
+                          style={style}
+                        >
+                          {content}
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>

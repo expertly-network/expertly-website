@@ -2,8 +2,10 @@ import sanitizeHtml from 'sanitize-html';
 
 // The range POST/PATCH /v1/articles enforces (ArticlesService.assertWordCount) whenever the
 // resulting status isn't 'draft'. Shared with AiService so a generated/refined draft can be
-// corrected against the exact same bounds before it ever reaches that check.
-export const MIN_ARTICLE_WORDS = 400;
+// corrected against the exact same bounds before it ever reaches that check. 800 is the documented
+// rule (docs/rest-api.md, the design's "Minimum 800 words" copy) for manual AND AI articles alike —
+// it had drifted to 400, which let ~600-word AI drafts publish while manual ones were held to 800.
+export const MIN_ARTICLE_WORDS = 800;
 export const MAX_ARTICLE_WORDS = 2000;
 
 // Strips HTML tags, leaving plain text.

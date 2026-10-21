@@ -7,6 +7,7 @@ import type {
   MemberProfileEditDto,
   ReviewMemberEditRequest,
   UploadRequest,
+  UpdateMemberRequest,
   UploadResponse,
 } from '@shared/member';
 
@@ -41,6 +42,14 @@ export function createMemberEdit(
 ): Promise<MemberProfileEditDto> {
   return apiFetch<MemberProfileEditDto>(`/members/${id}/edits`, {
     method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Owner-only: availability and/or photo, applied immediately. Returns the updated member. */
+export function updateMember(id: string, body: UpdateMemberRequest): Promise<MemberDto> {
+  return apiFetch<MemberDto>(`/members/${id}`, {
+    method: 'PATCH',
     body: JSON.stringify(body),
   });
 }

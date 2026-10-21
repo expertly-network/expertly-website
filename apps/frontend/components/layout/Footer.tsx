@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { MEMBERSHIP_POLICY_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal';
 
 const PRIMARY_LINKS = [
   { label: 'Expertly', href: '/' },
@@ -6,6 +7,12 @@ const PRIMARY_LINKS = [
   { label: 'Events', href: '/events' },
   { label: 'Benefits', href: '/membership' },
   { label: 'Members', href: '/members' },
+];
+
+const LEGAL_LINKS = [
+  { label: 'Terms & Conditions', href: TERMS_OF_SERVICE_URL },
+  { label: 'Membership Policy', href: MEMBERSHIP_POLICY_URL },
+  { label: 'Privacy Policy', href: PRIVACY_POLICY_URL },
 ];
 
 export function Footer() {
@@ -44,12 +51,14 @@ export function Footer() {
                 LinkedIn
               </a>
             </li>
-            {/* Not real pages yet — plain text, not a fake link. */}
-            {['Terms & Conditions', 'Membership Policy', 'Privacy Policy'].map((label) => (
-              <li key={label}>
-                <span className="cursor-default text-[15px] tracking-[-0.005em] text-white/[0.58]">
-                  {label}
-                </span>
+            {LEGAL_LINKS.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="text-[15px] tracking-[-0.005em] text-white/[0.58] transition-colors hover:text-white"
+                >
+                  {link.label}
+                </Link>
               </li>
             ))}
           </ul>

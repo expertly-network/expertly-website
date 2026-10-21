@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/auth/session-claims';
 import { getMyApplicationServer } from '@/lib/api/server';
 import { ApplicationWizard } from '@/components/apply/ApplicationWizard';
 import { Logo } from '@/components/Logo';
+import { homePathFor } from '@/lib/auth/roles';
 
 export default async function ApplyPage() {
   const profile = await getSessionUser();
@@ -10,7 +11,7 @@ export default async function ApplyPage() {
     redirect('/login?returnTo=/apply');
   }
   if (profile.role !== 'client') {
-    redirect('/dashboard');
+    redirect(homePathFor(profile.role));
   }
 
   // Only submitted/under_review blocks a new application.

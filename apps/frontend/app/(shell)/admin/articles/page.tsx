@@ -16,7 +16,7 @@ export default async function AdminArticlesPage() {
     redirect('/login?returnTo=/admin/articles');
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   const articles = await getAdminArticlesServer();

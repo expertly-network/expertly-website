@@ -2,6 +2,7 @@ import { getMembersServer, getCategoriesServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { MEMBER_LIST_PAGE_SIZE, parseMemberFilters } from '@/lib/members/search-params';
 import { getSessionUser } from '@/lib/auth/session-claims';
+import { canApplyForMembership } from '@/lib/auth/roles';
 import { DirectoryHeroSearch } from '@/components/members/DirectoryHeroSearch';
 import { DirectoryFilterBar } from '@/components/members/DirectoryFilterBar';
 import { DirectorySidebar } from '@/components/members/DirectorySidebar';
@@ -92,7 +93,7 @@ export default async function MembersPage({
               />
             </div>
           </div>
-          <DirectorySidebar />
+          <DirectorySidebar showApply={canApplyForMembership(sessionUser)} />
         </div>
       </PageContainer>
     </div>

@@ -17,6 +17,8 @@ import { DualCta } from '@/components/home/DualCta';
 import { Newsletter } from '@/components/home/Newsletter';
 import { FaqGroup } from '@/components/home/Faq';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { getSessionUser } from '@/lib/auth/session-claims';
+import { canApplyForMembership } from '@/lib/auth/roles';
 import { Button, Eyebrow } from '@/components/ui';
 import type { MemberListItemDto } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
@@ -122,7 +124,8 @@ async function loadHomeData() {
 }
 
 export default async function HomePage() {
-  const { members, categories, articles, events } = await loadHomeData();
+  const [{ members, categories, articles, events }, user] = await Promise.all([loadHomeData(), getSessionUser()]);
+  const showApply = canApplyForMembership(user);
 
   const heroAvatarUrls = members
     .map((m) => m.photoUrl)
@@ -131,7 +134,7 @@ export default async function HomePage() {
 
   return (
     <div>
-      <StellarOrbitHero avatarUrls={heroAvatarUrls} />
+      <StellarOrbitHero avatarUrls={heroAvatarUrls} showApply={showApply} />
       <AiSearchTeaser />
 
       {/* Featured members — split layout, panel on the left */}
@@ -153,7 +156,8 @@ export default async function HomePage() {
                 every jurisdiction and practice areas.
               </p>
               <Button href="/members" className="mt-7">
-                Browse all {members.length}+ members
+                {/* Not "{n}+ members": `members` is a capped featured page, not the directory size. */}
+                Browse all members
               </Button>
             </div>
           </PageContainer>
@@ -236,7 +240,7 @@ export default async function HomePage() {
 
       <Testimonials />
 
-      <DualCta />
+      <DualCta showApply={showApply} />
       <Newsletter />
 
       {/* FAQ */}

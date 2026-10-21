@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type BadgeVariant = 'neutral' | 'emphasis' | 'brand' | 'success' | 'danger' | 'warning' | 'info';
+export type BadgeVariant = 'neutral' | 'emphasis' | 'brand' | 'success' | 'danger' | 'warning' | 'info' | 'surface';
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   neutral: 'bg-bg-alt text-ink-2',
@@ -14,6 +14,9 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   // Same one-off-Tailwind-default pattern as `warning`, for a status that isn't success/error/
   // pending-review but still needs its own distinct hue.
   info: 'bg-sky-50 text-sky-700',
+  // White chip for tinted backgrounds (e.g. the accent-tinted first event row), where the
+  // neutral/brand fills blend into the background.
+  surface: 'bg-bg-card text-ink-2 shadow-[0_1px_2px_rgba(0,0,0,0.06)]',
 };
 
 export function Badge({

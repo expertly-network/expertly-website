@@ -88,7 +88,14 @@ export function ApplicationWizard() {
       if (cancelled || !linked) return;
       importLinkedInPhoto()
         .then((withPhoto) => {
-          if (!cancelled) setForm((prev) => (prev.photoUrl ? prev : { ...prev, ...fromDto(withPhoto) }));
+          if (cancelled) return;
+          // Tagged as imported so the LinkedIn profile import can later swap this low-res OAuth
+          // picture for the scrape's full-size photo — a manual upload clears the tag.
+          setForm((prev) =>
+            prev.photoUrl
+              ? prev
+              : { ...prev, ...fromDto(withPhoto), importedFields: new Set(prev.importedFields).add('photoUrl') }
+          );
         })
         .catch(() => {});
     })();

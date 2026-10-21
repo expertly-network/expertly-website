@@ -42,7 +42,7 @@ const TESTIMONIALS = {
       photo: 'https://randomuser.me/api/portraits/men/41.jpg',
     },
     {
-      quote: 'The rate transparency alone is worth the membership. No surprises, no hourly creep, no mystery partners billing us.',
+      quote: 'The rate transparency alone makes it worth using. No surprises, no hourly creep, no mystery partners billing us.',
       name: 'Elena Volkova',
       role: 'IP & Technology Counsel · London',
       photo: 'https://randomuser.me/api/portraits/women/12.jpg',

@@ -80,6 +80,8 @@ export function DirectoryFilterBar({
       />
       <FilterPopover
         label="Featured"
+        prefix="Sort:"
+        clearable={false}
         multi={false}
         searchable={false}
         options={SORT_OPTIONS}

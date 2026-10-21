@@ -71,6 +71,8 @@ const TEMPLATES_ICON = (
     <path d="M4 16V4a1 1 0 011-1h12" />
   </>
 );
+// Star-in-badge — the public "what membership includes" page.
+const BENEFITS_ICON = <path d="M12 2l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 16.8 6.1 20l1.3-6.5L2.5 8.9l6.6-.8L12 2z" />;
 const PERKS_ICON = (
   <>
     <path d="M20.59 13.41L13.42 20.6a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
@@ -123,6 +125,12 @@ export function SidebarNav({
         <svg {...iconProps}>{MEMBERS_ICON}</svg>
         <span className={navLabelClasses(variant)}>Members</span>
       </Link>
+      {user?.role !== 'member' && user?.role !== 'admin' && (
+        <Link href="/membership" className={navLinkClasses(variant)}>
+          <svg {...iconProps}>{BENEFITS_ICON}</svg>
+          <span className={navLabelClasses(variant)}>Membership</span>
+        </Link>
+      )}
       {user && user.role !== 'member' && (
         <Link href="/consultations" className={navLinkClasses(variant)}>
           <svg {...iconProps}>{CONSULTATIONS_ICON}</svg>

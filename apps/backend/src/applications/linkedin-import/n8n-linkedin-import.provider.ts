@@ -6,10 +6,11 @@ import type {
   WorkExperienceInput,
 } from '@shared/membership-application';
 import { LinkedInImportProvider } from './linkedin-import.provider';
+import { EDUCATIONS_MAX, WORK_EXPERIENCES_MAX } from '../dto/update-application.dto';
 
 const REQUEST_TIMEOUT_MS = 100_000;
-const MAX_EXPERIENCES = 5;
-const MAX_EDUCATIONS = 3;
+// Matches WorkExperienceDto's @MaxLength(2000) on description.
+const DESCRIPTION_MAX_CHARS = 2000;
 // Matches UpdateApplicationDto's @MaxLength(2000) on bio — kept in sync manually since this
 // provider has no compile-time link to that DTO.
 const BIO_MAX_CHARS = 2000;
@@ -40,7 +41,8 @@ interface RawDate {
 interface RawExperience {
   position?: string;
   companyName?: string;
-  location?: string;
+  location?: string | null;
+  description?: string | null;
   startDate?: RawDate;
   endDate?: RawDate;
 }
@@ -60,12 +62,31 @@ interface RawLinkedInProfile {
   location?: { parsed?: { city?: string; state?: string; country?: string } };
   experience?: RawExperience[];
   education?: RawEducation[];
+  // The scraper's full-size profile photo (800x800) — far sharper than the 100x100 `picture`
+  // claim on the LinkedIn OAuth identity, which is what made imported avatars look blurred.
+  photo?: string | null;
+  profilePicture?: { url?: string } | null;
 }
 
-// Drops entries missing a required field (title, company, or startYear).
+// Only LinkedIn's media CDN over https is passed on — the frontend sends this URL back to
+// POST /applications/me/photo/linkedin, which re-checks the same rule before fetching it.
+function linkedInPhotoUrl(raw: RawLinkedInProfile): string | undefined {
+  const url = raw.photo || raw.profilePicture?.url;
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname === 'media.licdn.com' ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Drops entries missing a required field (title, company, or startYear), then caps — capping
+// after filtering, so one unusable entry doesn't cost a real role. Every position is kept,
+// including several sub-roles at one company (LinkedIn's grouped "experienceGroupId" entries);
+// they come through as separate rows that may overlap in time, which the API allows.
 function mapExperience(raw: RawExperience[] | undefined): WorkExperienceInput[] {
   return (raw ?? [])
-    .slice(0, MAX_EXPERIENCES)
     .map((e): WorkExperienceInput | null => {
       const startYear = e.startDate?.year;
       if (!e.position || !e.companyName || !startYear) return null;
@@ -78,15 +99,16 @@ function mapExperience(raw: RawExperience[] | undefined): WorkExperienceInput[] 
         endMonth: e.endDate?.month ? MONTH_NUM[e.endDate.month] : undefined,
         endYear: e.endDate?.text === 'Present' ? undefined : e.endDate?.year,
         isCurrent: e.endDate?.text === 'Present',
+        description: e.description?.trim() ? e.description.trim().slice(0, DESCRIPTION_MAX_CHARS) : undefined,
       };
     })
-    .filter((e): e is WorkExperienceInput => e !== null);
+    .filter((e): e is WorkExperienceInput => e !== null)
+    .slice(0, WORK_EXPERIENCES_MAX);
 }
 
 // Drops entries missing an institution; a missing degree defaults to 'Not specified'.
 function mapEducation(raw: RawEducation[] | undefined): EducationInput[] {
   return (raw ?? [])
-    .slice(0, MAX_EDUCATIONS)
     .map((e): EducationInput | null => {
       if (!e.schoolName) return null;
       return {
@@ -97,7 +119,8 @@ function mapEducation(raw: RawEducation[] | undefined): EducationInput[] {
         endYear: e.endDate?.year,
       };
     })
-    .filter((e): e is EducationInput => e !== null);
+    .filter((e): e is EducationInput => e !== null)
+    .slice(0, EDUCATIONS_MAX);
 }
 
 @Injectable()
@@ -168,6 +191,7 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
       city: raw.location?.parsed?.city || undefined,
       workExperiences: mapExperience(raw.experience),
       educations: mapEducation(raw.education),
+      photoUrl: linkedInPhotoUrl(raw),
     };
   }
 }

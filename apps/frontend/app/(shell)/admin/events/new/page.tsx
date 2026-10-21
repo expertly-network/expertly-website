@@ -14,7 +14,7 @@ export default async function NewAdminEventPage() {
     redirect('/login?returnTo=/admin/events/new');
   }
   if (profile.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   return (

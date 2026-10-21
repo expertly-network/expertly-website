@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useUrlTab } from '@/lib/hooks/useUrlTab';
 import { ReceivedConsultationsList } from '@/components/consultations/ReceivedConsultationsList';
 import { MyConsultationsList } from '@/components/consultations/MyConsultationsList';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
@@ -10,6 +10,7 @@ const TABS = [
   { key: 'mine', label: 'My Requests' },
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
+const TAB_KEYS = TABS.map((t) => t.key);
 
 // Members both receive requests (as the expert) and can send them (to other members), so they
 // get both tabs. A client/admin only ever sends requests, so the "Received" tab never applies.
@@ -24,7 +25,7 @@ export function ConsultationsTabs({
   mine: ConsultationRequestDto[];
   viewerId: string;
 }) {
-  const [active, setActive] = useState<Tab>('received');
+  const [active, setActive] = useUrlTab<Tab>(TAB_KEYS, 'received');
 
   if (!isMember) {
     return <MyConsultationsList initialRequests={mine} viewerId={viewerId} />;

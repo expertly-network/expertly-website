@@ -5,15 +5,18 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   children: ReactNode;
   /** Red border + message below the field — see Input's identical prop for the convention. */
   error?: string;
+  /** Appends a red asterisk to the label — see Input's identical prop. */
+  markRequired?: boolean;
 }
 
-export function Select({ label, id, children, error, ...selectProps }: SelectProps) {
+export function Select({ label, id, children, error, markRequired, ...selectProps }: SelectProps) {
   const fieldId = id ?? selectProps.name;
 
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={fieldId} className="text-xs font-medium text-ink-2">
         {label}
+        {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
       </label>
       <select
         id={fieldId}

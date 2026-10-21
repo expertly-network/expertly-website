@@ -538,12 +538,12 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `rate_min_cents`, `rate_max_cents` | int, check `max > min` | **Named to match `membership_applications.rate_min_cents`/`rate_max_cents`** — same concept, not `fee_range_*` as an earlier draft of this section had it |
 | `rate_currency` | text, default `'USD'` | ISO 4217 code — the prototype only ever shows `'$'`, not a real currency code; every seed profile is USD, stored properly so a future non-USD member doesn't need a schema change |
 | `member_tier` | enum `membership_tier` (shared with applications) | admin-overridable at approval |
-| `is_available` | bool, default `true` | |
-| `availability_notes` | text, nullable | |
+| `is_available` | bool, default `true` | Member-controlled via `PATCH /v1/members/:id` (`isAvailable`; applies immediately, no review). |
+| `availability_notes` | text, nullable | Same endpoint; ≤200 chars, shown under the status. |
 | `contact_email`, `contact_phone`, `linkedin_url`, `website` | nullable | editable via the `contact` self-edit section |
 | `work_email` | citext, nullable | Optional professional address, separate from `contact_email` (application / LinkedIn-sourced). Editable via the `contact` section; shown on the profile contact tab only when set. |
 | `is_verified` | bool, default `false` | the overall "Expertly Verified" badge — distinct from the per-item `is_verified` flags on credentials/testimonials |
-| `photo_path` | text, nullable | Same convention as `membership_applications.photo_path`: a Storage path within the (public) `application-assets` bucket, copied verbatim from the source application's `photo_path` on approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL. Resolved to a plain, permanent URL at read time (`MembersService`/`ArticlesRepository`) — **never a signed URL**, since this column is read back directly with no read-time refresh. (An earlier version of this column, named `photo_url`, held a baked-in 1-hour signed URL that went dead an hour after approval — that was the original bug this design fixes.) |
+| `photo_path` | text, nullable | Same convention as `membership_applications.photo_path`: a Storage path within the (public) `application-assets` bucket, copied verbatim from the source application's `photo_path` on approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL. Resolved to a plain, permanent URL at read time (`MembersService`/`ArticlesRepository`) — **never a signed URL**, since this column is read back directly with no read-time refresh. (An earlier version of this column, named `photo_url`, held a baked-in 1-hour signed URL that went dead an hour after approval — that was the original bug this design fixes.) Since 2026-10-21 the member can replace it via `PATCH /v1/members/:id` (`photoUploadPath`), which writes a new `members/<id>/profile-photo-<uuid>.<ext>` path in the same bucket (live immediately, no review). |
 | `status` | enum `active`\|`deactivated` | admin-controlled; deactivating does not delete the row |
 | `application_id` | uuid FK → `membership_applications.id`, nullable | set when provisioned via an approved application (that approval endpoint is still deferred — see `docs/rest-api.md`); null for a member added directly by an admin |
 | `membership_started_at` | timestamptz, default `now()` | |
@@ -604,12 +604,12 @@ no DB-generated id the way a real table's `uuid` PK would provide.
 
 | Column | Item shape | Notes |
 |---|---|---|
-| `work_experiences` | `title`, `company`, `startMonth?`, `startYear`, `endMonth?`, `endYear`, `isCurrent`, `description`, `isVerified` | Stored newest-first; date ranges must not overlap (a current role counts as ending today; touching at a boundary month is allowed; a missing month counts as January) — enforced server-side on application save and on self-edit submit/approval. |
+| `work_experiences` | `title`, `company`, `startMonth?`, `startYear`, `endMonth?`, `endYear`, `isCurrent`, `description`, `isVerified` | Stored newest-first; an end before its start is rejected server-side on application save and on self-edit submit/approval. Overlapping ranges are allowed (concurrent roles / sub-roles at one firm) — the frontend shows a non-blocking warning only (changed 2026-10-21). |
 | `educations` | `degree`, `institution`, `field`, `endYear`, `isVerified` | |
-| `engagements` | `title`, `organization`, `clientName` (required on submit), `clientEmail?`, `verificationMethods[]` (`engagement_letter`\|`client_deliverable`\|`mail_confirmation_pdf`\|`newsletter_transaction_update`\|`other`), `verificationMethodOther?`, `year`, `url`, `isVerified`, `proofAttachments[]` | `clientName` is null only on legacy/seeded rows |
+| `engagements` | `title`, `organization`, `clientName` (required on submit), `clientEmail?`, `verificationMethods[]` (`engagement_letter`\|`client_deliverable`\|`mail_confirmation_pdf`\|`newsletter_transaction_update`\|`other`), `verificationMethodOther?`, `year`, `url`, `isVerified`, `proofAttachments[]` | `clientName` is null only on legacy/seeded rows; `clientEmail` is owner/admin-only on read |
 | `qualifications` | `name`, `year` | **confirmed distinct from `credentials`** — no issuing body, no verification flag |
 | `credentials` | `name`, `issuingBody`, `year`, `isVerified` | per-item verification flag lives inside the jsonb object — no per-item admin query/index need today, only ever read back as part of the whole profile |
-| `testimonials` | `quote`, `clientName`, `clientTitle`, `clientCompany`, `serviceName`, `occurredOn` (ISO date string), `isVerified` | `occurredOn` is a real date, not the prototype's free-text `"March 2026"` — format at render time. No `rating`/star field — confirmed absent from every seeded testimonial; don't confuse with the unrelated Peer Connect post-meeting rating. |
+| `testimonials` | `quote`, `clientName`, `clientTitle`, `clientCompany`, `clientEmail?` (owner/admin-only on read, for random verification — 2026-10-21), `serviceName`, `occurredOn` (ISO date string), `isVerified` | `occurredOn` is a real date, not the prototype's free-text `"March 2026"` — format at render time. No `rating`/star field — confirmed absent from every seeded testimonial; don't confuse with the unrelated Peer Connect post-meeting rating. |
 | `awards` | `title`, `issuingBody`, `year`, `description`, `isVerified`, `proofAttachments[]` | |
 | `keyClients` (`key_clients` column) | `name`, `logoUrl`, `isVerified`, `proofAttachments[]` | reconciles the two logo sources noted above into one field. Max 20 per member. |
 
@@ -791,7 +791,7 @@ migration file drift" note above) — this session adds the real contract on top
 | `status` | `consultation_status enum` | `'pending' \| 'completed' \| 'declined'`, default `'pending'` |
 | `scheduled_at` | `timestamptz` | **Unused** — no scheduling in this feature (see Peer Connect) |
 | `response_message` | `text` | The member's required reason when transitioning `pending` → `completed`/`declined` (added by a later product requirement — not in the original design prototype). Null while `status` is `'pending'` |
-| `rating` | `smallint` | **New, not yet applied (see above).** The requester's 1-5 rating of the conversation — settable only once `status` is no longer `'pending'` (`PATCH /v1/consultations/:id/rating`), check-constrained to 1-5 |
+| `rating` | `smallint` | **New, not yet applied (see above).** The requester's 1-5 rating of the conversation — settable only once `status` is `'completed'` (`rating` on `PATCH /v1/consultations/:id`), check-constrained to 1-5 |
 | `created_at` / `updated_at` | `timestamptz not null` | — |
 
 ### `consultation_messages`

@@ -1,4 +1,6 @@
 import { getEventsServer } from '@/lib/api/server';
+import { getSessionUser } from '@/lib/auth/session-claims';
+import { canApplyForMembership } from '@/lib/auth/roles';
 import { EventsHeroOrbit } from '@/components/events/EventsHeroOrbit';
 import { EventsHeroSearch } from '@/components/events/EventsHeroSearch';
 import { EventsList } from '@/components/events/EventsList';
@@ -13,7 +15,7 @@ export const metadata = {
 };
 
 export default async function EventsPage() {
-  const events = await getEventsServer({ upcoming: false });
+  const [events, user] = await Promise.all([getEventsServer({ upcoming: false }), getSessionUser()]);
 
   return (
     <div>
@@ -49,7 +51,7 @@ export default async function EventsPage() {
         <PageContainer className="grid items-start gap-14 lg:grid-cols-[1fr_320px]">
           <EventsList events={events} />
           <div className="lg:sticky lg:top-6 lg:self-start">
-            <EventsSidebar />
+            <EventsSidebar showApply={canApplyForMembership(user)} />
           </div>
         </PageContainer>
       </section>

@@ -95,6 +95,8 @@ export function EventsList({
       <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-[18px] pt-3.5">
         <FilterPopover
           label="Date range"
+          prefix="When:"
+          clearable={false}
           multi={false}
           searchable={false}
           options={DATE_PRESETS}

@@ -68,7 +68,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
       { key: 'title', label: 'Title', type: 'text', required: true },
       { key: 'organization', label: 'Organization', type: 'text', required: true },
       { key: 'clientName', label: 'Client name', type: 'text', required: true },
-      { key: 'clientEmail', label: 'Client email (optional)', type: 'email' },
+      { key: 'clientEmail', label: 'Client email (optional — never shown publicly)', type: 'email' },
       { key: 'year', label: 'Year', type: 'number' },
       { key: 'url', label: 'URL', type: 'url' },
       { key: 'verificationMethods', label: 'How can this engagement be verified?', type: 'verification-methods' },
@@ -86,7 +86,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
   },
   work_experiences: {
     shape: 'list-shared-proof',
-    maxItems: 10,
+    maxItems: 15, // same as the application's cap, so an imported history always fits
     fields: [
       { key: 'title', label: 'Job title', type: 'text', required: true },
       { key: 'company', label: 'Company', type: 'text', required: true },
@@ -111,6 +111,7 @@ export const SECTION_CONFIG: Record<MemberEditSection, SectionConfig> = {
       { key: 'clientName', label: 'Client name', type: 'text', required: true },
       { key: 'clientTitle', label: 'Client title', type: 'text' },
       { key: 'clientCompany', label: 'Client company', type: 'text' },
+      { key: 'clientEmail', label: 'Client email (optional — never shown publicly)', type: 'email' },
       { key: 'serviceName', label: 'Service', type: 'text' },
       { key: 'occurredOn', label: 'Date (YYYY-MM-DD)', type: 'text' },
     ],
@@ -157,6 +158,7 @@ export const EMPTY_ROW: Record<string, Record<string, unknown>> = {
     clientName: '',
     clientTitle: '',
     clientCompany: '',
+    clientEmail: '',
     serviceName: '',
     occurredOn: '',
     proofAttachments: [],

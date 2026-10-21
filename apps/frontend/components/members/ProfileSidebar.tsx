@@ -1,6 +1,7 @@
 import { Card, Button } from '@/components/ui';
-import { displayHost, formatRateParts } from '@/lib/members/format';
+import { displayHost, externalHref, formatRateParts } from '@/lib/members/format';
 import { computeCompletionPct } from '@/lib/members/completion';
+import { AvailabilityControl } from '@/components/members/AvailabilityControl';
 import type { MemberDto } from '@shared/member';
 
 // `.mp-sidebar-label`
@@ -39,29 +40,37 @@ export function ProfileSidebar({
       <Card padding="sm" className="shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
         <div className={`${LABEL} mb-1`}>Consultation Fee</div>
         {/* `.mp-fee-main` / `.mp-fee-max` / `.mp-fee-hr` */}
-        <div className="mb-4 text-2xl font-bold tracking-[-0.02em] text-ink">
+        {/* One size and weight for the whole range — min and max read as a single quote. */}
+        <div className="mb-4 text-title font-semibold text-ink">
           {rate ? (
             <>
               {rate.min}
-              {rate.max && <span className="text-base font-semibold"> – {rate.max}</span>}
-              <span className="text-profile-item font-normal tracking-normal text-ink-3"> / hr</span>
+              {rate.max && <> – {rate.max}</>}
+              <span className="text-caption font-normal text-ink-3"> / hr</span>
             </>
           ) : (
             'Rate on request'
           )}
         </div>
-        <div
-          className={`mb-2 flex items-center gap-1.5 text-caption font-medium ${
-            member.isAvailable ? 'text-[#16a34a]' : 'text-ink-3'
-          }`}
-        >
-          <span
-            className={`h-2 w-2 flex-none rounded-full ${member.isAvailable ? 'bg-[#16a34a]' : 'bg-ink-4'}`}
-          />
-          {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
-        </div>
-        {member.availabilityNotes && (
-          <p className="mb-4 text-caption leading-relaxed text-ink-3">{member.availabilityNotes}</p>
+        {/* Set by the member themselves (PATCH /members/:id) — not online presence. */}
+        {isOwnProfile ? (
+          <AvailabilityControl member={member} />
+        ) : (
+          <>
+            <div
+              className={`mb-2 flex items-center gap-1.5 text-caption font-medium ${
+                member.isAvailable ? 'text-[#16a34a]' : 'text-ink-3'
+              }`}
+            >
+              <span
+                className={`h-2 w-2 flex-none rounded-full ${member.isAvailable ? 'bg-[#16a34a]' : 'bg-ink-4'}`}
+              />
+              {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
+            </div>
+            {member.availabilityNotes && (
+              <p className="mb-4 text-caption leading-relaxed text-ink-3">{member.availabilityNotes}</p>
+            )}
+          </>
         )}
         {!isOwnProfile && (
           <Button onClick={onRequestConsultation} fullWidth className="font-mono font-semibold">
@@ -71,7 +80,7 @@ export function ProfileSidebar({
         {member.firmWebsite && (
           // `.mp-firm-link`
           <a
-            href={member.firmWebsite}
+            href={externalHref(member.firmWebsite)}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex w-full items-center gap-1.5 border-t border-line pt-3 text-caption text-ink-2 hover:underline"
@@ -103,8 +112,8 @@ export function ProfileSidebar({
             </span>
           </div>
           <p className="relative text-sm leading-[1.55] text-white/60">
-            {member.name}&apos;s credentials, employment history, and identity have been verified
-            by the Expertly team.
+            {member.name}&apos;s identity and credentials have been verified by the Expertly
+            team.
           </p>
         </Card>
       )}

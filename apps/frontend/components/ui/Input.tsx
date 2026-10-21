@@ -6,16 +6,21 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Red border + message below the field — e.g. from a form's inline/scroll-to-error
    * validation. Absent/undefined renders the normal (non-error) state. */
   error?: string;
+  /** Appends a red asterisk to the label, for forms that mark required fields (article forms). */
+  markRequired?: boolean;
 }
 
-export function Input({ label, labelRight, id, error, className, ...inputProps }: InputProps) {
+export function Input({ label, labelRight, id, error, markRequired, className, ...inputProps }: InputProps) {
   const fieldId = id ?? inputProps.name;
 
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
         <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
-          <span>{label}</span>
+          <span>
+            {label}
+            {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+          </span>
           {labelRight}
         </label>
       )}

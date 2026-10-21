@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Input, Button } from '@/components/ui';
 import { ConsultationCard } from '@/components/consultations/ConsultationCard';
 import { ConsultationStats } from '@/components/consultations/ConsultationStats';
+import { downloadTranscript } from '@/lib/consultations/transcript';
 import type { ConsultationRequestDto, ConsultationStatus } from '@shared/consultation-request';
 
 type Filter = 'all' | ConsultationStatus;
@@ -17,36 +18,6 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 // Prefixes a value that could be interpreted as a spreadsheet formula (CSV injection) with a
 // leading apostrophe, which Excel/Google Sheets treat as "force this cell to plain text."
-function csvEscape(value: string): string {
-  const str = String(value);
-  const safe = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
-  return /["\n\r,]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
-
-function downloadTranscript(requests: ConsultationRequestDto[]) {
-  const headers = ['Requester', 'Type', 'Firm', 'Message', 'Email', 'Phone', 'Received', 'Status'];
-  const rows = requests.map((r) => [
-    r.requesterName,
-    r.requesterIsVerifiedMember ? 'Member' : 'Client',
-    r.requesterFirmName ?? '',
-    r.message,
-    r.requesterContactEmail,
-    r.requesterPhone,
-    new Date(r.createdAt).toLocaleDateString('en-US'),
-    r.status,
-  ]);
-  const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `expertly-consultation-transcript-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 export function ReceivedConsultationsList({
   initialRequests,
   viewerId,
@@ -112,7 +83,7 @@ export function ReceivedConsultationsList({
             className="w-full min-[640px]:w-64"
           />
           {requests.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={() => downloadTranscript(requests)}>
+            <Button variant="secondary" size="sm" onClick={() => downloadTranscript(requests, 'received')}>
               Download transcript
             </Button>
           )}

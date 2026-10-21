@@ -43,6 +43,8 @@ export class WorkExperienceInput {
   @ApiPropertyOptional() endMonth?: number; // 1-12, omit if isCurrent
   @ApiPropertyOptional() endYear?: number; // omit if isCurrent
   @ApiProperty() isCurrent!: boolean;
+  /** Role summary — filled from the LinkedIn import, carried onto the member profile on approval. */
+  @ApiPropertyOptional() description?: string;
 }
 
 export class EducationInput {
@@ -175,6 +177,14 @@ export class LinkedInImportResponse {
   @ApiPropertyOptional() country?: string;
   @ApiPropertyOptional() state?: string;
   @ApiPropertyOptional() city?: string;
+  /** High-res LinkedIn profile photo (media.licdn.com) — pass to POST /applications/me/photo/linkedin as `sourceUrl`. */
+  @ApiPropertyOptional() photoUrl?: string;
+}
+
+/** POST /v1/applications/me/photo/linkedin optional body. */
+export class LinkedInPhotoImportRequest {
+  /** A `https://media.licdn.com/...` URL from LinkedInImportResponse.photoUrl. Omit to use the linked LinkedIn identity's (low-res) picture. */
+  @ApiPropertyOptional() sourceUrl?: string;
 }
 
 /** PATCH /v1/admin/applications/:id request body. */

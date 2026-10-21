@@ -110,7 +110,14 @@ function useTypewriter(text: string, startDelayMs: number, charDelayMs = 32) {
   return { typed, done };
 }
 
-export function StellarOrbitHero({ avatarUrls = [] }: { avatarUrls?: string[] }) {
+export function StellarOrbitHero({
+  avatarUrls = [],
+  showApply = true,
+}: {
+  avatarUrls?: string[];
+  /** False for members/admins — /apply only serves visitors and clients. */
+  showApply?: boolean;
+}) {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 50);
@@ -199,9 +206,11 @@ export function StellarOrbitHero({ avatarUrls = [] }: { avatarUrls?: string[] })
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </Button>
-              <Button href="/apply" variant="ghost-dark">
-                Apply to join
-              </Button>
+              {showApply && (
+                <Button href="/apply" variant="ghost-dark">
+                  Apply to join
+                </Button>
+              )}
             </div>
 
             <div

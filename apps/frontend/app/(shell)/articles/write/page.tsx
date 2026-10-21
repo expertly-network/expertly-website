@@ -1,8 +1,6 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getArticleServer, getCategoriesServer } from '@/lib/api/server';
-import { ArticlesHero } from '@/components/articles/ArticlesHero';
 import { ArticlesTabsNav } from '@/components/articles/ArticlesTabsNav';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { WriteArticleFlow } from '@/components/articles/WriteArticleFlow';
@@ -37,21 +35,12 @@ export default async function WriteArticlePage({
   }
 
   return (
+    // No marketing hero here — it pushed the form below the fold. The flow owns the single
+    // "← Back" control (it knows whether that means a previous step or leaving the editor).
     <div>
-      <ArticlesHero />
-
-      <section className="py-12">
+      <section className="pb-12 pt-8">
         <PageContainer>
           <ArticlesTabsNav canWrite active={null} />
-
-          <div className="pt-8">
-            <Link
-              href={editArticle ? `/articles/${editArticle.id}` : '/articles'}
-              className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
-            >
-              ← Back to {editArticle ? 'article' : 'articles'}
-            </Link>
-          </div>
           <WriteArticleFlow
             categories={categories}
             authorName={`${profile.first_name} ${profile.last_name}`.trim()}

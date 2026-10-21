@@ -3,6 +3,7 @@ import type {
   ConsultationMessageDto,
   ConsultationRequestDto,
   CreateConsultationRequestRequest,
+  UpdateConsultationRequest,
 } from '@shared/consultation-request';
 
 export interface ConsultationEligibility {
@@ -25,15 +26,20 @@ export function createConsultation(body: CreateConsultationRequestRequest): Prom
   });
 }
 
+// Both participants update through PATCH /consultations/:id — the member decides, the requester rates.
+function updateConsultation(id: string, body: UpdateConsultationRequest): Promise<ConsultationRequestDto> {
+  return apiFetch<ConsultationRequestDto>(`/consultations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 export function updateConsultationStatus(
   id: string,
   status: 'completed' | 'declined',
   responseMessage: string
 ): Promise<ConsultationRequestDto> {
-  return apiFetch<ConsultationRequestDto>(`/consultations/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status, responseMessage }),
-  });
+  return updateConsultation(id, { status, responseMessage });
 }
 
 export function listConsultationMessages(id: string): Promise<ConsultationMessageDto[]> {
@@ -48,8 +54,5 @@ export function postConsultationMessage(id: string, body: string): Promise<Consu
 }
 
 export function rateConsultation(id: string, rating: number): Promise<ConsultationRequestDto> {
-  return apiFetch<ConsultationRequestDto>(`/consultations/${id}/rating`, {
-    method: 'PATCH',
-    body: JSON.stringify({ rating }),
-  });
+  return updateConsultation(id, { rating });
 }

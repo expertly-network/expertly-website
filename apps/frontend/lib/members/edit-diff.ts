@@ -98,7 +98,7 @@ export function viewOfItem(section: MemberEditSection, item: Item): ItemView {
     case 'testimonials':
       return {
         title: str(item.clientName),
-        meta: joinMeta([item.clientTitle, item.clientCompany, item.serviceName, item.occurredOn]),
+        meta: joinMeta([item.clientTitle, item.clientCompany, item.clientEmail, item.serviceName, item.occurredOn]),
         body: str(item.quote) || null,
         logoUrl: null,
         logoUploadPath: null,

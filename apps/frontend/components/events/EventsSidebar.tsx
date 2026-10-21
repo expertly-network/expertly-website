@@ -1,7 +1,7 @@
 import { Button, Card } from '@/components/ui';
 
 // "Suggest an event" is a mailto: link — there's no submission backend yet.
-export function EventsSidebar() {
+export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
   return (
     <div className="flex flex-col gap-6">
       <Card padding="md">
@@ -29,26 +29,28 @@ export function EventsSidebar() {
         </Button>
       </Card>
 
-      <Card padding="md" className="relative overflow-hidden bg-ink">
-        <div
-          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
-          style={{
-            background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
-          }}
-          aria-hidden="true"
-        />
-        <div className="relative">
-          <div className="mb-1 text-mono-label text-white/50">For members</div>
-          <h3 className="mt-2 text-title text-bg-card">Get early access to events.</h3>
-          <p className="mt-2 text-sm text-white/60">
-            Expertly members receive early-bird notifications and introductions to event
-            organisers.
-          </p>
-          <Button href="/apply" variant="secondary-dark" className="mt-4">
-            Apply for membership →
-          </Button>
-        </div>
-      </Card>
+      {showApply && (
+        <Card padding="md" className="relative overflow-hidden bg-ink">
+          <div
+            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
+            style={{
+              background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative">
+            <div className="mb-1 text-mono-label text-white/50">For members</div>
+            <h3 className="mt-2 text-title text-bg-card">Get early access to events.</h3>
+            <p className="mt-2 text-sm text-white/60">
+              Expertly members receive early-bird notifications and introductions to event
+              organisers.
+            </p>
+            <Button href="/apply" variant="secondary-dark" className="mt-4">
+              Apply for membership →
+            </Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

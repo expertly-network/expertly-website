@@ -113,7 +113,7 @@ export class ApplicationsService {
       if (value !== undefined) patch[column] = value;
     }
 
-    // Work history is validated (no end-before-start, no overlapping ranges) and stored
+    // Work history is validated (no end-before-start; overlapping roles are allowed) and stored
     // newest-first regardless of the order the client sent it in.
     if (dto.workExperiences !== undefined) {
       assertValidWorkHistory(dto.workExperiences);
@@ -268,14 +268,17 @@ export class ApplicationsService {
     return this.toDto(saved, serviceDetails);
   }
 
-  // Best-effort: pulls the profile photo off the caller's linked LinkedIn OAuth identity and
-  // stores it the same way a manual upload would. Never overwrites a photo the applicant already
-  // has — callers are expected to check for that themselves before invoking this.
-  async importPhotoFromLinkedIn(user: AuthenticatedUser): Promise<ApplicationDto> {
-    const pictureUrl = await this.applicationsRepository.findLinkedInPictureUrl(user.id);
+  // Best-effort: stores a LinkedIn profile photo the same way a manual upload would. With
+  // `sourceUrl` (the high-res photo from the LinkedIn import, LinkedIn's media CDN only) that
+  // image is used; otherwise the low-res `picture` claim off the caller's linked LinkedIn OAuth
+  // identity. Callers decide whether replacing the current photo is appropriate.
+  async importPhotoFromLinkedIn(user: AuthenticatedUser, sourceUrl?: string): Promise<ApplicationDto> {
+    const pictureUrl = sourceUrl ?? (await this.applicationsRepository.findLinkedInPictureUrl(user.id));
     if (!pictureUrl) throw new NotFoundException('No LinkedIn photo available to import.');
 
-    const response = await fetch(pictureUrl);
+    // A caller-supplied URL is already pinned to media.licdn.com by the DTO; refusing redirects
+    // keeps the fetch from being bounced to another host.
+    const response = await fetch(pictureUrl, sourceUrl ? { redirect: 'error' } : undefined);
     if (!response.ok) throw new BadGatewayException('Failed to fetch LinkedIn photo.');
     const buffer = Buffer.from(await response.arrayBuffer());
 
@@ -365,6 +368,7 @@ export class ApplicationsService {
       endMonth?: number;
       endYear?: number;
       isCurrent: boolean;
+      description?: string;
     }[];
     const educations = (application.educations ?? []) as {
       institution: string;
@@ -412,7 +416,7 @@ export class ApplicationsService {
         endMonth: w.endMonth ?? null,
         endYear: w.endYear ?? null,
         isCurrent: w.isCurrent,
-        description: null,
+        description: w.description?.trim() || null,
         isVerified: true,
       })),
       educations: educations.map((e) => ({

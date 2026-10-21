@@ -262,7 +262,7 @@ export class ConsultationsRepository {
       .update({ rating })
       .eq('id', id)
       .eq('requester_id', requesterId)
-      .neq('status', 'pending')
+      .eq('status', 'completed')
       .select(CONSULTATION_COLUMNS.join(', '))
       .maybeSingle();
 

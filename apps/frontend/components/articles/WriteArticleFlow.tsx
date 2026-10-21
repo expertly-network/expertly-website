@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { Eyebrow } from '@/components/ui';
@@ -11,6 +11,7 @@ import { ArticleLivePreview } from '@/components/articles/ArticleLivePreview';
 import { WriteSuccess } from '@/components/articles/WriteSuccess';
 import { createArticle, updateArticle, getCoverImageSuggestions } from '@/lib/api/articles';
 import { ApiError } from '@/lib/api/client';
+import { useUnsavedChangesGuard } from '@/lib/hooks/useUnsavedChangesGuard';
 import type { CategoryDto } from '@shared/category';
 import type { ArticleDto } from '@shared/article';
 
@@ -55,9 +56,12 @@ export function WriteArticleFlow({
   const router = useRouter();
   const isEditing = Boolean(editArticle);
   const [step, setStep] = useState<Step>(editArticle ? 'manual' : 'choose');
-  const [manual, setManual] = useState<ManualArticleFormState>(
+  const [initialManual] = useState<ManualArticleFormState>(() =>
     editArticle ? toManualFormState(editArticle) : EMPTY_MANUAL_ARTICLE_FORM
   );
+  const [manual, setManual] = useState<ManualArticleFormState>(initialManual);
+  // Set right before a successful save/submit navigates away, so the guard doesn't fire on it.
+  const [saved, setSaved] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +74,13 @@ export function WriteArticleFlow({
   const creationFields = usedAi
     ? { creationMode: 'ai' as const, ...(aiGenerationId ? { aiGenerationId } : {}) }
     : { creationMode: 'manual' as const };
+
+  // coverImageUrl is excluded: the form fills it in asynchronously on mount, which isn't an edit.
+  const dirty = useMemo(() => {
+    const strip = ({ coverImageUrl: _c, ...rest }: ManualArticleFormState) => JSON.stringify(rest);
+    return !saved && strip(manual) !== strip(initialManual);
+  }, [manual, initialManual, saved]);
+  const { confirmLeave } = useUnsavedChangesGuard(dirty);
 
   function updateManual(patch: Partial<ManualArticleFormState>) {
     setManual((prev) => ({ ...prev, ...patch }));
@@ -91,10 +102,13 @@ export function WriteArticleFlow({
       };
       if (editArticle) {
         await updateArticle(editArticle.id, payload);
+        setSaved(true);
         router.push(`/articles/${editArticle.id}`);
       } else {
         await createArticle({ ...payload, ...creationFields });
-        router.push('/articles');
+        setSaved(true);
+        // Lands on My Articles (where the draft now is) with a confirmation, not on Browse.
+        router.push('/articles?tab=mine&saved=draft');
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save draft.');
@@ -120,9 +134,11 @@ export function WriteArticleFlow({
       if (editArticle) {
         const isLive = editArticle.status === 'published' || editArticle.status === 'pending_review';
         const article = await updateArticle(editArticle.id, isLive ? payload : { ...payload, status: 'published' });
+        setSaved(true);
         router.push(`/articles/${article.id}`);
       } else {
         const article = await createArticle({ ...payload, ...creationFields });
+        setSaved(true);
         setResult(article);
         setStep('success');
       }
@@ -142,28 +158,30 @@ export function WriteArticleFlow({
   const confirmLabel = !isEditing ? 'Publish' : isLiveEdit ? 'Save changes' : editArticle!.status === 'rejected' ? 'Resubmit' : 'Publish';
 
   return (
-    <div className="bg-bg-card pb-[120px] pt-14">
-      {step !== 'choose' && (
-        <div className="mx-auto max-w-[760px]">
-          <button
-            type="button"
-            onClick={() => {
-              if (step === 'preview') {
-                setStep(manual.body ? 'manual' : 'ai');
-                return;
-              }
-              if (isEditing) {
-                router.push(`/articles/${editArticle!.id}`);
-                return;
-              }
-              setStep('choose');
-            }}
-            className="mb-5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
-          >
-            ← Back
-          </button>
-        </div>
-      )}
+    <div className="bg-bg-card pb-[120px] pt-8">
+      <div className={`mx-auto ${step === 'choose' ? 'max-w-[980px]' : 'max-w-[760px]'}`}>
+        <button
+          type="button"
+          onClick={() => {
+            if (step === 'preview') {
+              setStep(manual.body ? 'manual' : 'ai');
+              return;
+            }
+            if (isEditing) {
+              if (confirmLeave()) router.push(`/articles/${editArticle!.id}`);
+              return;
+            }
+            if (step === 'choose') {
+              router.push('/articles');
+              return;
+            }
+            setStep('choose');
+          }}
+          className="mb-5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+        >
+          {step === 'choose' ? '← Back to articles' : isEditing && step === 'manual' ? '← Back to article' : '← Back'}
+        </button>
+      </div>
 
       {step === 'choose' && (
         <div className="text-center">
@@ -181,7 +199,7 @@ export function WriteArticleFlow({
             <WriteOptionCard
               icon={UPLOAD_ICON}
               title="Write it yourself"
-              description="Upload a file or paste your own text. Full control over your voice and structure."
+              description="Write or paste your own text, with headings, lists and links. Full control over your voice and structure."
               minutes={5}
               ctaLabel="Start writing"
               onClick={() => setStep('manual')}

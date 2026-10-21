@@ -66,6 +66,11 @@ export function updateArticle(id: string, payload: UpdateArticleRequest): Promis
   });
 }
 
+/** Owner or admin. Permanently deletes the article (204). */
+export function deleteArticle(id: string): Promise<void> {
+  return apiFetch<void>(`/articles/${id}`, { method: 'DELETE' });
+}
+
 /** Suggests article title ideas. */
 export function suggestTopics(payload: SuggestTopicsRequest = {}): Promise<SuggestTopicsResponse> {
   return apiFetch<SuggestTopicsResponse>('/articles/suggest-topics', {

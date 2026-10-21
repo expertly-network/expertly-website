@@ -11,8 +11,9 @@ import type { ReactNode } from 'react';
 // member formats here gets silently stripped on save.
 function buildExtensions(placeholder?: string) {
   return [
+    // h2/h3 only — the article page styles those two and sanitize-article-body.ts allows them.
     StarterKit.configure({
-      heading: false,
+      heading: { levels: [2, 3] },
     }),
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
@@ -64,6 +65,34 @@ const ICON_PROPS = {
 function Toolbar({ editor }: { editor: Editor }) {
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-line px-2 py-1.5">
+      <ToolbarButton label="Undo" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}>
+        <svg {...ICON_PROPS}>
+          <path d="M3 7v6h6" />
+          <path d="M21 17a9 9 0 00-15-6.7L3 13" />
+        </svg>
+      </ToolbarButton>
+      <ToolbarButton label="Redo" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>
+        <svg {...ICON_PROPS}>
+          <path d="M21 7v6h-6" />
+          <path d="M3 17a9 9 0 0115-6.7L21 13" />
+        </svg>
+      </ToolbarButton>
+      <span className="mx-1 h-5 w-px flex-none bg-line" />
+      <ToolbarButton
+        label="Heading"
+        active={editor.isActive('heading', { level: 2 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        <span className="text-[12px] font-bold">H2</span>
+      </ToolbarButton>
+      <ToolbarButton
+        label="Subheading"
+        active={editor.isActive('heading', { level: 3 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+      >
+        <span className="text-[12px] font-bold">H3</span>
+      </ToolbarButton>
+      <span className="mx-1 h-5 w-px flex-none bg-line" />
       <ToolbarButton label="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
         <svg {...ICON_PROPS}>
           <path d="M6 4h8a4 4 0 010 8H6zM6 12h9a4 4 0 010 8H6z" />
@@ -178,7 +207,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          'prose-article min-h-[320px] px-3.5 py-3 text-sm leading-relaxed text-ink outline-none [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-ink-2 [&_code]:rounded [&_code]:bg-bg-alt [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_a]:text-accent [&_a]:underline [&_u]:underline [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:text-ink-4 [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
+          'prose-article min-h-[320px] px-3.5 py-3 text-sm leading-relaxed text-ink outline-none [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-[17px] [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-3 [&_h3]:text-[15px] [&_h3]:font-semibold [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-ink-2 [&_code]:rounded [&_code]:bg-bg-alt [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_a]:text-accent [&_a]:underline [&_u]:underline [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:text-ink-4 [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
       },
     },
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),

@@ -61,7 +61,8 @@ export class MemberEngagement {
   @ApiProperty() organization!: string;
   /** Required when submitting; null only on legacy/seeded items that predate the field. */
   @ApiProperty({ nullable: true, type: String }) clientName!: string | null;
-  @ApiProperty({ nullable: true, type: String }) clientEmail!: string | null;
+  /** Owner/admin only (omitted for other viewers) — used by the Expertly team for random verification. */
+  @ApiPropertyOptional({ nullable: true, type: String }) clientEmail?: string | null;
   @ApiProperty({ enum: ENGAGEMENT_VERIFICATION_METHODS, isArray: true }) verificationMethods!: EngagementVerificationMethod[];
   /** Free-text description of the method; only meaningful when verificationMethods includes 'other'. */
   @ApiProperty({ nullable: true, type: String }) verificationMethodOther!: string | null;
@@ -94,6 +95,8 @@ export class MemberTestimonial {
   @ApiProperty({ nullable: true, type: String }) clientCompany!: string | null;
   @ApiProperty({ nullable: true, type: String }) serviceName!: string | null;
   @ApiProperty({ nullable: true, type: String }) occurredOn!: string | null;
+  /** Optional. Owner/admin only (omitted for other viewers) — lets the Expertly team randomly verify the testimonial with the client. */
+  @ApiPropertyOptional({ nullable: true, type: String }) clientEmail?: string | null;
   @ApiProperty() isVerified!: boolean;
   /** Owner/admin only. */
   @ApiPropertyOptional({ type: () => ProofAttachment, isArray: true }) proofAttachments?: ProofAttachment[];
@@ -190,6 +193,20 @@ export class UploadResponse {
   @ApiProperty() path!: string;
 }
 
+/**
+ * PATCH /v1/members/:id — the owner's directly-editable fields, any combination (at least one).
+ * Applied immediately, no admin review. Returns the updated MemberDto. Vetted profile content goes
+ * through POST /v1/members/:id/edits instead.
+ */
+export class UpdateMemberRequest {
+  /** The "available for consultations" switch. */
+  @ApiPropertyOptional() isAvailable?: boolean;
+  /** Short note shown under the status, e.g. "Back from 4 Nov". Omit to keep, null/'' to clear. Max 200. */
+  @ApiPropertyOptional({ nullable: true, type: String }) availabilityNotes?: string | null;
+  /** New profile photo: the `path` returned by POST /v1/members/:id/uploads (JPEG/PNG/WebP, ≤5MB). */
+  @ApiPropertyOptional() photoUploadPath?: string;
+}
+
 // Self-edit moderation queue. `payload`'s shape depends on `section` — a discriminated union
 // rather than a loose `unknown`.
 export type MemberEditSection =
@@ -250,7 +267,7 @@ export type AwardsEditPayload = EditItem<MemberAward>[];
 export type KeyClientsEditPayload = (EditItem<MemberKeyClient> & { logoUploadPath?: string })[];
 
 // education / work_experiences: one shared proof for the whole batch (edit-level proofFileUrl /
-// proofLink), not per item. Work history must not overlap and is stored newest-first.
+// proofLink), not per item. Work history may overlap (concurrent roles) and is stored newest-first.
 export type EducationEditPayload = (Omit<MemberEducation, 'id' | 'isVerified'> & { id?: string })[];
 export type WorkExperiencesEditPayload = (Omit<MemberWorkExperience, 'id' | 'isVerified' | 'startMonth' | 'endMonth'> & {
   id?: string;

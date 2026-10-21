@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ProfileSectionEmpty, ProfileSectionHeader } from '@/components/members/ProfileSection';
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
-import { displayHost } from '@/lib/members/format';
+import { displayHost, externalHref } from '@/lib/members/format';
 import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
 interface ContactItem {
@@ -67,7 +67,7 @@ export function ContactTab({
     items.push({ label: 'LinkedIn', value: 'View Profile', href: member.linkedinUrl, external: true, icon: ICONS.linkedin });
   }
   if (member.website) {
-    items.push({ label: 'Website', value: displayHost(member.website), href: member.website, external: true, icon: ICONS.website });
+    items.push({ label: 'Website', value: displayHost(member.website), href: externalHref(member.website), external: true, icon: ICONS.website });
   }
   // Firm website comes from the member's firm record, not the contact section — so it's shown
   // here read-only, labelled with the firm's name when there is one.
@@ -76,7 +76,7 @@ export function ContactTab({
     items.push({
       label: firm ? `Company · ${firm}` : 'Company website',
       value: displayHost(member.firmWebsite),
-      href: member.firmWebsite,
+      href: externalHref(member.firmWebsite),
       external: true,
       icon: ICONS.company,
     });

@@ -1,6 +1,7 @@
 // Client-side mirror of the backend work-history rules (the server remains authoritative):
-// newest-first ordering, and overlapping date ranges rejected. A current role ends today;
-// a missing month counts as January; roles touching in one boundary month are allowed.
+// newest-first ordering, and an end before its start rejected. Overlapping ranges are allowed
+// (concurrent roles are real) but surfaced as a non-blocking warning. A current role ends today;
+// a missing month counts as January; roles touching in one boundary month don't overlap.
 
 export interface WorkHistoryRow {
   startYear?: unknown;
@@ -37,23 +38,31 @@ export function sortWorkHistory<T extends WorkHistoryRow>(rows: T[], now = new D
   });
 }
 
-// Returns a map of row index -> inline error message.
+// Returns a map of row index -> blocking inline error (end before start).
 export function workHistoryErrors(rows: WorkHistoryRow[], now = new Date()): Record<number, string> {
   const errors: Record<number, string> = {};
-  const ranges = rows.map((r) => range(r, now));
-  ranges.forEach((r, i) => {
-    if (r && r.end < r.start && !errors[i]) errors[i] = 'End date is before the start date.';
+  rows.forEach((row, i) => {
+    const r = range(row, now);
+    if (r && r.end < r.start) errors[i] = 'End date is before the start date.';
   });
+  return errors;
+}
+
+// Returns a map of row index -> non-blocking overlap warning, so a member can double-check the
+// dates without being stopped from saving concurrent roles.
+export function workHistoryWarnings(rows: WorkHistoryRow[], now = new Date()): Record<number, string> {
+  const warnings: Record<number, string> = {};
+  const ranges = rows.map((r) => range(r, now));
   for (let i = 0; i < ranges.length; i++) {
     for (let j = i + 1; j < ranges.length; j++) {
       const a = ranges[i];
       const b = ranges[j];
-      if (!a || !b) continue;
+      if (!a || !b || a.end < a.start || b.end < b.start) continue;
       if (a.start < b.end && b.start < a.end) {
-        errors[i] ??= `Overlaps with role ${j + 1}. Roles cannot overlap in time.`;
-        errors[j] ??= `Overlaps with role ${i + 1}. Roles cannot overlap in time.`;
+        warnings[i] ??= `Overlaps with role ${j + 1} — fine if you held both at once, otherwise check the dates.`;
+        warnings[j] ??= `Overlaps with role ${i + 1} — fine if you held both at once, otherwise check the dates.`;
       }
     }
   }
-  return errors;
+  return warnings;
 }

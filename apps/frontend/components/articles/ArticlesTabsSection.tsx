@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { ArticlesGrid } from '@/components/articles/ArticlesGrid';
 import { MyArticlesPanel } from '@/components/articles/MyArticlesPanel';
 import { ArticlesTabsNav, type ArticlesTab } from '@/components/articles/ArticlesTabsNav';
@@ -22,11 +23,19 @@ export function ArticlesTabsSection({
    * lands on the right panel instead of always defaulting to Browse. */
   initialTab?: ArticlesTab;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [tab, setTab] = useState<ArticlesTab>(initialTab);
+
+  // Mirrors the tab into the URL so it survives refresh and can be deep-linked (?tab=mine).
+  function changeTab(next: ArticlesTab) {
+    setTab(next);
+    router.replace(next === 'mine' ? `${pathname}?tab=mine` : pathname, { scroll: false });
+  }
 
   return (
     <div>
-      <ArticlesTabsNav canWrite={canWrite} active={tab} onTabChange={setTab} />
+      <ArticlesTabsNav canWrite={canWrite} active={tab} onTabChange={changeTab} />
 
       <div className="mt-8">
         {tab === 'browse' ? (

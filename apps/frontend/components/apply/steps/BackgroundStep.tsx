@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
@@ -15,6 +16,10 @@ import {
   MONTHS,
   type WizardFormState,
 } from '@/components/apply/types';
+
+// Mirrors WORK_EXPERIENCES_MAX / EDUCATIONS_MAX in the backend's update-application.dto.ts.
+const WORK_EXPERIENCES_MAX = 15;
+const EDUCATIONS_MAX = 5;
 
 const YEARS = Array.from({ length: 67 }, (_, i) => new Date().getFullYear() - i);
 
@@ -42,17 +47,19 @@ export function BackgroundStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live date problems per card: end before start, or overlapping another role.
-  const dateErrors = useMemo(() => {
+  // Live date problems per card. End-before-start blocks Next; an overlap with another role is
+  // only a warning — concurrent roles (e.g. sub-roles at one firm) are legitimate.
+  const dateErrors = useMemo(
+    () => form.workExperiences.map((w): string | undefined => (isEndBeforeStart(w) ? 'End date is before the start date.' : undefined)),
+    [form.workExperiences]
+  );
+  const dateWarnings = useMemo(() => {
     const overlaps = findOverlaps(form.workExperiences);
     return form.workExperiences.map((w, i): string | undefined => {
-      if (isEndBeforeStart(w)) return 'End date is before the start date.';
-      if (overlaps[i] !== -1) {
-        const other = form.workExperiences[overlaps[i]];
-        const name = [other.title, other.company].filter((x) => x.trim()).join(' at ') || `Experience ${overlaps[i] + 1}`;
-        return `These dates overlap with ${name}. Roles can't cover the same period.`;
-      }
-      return undefined;
+      if (overlaps[i] === -1 || isEndBeforeStart(w)) return undefined;
+      const other = form.workExperiences[overlaps[i]];
+      const name = [other.title, other.company].filter((x) => x.trim()).join(' at ') || `Experience ${overlaps[i] + 1}`;
+      return `These dates overlap with ${name}. That's fine if you held both roles at once — otherwise check the dates.`;
     });
   }, [form.workExperiences]);
 
@@ -172,7 +179,7 @@ export function BackgroundStep({
           WORK EXPERIENCE
           {form.importedFields.has('workExperiences') && <ImportedTag />}
         </span>
-        <span className="text-xs text-ink-3">1 required · up to 5 entries</span>
+        <span className="text-xs text-ink-3">1 required · up to {WORK_EXPERIENCES_MAX} entries</span>
       </div>
 
       {errors.workExperiencesCurrent && (
@@ -322,6 +329,9 @@ export function BackgroundStep({
                 {dateErrors[i]}
               </span>
             )}
+            {!dateErrors[i] && dateWarnings[i] && (
+              <span className="mt-2 block text-xs text-amber-700">{dateWarnings[i]}</span>
+            )}
 
             <label className="mt-4 flex items-center gap-2 text-sm text-ink-2">
               <input
@@ -337,11 +347,24 @@ export function BackgroundStep({
               />
               I currently work here
             </label>
+
+            <div className="mt-4">
+              <Textarea
+                label="Description"
+                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+                rows={3}
+                maxLength={2000}
+                autoGrow
+                placeholder="What you did in this role — shown on your profile."
+                value={work.description ?? ''}
+                onChange={(e) => updateWork(i, { description: e.target.value })}
+              />
+            </div>
           </div>
         ))}
       </div>
 
-      {form.workExperiences.length < 5 && (
+      {form.workExperiences.length < WORK_EXPERIENCES_MAX && (
         <button
           type="button"
           onClick={() =>
@@ -358,7 +381,7 @@ export function BackgroundStep({
           EDUCATION &amp; QUALIFICATIONS
           {form.importedFields.has('educations') && <ImportedTag />}
         </span>
-        <span className="text-xs text-ink-3">1 required · up to 3 entries</span>
+        <span className="text-xs text-ink-3">1 required · up to {EDUCATIONS_MAX} entries</span>
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
@@ -429,7 +452,7 @@ export function BackgroundStep({
         ))}
       </div>
 
-      {form.educations.length < 3 && (
+      {form.educations.length < EDUCATIONS_MAX && (
         <button
           type="button"
           onClick={() => update({ educations: [...form.educations, { ...EMPTY_EDUCATION }] })}

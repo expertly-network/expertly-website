@@ -55,8 +55,8 @@ export class ConsultationRequestDto {
   // UpdateConsultationStatusRequest), so an older row could in principle still be null even if
   // no longer pending, but that's not reachable through this app's own UI.
   @ApiPropertyOptional({ nullable: true, type: String }) responseMessage?: string | null;
-  // The requester's 1-5 rating of the conversation, settable only once status is no longer
-  // 'pending' (see RateConsultationRequestRequest below). Null until rated.
+  // The requester's 1-5 rating of the conversation, settable only once status is 'completed'
+  // (see UpdateConsultationRequest below). Null until rated.
   @ApiPropertyOptional({ nullable: true, type: Number }) rating?: number | null;
 }
 
@@ -100,9 +100,14 @@ export class CreateConsultationMessageRequest {
   @ApiProperty() body!: string;
 }
 
-// The requester rates the conversation 1-5 once the member has decided (status is no longer
-// 'pending') — the thread closes to new messages at that point (see ConsultationMessageDto's
-// endpoints) and this replaces it on the requester's side.
-export class RateConsultationRequestRequest {
-  @ApiProperty() rating!: number;
+// PATCH /v1/consultations/:id — one update body for both participants, authorized per field:
+// the member decides (`status` + `responseMessage`, together), or the requester rates 1-5 once the
+// member has completed it (a declined request can't be rated; the thread closes to new messages at
+// that point and the rating replaces it on the requester's side). Never both in one request.
+export class UpdateConsultationRequest {
+  @ApiPropertyOptional({ enum: ['completed', 'declined'] }) status?: 'completed' | 'declined';
+  /** Required with `status` — at least 10 characters. */
+  @ApiPropertyOptional() responseMessage?: string;
+  /** Requester only, integer 1-5, `completed` requests only. */
+  @ApiPropertyOptional() rating?: number;
 }
