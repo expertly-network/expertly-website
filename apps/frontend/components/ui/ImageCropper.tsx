@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
 const VIEWPORT = 256; // px, square crop window
-const OUTPUT = 512; // px, exported square edge
+const OUTPUT_MAX = 800; // px, exported square edge — sharp on 2x screens at the largest avatar size
+// Below this many source pixels across the crop, the result looks soft on a profile page.
+const LOW_RES_EDGE = 400;
 
 interface Size {
   w: number;
@@ -80,8 +82,6 @@ export function ImageCropper({
     const img = imgRef.current;
     if (!img || !natural) return;
     const canvas = document.createElement('canvas');
-    canvas.width = OUTPUT;
-    canvas.height = OUTPUT;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       setFailed(true);
@@ -90,7 +90,12 @@ export function ImageCropper({
     const sx = -offset.x / scale;
     const sy = -offset.y / scale;
     const side = VIEWPORT / scale;
-    ctx.drawImage(img, sx, sy, side, side, 0, 0, OUTPUT, OUTPUT);
+    // Never upscale: a small source exported at 800px only gets blurrier, not sharper.
+    const output = Math.min(OUTPUT_MAX, Math.round(side));
+    canvas.width = output;
+    canvas.height = output;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, output, output);
     canvas.toBlob((blob) => {
       if (!blob) {
         setFailed(true);
@@ -157,6 +162,12 @@ export function ImageCropper({
           aria-label="Zoom"
           className="mt-4 w-full"
         />
+        {subject === 'photo' && natural && VIEWPORT / scale < LOW_RES_EDGE && (
+          <p className="mt-2 text-xs text-amber-700">
+            This photo is low resolution and may look blurry on your profile. A larger image (at least{' '}
+            {LOW_RES_EDGE}×{LOW_RES_EDGE}px) works best{zoom > 1 ? ', or zoom out a little' : ''}.
+          </p>
+        )}
         {failed && (
           <p role="alert" className="mt-2 text-xs text-error">
             Could not process this image. Try a different file.

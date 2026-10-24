@@ -18,6 +18,7 @@ import type {
   MemberEditStatusFilter,
   MemberListItemDto,
   MemberProfileEditDto,
+  MyMemberProfileDto,
   RenewalDueState,
   UploadResponse,
 } from '@shared/member';
@@ -121,37 +122,44 @@ export class MembersService {
     const page = query.page && query.page > 0 ? query.page : 1;
     const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : 8;
 
-    let rows = await this.membersRepository.findActiveList(
-      { country: query.country, rateMinCents: query.rateMinCents, rateMaxCents: query.rateMaxCents, q: query.q, sort: query.sort },
+    // Every filter is resolved before the paged query — filtering a fetched page afterwards
+    // silently dropped matches that sat on later pages.
+    let restrictToIds: string[] | undefined;
+    if (query.serviceId && query.serviceId.length > 0) {
+      restrictToIds = [...(await this.membersRepository.findMemberIdsByServices(query.serviceId))];
+    } else if (query.categoryId) {
+      restrictToIds = [...(await this.membersRepository.findMemberIdsByCategory(query.categoryId))];
+    }
+    if (restrictToIds && restrictToIds.length === 0) return [];
+
+    const q = query.q?.trim();
+    const qMatchIds = q ? await this.membersRepository.findMemberIdsMatchingText(q) : undefined;
+
+    const rows = await this.membersRepository.findActiveList(
+      {
+        country: query.country,
+        rateMinCents: query.rateMinCents,
+        rateMaxCents: query.rateMaxCents,
+        q,
+        qMatchIds,
+        restrictToIds,
+        sort: query.sort,
+      },
       { from: (page - 1) * pageSize, to: page * pageSize - 1 }
     );
-
-    if (query.serviceId && query.serviceId.length > 0) {
-      const matchedIds = await this.membersRepository.findMemberIdsByServices(query.serviceId);
-      rows = rows.filter((r) => matchedIds.has(r.profile_id));
-    } else if (query.categoryId) {
-      const matchedIds = await this.membersRepository.findMemberIdsByCategory(query.categoryId);
-      rows = rows.filter((r) => matchedIds.has(r.profile_id));
-    }
 
     const [profilesById, servicesByMember] = await Promise.all([
       this.membersRepository.findProfilesByIds(rows.map((r) => r.profile_id)),
       this.membersRepository.findMemberServicesByMemberIds(rows.map((r) => r.profile_id)),
     ]);
 
-    let items = rows.map((row) => this.toListDto(row, profilesById, servicesByMember));
+    return rows.map((row) => this.toListDto(row, profilesById, servicesByMember));
+  }
 
-    if (query.q) {
-      const q = query.q.toLowerCase();
-      items = items.filter(
-        (m) =>
-          m.name.toLowerCase().includes(q) ||
-          (m.headline ?? '').toLowerCase().includes(q) ||
-          (m.firmName ?? '').toLowerCase().includes(q)
-      );
-    }
-
-    return items;
+  async findMine(user: AuthenticatedUser): Promise<MyMemberProfileDto> {
+    const found = (await this.membersRepository.findSlugAndPhotoByProfileIds([user.id])).get(user.id);
+    if (!found) throw new NotFoundException('You have no member profile yet.');
+    return { id: user.id, slug: found.slug };
   }
 
   async findOneBySlug(slug: string, user: AuthenticatedUser): Promise<MemberDto> {

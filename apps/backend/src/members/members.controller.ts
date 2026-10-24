@@ -3,7 +3,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { MemberDto, MemberListItemDto, MemberProfileEditDto, UploadResponse } from '@shared/member';
+import { MemberDto, MemberListItemDto, MemberProfileEditDto, MyMemberProfileDto, UploadResponse } from '@shared/member';
 import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
@@ -42,6 +42,14 @@ export class MembersController {
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });
+  }
+
+  // 👤 Member — the caller's own profile id + slug. Two segments, so it never collides with a
+  // single-segment slug read below.
+  @Roles('member')
+  @Get('me/profile')
+  findMine(@CurrentUser() user: AuthenticatedUser): Promise<MyMemberProfileDto> {
+    return this.membersService.findMine(user);
   }
 
   // Profile read is by slug (e.g. /v1/members/priya-menon), not UUID — the slug is what shows in

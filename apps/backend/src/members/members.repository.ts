@@ -160,7 +160,16 @@ export interface MemberListFilters {
   rateMinCents?: number;
   rateMaxCents?: number;
   q?: string;
+  // Profile ids whose name or services matched `q` — OR-ed with the text-column match.
+  qMatchIds?: string[];
+  // Service/category filter, resolved to member ids before paging so pages stay full.
+  restrictToIds?: string[];
   sort?: string;
+}
+
+// PostgREST's `or=` syntax treats these as separators/operators; a search term never needs them.
+function sanitizeSearchTerm(q: string): string {
+  return q.replace(/[,()*%\\"':]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export type MemberProfileUpdate = Database['public']['Tables']['member_profiles']['Update'];
@@ -203,10 +212,13 @@ export class MembersRepository {
     if (filters.country && filters.country.length > 0) dbQuery = dbQuery.in('country', filters.country);
     if (filters.rateMinCents !== undefined) dbQuery = dbQuery.gte('rate_max_cents', filters.rateMinCents);
     if (filters.rateMaxCents !== undefined) dbQuery = dbQuery.lte('rate_min_cents', filters.rateMaxCents);
-    if (filters.q) {
-      // Matches member_profiles' own text fields; name matching against profiles happens
-      // separately, in-memory.
-      dbQuery = dbQuery.or(`headline.ilike.%${filters.q}%,firm_name.ilike.%${filters.q}%`);
+    if (filters.restrictToIds) dbQuery = dbQuery.in('profile_id', filters.restrictToIds);
+    const q = filters.q ? sanitizeSearchTerm(filters.q) : '';
+    if (q) {
+      // member_profiles' own text columns, plus the ids whose name/services matched elsewhere.
+      const clauses = ['headline', 'firm_name', 'bio', 'city', 'state', 'country'].map((c) => `${c}.ilike.%${q}%`);
+      if (filters.qMatchIds && filters.qMatchIds.length > 0) clauses.push(`profile_id.in.(${filters.qMatchIds.join(',')})`);
+      dbQuery = dbQuery.or(clauses.join(','));
     }
 
     switch (filters.sort) {
@@ -226,6 +238,44 @@ export class MembersRepository {
     const { data, error } = await dbQuery.range(range.from, range.to);
     if (error) throw new InternalServerErrorException('Failed to load members.');
     return (data ?? []) as unknown as MemberProfileRow[];
+  }
+
+  // Directory search: ids of members whose first/last name or any offered service (or its
+  // category) contains `q`. Full names ("Jane Doe") match when every word hits first or last name.
+  async findMemberIdsMatchingText(rawQ: string): Promise<string[]> {
+    const q = sanitizeSearchTerm(rawQ);
+    if (!q) return [];
+    const words = q.toLowerCase().split(' ');
+
+    const [profilesRes, servicesRes, categoriesRes] = await Promise.all([
+      this.profiles()
+        .select('id, first_name, last_name')
+        .eq('role', 'member')
+        .or(`first_name.ilike.%${words[0]}%,last_name.ilike.%${words[0]}%`),
+      this.services().select('id').ilike('name', `%${q}%`),
+      this.categories().select('id').ilike('name', `%${q}%`),
+    ]);
+    if (profilesRes.error || servicesRes.error || categoriesRes.error) {
+      throw new InternalServerErrorException('Failed to search members.');
+    }
+
+    const ids = new Set<string>();
+    for (const p of profilesRes.data ?? []) {
+      const name = `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase();
+      if (words.every((w) => name.includes(w))) ids.add(p.id);
+    }
+
+    const serviceIds = (servicesRes.data ?? []).map((s) => s.id as string);
+    const categoryIds = (categoriesRes.data ?? []).map((c) => c.id as string);
+    if (categoryIds.length > 0) {
+      const { data, error } = await this.services().select('id').in('category_id', categoryIds);
+      if (error) throw new InternalServerErrorException('Failed to search members.');
+      serviceIds.push(...(data ?? []).map((s) => s.id as string));
+    }
+    if (serviceIds.length > 0) {
+      for (const id of await this.findMemberIdsByServices(serviceIds)) ids.add(id);
+    }
+    return [...ids];
   }
 
   async findMemberIdsByServices(serviceIds: string[]): Promise<Set<string>> {

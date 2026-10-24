@@ -24,6 +24,7 @@ import { CouponPreviewDto } from './dto/coupon-preview.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
 import { deriveRegion } from './constants/country-region';
+import { findLocationMismatch } from './location-check';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/work-history';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import { ApplicationsRepository, type ApplicationRow, type ServiceDetail } from './applications.repository';
@@ -491,6 +492,11 @@ export class ApplicationsService {
     // region has no defensible derivation for country === 'Other' (see deriveRegion) — don't
     // block submission on it in that one case.
     if (row.region == null && row.country !== 'Other') missing.push('region');
+
+    // Country -> State -> City must belong together (an imported or hand-sent combination like
+    // Texas + London is rejected here, not just hidden by the form's cascade).
+    const locationMismatch = findLocationMismatch(row.country, row.state, row.city);
+    if (locationMismatch) missing.push(locationMismatch);
 
     const workExperiences = (row.work_experiences ?? []) as {
       company?: string;

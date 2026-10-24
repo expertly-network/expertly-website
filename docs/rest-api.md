@@ -849,7 +849,8 @@ forward should get an explicit `admin_role`.
 
 The directory list — published/active members only.
 
-**Query params:** `q` (search across name/practice/location/firm/title), `serviceId` (repeatable),
+**Query params:** `q` (case-insensitive substring match across name, headline, bio, firm,
+city/state/country, and the names of the member's services or their categories), `serviceId` (repeatable),
 `categoryId` (single — broadens to "any service in this category"; combined with `serviceId`, both
 must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
 (`featured`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
@@ -863,6 +864,14 @@ Tenure/rate display strings
 (`"18y"`, `"$420/hr"`) are **not** returned — format them client-side from the numeric fields.
 `bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
 `line-clamp-2`, matching the design's own approach, so no separate excerpt field was added.
+
+### 👤 `GET /v1/members/me/profile`
+
+*Added 2026-10-23.* The signed-in member's own profile handle — **Response `200`:**
+`MyMemberProfileDto` (`{ id, slug }`, `packages/shared-types/member.ts`). `404` when the caller has
+no member profile; `403` for clients. Two path segments, so it can never collide with a slug read.
+Backs the frontend's `/members/me` route, which redirects to `/members/<slug>` (the home hero's
+"View my profile" button for members).
 
 ### 🔒 `GET /v1/members/:slug`
 

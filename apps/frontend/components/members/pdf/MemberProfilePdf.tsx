@@ -134,6 +134,7 @@ const s = StyleSheet.create({
   },
   headline: { fontSize: 10.5, fontWeight: 600, color: C.ink, marginBottom: 4 },
   bio: { fontSize: 9.5, color: C.ink3, lineHeight: 1.6 },
+  bioGap: { marginTop: 5 },
 
   engagement: {
     flexDirection: 'row',
@@ -222,6 +223,15 @@ export interface MemberProfilePdfProps {
   /** PNG data URL, already cropped square; null falls back to initials. */
   photoDataUrl: string | null;
   generatedAt: Date;
+}
+
+// Same rule as the profile page's FormattedText: each line of the bio is its own paragraph.
+function bioParagraphs(bio: string): string[] {
+  return bio
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
 }
 
 function Check({ size, color = C.accent }: { size: number; color?: string }) {
@@ -371,7 +381,13 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
           {(member.headline || member.bio) && (
             <Section title="About">
               {member.headline ? <Text style={s.headline}>{member.headline}</Text> : null}
-              {member.bio ? <Text style={s.bio}>{member.bio}</Text> : null}
+              {member.bio
+                ? bioParagraphs(member.bio).map((para, i) => (
+                    <Text key={i} style={i > 0 ? [s.bio, s.bioGap] : s.bio}>
+                      {para}
+                    </Text>
+                  ))
+                : null}
             </Section>
           )}
 

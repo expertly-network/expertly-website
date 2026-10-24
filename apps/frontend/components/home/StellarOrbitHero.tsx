@@ -113,10 +113,13 @@ function useTypewriter(text: string, startDelayMs: number, charDelayMs = 32) {
 export function StellarOrbitHero({
   avatarUrls = [],
   showApply = true,
+  showMyProfile = false,
 }: {
   avatarUrls?: string[];
   /** False for members/admins — /apply only serves visitors and clients. */
   showApply?: boolean;
+  /** Members get "View my profile" in the Apply button's place. */
+  showMyProfile?: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
@@ -206,10 +209,16 @@ export function StellarOrbitHero({
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </Button>
-              {showApply && (
+              {showApply ? (
                 <Button href="/apply" variant="ghost-dark">
                   Apply to join
                 </Button>
+              ) : (
+                showMyProfile && (
+                  <Button href="/members/me" variant="ghost-dark">
+                    View my profile
+                  </Button>
+                )
               )}
             </div>
 

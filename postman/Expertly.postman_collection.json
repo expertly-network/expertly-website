@@ -888,7 +888,7 @@
                 {
                   "key": "q",
                   "value": "tax",
-                  "description": "Search across name/practice/location/firm/title.",
+                  "description": "Case-insensitive match across name, headline, bio, firm, city/state/country, and service/category names.",
                   "disabled": false
                 },
                 {
@@ -942,6 +942,26 @@
             "auth": {
               "type": "noauth"
             }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /members/me/profile — Get my own profile id + slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/members/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "me",
+                "profile"
+              ]
+            },
+            "description": "👤 Member only (admin also admitted by rank). Returns `{ id, slug }` for the caller's own member profile — used by the frontend's `/members/me` redirect (the home hero's \"View my profile\"). `404` if the caller has no member profile; `403` for clients."
           },
           "response": []
         },

@@ -8,6 +8,7 @@ import type {
   MemberEditStatusFilter,
   MemberListItemDto,
   MemberProfileEditDto,
+  MyMemberProfileDto,
 } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
 import type {
@@ -181,6 +182,28 @@ export async function getMemberServer(slug: string): Promise<MemberDto | null> {
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(body?.message ?? 'Failed to load member profile.', res.status);
+  }
+
+  return res.json();
+}
+
+// The signed-in member's own profile handle, or null when there's no session / no member profile.
+export async function getMyMemberProfileServer(): Promise<MyMemberProfileDto | null> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const res = await fetch(`${getApiBaseUrlServer()}/v1/members/me/profile`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  });
+
+  if (res.status === 404 || res.status === 403) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.message ?? 'Failed to load your profile.', res.status);
   }
 
   return res.json();

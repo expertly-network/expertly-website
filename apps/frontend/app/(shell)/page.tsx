@@ -134,7 +134,7 @@ export default async function HomePage() {
 
   return (
     <div>
-      <StellarOrbitHero avatarUrls={heroAvatarUrls} showApply={showApply} />
+      <StellarOrbitHero avatarUrls={heroAvatarUrls} showApply={showApply} showMyProfile={user?.role === 'member'} />
       <AiSearchTeaser />
 
       {/* Featured members — split layout, panel on the left */}

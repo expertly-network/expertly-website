@@ -5,6 +5,7 @@
 
 import { Badge, type BadgeVariant } from '@/components/ui';
 import { ChangedValue } from '@/components/shared/ChangedValue';
+import { FormattedText } from '@/components/shared/FormattedText';
 import type { ApplicationStatus } from '@shared/membership-application';
 
 export const STATUS_LABEL: Record<ApplicationStatus, string> = {
@@ -61,7 +62,11 @@ export function ReviewRow({
           {value}
         </a>
       ) : (
-        <span className={`text-ink ${multiline ? 'whitespace-pre-wrap' : ''}`}>{value || '—'}</span>
+        multiline && value ? (
+          <FormattedText text={value} className="text-ink" />
+        ) : (
+          <span className="text-ink">{value || '—'}</span>
+        )
       )}
     </div>
   );

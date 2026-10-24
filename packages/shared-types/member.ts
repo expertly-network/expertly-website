@@ -429,3 +429,9 @@ export class AdminMemberEditsDetailDto {
    */
   @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } }) fileUrls!: Record<string, string>;
 }
+
+/** GET /v1/members/me/profile — the signed-in member's own profile handle (e.g. "View my profile"). */
+export class MyMemberProfileDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() slug!: string;
+}

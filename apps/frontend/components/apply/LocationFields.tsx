@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ImportedTag } from '@/components/apply/ImportedTag';
@@ -13,8 +14,9 @@ const SUPPORTED_COUNTRIES = COUNTRIES.filter((c) => c !== OTHER);
 
 const optionalTag = <span className="text-xs font-normal text-ink-3">optional</span>;
 
-// Country -> State -> City cascade. Changing a parent clears its children so an unrelated
-// combination (e.g. Texas + London) can never be submitted.
+// Country -> State -> City cascade. Changing a parent clears its children, and an imported child
+// that doesn't belong to its parent is cleared too, so an unrelated combination (e.g. Texas +
+// London) can never be submitted.
 export function LocationFields({
   form,
   update,
@@ -40,6 +42,16 @@ export function LocationFields({
   const cityKnown = cities.includes(form.city);
 
   const countryOptions = failed ? SUPPORTED_COUNTRIES : countries.map((c) => c.name);
+
+  // A LinkedIn-imported state/city that doesn't belong to the selected country (or state) is
+  // cleared rather than kept as an extra option — the backend rejects the mismatch at submit.
+  const staleState = !freeText && Boolean(form.state) && (!hasStates || !stateKnown);
+  const staleCity = !freeText && Boolean(form.city) && cities.length > 0 && !cityKnown;
+  useEffect(() => {
+    if (loading) return;
+    if (staleState) update({ state: '', city: '' });
+    else if (staleCity) update({ city: '' });
+  }, [loading, staleState, staleCity, update]);
 
   return (
     <>
@@ -89,8 +101,6 @@ export function LocationFields({
             <option value="">
               {!form.country ? 'Select a country first' : hasStates ? 'Select state…' : 'No states for this country'}
             </option>
-            {/* A LinkedIn-imported value the dataset doesn't know stays selectable rather than vanishing. */}
-            {form.state && hasStates && !stateKnown && <option value={form.state}>{form.state}</option>}
             {states.map((s) => (
               <option key={s.isoCode} value={s.name}>
                 {s.name}
@@ -123,7 +133,6 @@ export function LocationFields({
                   ? 'Select a state first'
                   : 'Select city…'}
             </option>
-            {form.city && !cityKnown && <option value={form.city}>{form.city}</option>}
             {cities.map((c) => (
               <option key={c} value={c}>
                 {c}
