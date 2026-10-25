@@ -16,13 +16,22 @@ import { AiService } from '../ai/ai.service';
 import { AiDraftGenerationsRepository } from '../ai/ai-draft-generations.repository';
 import {
   ArticlesRepository,
+  type ArticleListRow,
   type ArticleRow,
   type ArticleUpdate,
+  type PublishedArticleFilters,
   type AuthorInfo,
   type ServiceDetail,
 } from './articles.repository';
 
 const EXCERPT_LENGTH = 200;
+const DEFAULT_PAGE_SIZE = 12;
+const MAX_PAGE_SIZE = 50;
+
+export interface ListPublishedQuery extends PublishedArticleFilters {
+  page?: number;
+  pageSize?: number;
+}
 
 type ArticlesReviewMode = 'instant' | 'editorial';
 
@@ -45,8 +54,8 @@ export class ArticlesService {
     return this.reviewMode === 'editorial' ? 'pending_review' : 'published';
   }
 
-  async findOne(id: string, user: AuthenticatedUser): Promise<ArticleDto> {
-    const row = await this.articlesRepository.findByIdOrThrow(id);
+  async findOne(idOrSlug: string, user: AuthenticatedUser): Promise<ArticleDto> {
+    const row = await this.articlesRepository.findByIdOrSlugOrThrow(idOrSlug);
 
     if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
       throw new NotFoundException('Article not found.');
@@ -59,9 +68,25 @@ export class ArticlesService {
     return toDto(row, serviceDetails, authors);
   }
 
-  async listPublished(authorId?: string): Promise<ArticleListItemDto[]> {
-    const rows = await this.articlesRepository.findPublished(authorId);
-    return this.toListDtos(rows);
+  // Paged only when `page` or `pageSize` is given; otherwise every match, as before pagination.
+  async listPublished(query: ListPublishedQuery): Promise<{ items: ArticleListItemDto[]; total: number }> {
+    const { page, pageSize, ...filters } = query;
+    let range: { from: number; to: number } | undefined;
+    if (page !== undefined || pageSize !== undefined) {
+      const size = Math.min(Math.max(pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+      const from = (Math.max(page ?? 1, 1) - 1) * size;
+      range = { from, to: from + size - 1 };
+    }
+    const { rows, total } = await this.articlesRepository.findPublished(filters, range);
+    return { items: await this.toListDtos(rows), total };
+  }
+
+  // Public teaser (no body) of one published article, for signed-out visitors and link previews.
+  async findPublishedPreview(idOrSlug: string): Promise<ArticleListItemDto> {
+    const row = await this.articlesRepository.findPublishedPreview(idOrSlug);
+    if (!row) throw new NotFoundException('Article not found.');
+    const [item] = await this.toListDtos([row]);
+    return item;
   }
 
   async listMine(user: AuthenticatedUser): Promise<ArticleListItemDto[]> {
@@ -70,7 +95,7 @@ export class ArticlesService {
       this.resolveServiceDetails(rows.flatMap((r) => r.service_ids)),
       this.resolveAuthors([user.id]),
     ]);
-    return rows.map((row) => omitBody(toDto(row, serviceDetails, authors)));
+    return rows.map((row) => toListDto(row, serviceDetails, authors));
   }
 
   async create(user: AuthenticatedUser, dto: CreateArticleDto): Promise<ArticleDto> {
@@ -202,12 +227,12 @@ export class ArticlesService {
     await this.articlesRepository.deleteById(id);
   }
 
-  private async toListDtos(rows: ArticleRow[]): Promise<ArticleListItemDto[]> {
+  private async toListDtos(rows: ArticleListRow[]): Promise<ArticleListItemDto[]> {
     const [serviceDetails, authors] = await Promise.all([
       this.resolveServiceDetails(rows.flatMap((r) => r.service_ids)),
       this.resolveAuthors(rows.map((r) => r.author_id)),
     ]);
-    return rows.map((row) => omitBody(toDto(row, serviceDetails, authors)));
+    return rows.map((row) => toListDto(row, serviceDetails, authors));
   }
 
   // Generates an AI summary the first time an article is published. Not awaited — errors are
@@ -295,12 +320,15 @@ function deriveReadTimeMinutes(body: string): number {
   return Math.max(1, Math.round(countArticleWords(body) / 200));
 }
 
-function omitBody(dto: ArticleDto): ArticleListItemDto {
-  const { body: _body, ...rest } = dto;
-  return rest;
+function toDto(row: ArticleRow, serviceDetails: Map<string, ServiceDetail>, authors: Map<string, AuthorInfo>): ArticleDto {
+  return { ...toListDto(row, serviceDetails, authors), body: row.body };
 }
 
-function toDto(row: ArticleRow, serviceDetails: Map<string, ServiceDetail>, authors: Map<string, AuthorInfo>): ArticleDto {
+function toListDto(
+  row: ArticleListRow,
+  serviceDetails: Map<string, ServiceDetail>,
+  authors: Map<string, AuthorInfo>
+): ArticleListItemDto {
   const services: ArticleService[] = row.service_ids
     .filter((id) => serviceDetails.has(id))
     .map((id) => {
@@ -320,7 +348,6 @@ function toDto(row: ArticleRow, serviceDetails: Map<string, ServiceDetail>, auth
     authorFirmName: author?.firmName ?? null,
     status: row.status,
     title: row.title,
-    body: row.body,
     excerpt: row.excerpt,
     aiSummary: row.ai_summary,
     creationMode: row.creation_mode,

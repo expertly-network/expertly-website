@@ -31,8 +31,9 @@ export async function signUpWithEmail(params: {
   email: string;
   password: string;
   city?: string;
+  returnTo?: string;
 }): Promise<EmailAuthResult> {
-  const { firstName, lastName, email, password, city } = params;
+  const { firstName, lastName, email, password, city, returnTo = '/' } = params;
   const supabase = createClient();
 
   try {
@@ -45,7 +46,7 @@ export async function signUpWithEmail(params: {
           last_name: lastName,
           ...(city ? { city } : {}),
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback?intent=user`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?intent=user&returnTo=${encodeURIComponent(returnTo)}`,
       },
     });
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { SignInLink } from '@/components/auth/SignInLink';
 import { UpcomingEvents } from '@/components/home/UpcomingEvents';
 import type { EventDto } from '@shared/event';
 
@@ -238,12 +239,11 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                 industry. Join Expertly, to discover the who, when, where and connect with the
                 right network.
               </p>
-              <Link
-                href="/login"
+              <SignInLink
                 className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-bold tracking-[0.02em] text-ink transition-colors hover:bg-accent-2"
               >
                 Join for free →
-              </Link>
+              </SignInLink>
               <Link
                 href="/events"
                 className="w-fit font-mono text-xs font-medium text-white/35 transition-colors hover:text-white/65"

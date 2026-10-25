@@ -521,12 +521,12 @@
       "name": "Articles",
       "item": [
         {
-          "name": "GET /articles — List published articles",
+          "name": "GET /articles — List published articles (filterable, paginated)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/articles",
+              "raw": "{{baseUrl}}/articles?page=1&pageSize=12",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -535,6 +535,34 @@
               ],
               "query": [
                 {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Optional — 1-based page. Sending page or pageSize pages the result; sending neither returns every match."
+                },
+                {
+                  "key": "pageSize",
+                  "value": "12",
+                  "description": "Optional — default 12, max 50."
+                },
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}",
+                  "description": "Optional, repeatable (UUID) — articles tagged with ANY of these services.",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "India",
+                  "description": "Optional, repeatable — articles tagged with ANY of these countries.",
+                  "disabled": true
+                },
+                {
+                  "key": "excludeId",
+                  "value": "{{articleId}}",
+                  "description": "Optional (UUID) — leave this article out (used by related articles).",
+                  "disabled": true
+                },
+                {
                   "key": "authorId",
                   "value": "{{memberId}}",
                   "description": "Optional — a member's own published articles.",
@@ -542,7 +570,30 @@
                 }
               ]
             },
-            "description": "🌐 Public. Browse grid — published only, no `body`.",
+            "description": "🌐 Public. Browse grid — published only, no `body`. The total match count across all pages is in the `X-Total-Count` response header; the body is a plain array. `400` for a non-UUID authorId/serviceId/excludeId or a non-positive page/pageSize.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /articles/{{articleId}}/preview — Public teaser of a published article",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}",
+                "preview"
+              ]
+            },
+            "description": "🌐 Public. `ArticleListItemDto` (no `body`) of one published article — what a signed-out visitor sees. Accepts the UUID or the slug in place of `{{articleId}}`. `404` if there's no published article with that id/slug.",
             "auth": {
               "type": "noauth"
             }
@@ -596,7 +647,7 @@
           "response": []
         },
         {
-          "name": "GET /articles/{{articleId}} — Get article detail",
+          "name": "GET /articles/{{articleId}} — Get article detail (by UUID or slug)",
           "request": {
             "method": "GET",
             "header": [],
@@ -610,7 +661,7 @@
                 "{{articleId}}"
               ]
             },
-            "description": "🔑 Auth, any role. `404` (not `403`) if it’s a draft the caller can’t see."
+            "description": "🔑 Auth, any role. The path segment is the article's UUID **or** its slug — to look up by slug instead, replace `{{articleId}}` with e.g. `rbi-s-new-nbfc-framework-final-regulations-on-exemption-from-nbfc-registration` (the `slug` field from `GET /articles`). `404` (not `403`) if it’s a draft the caller can’t see."
           },
           "response": []
         },

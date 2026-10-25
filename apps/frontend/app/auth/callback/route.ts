@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { safeReturnTo } from '@/lib/auth/return-to';
 
 // PKCE code-exchange endpoint for the OAuth flow — exchanges the provider's `?code=` for a
 // session and sets the session cookies.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const returnTo = searchParams.get('returnTo') ?? '/';
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const intent = searchParams.get('intent');
 
   // Derived from forwarded headers since the server's own bind address isn't the public host.
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Sends an already-activated member to the home page, everyone else to the application.
+      // Sends an already-activated member back to where they started, everyone else to the application.
       let destination: string;
       if (intent === 'member') {
         const {
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
         const { data: profile } = user
           ? await supabase.from('profiles').select('role').eq('id', user.id).single()
           : { data: null };
-        destination = profile?.role === 'member' ? '/' : '/apply';
+        destination = profile?.role === 'member' ? returnTo : '/apply';
       } else {
         destination = returnTo;
       }

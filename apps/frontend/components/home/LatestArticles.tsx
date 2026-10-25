@@ -34,7 +34,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
 
   return (
     <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr]">
-      <Link href={`/articles/${featured.id}`} className="flex flex-col gap-5">
+      <Link href={`/articles/${featured.slug}`} className="flex flex-col gap-5">
         <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[360px]">
           {featured.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -71,7 +71,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
         {rest.map((a, i) => {
           const designation = formatAuthorDesignation(a.authorHeadline, a.authorFirmName);
           return (
-            <Link key={a.id} href={`/articles/${a.id}`} className="flex gap-4 py-4">
+            <Link key={a.id} href={`/articles/${a.slug}`} className="flex gap-4 py-4">
               <div className="font-mono text-sm text-ink-4">0{i + 2}</div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

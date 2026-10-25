@@ -8,7 +8,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Same service first, backfilled with other published articles, capped at 4.
+// Same service first, backfilled with other published articles, capped at 4. The page passes an
+// already-picked handful (see loadRelated in articles/[slug]/page.tsx), not the full list.
 export function RelatedArticles({
   current,
   articles,
@@ -34,7 +35,7 @@ export function RelatedArticles({
       <ul className="flex flex-col gap-3">
         {related.map((article) => (
           <li key={article.id}>
-            <Link href={`/articles/${article.id}`} className="flex gap-3">
+            <Link href={`/articles/${article.slug}`} className="flex gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={article.coverImageUrl}
@@ -44,7 +45,7 @@ export function RelatedArticles({
               <div className="min-w-0">
                 <p className="line-clamp-2 text-sm font-medium text-ink">{article.title}</p>
                 <p className="mt-1 text-xs text-ink-3">
-                  {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()} ·{' '}
+                  {DATE_FORMAT.format(new Date(article.createdAt))} ·{' '}
                   {article.readTimeMinutes} min
                 </p>
               </div>

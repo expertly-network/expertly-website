@@ -1,4 +1,5 @@
 import { Badge, Button, Card } from '@/components/ui';
+import { SignInButton } from '@/components/auth/SignInLink';
 import type { ArticleListItemDto } from '@shared/article';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
@@ -30,7 +31,7 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
           <h1 className="text-headline text-ink">{article.title}</h1>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 border-b border-line pb-5 text-sm text-ink-3">
-            <span>{DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()}</span>
+            <span>{DATE_FORMAT.format(new Date(article.createdAt))}</span>
             <span className="text-ink-4">·</span>
             <span>{article.readTimeMinutes} min read</span>
             <span className="text-ink-4">·</span>
@@ -48,7 +49,7 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
               available to signed-in users.
             </p>
             <div className="mt-1 flex gap-3">
-              <Button href="/login">Sign In</Button>
+              <SignInButton>Sign In</SignInButton>
               <Button href="/apply" variant="secondary">
                 Apply for membership
               </Button>

@@ -1,7 +1,8 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { isUUID } from 'class-validator';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -27,6 +28,25 @@ import { UnsplashService } from '../ai/unsplash.service';
 import { CategoriesService } from '../categories/categories.service';
 
 const RANDOM_SERVICE_SAMPLE_SIZE = 3;
+
+function toArray(value?: string | string[]): string[] | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value : [value];
+}
+
+// Rejects a non-UUID up front — Postgres would otherwise fail the uuid cast with a 500.
+function assertUuids(name: string, values: (string | undefined)[]): void {
+  if (values.some((v) => v !== undefined && !isUUID(v))) {
+    throw new BadRequestException(`${name} must be a UUID.`);
+  }
+}
+
+function toPositiveInt(name: string, value?: string): number | undefined {
+  if (value === undefined) return undefined;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) throw new BadRequestException(`${name} must be a positive integer.`);
+  return n;
+}
 const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
 
 @Controller('articles')
@@ -38,18 +58,49 @@ export class ArticlesController {
     private readonly categoriesService: CategoriesService
   ) { }
 
-  @Get(':id')
+  // `:idOrSlug` — the article's UUID or its slug (public URLs use the slug).
+  @Get(':idOrSlug')
   findOne(
-    @Param('id') id: string,
+    @Param('idOrSlug') idOrSlug: string,
     @CurrentUser() user: AuthenticatedUser
   ): Promise<ArticleDto> {
-    return this.articlesService.findOne(id, user);
+    return this.articlesService.findOne(idOrSlug, user);
   }
 
   @Public()
   @Get()
-  list(@Query('authorId') authorId?: string): Promise<ArticleListItemDto[]> {
-    return this.articlesService.listPublished(authorId);
+  async list(
+    @Res({ passthrough: true }) reply: FastifyReply,
+    @Query('authorId') authorId?: string,
+    @Query('serviceId') serviceId?: string | string[],
+    @Query('country') country?: string | string[],
+    @Query('excludeId') excludeId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string
+  ): Promise<ArticleListItemDto[]> {
+    const serviceIds = toArray(serviceId);
+    assertUuids('authorId', [authorId]);
+    assertUuids('serviceId', serviceIds ?? []);
+    assertUuids('excludeId', [excludeId]);
+
+    const { items, total } = await this.articlesService.listPublished({
+      authorId,
+      serviceIds,
+      countries: toArray(country),
+      excludeId,
+      page: toPositiveInt('page', page),
+      pageSize: toPositiveInt('pageSize', pageSize),
+    });
+    // Total matches across all pages; the body stays a plain array (no envelope).
+    reply.header('X-Total-Count', String(total));
+    return items;
+  }
+
+  // 🌐 Public teaser of a published article (no body) — what a signed-out visitor sees.
+  @Public()
+  @Get(':idOrSlug/preview')
+  preview(@Param('idOrSlug') idOrSlug: string): Promise<ArticleListItemDto> {
+    return this.articlesService.findPublishedPreview(idOrSlug);
   }
 
   @Get('me')

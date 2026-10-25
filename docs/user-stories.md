@@ -35,7 +35,7 @@ before signing up.
 - [x] `GET /v1/articles` returns only `published` articles to unauthenticated callers
 - [x] `GET /v1/articles/:id` 🔑 requires auth for full body per `docs/rest-api.md` — guest sees list
       + excerpt only, not full body, unless that's since changed in the contract (frontend:
-      `/articles/[id]` fetches the public list and shows a title+excerpt preview for guests,
+      `/articles/[slug]` fetches the public list and shows a title+excerpt preview for guests,
       rather than calling the gated endpoint)
 
 ---

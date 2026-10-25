@@ -256,7 +256,7 @@ export function SearchModal({
         <div className="mb-2">
           <SectionLabel>ARTICLES</SectionLabel>
           {arts.map((a) => (
-            <Link key={a.id} href={`/articles/${a.id}`} className={ROW} {...NEW_TAB}>
+            <Link key={a.id} href={`/articles/${a.slug}`} className={ROW} {...NEW_TAB}>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center"><span className="block min-w-0 truncate font-medium">{a.title}</span><MatchBadge match={a.match} /></span>
                 {a.excerpt && <span className="block truncate text-xs text-ink-3">{a.excerpt}</span>}

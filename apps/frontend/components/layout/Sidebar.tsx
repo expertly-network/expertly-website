@@ -3,6 +3,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui';
 import type { Profile } from '@/lib/auth/types';
 import { SignOutButton } from '@/components/layout/SignOutButton';
+import { SignInButton, SignInLink } from '@/components/auth/SignInLink';
 
 // 'rail' = collapsed icon rail that expands on hover. 'full' = always expanded.
 type SidebarVariant = 'rail' | 'full';
@@ -208,15 +209,14 @@ export function SidebarFooter({
         <Button href="/apply" size="sm" fullWidth>
           Apply Now
         </Button>
-        <Button
-          href="/login"
+        <SignInButton
           variant="ghost"
           size="sm"
           fullWidth
           className="text-white/80 hover:bg-white/10 hover:text-white"
         >
           Sign In
-        </Button>
+        </SignInButton>
       </div>
     );
 
@@ -227,13 +227,12 @@ export function SidebarFooter({
     return (
       <div className="border-t border-white/10 px-2 pb-4 pt-4">
         <div className="flex justify-center group-hover:hidden">
-          <Link
-            href="/login"
+          <SignInLink
             aria-label="Sign in"
             className="flex h-9 w-9 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             {SIGN_IN_SVG}
-          </Link>
+          </SignInLink>
         </div>
         <div className="hidden group-hover:block">{buttons}</div>
       </div>

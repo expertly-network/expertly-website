@@ -8,7 +8,11 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
-  app.enableCors({ methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'] });
+  app.enableCors({
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'],
+    // Pagination total on GET /v1/articles — browsers hide non-safelisted headers otherwise.
+    exposedHeaders: ['X-Total-Count'],
+  });
 
   await app.register(fastifyMultipart, { limits: { fileSize: 15 * 1024 * 1024 } });
 

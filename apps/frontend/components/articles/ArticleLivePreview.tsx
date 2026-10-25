@@ -134,15 +134,15 @@ export function ArticleLivePreview({
           </h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-[18px] border-b border-line pb-[18px]">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-ink-3">
+            <span className="flex items-center gap-1.5 text-caption text-ink-3">
               {CLOCK_ICON}
-              {DATE_FORMAT.format(new Date()).toUpperCase()}
+              {DATE_FORMAT.format(new Date())}
             </span>
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-ink-3">
+            <span className="flex items-center gap-1.5 text-caption text-ink-3">
               {authorName}
             </span>
             {countries.length > 0 && (
-              <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-ink-3">
+              <span className="flex items-center gap-1.5 text-caption text-ink-3">
                 {countries.join(', ')}
               </span>
             )}

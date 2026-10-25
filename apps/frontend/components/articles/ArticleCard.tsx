@@ -16,7 +16,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
 
   return (
     <Link
-      href={`/articles/${article.id}`}
+      href={`/articles/${article.slug}`}
       className="flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -29,7 +29,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
             <span className="truncate text-xs text-ink-3">{article.countries.join(', ')}</span>
           </div>
           <span className="flex-none text-xs text-ink-3">
-            {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()} ·{' '}
+            {DATE_FORMAT.format(new Date(article.createdAt))} ·{' '}
             {article.readTimeMinutes} min
           </span>
         </div>

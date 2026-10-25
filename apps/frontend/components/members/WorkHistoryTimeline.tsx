@@ -1,12 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { FormattedText } from '@/components/shared/FormattedText';
 import { formatWorkPeriod } from '@/lib/members/format';
 import type { MemberWorkExperience } from '@shared/member';
-
-// Descriptions longer than this start collapsed behind "Show more".
-const COLLAPSE_CHARS = 220;
 
 interface CompanyGroup {
   company: string;
@@ -33,13 +30,33 @@ function groupPeriod(roles: MemberWorkExperience[]) {
   return formatWorkPeriod(startYear, endYear, isCurrent);
 }
 
+// Collapsed to 3 lines; "Show more" appears only when the text actually overflows them at the
+// current width (a character count misfires — 250 chars is 2 lines on desktop, 5 on mobile).
 function Description({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
-  const long = text.length > COLLAPSE_CHARS;
+  const [overflows, setOverflows] = useState(false);
+  const clampRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const el = clampRef.current;
+    if (!el) return;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, expanded]);
+
   return (
     <div className="mt-2 text-caption leading-relaxed text-ink-3">
-      {long && !expanded ? <p className="line-clamp-3">{text}</p> : <FormattedText text={text} className="gap-2" />}
-      {long && (
+      {expanded ? (
+        <FormattedText text={text} className="gap-2" />
+      ) : (
+        <p ref={clampRef} className="line-clamp-3 whitespace-pre-line">
+          {text}
+        </p>
+      )}
+      {(expanded || overflows) && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}

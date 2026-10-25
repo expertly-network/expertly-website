@@ -108,7 +108,7 @@ async function loadHomeData() {
         })
       ),
       getCategoriesServer(),
-      getArticlesServer(),
+      getArticlesServer({ pageSize: 5 }),
       getEventsServer(),
     ]);
 
@@ -117,7 +117,7 @@ async function loadHomeData() {
   const categories: CategoryDto[] =
     categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
   const articles: ArticleListItemDto[] =
-    articlesResult.status === 'fulfilled' ? articlesResult.value.slice(0, 5) : [];
+    articlesResult.status === 'fulfilled' ? articlesResult.value.items : [];
   const events: EventDto[] = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
 
   return { members, categories, articles, events };
@@ -240,7 +240,7 @@ export default async function HomePage() {
 
       <Testimonials />
 
-      <DualCta showApply={showApply} />
+      <DualCta />
       <Newsletter />
 
       {/* FAQ */}

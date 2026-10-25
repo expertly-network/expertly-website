@@ -35,9 +35,9 @@ because this is a Tailwind-utility-first codebase — that's "standard practice"
 
 | Token | Hex (default palette) | Use for |
 |---|---|---|
-| `bg` | `#FFFFFF` | Page background |
+| `bg` | `#F7F8F6` | Page background — a soft off-white (changed from pure white in Oct 2026), so white `bg-card` surfaces lift off it |
 | `bg-alt` | `#F2FBF7` | Subtle tinted section/hover background (pale mint) |
-| `bg-card` | `#FFFFFF` | Card/surface background — same as `bg` today but semantically distinct; keep using it on cards even though the value matches, in case it diverges later |
+| `bg-card` | `#FFFFFF` | Card/surface background — pure white, distinct from the off-white `bg`; always use it on cards, never `bg` |
 | `ink` | `#0B0B0C` | Primary text; **primary button background** (not `accent`) |
 | `ink-2` | `#1E1E20` | Secondary-emphasis text, hover states on dark buttons |
 | `ink-3` | `#5C5C61` | Muted text — subtitles, captions, labels, placeholders |

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui';
+import { SignInButton } from '@/components/auth/SignInLink';
 
 // Not personalized with the member's name — there's no public by-id endpoint to source one from.
 export function ProfileAuthWall() {
@@ -9,7 +10,7 @@ export function ProfileAuthWall() {
         Sign in to view the full profile, including experience, services, and contact details.
       </p>
       <div className="mt-2 flex gap-3">
-        <Button href="/login">Sign In</Button>
+        <SignInButton>Sign In</SignInButton>
         <Button href="/apply" variant="secondary">
           Apply for membership
         </Button>

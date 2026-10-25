@@ -340,9 +340,9 @@ Backing `apps/backend/src/articles/`. Schema: `docs/database-erd.md`. Shared typ
 
 Every `ArticleDto`/`ArticleListItemDto` carries a `slug` — generated server-side from `title` on
 `POST` (kebab-case, disambiguated with a `-2`/`-3`/... suffix on collision), never client-writable
-and never regenerated on `PATCH`. Routes below still key on the real `id` (UUID), matching this
-session's article detail route (`/articles/[id]`); `slug` is carried on the DTO for a future
-pretty-URL pass, not wired into routing yet.
+and never regenerated on `PATCH`. `GET /v1/articles/:idOrSlug` accepts either the UUID or the slug
+(added 2026-10-24 — the frontend's detail route is `/articles/[slug]`); the mutating routes
+(`PATCH`/`DELETE`, admin review) still key on the UUID only.
 
 `authorPhotoUrl: string | null` — sourced from the author's `member_profiles.photo_path` (a plain
 public URL built from the `application-assets` Storage path at read time — see
@@ -370,12 +370,32 @@ model call. Additive, no version bump.
 
 The browse grid — published articles only, list shape (no `body`).
 
-**Query params:** `authorId` (optional) — added by the Member Directory & Profiles session so a
-member's profile page can list their own published articles via this endpoint rather than an
-embedded/duplicated array (the prototype embeds a copy of the author's articles directly on the
-profile object — not reproduced).
+**Query params** (all optional; `ListArticlesQuery` in `packages/shared-types/article.ts`):
+- `authorId` (UUID) — added by the Member Directory & Profiles session so a member's profile page
+  can list their own published articles via this endpoint rather than an embedded/duplicated array
+  (the prototype embeds a copy of the author's articles directly on the profile object — not
+  reproduced).
+- `serviceId` (UUID, repeatable) / `country` (repeatable) — added 2026-10-24 with pagination. Each
+  matches articles carrying **any** of the given values; the two combine with AND. Replaces the
+  browse grid's old client-side filtering, which only worked while the whole set was loaded.
+- `excludeId` (UUID) — leaves one article out (the "related articles" box excludes the one being
+  read).
+- `page` / `pageSize` (positive integers) — added 2026-10-24. Sending either one pages the result
+  (`page` defaults to 1, `pageSize` to 12, capped at 50); sending **neither** returns every match,
+  which is the pre-pagination behavior, so existing callers are unaffected (additive, no `/v2`).
+  Order is `created_at` desc with `id` as tiebreak, so page boundaries are stable.
 
-**Response `200`:** `ArticleListItemDto[]`, newest first.
+**Response `200`:** `ArticleListItemDto[]`, newest first — always a plain array (no envelope).
+**Header `X-Total-Count`:** the total number of matches across all pages (exposed via CORS
+`Access-Control-Expose-Headers`, so browser callers can read it). **Errors:** `400` a non-UUID
+`authorId`/`serviceId`/`excludeId`, or a `page`/`pageSize` that isn't a positive integer.
+
+### 🌐 `GET /v1/articles/:idOrSlug/preview`
+
+Added 2026-10-24. The public teaser of one **published** article — `ArticleListItemDto` (title,
+excerpt, cover, author, services…, no `body`), by UUID or slug. Backs the signed-out article page,
+which used to fetch the whole list just to find one entry. **Errors:** `404` no published article
+with that id/slug (drafts, pending and rejected articles are indistinguishable from missing).
 
 ### 🔒 `GET /v1/articles/me`
 
@@ -385,9 +405,11 @@ same convention rather than inventing a second word for "the caller's own resour
 
 **Response `200`:** `ArticleListItemDto[]`, newest first.
 
-### 🔑 `GET /v1/articles/:id`
+### 🔑 `GET /v1/articles/:idOrSlug`
 
-Full article detail, including `body`. Requires being signed in (any role) — **a deliberate product
+Full article detail, including `body`. The path segment is either the article's UUID or its
+`slug` (e.g. `/v1/articles/rbi-s-new-nbfc-framework`) — a UUID-shaped value is looked up by `id`,
+anything else by `slug`. Additive (UUID lookups behave exactly as before), so no `/v2`. Requires being signed in (any role) — **a deliberate product
 decision, not something the static prototype itself enforces**; see
 `docs/database-erd.md`'s "Design decisions" note for the full reasoning.
 

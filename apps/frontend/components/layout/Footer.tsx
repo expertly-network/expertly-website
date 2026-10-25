@@ -17,7 +17,7 @@ const LEGAL_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="bg-nav-green px-6 py-16 max-[600px]:pb-14 max-[600px]:pt-10" aria-label="Site footer">
+    <footer className="bg-ink px-6 py-16 max-[600px]:pb-14 max-[600px]:pt-10" aria-label="Site footer">
       <div className="mx-auto flex max-w-[720px] flex-col items-center gap-7 text-center">
         <div className="inline-flex items-baseline text-[56px] font-semibold leading-none tracking-[-0.03em] text-white max-[600px]:text-[40px]">
           Expertly

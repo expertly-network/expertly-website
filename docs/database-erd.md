@@ -200,7 +200,7 @@ also flip `status` back to `draft` (self-service unpublish) via `PATCH` regardle
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
-| `slug` | text NOT NULL, unique | **always server-generated** from `title` on `POST` (kebab-case, `-2`/`-3`/... suffix on collision) — never client-writable, never regenerated on `PATCH`. On `ArticleDto` but not yet wired into routing (article detail route is still `/articles/[id]`) |
+| `slug` | text NOT NULL, unique | **always server-generated** from `title` on `POST` (kebab-case, `-2`/`-3`/... suffix on collision) — never client-writable, never regenerated on `PATCH`, so it's a permanent URL key — the frontend detail route is `/articles/[slug]`, backed by `GET /v1/articles/:idOrSlug` |
 | `author_id` | uuid FK → `profiles.id` | |
 | `status` | enum `draft`\|`pending_review`\|`published`\|`rejected` | default `draft`; which of `published`/`pending_review` a submission resolves to is decided server-side by `ARTICLES_REVIEW_MODE`, never client-chosen directly (see "Flow" above) |
 | `title` | text | |
@@ -320,9 +320,6 @@ feature, not derived from (and in one case directly contradicting) what the stat
   real per-article data.
 - View/like/comment counters — anonymous, `localStorage`-based in the prototype, unrelated to any
   account; a plausible separate future feature, not part of this CRUD-with-ownership contract.
-- Slug-based routing (`/articles/[slug]` instead of `/articles/[id]`) — `slug` exists on the row
-  and DTO (server-generated, unique) but the frontend detail route still keys on `id`; wiring
-  slug-based lookup into `GET /v1/articles/:id` is a small, self-contained follow-up, not done now.
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
 

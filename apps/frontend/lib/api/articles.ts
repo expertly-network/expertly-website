@@ -1,4 +1,5 @@
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, apiFetchPage } from '@/lib/api/client';
+import { ARTICLES_TOTAL_COUNT_HEADER, buildArticlesQueryString } from '@/lib/api/articles-query';
 import type {
   AdminArticleReviewRequest,
   AiDraftArticleRequest,
@@ -9,18 +10,21 @@ import type {
   ArticleListItemDto,
   CoverImageSuggestionsResponse,
   CreateArticleRequest,
+  ListArticlesQuery,
   RefineArticleDraftRequest,
   SuggestTopicsRequest,
   SuggestTopicsResponse,
   UpdateArticleRequest,
 } from '@shared/article';
 
-// Returns published articles, optionally filtered by author.
-export function getArticles(params: { authorId?: string } = {}): Promise<ArticleListItemDto[]> {
-  const search = new URLSearchParams();
-  if (params.authorId) search.set('authorId', params.authorId);
-  const qs = search.toString();
-  return apiFetch<ArticleListItemDto[]>(`/articles${qs ? `?${qs}` : ''}`);
+// Published articles matching `query`, plus the total match count across all pages.
+export function getArticles(
+  query: ListArticlesQuery = {}
+): Promise<{ items: ArticleListItemDto[]; total: number }> {
+  return apiFetchPage<ArticleListItemDto>(
+    `/articles${buildArticlesQueryString(query)}`,
+    ARTICLES_TOTAL_COUNT_HEADER
+  );
 }
 
 // Generates an AI draft; multipart so source files can ride along as sibling file parts.

@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getArticleServer, getArticlesServer, getMemberServer } from '@/lib/api/server';
+import { getArticlePreviewServer, getArticleServer, getArticlesServer, getMemberServer } from '@/lib/api/server';
 import { ArticlePreview } from '@/components/articles/ArticlePreview';
 import { ArticleAuthorSidebar } from '@/components/articles/ArticleAuthorSidebar';
 import { ArticleShareBar } from '@/components/articles/ArticleShareBar';
@@ -10,7 +10,7 @@ import { RelatedArticles } from '@/components/articles/RelatedArticles';
 import { ArticleNewsletterCard } from '@/components/articles/ArticleNewsletterCard';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Badge, Button } from '@/components/ui';
-import type { ArticleDto } from '@shared/article';
+import type { ArticleDto, ArticleListItemDto } from '@shared/article';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -41,15 +41,32 @@ const META_ICON_PROPS = {
   className: 'flex-none text-ink-4',
 };
 
+const RELATED_COUNT = 4;
+
+// Same-service articles first, backfilled with the latest others — two small cached queries
+// instead of loading every article to pick 4.
+async function loadRelated(article: ArticleDto): Promise<ArticleListItemDto[]> {
+  const serviceIds = article.services.map((s) => s.id);
+  const [sameService, latest] = await Promise.all([
+    serviceIds.length > 0
+      ? getArticlesServer({ serviceId: serviceIds, excludeId: article.id, pageSize: RELATED_COUNT })
+      : Promise.resolve({ items: [], total: 0 }),
+    getArticlesServer({ excludeId: article.id, pageSize: RELATED_COUNT }),
+  ]);
+  const seen = new Set<string>();
+  return [...sameService.items, ...latest.items]
+    .filter((a) => !seen.has(a.id) && seen.add(a.id))
+    .slice(0, RELATED_COUNT);
+}
+
 // Only published articles get real Open Graph data; a signed-in reader's draft/pending article
-// still gets its own tab title. Runs before the page streams, so an unknown id is a real 404.
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const publicArticles = await getArticlesServer();
-  const article = publicArticles.find((a) => a.id === params.id);
+// still gets its own tab title. Runs before the page streams, so an unknown slug is a real 404.
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const article = await getArticlePreviewServer(params.slug);
   if (!article) {
     const sessionUser = await getSessionUser();
     if (!sessionUser) notFound();
-    const own = await getArticleServer(params.id);
+    const own = await getArticleServer(params.slug);
     if (!own) notFound();
     return { title: `${own.title} — Expertly`, robots: { index: false } };
   }
@@ -61,7 +78,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       type: 'article',
       title: article.title,
       description: article.excerpt,
-      url: `/articles/${article.id}`,
+      url: `/articles/${article.slug}`,
       images: [{ url: article.coverImageUrl }],
     },
     twitter: {
@@ -73,26 +90,28 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default async function ArticleDetailPage({ params }: { params: { id: string } }) {
+export default async function ArticleDetailPage({ params }: { params: { slug: string } }) {
   const sessionUser = await getSessionUser();
 
-  // A signed-out visitor gets a teaser (title + excerpt), never the full body.
+  // A signed-out visitor gets a teaser (title + excerpt), never the full body. The URL key is the
+  // slug; a legacy UUID URL (old shared links, admin tables) is permanently redirected to it.
   if (!sessionUser) {
-    const publicArticles = await getArticlesServer();
-    const preview = publicArticles.find((a) => a.id === params.id);
+    const preview = await getArticlePreviewServer(params.slug);
     if (!preview) notFound();
+    if (preview.slug !== params.slug) permanentRedirect(`/articles/${preview.slug}`);
     return <ArticlePreview article={preview} />;
   }
 
-  const article = await getArticleServer(params.id);
+  const article = await getArticleServer(params.slug);
   if (!article) {
     notFound();
   }
+  if (article.slug !== params.slug) permanentRedirect(`/articles/${article.slug}`);
 
-  const [author, allArticles] = await Promise.all([
+  const [author, relatedArticles] = await Promise.all([
     // Authors without a member profile (no slug) get no author sidebar.
     article.authorSlug ? getMemberServer(article.authorSlug) : Promise.resolve(null),
-    getArticlesServer(),
+    loadRelated(article),
   ]);
 
   const summaryPoints = article.aiSummary?.split('\n').filter(Boolean) ?? [];
@@ -126,23 +145,23 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
 
             <div className="mt-[18px] flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-                <span className="flex items-center gap-1.5 text-mono-label text-ink-3">
+                <span className="flex items-center gap-1.5 text-caption text-ink-3">
                   <svg {...META_ICON_PROPS}>
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <line x1="16" y1="2" x2="16" y2="6" />
                     <line x1="8" y1="2" x2="8" y2="6" />
                     <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
-                  {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()}
+                  {DATE_FORMAT.format(new Date(article.createdAt))}
                 </span>
-                <span className="flex items-center gap-1.5 text-mono-label text-ink-3">
+                <span className="flex items-center gap-1.5 text-caption text-ink-3">
                   <svg {...META_ICON_PROPS}>
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
                   {article.readTimeMinutes} min read
                 </span>
-                <span className="flex items-center gap-1.5 text-mono-label text-ink-3">
+                <span className="flex items-center gap-1.5 text-caption text-ink-3">
                   <svg {...META_ICON_PROPS}>
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
@@ -150,7 +169,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
                   {article.authorName}
                 </span>
                 {article.countries.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-mono-label text-ink-3">
+                  <span className="flex items-center gap-1.5 text-caption text-ink-3">
                     <svg {...META_ICON_PROPS}>
                       <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0118 0z" />
                       <circle cx="12" cy="10" r="3" />
@@ -216,7 +235,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
 
         <div className="flex flex-col gap-5 lg:sticky lg:top-10 lg:self-start">
           {author && <ArticleAuthorSidebar author={author} />}
-          <RelatedArticles current={article} articles={allArticles} />
+          <RelatedArticles current={article} articles={relatedArticles} />
           <ArticleNewsletterCard />
         </div>
       </PageContainer>

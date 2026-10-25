@@ -46,6 +46,7 @@ export function SignUpForm({
       email,
       password,
       city: city.trim() || undefined,
+      returnTo,
     });
 
     if (result.status === 'signed_in') {

@@ -29,6 +29,10 @@ export interface ArticleRow {
   ai_generation_id: string | null;
 }
 
+// List queries never need `body` (the bulk of each row, ~8KB per article) — leaving it out of the
+// SELECT halves the transfer and the latency of the public list.
+export type ArticleListRow = Omit<ArticleRow, 'body'>;
+
 // The few article fields the admin AI-generations log shows next to a generation it produced.
 export interface LinkedArticleRow {
   id: string;
@@ -58,6 +62,19 @@ const ARTICLE_COLUMNS = [
   'creation_mode',
   'ai_generation_id',
 ] as const;
+
+const LIST_COLUMNS = ARTICLE_COLUMNS.filter((c) => c !== 'body');
+
+// Article slugs are kebab-case titles, so they can never collide with this UUID shape.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface PublishedArticleFilters {
+  authorId?: string;
+  // Each matches an article carrying ANY of the given values (array overlap).
+  serviceIds?: string[];
+  countries?: string[];
+  excludeId?: string;
+}
 
 export interface ServiceDetail {
   name: string;
@@ -132,18 +149,42 @@ export class ArticlesRepository {
     return inserted as unknown as ArticleRow;
   }
 
-  async findPublished(authorId?: string): Promise<ArticleRow[]> {
+  // `range` omitted = every match (the pre-pagination behavior). `total` is the full match count
+  // regardless of `range`, from the same query (`count: 'exact'`), so it costs no extra round trip.
+  async findPublished(
+    filters: PublishedArticleFilters,
+    range?: { from: number; to: number }
+  ): Promise<{ rows: ArticleListRow[]; total: number }> {
     let query = this.articles()
-      .select(ARTICLE_COLUMNS.join(', '))
+      .select(LIST_COLUMNS.join(', '), { count: 'exact' })
       .eq('status', 'published')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      // Tiebreak so page boundaries are stable when two articles share a timestamp.
+      .order('id', { ascending: true });
 
-    if (authorId) query = query.eq('author_id', authorId);
+    if (filters.authorId) query = query.eq('author_id', filters.authorId);
+    if (filters.serviceIds?.length) query = query.overlaps('service_ids', filters.serviceIds);
+    if (filters.countries?.length) query = query.overlaps('countries', filters.countries);
+    if (filters.excludeId) query = query.neq('id', filters.excludeId);
+    if (range) query = query.range(range.from, range.to);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) throw new InternalServerErrorException('Failed to load articles.');
-    return (data ?? []) as unknown as ArticleRow[];
+    const rows = (data ?? []) as unknown as ArticleListRow[];
+    return { rows, total: count ?? rows.length };
+  }
+
+  async findPublishedPreview(idOrSlug: string): Promise<ArticleListRow | null> {
+    const column = UUID_PATTERN.test(idOrSlug) ? 'id' : 'slug';
+    const { data, error } = await this.articles()
+      .select(LIST_COLUMNS.join(', '))
+      .eq(column, idOrSlug)
+      .eq('status', 'published')
+      .maybeSingle();
+
+    if (error) throw new InternalServerErrorException('Failed to load article.');
+    return data as unknown as ArticleListRow | null;
   }
 
   async findByIdOrThrow(id: string): Promise<ArticleRow> {
@@ -157,14 +198,27 @@ export class ArticlesRepository {
     return data as unknown as ArticleRow;
   }
 
-  async findAllByAuthor(authorId: string): Promise<ArticleRow[]> {
+  // Accepts either the UUID or the slug — public article URLs use the slug.
+  async findByIdOrSlugOrThrow(idOrSlug: string): Promise<ArticleRow> {
+    const column = UUID_PATTERN.test(idOrSlug) ? 'id' : 'slug';
     const { data, error } = await this.articles()
       .select(ARTICLE_COLUMNS.join(', '))
+      .eq(column, idOrSlug)
+      .maybeSingle();
+
+    if (error) throw new InternalServerErrorException('Failed to load article.');
+    if (!data) throw new NotFoundException('Article not found.');
+    return data as unknown as ArticleRow;
+  }
+
+  async findAllByAuthor(authorId: string): Promise<ArticleListRow[]> {
+    const { data, error } = await this.articles()
+      .select(LIST_COLUMNS.join(', '))
       .eq('author_id', authorId)
       .order('created_at', { ascending: false });
 
     if (error) throw new InternalServerErrorException('Failed to load your articles.');
-    return (data ?? []) as unknown as ArticleRow[];
+    return (data ?? []) as unknown as ArticleListRow[];
   }
 
   async updateById(id: string, patch: ArticleUpdate): Promise<ArticleRow> {
@@ -189,14 +243,14 @@ export class ArticlesRepository {
     return updated as unknown as ArticleRow;
   }
 
-  async findForReview(status?: ArticleStatus): Promise<ArticleRow[]> {
+  async findForReview(status?: ArticleStatus): Promise<ArticleListRow[]> {
     const { data, error } = await this.articles()
-      .select(ARTICLE_COLUMNS.join(', '))
+      .select(LIST_COLUMNS.join(', '))
       .eq('status', status ?? 'pending_review')
       .order('created_at', { ascending: false });
 
     if (error) throw new InternalServerErrorException('Failed to load articles for review.');
-    return (data ?? []) as unknown as ArticleRow[];
+    return (data ?? []) as unknown as ArticleListRow[];
   }
 
   // Articles saved from any of the given ai_draft_generations rows, for the admin AI-generations log.
