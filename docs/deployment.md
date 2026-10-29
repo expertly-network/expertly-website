@@ -240,11 +240,22 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
      50 fake members / 34 fake events. If non-zero on a real environment, run the teardown blocks at
      the end of `supabase/seed/dev/01_members.sql` and `02_events.sql`.
    - Smoke-test AI search once (it exercises pgvector + the revoked function grants).
-5. **Close the plain-HTTP Coolify panel.** `http://…:8000` (above) still answers; anyone on the
+5. **Supabase Auth settings** (dashboard → Authentication), each one closes a takeover path:
+   - **Confirm email: ON.** With auto-confirm, anyone can sign up with a member's email address
+     (no mail ever reaches the owner); when the real member later signs in with LinkedIn — which
+     returns the same verified email — Supabase links that identity into the attacker's account,
+     and the attacker's password keeps working (account pre-hijacking). The sign-up form already
+     handles the "check your email" path, so no code change is needed.
+   - **Secure password change: ON** (require recent sign-in / reauthentication), so a stolen
+     session can't silently set a new password.
+   - Keep **manual identity linking** enabled only because the application wizard needs
+     `linkIdentity()` (docs/auth.md Part 1b); after enabling Confirm email, test once that
+     LinkedIn-connect still works for an email-confirmed account.
+6. **Close the plain-HTTP Coolify panel.** `http://…:8000` (above) still answers; anyone on the
    network path can capture a dashboard login — and Coolify holds every production secret. Block
    port 8000 in the VPS firewall (ufw / Hostinger firewall) so the panel is only reachable through
    Traefik over TLS.
-6. **Edge rate limit for public routes.** The API rate-limits signed-in users itself; anonymous
+7. **Edge rate limit for public routes.** The API rate-limits signed-in users itself; anonymous
    traffic arrives through the Next.js server and is not counted there (see `docs/rest-api.md`
    "Rate limits"). Add a Traefik `rateLimit` middleware (or Cloudflare rule) on the **frontend**
    domains, keyed by client IP — e.g. `average: 20`, `burst: 60` per second.

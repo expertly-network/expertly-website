@@ -55,7 +55,9 @@ export async function signUpWithEmail(params: {
     }
 
     if (data.session) {
-      // Autoconfirm is on for this project — signed in immediately.
+      // Only when "Confirm email" is OFF in Supabase — it should be ON in every real environment
+      // (docs/deployment.md): an unconfirmed email identity is what lets someone pre-register a
+      // member's address and keep access after the real owner later signs in with LinkedIn.
       return { status: 'signed_in' };
     }
 
