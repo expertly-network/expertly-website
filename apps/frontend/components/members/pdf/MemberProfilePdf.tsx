@@ -435,16 +435,16 @@ export function MemberProfilePdf({
                 />
               )}
               {member.linkedinUrl && (
-                <ContactLine label="LinkedIn" value={displayHost(member.linkedinUrl)} href={member.linkedinUrl} />
+                <ContactLine label="LinkedIn" value={displayHost(member.linkedinUrl)} href={externalHref(member.linkedinUrl) ?? undefined} />
               )}
               {member.website && (
-                <ContactLine label="Website" value={displayHost(member.website)} href={externalHref(member.website)} />
+                <ContactLine label="Website" value={displayHost(member.website)} href={externalHref(member.website) ?? undefined} />
               )}
               {member.firmWebsite && (
                 <ContactLine
                   label={firm ? 'Company' : 'Company site'}
                   value={firm ? `${firm} · ${displayHost(member.firmWebsite)}` : displayHost(member.firmWebsite)}
-                  href={externalHref(member.firmWebsite)}
+                  href={externalHref(member.firmWebsite) ?? undefined}
                 />
               )}
               <ContactLine label="Profile" value={displayHost(profileUrl)} href={profileUrl} />

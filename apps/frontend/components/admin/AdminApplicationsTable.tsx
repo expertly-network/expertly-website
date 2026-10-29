@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
 import { ApplicationStatusBadge, STATUS_LABEL } from '@/components/shared/ApplicationReview';
 import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
+import { ExternalLink } from '@/components/shared/ExternalLink';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
@@ -170,16 +171,9 @@ export function AdminApplicationsTable({
                     </div>
                     <div className="text-xs text-ink-3">{application.contactEmail}</div>
                     <div className="text-xs text-ink-3">{formatPhone(application)}</div>
-                    {application.linkedinUrl && (
-                      <a
-                        href={application.linkedinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-accent underline hover:text-ink"
-                      >
-                        LinkedIn
-                      </a>
-                    )}
+                    <ExternalLink url={application.linkedinUrl} className="text-xs text-accent underline hover:text-ink">
+                      LinkedIn
+                    </ExternalLink>
                   </td>
                   <td className="px-6 py-4 text-sm text-ink-2">
                     <div>{application.country}</div>

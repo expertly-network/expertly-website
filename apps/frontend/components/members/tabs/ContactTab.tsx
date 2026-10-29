@@ -63,20 +63,24 @@ export function ContactTab({
   if (member.contactPhone) {
     items.push({ label: 'Phone', value: member.contactPhone, href: `tel:${member.contactPhone.replace(/\s/g, '')}`, external: false, icon: ICONS.phone });
   }
-  if (member.linkedinUrl) {
-    items.push({ label: 'LinkedIn', value: 'View Profile', href: member.linkedinUrl, external: true, icon: ICONS.linkedin });
+  // Links render only when they're a safe http(s) address (see externalHref).
+  const linkedinHref = externalHref(member.linkedinUrl);
+  if (linkedinHref) {
+    items.push({ label: 'LinkedIn', value: 'View Profile', href: linkedinHref, external: true, icon: ICONS.linkedin });
   }
-  if (member.website) {
-    items.push({ label: 'Website', value: displayHost(member.website), href: externalHref(member.website), external: true, icon: ICONS.website });
+  const websiteHref = externalHref(member.website);
+  if (member.website && websiteHref) {
+    items.push({ label: 'Website', value: displayHost(member.website), href: websiteHref, external: true, icon: ICONS.website });
   }
   // Firm website comes from the member's firm record, not the contact section — so it's shown
   // here read-only, labelled with the firm's name when there is one.
-  if (member.firmWebsite) {
+  const firmHref = externalHref(member.firmWebsite);
+  if (member.firmWebsite && firmHref) {
     const firm = member.firmName && member.firmName !== 'Independent' ? member.firmName : null;
     items.push({
       label: firm ? `Company · ${firm}` : 'Company website',
       value: displayHost(member.firmWebsite),
-      href: externalHref(member.firmWebsite),
+      href: firmHref,
       external: true,
       icon: ICONS.company,
     });

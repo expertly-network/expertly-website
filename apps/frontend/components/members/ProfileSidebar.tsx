@@ -1,5 +1,6 @@
 import { Card, Button } from '@/components/ui';
-import { displayHost, externalHref, formatRateParts } from '@/lib/members/format';
+import { displayHost, formatRateParts } from '@/lib/members/format';
+import { ExternalLink } from '@/components/shared/ExternalLink';
 import { computeCompletionPct } from '@/lib/members/completion';
 import { AvailabilityControl } from '@/components/members/AvailabilityControl';
 import type { MemberDto } from '@shared/member';
@@ -79,10 +80,8 @@ export function ProfileSidebar({
         )}
         {member.firmWebsite && (
           // `.mp-firm-link`
-          <a
-            href={externalHref(member.firmWebsite)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <ExternalLink
+            url={member.firmWebsite}
             className="mt-3 flex w-full items-center gap-1.5 border-t border-line pt-3 text-caption text-ink-2 hover:underline"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="flex-none">
@@ -91,7 +90,7 @@ export function ProfileSidebar({
             </svg>
             <span className="flex-none">Company website</span>
             <span className="min-w-0 truncate text-ink-4">· {displayHost(member.firmWebsite)}</span>
-          </a>
+          </ExternalLink>
         )}
       </Card>
 

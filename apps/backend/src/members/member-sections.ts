@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import type { EngagementVerificationMethod, MemberEditSection } from '@shared/member';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst, type WorkSpan } from '../common/work-history';
+import { isHttpUrl } from '../common/http-url';
 
 export type SectionItem = Record<string, unknown>;
 
@@ -96,13 +97,23 @@ function validateProofAttachments(section: string, value: unknown): void {
         `${section} item proofAttachments entries require type ('file'|'link'), url, and label.`
       );
     }
+    if (attachment.type === 'link' && !isHttpUrl(attachment.url)) {
+      throw badRequest('URL_INVALID', `${section} proof links must be http(s) web addresses.`);
+    }
   }
+}
+
+// Optional URL field on an item or payload: absent/empty is fine, anything else must be http(s).
+function assertOptionalHttpUrl(value: unknown, field: string): void {
+  if (value == null || value === '') return;
+  if (!isHttpUrl(value)) throw badRequest('URL_INVALID', `${field} must be an http(s) web address.`);
 }
 
 function validateEngagement(item: SectionItem): void {
   if (typeof item.clientName !== 'string' || item.clientName.trim().length === 0) {
     throw badRequest('ENGAGEMENT_CLIENT_NAME_REQUIRED', 'Each key engagement requires a clientName.');
   }
+  assertOptionalHttpUrl(item.url, 'engagements url');
   if (item.clientEmail != null && item.clientEmail !== '' && !isEmail(item.clientEmail)) {
     throw badRequest('ENGAGEMENT_CLIENT_EMAIL_INVALID', 'clientEmail must be a valid email address.');
   }
@@ -128,6 +139,13 @@ function validateEngagement(item: SectionItem): void {
   }
 }
 
+function validateKeyClient(item: SectionItem): void {
+  if (typeof item.name !== 'string' || item.name.trim().length === 0) {
+    throw badRequest('KEY_CLIENT_NAME_REQUIRED', 'Each key client requires a name.');
+  }
+  assertOptionalHttpUrl(item.logoUrl, 'key_clients logoUrl');
+}
+
 function validateTestimonial(item: SectionItem): void {
   if (item.clientEmail != null && item.clientEmail !== '' && !isEmail(item.clientEmail)) {
     throw badRequest('TESTIMONIAL_CLIENT_EMAIL_INVALID', 'clientEmail must be a valid email address.');
@@ -150,6 +168,8 @@ function validateContact(payload: unknown): void {
       throw badRequest('CONTACT_EMAIL_INVALID', `${key} must be a valid email address.`);
     }
   }
+  assertOptionalHttpUrl(p.linkedinUrl, 'contact.linkedinUrl');
+  assertOptionalHttpUrl(p.website, 'contact.website');
 }
 
 // Validates a submitted edit payload per section. Proof is never required here — it is optional
@@ -189,11 +209,7 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
     if (items.length > MAX_KEY_CLIENTS) {
       throw badRequest('KEY_CLIENTS_LIMIT_EXCEEDED', `You can list at most ${MAX_KEY_CLIENTS} key clients.`);
     }
-    for (const item of items) {
-      if (typeof item.name !== 'string' || item.name.trim().length === 0) {
-        throw badRequest('KEY_CLIENT_NAME_REQUIRED', 'Each key client requires a name.');
-      }
-    }
+    items.forEach(validateKeyClient);
   }
   if (section === 'work_experiences') {
     for (const item of items) {

@@ -18,6 +18,7 @@ import { previewCoupon } from '@/lib/api/applications';
 import { ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
 import type { CouponPreviewResponse } from '@shared/membership-application';
 import type { CategoryDto } from '@shared/category';
+import { externalHref, externalLink } from '@/lib/members/format';
 
 function formatCents(cents: number): string {
   const dollars = cents / 100;
@@ -246,7 +247,7 @@ export function ReviewSubmitStep({
         </div>
         <ReviewRow label="Phone" value={form.phone ? `${form.phoneCountryCode} ${form.phone}` : '—'} />
         <ReviewRow label="Location" value={[location, regionLabel].filter(Boolean).join(' · ') || '—'} />
-        <ReviewRow label="LinkedIn" value={form.linkedinUrl} href={form.linkedinUrl || undefined} />
+        <ReviewRow label="LinkedIn" value={form.linkedinUrl} href={externalHref(form.linkedinUrl) ?? undefined} />
         <ReviewRow label="Bio" value={form.bio} multiline />
         <SectionHeader title="Background" onEdit={() => onEditStep(3)} />
         <ReviewRow label="Experience" value={`${form.yearsOfExperience} years`} />
@@ -263,7 +264,7 @@ export function ReviewSubmitStep({
               ]
                 .filter(Boolean)
                 .join(' · '),
-              link: w.companyUrl ? { href: w.companyUrl, label: 'Company site' } : undefined,
+              link: externalLink(w.companyUrl, 'Company site'),
             }))}
         />
         <ReviewListRow

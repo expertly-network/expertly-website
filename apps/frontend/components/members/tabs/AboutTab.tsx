@@ -2,7 +2,7 @@ import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/comp
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
 import { KeyClientsRows } from '@/components/members/KeyClientsRows';
 import { FormattedText } from '@/components/shared/FormattedText';
-import { externalHref } from '@/lib/members/format';
+import { ExternalLink } from '@/components/shared/ExternalLink';
 import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
 export function AboutTab({
@@ -79,17 +79,13 @@ export function AboutTab({
                 <span className="min-w-0 flex-1 text-profile-item font-medium text-ink">
                   {[eng.title, eng.organization, eng.year].filter(Boolean).join(' · ')}
                 </span>
-                {eng.url && (
-                  <a
-                    href={externalHref(eng.url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Open link for ${eng.title}`}
-                    className="mt-0.5 flex-none text-profile-meta text-ink-2 hover:underline"
-                  >
-                    ↗
-                  </a>
-                )}
+                <ExternalLink
+                  url={eng.url}
+                  aria-label={`Open link for ${eng.title}`}
+                  className="mt-0.5 flex-none text-profile-meta text-ink-2 hover:underline"
+                >
+                  ↗
+                </ExternalLink>
               </li>
             ))}
           </ul>

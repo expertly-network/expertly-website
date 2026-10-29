@@ -24,6 +24,7 @@ import type {
   ProofAttachment,
   ReviewMemberEditItemRequest,
 } from '@shared/member';
+import { externalHref } from '@/lib/members/format';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
@@ -75,7 +76,8 @@ function ProofLinks({ attachments, fileUrls }: { attachments: ProofAttachment[];
   return (
     <ul className="flex flex-wrap gap-2">
       {attachments.map((a, i) => {
-        const href = a.type === 'file' ? fileUrls[a.url] : a.url;
+        // Links are member-typed; only a safe http(s) address is ever made clickable.
+        const href = a.type === 'file' ? fileUrls[a.url] : externalHref(a.url);
         return (
           <li key={`${a.url}-${i}`}>
             {href ? (

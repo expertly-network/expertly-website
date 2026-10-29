@@ -49,13 +49,39 @@ export function formatWorkPeriod(
   return { range, duration };
 }
 
-// "https://www.m2kadvisors.in/" -> "m2kadvisors.in"
+// A member-supplied link as a safe absolute `href`, or null when it isn't an http(s) address.
 // Stored URLs may lack a scheme ("www.m2kadvisors.com" passes @IsUrl) — as an <a href> that's
-// a relative path, which opened /members/www.m2kadvisors.com (404). Always link absolutely.
-export function externalHref(url: string): string {
-  const trimmed = url.trim();
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
-  return `https://${trimmed.replace(/^\/+/, '')}`;
+// a relative path, which opened /members/www.m2kadvisors.com (404), so those link as https.
+// Anything with another scheme (`javascript:`, `data:` …) is never linked: those values were
+// accepted before the API validated them, and an href is where they'd execute.
+// Mirrors apps/backend/src/common/http-url.ts `toHttpUrl` — change both together.
+export function externalHref(url: string | null | undefined): string | null {
+  const value = url?.trim();
+  if (!value) return null;
+
+  let parsed: URL | null;
+  try {
+    parsed = new URL(value);
+  } catch {
+    parsed = null;
+  }
+  // "www.firm.com:8080/x" parses with protocol "www.firm.com:" — a host, not a scheme.
+  if (!parsed || (!['http:', 'https:'].includes(parsed.protocol) && parsed.protocol.includes('.'))) {
+    try {
+      parsed = new URL(`https://${value.replace(/^\/+/, '')}`);
+    } catch {
+      return null;
+    }
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  if (!parsed.hostname.includes('.') || parsed.username || parsed.password) return null;
+  return parsed.href;
+}
+
+// `{ href, label }` for a list row's optional link, or undefined when there's no safe URL.
+export function externalLink(url: string | null | undefined, label: string): { href: string; label: string } | undefined {
+  const href = externalHref(url);
+  return href ? { href, label } : undefined;
 }
 
 export function displayHost(url: string): string {

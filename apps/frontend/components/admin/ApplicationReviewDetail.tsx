@@ -9,6 +9,7 @@ import { REGIONS } from '@/components/apply/types';
 import { reviewApplication } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 import type { ApplicationDto } from '@shared/membership-application';
+import { externalHref, externalLink } from '@/lib/members/format';
 
 const PRIORITY_LABEL: Record<1 | 2 | 3, string> = { 1: '1st preference', 2: '2nd preference', 3: '3rd preference' };
 
@@ -194,7 +195,7 @@ export function ApplicationReviewDetail({
           <ReviewRow
             label="LinkedIn"
             value={application.linkedinUrl ?? '—'}
-            href={application.linkedinUrl ?? undefined}
+            href={externalHref(application.linkedinUrl) ?? undefined}
             previous={prev ? (prev.linkedinUrl ?? '—') : undefined}
           />
           <ReviewRow label="Bio" value={application.bio ?? '—'} multiline previous={prev ? (prev.bio ?? '—') : undefined} />
@@ -207,7 +208,7 @@ export function ApplicationReviewDetail({
             label="Work history"
             items={application.workExperiences.map((w, idx) => ({
               ...workEntries(application)[idx],
-              link: w.companyUrl ? { href: w.companyUrl, label: 'Company site' } : undefined,
+              link: externalLink(w.companyUrl, 'Company site'),
             }))}
             previousItems={prev ? workEntries(prev) : null}
           />

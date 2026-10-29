@@ -157,7 +157,9 @@ authenticated user's id — never accepts an id param, so there's no cross-user 
 
 ### 🔒 `POST /v1/applications/me/linkedin-import`
 
-Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever profile data the
+**Request:** `{ linkedinUrl }` — must be a LinkedIn profile URL (`linkedin.com/in/<handle>`, scheme
+and country subdomain optional, ≤300 chars; added 2026-10-29), since it's forwarded to a paid
+scraping agent. Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever profile data the
 configured `LinkedInImportProvider` can produce for the given URL and returns it directly; the
 frontend merges the result into its wizard state and saves it through `POST /v1/applications/me`
 like any manually-entered edit, so there's exactly one write path regardless of how the data
@@ -958,6 +960,11 @@ and `verificationMethodOther?` ≤ 300 chars (`ENGAGEMENT_VERIFICATION_METHODS_I
 for the team's random verification. **`clientEmail` on engagements and testimonials is owner/admin-only
 in `GET /v1/members/:slug`** (omitted for every other viewer, like `proofAttachments`) — it's a
 third party's address;
+**URLs** (2026-10-29) — `contact.linkedinUrl`, `contact.website`, `engagements[].url`,
+`key_clients[].logoUrl`, every `proofAttachments[]` entry of type `link`, and the edit-level
+`proofLink` must be http(s) addresses (a scheme-less `www.firm.com` is accepted and read as https);
+`javascript:`/`data:`/other schemes are rejected with `400 URL_INVALID` (`proofLink`: standard
+validation `400`) — these render as links on the public profile and the admin review screen;
 `key_clients` — max 20 items (`KEY_CLIENTS_LIMIT_EXCEEDED`), `name` required (`KEY_CLIENT_NAME_REQUIRED`),
 optional `proofAttachments`; `work_experiences` — `startYear` int, `isCurrent` bool, optional
 `startMonth`/`endMonth` 1-12, no end-before-start (`WORK_HISTORY_END_BEFORE_START`); overlapping
