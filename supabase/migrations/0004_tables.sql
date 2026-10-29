@@ -1127,67 +1127,68 @@ create policy ai_draft_generations_select_own
   using (auth.uid() = author_id);
 
 -- ============================================================================
--- Storage — member-proofs bucket, backing POST /v1/members/:id/uploads (signed-upload-URL flow;
--- see docs/rest-api.md). Private (not public) — proof files/logos are served back through the
--- backend, never a direct public URL. Objects are keyed "<memberId>/<filename>", so the RLS
--- policy below can scope a member to their own folder even though the API is the primary
--- authorization boundary (same defense-in-depth posture as every RLS policy above).
+-- Storage — write posture for every bucket below. Only the backend's service-role client writes
+-- to Storage (it bypasses RLS): either directly (application uploads, AI sources, publishing
+-- photos/logos) or by minting a one-time signed upload URL (member-proofs). Neither needs an
+-- RLS policy, so there are deliberately NO policies on storage.objects for these buckets — an
+-- owner-folder "for all" policy would let any signed-in user write with the public anon key +
+-- their own JWT straight to Storage, skipping the backend's magic-byte MIME check, admin review
+-- of photos, and the immutability of proof files an admin already verified.
+-- Every bucket also pins file_size_limit + allowed_mime_types, so even a valid signed upload URL
+-- can't be used to store something the app would never accept.
 -- ============================================================================
 
-insert into storage.buckets (id, name, public)
-values ('member-proofs', 'member-proofs', false)
-on conflict (id) do nothing;
+-- ============================================================================
+-- Storage — member-proofs bucket, backing POST /v1/members/:id/uploads (signed-upload-URL flow;
+-- see docs/rest-api.md). Private (not public) — proof files/logos are served back through the
+-- backend as short-lived signed URLs, never a direct public URL. Objects are keyed
+-- "<memberId>/<filename>"; the backend only accepts edits referencing the caller's own folder and
+-- re-sniffs every referenced file's magic bytes before an admin sees it.
+-- ============================================================================
 
-create policy member_proofs_owner_rw
-  on storage.objects for all
-  using (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text)
-  with check (bucket_id = 'member-proofs' and (storage.foldername(name))[1] = auth.uid()::text);
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('member-proofs', 'member-proofs', false, 10485760,   -- 10 MB
+        array['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+on conflict (id) do nothing;
 
 -- ============================================================================
 -- Storage — ai-draft-sources bucket, backing POST /v1/articles/ai-draft's source-file
 -- persistence. Private (not public) — raw member-uploaded documents/images may contain
 -- confidential client material, so no permanent public URL. Objects keyed
--- "<authorId>/<generationId>/<n>-<filename>", same owner-folder convention as member-proofs
--- above. Only the backend's service-role client ever writes here (bypasses RLS); this policy is
--- the same defense-in-depth posture as every other bucket in this schema.
--- ============================================================================
-
-insert into storage.buckets (id, name, public)
-values ('ai-draft-sources', 'ai-draft-sources', false)
-on conflict (id) do nothing;
-
-create policy ai_draft_sources_owner_rw
-  on storage.objects for all
-  using (bucket_id = 'ai-draft-sources' and (storage.foldername(name))[1] = auth.uid()::text)
-  with check (bucket_id = 'ai-draft-sources' and (storage.foldername(name))[1] = auth.uid()::text);
-
--- ============================================================================
--- Storage — application-assets bucket, backing POST /v1/applications/me/uploads. Uploads here are
--- proxied through the backend (see ApplicationsService.uploadFile) so magic-byte MIME validation
--- is actually possible before the object is written — a signed-upload-URL flow never puts the
--- file's bytes through the API.
---
--- Public: every file here — an applicant's profile photo and their other documents alike — is
--- resolved to a plain, permanent URL at read time (ApplicationsRepository.getPublicUrl()), never a
--- signed one. member_profiles.photo_path (see below) reuses the exact same path/file once an
--- application is approved — same bucket, nothing to copy or move. Objects are keyed
--- "members/application/<applicantId>/profile-photo.<ext>" or "...document-<n>.<ext>", so index 3
--- (1-indexed: members, application, <applicantId>, ...) is the applicant id.
---
--- Only the backend's service-role client ever writes here, which bypasses RLS entirely — the
--- owner-scoped policy below only matters if a client ever writes directly with its own JWT, which
--- doesn't happen today; it costs nothing to keep as defense-in-depth. Public buckets don't need a
--- select policy at all — the public flag already bypasses read access control entirely.
+-- "<authorId>/<generationId>/<n>-<filename>". Only the backend writes here, after its own
+-- magic-byte check (prepare-source-file.ts), so no allowed_mime_types (plain-text sources have
+-- no fixed type).
 -- ============================================================================
 
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('application-assets', 'application-assets', true, 5242880)   -- 5 MB
+values ('ai-draft-sources', 'ai-draft-sources', false, 15728640)   -- 15 MB
 on conflict (id) do nothing;
 
-create policy application_assets_owner_all
-  on storage.objects for all
-  using (bucket_id = 'application-assets' and (storage.foldername(name))[3] = auth.uid()::text)
-  with check (bucket_id = 'application-assets' and (storage.foldername(name))[3] = auth.uid()::text);
+-- ============================================================================
+-- Storage — application-assets bucket: PUBLIC images only. Holds the applicant photo
+-- ("members/application/<applicantId>/profile-photo", written by POST
+-- /v1/applications/me/uploads after a magic-byte check — member_profiles.photo_path reuses it on
+-- approval) and photos/key-client logos a member publishes later ("members/<memberId>/…", copied
+-- from member-proofs after a magic-byte check). Resolved to plain, permanent public URLs.
+-- Vetting documents are NOT here — see application-documents below.
+-- ============================================================================
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('application-assets', 'application-assets', true, 5242880,   -- 5 MB
+        array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+on conflict (id) do nothing;
+
+-- ============================================================================
+-- Storage — application-documents bucket: PRIVATE vetting documents (CVs, certificates, ID)
+-- attached to a membership application via POST /v1/applications/me/uploads (kind=document).
+-- Objects keyed "<applicantId>/<randomUuid>.<ext>" — unguessable, and only ever served as a
+-- short-lived signed URL to the applicant themselves or an admin with manageApplications.
+-- ============================================================================
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('application-documents', 'application-documents', false, 15728640,   -- 15 MB
+        array['application/pdf', 'image/jpeg', 'image/png'])
+on conflict (id) do nothing;
 
 -- ============================================================================
 -- Storage — legal bucket: the public Terms of Service, Privacy Policy and LinkedIn data-use pages
@@ -1455,8 +1456,8 @@ revoke all on table public.perks, public.learnings, public.collections from anon
 
 -- Storage — resource-assets bucket: perk logos/covers and learning thumbnails. Public: nothing
 -- here is sensitive (thumbnails are our own copies keyed by learning id, never the YouTube id).
-insert into storage.buckets (id, name, public)
-values ('resource-assets', 'resource-assets', true)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('resource-assets', 'resource-assets', true, 5242880)   -- 5 MB; uploaded by admins
 on conflict (id) do nothing;
 
 -- ============================================================================
@@ -1513,6 +1514,10 @@ revoke all on table public.templates from anon, authenticated;
 -- Storage — template-files bucket. PRIVATE: objects are only reachable through signed URLs the
 -- API mints for members/admins (see docs/rest-api.md "Templates"). No storage.objects policy is
 -- granted to anon/authenticated, so the browser key can't list or read it directly.
-insert into storage.buckets (id, name, public)
-values ('template-files', 'template-files', false)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('template-files', 'template-files', false, 15728640,   -- 15 MB (TEMPLATE_MAX_BYTES)
+        array['application/pdf',
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'application/vnd.openxmlformats-officedocument.presentationml.presentation'])
 on conflict (id) do nothing;

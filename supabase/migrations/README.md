@@ -22,6 +22,14 @@ Every schema change gets folded back into these four files instead of accumulati
 scratch. The day this repo ships to production, that stops: from then on every change is a new,
 additive, numbered migration, and these four files are never edited again.
 
+**Patching a database built from an older version of these files.** Because changes are folded
+back into `0001`–`0004` rather than appended, an already-running database doesn't pick them up by
+itself. Each such change that matters for a live project (security, constraints, indexes) also ships
+as an idempotent, dated script in `supabase/patches/` — run it once in the SQL Editor; a fresh
+rebuild never needs it. Current: `2026-10-29_security_hardening.sql` (Storage policies/limits,
+private `application-documents` bucket; then run
+`apps/backend/scripts/migrate-application-documents.mjs` once).
+
 **AI search lives in the same four files** (extensions in `0001`; functions in `0003` — wrapped in
 `set check_function_bodies = off` because the `LANGUAGE sql` ones read tables that `0004`
 creates later; tables, triggers, RLS and grants in `0004`). The `0004` column-level grant on

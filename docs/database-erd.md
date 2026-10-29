@@ -68,7 +68,7 @@ immutable snapshot again, same as the original design. Approving an application
 | `work_experiences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a child table; non-empty required at submit |
 | `educations` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below; non-empty required at submit |
 | `peer_references` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | added 2026-08-31 per client feedback; see below — exactly 2 (not just non-empty) required at submit |
-| `documents` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | array of `{id, filename, path, mimeType, sizeBytes, uploadedAt}` — generic/extensible; only the profile photo has upload UI in this iteration |
+| `documents` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | array of `{id, filename, path, mimeType, sizeBytes, uploadedAt}` — `path` is within the **private** `application-documents` bucket (`<applicantId>/<id>.<ext>`), read back only as a short-lived signed URL; only the profile photo has upload UI in this iteration |
 | `service_preferences` | jsonb, check `jsonb_typeof(...) = 'array'`, default `[]` | see below — not a join table; non-empty required at submit |
 | `rate_min_cents`, `rate_max_cents` | int, nullable, check `max > min` (only enforced once both are non-null) | USD/hr; required at submit |
 | `selected_tier` | enum `budding_entrepreneur`\|`seasoned_professional`, nullable | computed and stamped only at the submit transition — admin can override, but that override applies to the eventual `member_profiles` row, not this record |
@@ -163,16 +163,23 @@ service like "M&A Tax" means the same thing everywhere, so regional filtering be
 - **`country` is free text**, matching the design's fixed-but-not-database-backed option list —
   not normalized into its own table for this feature; revisit if a future feature needs to query/
   filter by country as a first-class entity.
-- **`application-assets` Storage bucket** — **public** (unlike `member-proofs`, which stays
-  private/owner-scoped), keyed `members/application/<applicantId>/profile-photo.<ext>` or
-  `document-<n>.<ext>`. Every file here — an applicant's photo and their other documents alike —
-  resolves to a plain, permanent URL at read time, no signing, no expiry. `member_profiles.photo_path`
-  reuses the exact same path once an application is approved (same bucket, same file, nothing to
-  move). Uploads are proxied through the backend (`POST /v1/applications/me/uploads`, unlike
-  `member-proofs`' client-side signed-upload-URL flow) so magic-byte MIME validation is actually
-  possible before the object is written. See `docs/rest-api.md` for the endpoint and root
-  `CLAUDE.md`'s non-negotiable file-upload rule for why this diverges from the `member-proofs`
-  pattern.
+- **`application-assets` Storage bucket** — **public, images only** (`allowed_mime_types`
+  JPEG/PNG/WebP/GIF, 5MB). Holds the applicant photo at
+  `members/application/<applicantId>/profile-photo`, which resolves to a plain, permanent URL at read
+  time; `member_profiles.photo_path` reuses the exact same path once an application is approved (same
+  bucket, same file, nothing to move). Uploads are proxied through the backend
+  (`POST /v1/applications/me/uploads`, unlike `member-proofs`' client-side signed-upload-URL flow) so
+  magic-byte MIME validation is actually possible before the object is written.
+- **`application-documents` Storage bucket** — **private** (added 2026-10-29). Vetting documents
+  (`documents[]` — CVs, certificates, ID) live here at `<applicantId>/<documentId>.<ext>`, an
+  unguessable key, and are only ever returned as 15-minute signed URLs to the applicant and to admins
+  with `manageApplications`. They used to sit in the public bucket at `document-<n>.<ext>`, which made
+  them downloadable by anyone who knew a member's id (public via `GET /v1/members`);
+  `apps/backend/scripts/migrate-application-documents.mjs` moves any such legacy objects.
+- **No `storage.objects` policies on any bucket** (2026-10-29). Only the service-role backend writes
+  to Storage — directly, or by minting a one-time signed upload URL (`member-proofs`), neither of
+  which needs a policy. The earlier owner-folder `for all` policies let any signed-in user write
+  straight to Storage with the public anon key, skipping magic-byte checks and photo review.
 - Migration verified end-to-end against a real (throwaway, local) Postgres instance before being
   considered final — three separate passes as the schema was revised (child tables → JSONB, then
   service preferences relational → JSONB): migrations apply cleanly in sequence each time, the
@@ -366,8 +373,8 @@ is the actual write path. Admins read it through `GET /v1/admin/ai-generations[/
 `/admin/ai-generations`, which shows every input next to the AI's output and the article it was
 saved as (via `articles.ai_generation_id`). Extra index `ai_draft_generations_created_at_idx`
 backs that newest-first list. A second private bucket,
-`ai-draft-sources`, backs `source_file_paths` above — same owner-scoped-RLS-as-defense-in-depth
-posture as `member-proofs`.
+`ai-draft-sources`, backs `source_file_paths` above — written only by the backend, no
+`storage.objects` policy (see the Storage note under Membership applications).
 
 ## Events (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 

@@ -39,10 +39,7 @@ export function ChangePhotoButton({ memberId }: { memberId: string }) {
     setSaving(true);
     setError(null);
     try {
-      const { uploadUrl, path } = await requestMemberUpload(memberId, {
-        fileName: cropped.name,
-        contentType: cropped.type,
-      });
+      const { uploadUrl, path } = await requestMemberUpload(memberId, cropped);
       await uploadToSignedUrl(uploadUrl, cropped);
       await updateMember(memberId, { photoUploadPath: path });
       router.refresh();

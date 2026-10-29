@@ -23,7 +23,7 @@ import type {
   UploadResponse,
 } from '@shared/member';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
-import { CreateUploadDto } from './dto/create-upload.dto';
+import { CreateUploadDto, MEMBER_UPLOAD_CONTENT_TYPES } from './dto/create-upload.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -89,6 +89,9 @@ const PHOTO_MIME_TO_EXT: Record<string, string> = {
   'image/webp': 'webp',
 };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+// Proof documents/images attached to a profile edit (matches the member-proofs bucket limit).
+const MAX_PROOF_BYTES = 10 * 1024 * 1024;
 
 type EditPayloadItem = SectionItem;
 
@@ -215,6 +218,7 @@ export class MembersService {
     this.assertOwner(memberId, user);
     const payload = validateAndPrepareEditPayload(dto.section, dto.payload);
     this.assertOwnedFilePaths(memberId, dto.section, payload, dto.proofFileUrl);
+    await this.assertProofFileTypes(dto.section, payload, dto.proofFileUrl);
 
     const inserted = await this.membersRepository.insertEdit({
       member_id: memberId,
@@ -599,6 +603,32 @@ export class MembersService {
       proof_file_url: proofFileUrl ?? null,
     } as MemberProfileEditRow);
     for (const path of paths) this.assertOwnedPath(memberId, path);
+  }
+
+  // Signed uploads go straight from the browser to Storage, so the declared Content-Type is the
+  // client's word. Before an edit can reference a file (and an admin is handed a link to it),
+  // sniff its real type from magic bytes — CLAUDE.md: never trust the declared MIME type.
+  private async assertProofFileTypes(section: string, payload: unknown, proofFileUrl?: string): Promise<void> {
+    const paths = [
+      ...new Set(
+        this.proofPathsOf({ section, payload, proof_file_url: proofFileUrl ?? null } as MemberProfileEditRow)
+      ),
+    ];
+    await Promise.all(
+      paths.map(async (path) => {
+        const buffer = await this.membersRepository.downloadProofFile(path);
+        const sniffed = await sniffFileType(buffer);
+        if (!sniffed || !(MEMBER_UPLOAD_CONTENT_TYPES as readonly string[]).includes(sniffed.mime)) {
+          throw new BadRequestException({
+            code: 'UPLOAD_INVALID_TYPE',
+            message: 'Attached files must be a PDF or a JPEG, PNG, WebP or GIF image.',
+          });
+        }
+        if (buffer.length > MAX_PROOF_BYTES) {
+          throw new BadRequestException({ code: 'UPLOAD_TOO_LARGE', message: 'Attached files must be under 10MB.' });
+        }
+      })
+    );
   }
 
   private assertOwnedPath(memberId: string, path: string): void {

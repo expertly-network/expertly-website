@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
@@ -35,6 +36,8 @@ const ALLOWED_MIME: Record<UploadKind, string[]> = {
   photo: ['image/jpeg', 'image/png'],
   document: ['image/jpeg', 'image/png', 'application/pdf'],
 };
+// How long a signed vetting-document link stays valid.
+const DOCUMENT_URL_TTL_SECONDS = 15 * 60;
 const MAX_BYTES: Record<UploadKind, number> = {
   photo: 5 * 1024 * 1024,
   document: 15 * 1024 * 1024,
@@ -88,6 +91,8 @@ type Row = Record<string, any>;
 
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
+
   constructor(
     private readonly applicationsRepository: ApplicationsRepository,
     private readonly linkedInImportProvider: LinkedInImportProvider
@@ -239,12 +244,17 @@ export class ApplicationsService {
     // upload is `upsert: true`), and baking the sniffed extension in here meant re-uploading in a
     // different format (e.g. jpg -> png) produced a second, orphaned object instead of replacing
     // the first. Content-Type is already carried by the object's metadata, not its key.
+    // Documents are keyed by a random id in a private bucket — never a guessable
+    // `document-<n>` path, and never a public URL (they hold CVs, certificates and ID).
+    const documentId = randomUUID();
     const path =
-      kind === 'photo'
-        ? `members/application/${user.id}/profile-photo`
-        : `members/application/${user.id}/document-${existingDocuments.length + 1}.${sniffed.ext}`;
+      kind === 'photo' ? `members/application/${user.id}/profile-photo` : `${user.id}/${documentId}.${sniffed.ext}`;
 
-    await this.applicationsRepository.uploadFile(path, file.buffer, sniffed.mime);
+    if (kind === 'photo') {
+      await this.applicationsRepository.uploadPhoto(path, file.buffer, sniffed.mime);
+    } else {
+      await this.applicationsRepository.uploadDocument(path, file.buffer, sniffed.mime);
+    }
 
     const patch: Row =
       kind === 'photo'
@@ -253,7 +263,7 @@ export class ApplicationsService {
             documents: [
               ...existingDocuments,
               {
-                id: randomUUID(),
+                id: documentId,
                 filename: file.originalname,
                 path,
                 mimeType: sniffed.mime,
@@ -533,15 +543,31 @@ export class ApplicationsService {
     }
   }
 
-  private resolveDocuments(documents: Row[]): ApplicationDocumentDto[] {
-    return documents.map((doc) => ({
-      id: doc.id,
-      filename: doc.filename,
-      mimeType: doc.mimeType,
-      sizeBytes: doc.sizeBytes,
-      url: this.applicationsRepository.getPublicUrl(doc.path),
-      uploadedAt: doc.uploadedAt,
-    }));
+  // Signed, expiring URLs — documents are only ever returned to the applicant themselves or to an
+  // admin with manageApplications, and the link stops working after DOCUMENT_URL_TTL_SECONDS.
+  private async resolveDocuments(documents: Row[]): Promise<ApplicationDocumentDto[]> {
+    const urls = await this.applicationsRepository.createSignedDocumentUrls(
+      documents.map((doc) => doc.path as string),
+      DOCUMENT_URL_TTL_SECONDS
+    );
+    return documents.flatMap((doc) => {
+      const url = urls[doc.path as string];
+      if (!url) {
+        // The row references an object that's no longer in Storage — nothing viewable to return.
+        this.logger.warn(`Application document ${doc.id} has no stored object at ${doc.path}`);
+        return [];
+      }
+      return [
+        {
+          id: doc.id,
+          filename: doc.filename,
+          mimeType: doc.mimeType,
+          sizeBytes: doc.sizeBytes,
+          url,
+          uploadedAt: doc.uploadedAt,
+        },
+      ];
+    });
   }
 
   private toServicePreferences(
@@ -577,7 +603,7 @@ export class ApplicationsService {
       photoUrl: row.photo_path
         ? `${this.applicationsRepository.getPublicUrl(row.photo_path)}?v=${encodeURIComponent(row.updated_at)}`
         : null,
-      documents: this.resolveDocuments(row.documents ?? []),
+      documents: await this.resolveDocuments(row.documents ?? []),
       firstName: row.first_name,
       lastName: row.last_name,
       contactEmail: row.contact_email,

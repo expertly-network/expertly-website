@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api/client';
+import { ApiError, apiFetch } from '@/lib/api/client';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
 import type {
   CreateMemberEditRequest,
@@ -6,7 +6,7 @@ import type {
   MemberListItemDto,
   MemberProfileEditDto,
   ReviewMemberEditRequest,
-  UploadRequest,
+  MemberUploadContentType,
   UpdateMemberRequest,
   UploadResponse,
 } from '@shared/member';
@@ -54,10 +54,29 @@ export function updateMember(id: string, body: UpdateMemberRequest): Promise<Mem
   });
 }
 
-export function requestMemberUpload(id: string, body: UploadRequest): Promise<UploadResponse> {
+const MEMBER_UPLOAD_CONTENT_TYPES: readonly MemberUploadContentType[] = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
+
+function isMemberUploadContentType(type: string): type is MemberUploadContentType {
+  return (MEMBER_UPLOAD_CONTENT_TYPES as readonly string[]).includes(type);
+}
+
+// Signed upload URL for `file` in the member's private proofs folder. Rejects an unsupported type
+// up front with the same code the API uses, rather than letting the upload fail at Storage.
+export function requestMemberUpload(id: string, file: File): Promise<UploadResponse> {
+  if (!isMemberUploadContentType(file.type)) {
+    return Promise.reject(
+      new ApiError('Files must be a PDF or a JPEG, PNG, WebP or GIF image.', 400, 'UPLOAD_INVALID_TYPE')
+    );
+  }
   return apiFetch<UploadResponse>(`/members/${id}/uploads`, {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ fileName: file.name.slice(-200), contentType: file.type }),
   });
 }
 

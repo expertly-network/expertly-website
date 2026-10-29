@@ -518,7 +518,7 @@
                 "uploads"
               ]
             },
-            "description": "🔒 Auth. `multipart/form-data`. `kind` is `photo` (JPEG/PNG, 5MB max) or `document` (JPEG/PNG/PDF, 15MB max). Only allowed while the caller has a draft application.",
+            "description": "🔒 Auth. `multipart/form-data`. `kind` is `photo` (JPEG/PNG, 5MB max) or `document` (JPEG/PNG/PDF, 15MB max). Only allowed while the caller has a draft application. Photos go to the public application-assets bucket; documents to the private application-documents bucket, returned as 15-minute signed URLs in `documents[].url`.",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -1080,7 +1080,7 @@
                 "uploads"
               ]
             },
-            "description": "🔒 member, owner-only (`:id` must equal caller id). Returns a signed URL — the member uploads directly to it; this endpoint never sees file bytes.",
+            "description": "🔒 member, owner-only (`:id` must equal caller id). Returns a signed URL — the member uploads directly to it; this endpoint never sees file bytes. `contentType` must be one of application/pdf, image/jpeg, image/png, image/webp, image/gif (the bucket also caps uploads at 10MB); `fileName` ≤200 chars. Any file a later edit references is re-sniffed by magic bytes — `400 UPLOAD_INVALID_TYPE` / `UPLOAD_TOO_LARGE`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fileName\": \"proof-of-engagement.pdf\",\n  \"contentType\": \"application/pdf\"\n}",

@@ -4,6 +4,13 @@ import { generateUniqueSlug } from '../common/slugify';
 import type { Database } from '../supabase/database.types';
 import type { ApplicationStatus } from '@shared/membership-application';
 
+// Public: the applicant photo, reused as the member's directory photo once approved.
+const PHOTO_BUCKET = 'application-assets';
+// Private: vetting documents, served only as short-lived signed URLs (applicant + admins).
+const DOCUMENT_BUCKET = 'application-documents';
+// Where documents lived (in the public bucket) before the private bucket existed.
+const LEGACY_DOCUMENT_PREFIX = 'members/application/';
+
 // Every column on membership_applications.
 const APPLICATION_ROW_COLUMNS = [
   'id',
@@ -273,11 +280,41 @@ export class ApplicationsRepository {
     return typeof picture === 'string' ? picture : null;
   }
 
-  async uploadFile(path: string, buffer: Buffer, contentType: string): Promise<void> {
+  // Applicant photo — public application-assets bucket (it becomes the member's directory photo).
+  async uploadPhoto(path: string, buffer: Buffer, contentType: string): Promise<void> {
     const { error } = await this.supabase.db.storage
-      .from('application-assets')
+      .from(PHOTO_BUCKET)
       .upload(path, buffer, { contentType, upsert: true });
     if (error) throw new InternalServerErrorException('Failed to store file.');
+  }
+
+  // Vetting documents (CVs, certificates, ID) — private bucket, never a public URL.
+  async uploadDocument(path: string, buffer: Buffer, contentType: string): Promise<void> {
+    const { error } = await this.supabase.db.storage
+      .from(DOCUMENT_BUCKET)
+      .upload(path, buffer, { contentType, upsert: false });
+    if (error) throw new InternalServerErrorException('Failed to store file.');
+  }
+
+  // Short-lived read URLs for vetting documents, keyed by path. Documents uploaded before the
+  // private bucket existed live under `members/application/…` in the public bucket until
+  // scripts/migrate-application-documents.mjs moves them; those are signed from there.
+  async createSignedDocumentUrls(paths: string[], expiresInSeconds: number): Promise<Record<string, string>> {
+    const urls: Record<string, string> = {};
+    const unique = [...new Set(paths)];
+    const byBucket = new Map<string, string[]>();
+    for (const path of unique) {
+      const bucket = path.startsWith(LEGACY_DOCUMENT_PREFIX) ? PHOTO_BUCKET : DOCUMENT_BUCKET;
+      byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), path]);
+    }
+    for (const [bucket, bucketPaths] of byBucket) {
+      const { data, error } = await this.supabase.db.storage.from(bucket).createSignedUrls(bucketPaths, expiresInSeconds);
+      if (error) throw new InternalServerErrorException('Failed to sign document URLs.');
+      for (const entry of data ?? []) {
+        if (entry.path && entry.signedUrl && !entry.error) urls[entry.path] = entry.signedUrl;
+      }
+    }
+    return urls;
   }
 
   async saveUploadReference(id: string, patch: Record<string, unknown>): Promise<ApplicationRow> {
@@ -292,9 +329,9 @@ export class ApplicationsRepository {
   }
 
   // application-assets is a public bucket — this is a plain, permanent URL, not a signed one.
-  // No network call, no expiry, safe to call on every read.
+  // No network call, no expiry, safe to call on every read. Photos only — never documents.
   getPublicUrl(path: string): string {
-    const { data } = this.supabase.db.storage.from('application-assets').getPublicUrl(path);
+    const { data } = this.supabase.db.storage.from(PHOTO_BUCKET).getPublicUrl(path);
     return data.publicUrl;
   }
 }

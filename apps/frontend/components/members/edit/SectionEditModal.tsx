@@ -302,10 +302,7 @@ export function SectionEditModal({
   async function handleLogoUpload(rowIndex: number, file: File) {
     setError(null);
     try {
-      const { uploadUrl, path } = await requestMemberUpload(member.id, {
-        fileName: file.name,
-        contentType: file.type,
-      });
+      const { uploadUrl, path } = await requestMemberUpload(member.id, file);
       await uploadToSignedUrl(uploadUrl, file);
       updateField(rowIndex, 'logoUploadPath', path);
       updateField(rowIndex, 'logoPreview', URL.createObjectURL(file));
@@ -321,10 +318,7 @@ export function SectionEditModal({
     try {
       const uploaded: ProofAttachment[] = [];
       for (const file of Array.from(files)) {
-        const { uploadUrl, path } = await requestMemberUpload(member.id, {
-          fileName: file.name,
-          contentType: file.type,
-        });
+        const { uploadUrl, path } = await requestMemberUpload(member.id, file);
         await uploadToSignedUrl(uploadUrl, file);
         uploaded.push({ type: 'file', url: path, label: file.name });
       }
@@ -361,10 +355,7 @@ export function SectionEditModal({
     try {
       let proofFileUrl: string | undefined;
       if (proofMode === 'file' && proofFile) {
-        const { uploadUrl, path } = await requestMemberUpload(member.id, {
-          fileName: proofFile.name,
-          contentType: proofFile.type,
-        });
+        const { uploadUrl, path } = await requestMemberUpload(member.id, proofFile);
         await uploadToSignedUrl(uploadUrl, proofFile);
         proofFileUrl = path;
       }
@@ -463,7 +454,7 @@ export function SectionEditModal({
                     <label className="text-xs font-medium text-ink-2">Logo (cropped to a square)</label>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) setPendingCrop({ rowIndex: i, file });
@@ -511,7 +502,7 @@ export function SectionEditModal({
                         <input
                           type="file"
                           multiple
-                          accept="image/*,.pdf"
+                          accept="application/pdf,image/jpeg,image/png,image/webp,image/gif"
                           disabled={uploadingRow === i}
                           onChange={(e) => {
                             if (e.target.files?.length) handleProofFilesSelected(i, e.target.files);
@@ -600,7 +591,7 @@ export function SectionEditModal({
             {proofMode === 'file' ? (
               <input
                 type="file"
-                accept="image/*,.pdf"
+                accept="application/pdf,image/jpeg,image/png,image/webp,image/gif"
                 onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
                 className="mt-3 text-sm"
               />

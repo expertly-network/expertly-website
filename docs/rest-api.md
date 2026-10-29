@@ -140,7 +140,7 @@ wizard step to resume on, pure UX convenience, not validated).
 **Response `200`:** `ApplicationDto` — the full current record (draft or submitted), including
 resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`, a `photoUrl` (a plain,
 permanent public URL built from the Storage path at read time — see the uploads endpoint below),
-`documents[]`, and (added 2026-09-27, also surfaced on the admin detail endpoint above)
+`documents[]` (each `url` a 15-minute signed URL — see the uploads endpoint below), and (added 2026-09-27, also surfaced on the admin detail endpoint above)
 `backgroundCheckConsent`/`termsVersionAgreed`/`privacyVersionAgreed`.
 
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
@@ -223,16 +223,18 @@ through the backend rather than issuing a signed upload URL (unlike
 `POST /v1/members/:id/uploads`) — a signed-URL flow never puts the file's bytes through the API,
 so magic-byte MIME validation (root `CLAUDE.md`'s non-negotiable file-upload rule) would be
 structurally impossible there. Bytes are sniffed with `file-type` against an allow-list
-(`photo`: JPEG/PNG, 5MB max; `document`: JPEG/PNG/PDF, 15MB max) before being written to the
-public `application-assets` Storage bucket at a deterministic path — for `photo`, always
+(`photo`: JPEG/PNG, 5MB max; `document`: JPEG/PNG/PDF, 15MB max) before being written to Storage. A `photo` goes to the public `application-assets` bucket, always at
 `members/application/{applicantId}/profile-photo` (**no extension**, fixed 2026-09-26: the path
 used to bake in the sniffed extension, so re-uploading in a different format, e.g. jpg → png,
 produced a second orphaned object instead of replacing the first; the upload call is `upsert:
-true`, so a stable key is what actually makes re-upload behave like a replace) or, for `document`,
-`document-{n}.<ext>`, appended. Only allowed while the caller has a `draft` application.
+true`, so a stable key is what actually makes re-upload behave like a replace). A `document` goes to
+the **private** `application-documents` bucket at `{applicantId}/{documentId}.<ext>` (changed
+2026-10-29 — documents used to be public at a guessable `document-{n}.<ext>` path). Only allowed
+while the caller has a `draft` application.
 
-**Response `200`:** `ApplicationDto` — the updated record, `photoUrl`/`documents[].url` a plain
-public URL built from the stored path (no signing). **Errors:** `400` no draft to attach to,
+**Response `200`:** `ApplicationDto` — the updated record. `photoUrl` is a plain public URL built
+from the stored path; each `documents[].url` is a signed URL valid for 15 minutes, minted fresh on
+every read (a document whose object is missing from Storage is omitted). **Errors:** `400` no draft to attach to,
 oversized file, or a MIME mismatch (including a renamed file whose magic bytes don't match its
 extension/declared content-type).
 
@@ -924,7 +926,11 @@ Requests a signed upload URL for a proof file or a key-client logo — Supabase 
 (`member-proofs`), member uploads directly to the returned URL, this endpoint never sees file
 bytes. `@Roles('member')`, owner-only (`:id` must equal the caller's id).
 
-**Request:** `{ fileName: string, contentType: string }`. **Response `201`:** `{ uploadUrl: string,
+**Request:** `{ fileName: string (≤200 chars), contentType: 'application/pdf' | 'image/jpeg' |
+'image/png' | 'image/webp' | 'image/gif' }` — the bucket enforces the same type list and a 10MB cap
+on the upload itself, and `POST /v1/members/:id/edits` re-sniffs every referenced file's magic bytes
+(`400 UPLOAD_INVALID_TYPE` / `UPLOAD_TOO_LARGE`), so the declared type is never trusted alone.
+**Response `201`:** `{ uploadUrl: string,
 path: string }` — for the batch-shared-proof sections (`education`, `work_experiences`), `path`
 gets sent back as top-level `proofFileUrl`; for `key_clients`, as that row's `logoUploadPath`; for
 the per-item-proof sections (`engagements`, `testimonials`, `awards`), as the `url` of a `{ type:

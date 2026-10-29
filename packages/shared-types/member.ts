@@ -185,9 +185,14 @@ export class UpdateAdminMemberRequest {
   @ApiPropertyOptional({ nullable: true, enum: ['paid', 'pending', 'overdue'] }) renewalPaymentStatus?: RenewalPaymentStatus | null;
 }
 
+/** Every type POST /v1/members/:id/uploads accepts (mirrors the member-proofs bucket). */
+export type MemberUploadContentType = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+
 export class UploadRequest {
-  @ApiProperty() fileName!: string;
-  @ApiProperty() contentType!: string;
+  @ApiProperty({ maxLength: 200 }) fileName!: string;
+  /** Declared type of the file about to be uploaded; one of MemberUploadContentType. */
+  @ApiProperty({ enum: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'] })
+  contentType!: MemberUploadContentType;
 }
 
 export class UploadResponse {
