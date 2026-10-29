@@ -48,6 +48,13 @@ Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_IN
 `403 MEMBER_DEACTIVATED` (member-only route, the caller's member profile is deactivated);
 `403 ADMIN_NOT_CONFIRMED` (admin route, fresh `profiles` check failed).
 
+## List sizes
+
+Paginated lists cap their page size (`GET /v1/articles` 50, `GET /v1/members` 50, AI search 10).
+Every other list endpoint — admin queues, a user's own lists, resource catalogs, events — returns at
+most **500 rows** (`MAX_LIST_ROWS`, `apps/backend/src/common/list-limits.ts`), newest first where the
+list is a queue or history; the admin AI-generations log keeps its own 200.
+
 ## Rate limits
 
 Every authenticated route is rate-limited **per user** (`RateLimitGuard`,
@@ -427,8 +434,9 @@ The browse grid — published articles only, list shape (no `body`).
 - `excludeId` (UUID) — leaves one article out (the "related articles" box excludes the one being
   read).
 - `page` / `pageSize` (positive integers) — added 2026-10-24. Sending either one pages the result
-  (`page` defaults to 1, `pageSize` to 12, capped at 50); sending **neither** returns every match,
-  which is the pre-pagination behavior, so existing callers are unaffected (additive, no `/v2`).
+  (`page` defaults to 1, `pageSize` to 12, capped at 50); sending **neither** returns the first 50
+  matches (changed 2026-10-29 from "every match" — no list is unbounded; `X-Total-Count` still
+  reports the full total, so a caller can tell when there are more).
   Order is `created_at` desc with `id` as tiebreak, so page boundaries are stable.
 
 **Response `200`:** `ArticleListItemDto[]`, newest first — always a plain array (no envelope).
@@ -922,7 +930,11 @@ city/state/country, and the names of the member's services or their categories),
 `categoryId` (single — broadens to "any service in this category"; combined with `serviceId`, both
 must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
 (`featured`\|`newest`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
-`pageSize=8`, matching the prototype's infinite-scroll page size).
+`pageSize=8`, matching the prototype's infinite-scroll page size; **max 50**). Validated
+(2026-10-29): `q` ≤ 100 chars, `serviceId`/`categoryId` UUIDs, at most 20 `serviceId`/`country`
+values, integer rates, a known `sort` — anything else is `400 VALIDATION_FAILED`. Filtering,
+search, sorting and paging run in one SQL function (`member_directory_ids`), so every page is full
+and the request size never grows with the data.
 
 **Response `200`:** `MemberListItemDto[]` — id, slug (added 2026-09-27; server-generated, unique,
 permanent — the key for `GET /v1/members/:slug` and the frontend's `/members/[slug]` route), name, initials, headline, bio, firmName,
@@ -1265,11 +1277,13 @@ succeed. See `GET /v1/consultations/can-request/:memberId` above for the pre-fli
 both checks.
 
 **Request:** `CreateConsultationRequestRequest`. **Response `201`:** `ConsultationRequestDto`.
-**Errors:** `401` no/invalid token · `400` validation failure (including `message` under 100
-characters, neither `serviceId` nor `customServiceLabel` provided, or a `serviceId` the target
-member doesn't offer), `memberId` isn't a `member`-role profile, that member is
-deactivated/suspended, or `memberId === caller.id` · `409` caller already has a pending request to
-this member (body includes `retryAfter`, the ISO timestamp the cooldown ends) · `429` rate limit
+**Errors:** `401` no/invalid token · `400` validation failure (`VALIDATION_FAILED`, e.g. `message`
+under 100 characters), `CONSULTATION_SERVICE_REQUIRED` (neither `serviceId` nor
+`customServiceLabel`), `CONSULTATION_SERVICE_NOT_OFFERED` (a `serviceId` the target member doesn't
+offer), `CONSULTATION_MEMBER_NOT_FOUND` (`memberId` isn't an active member — one code for missing,
+non-member and deactivated alike), `CONSULTATION_SELF` (`memberId === caller.id`) · `409
+CONSULTATION_PENDING_EXISTS` caller already has a pending request to this member (body includes
+`retryAfter`, the ISO timestamp the cooldown ends) · `429 CONSULTATION_RATE_LIMITED` rate limit
 exceeded (body includes `resetAt`, the ISO timestamp the window next resets).
 
 ### 🔒 `GET /v1/consultations/mine`

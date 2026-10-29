@@ -380,6 +380,93 @@ grant execute on function
 -- without needing EXECUTE.
 revoke execute on function public.search_trg() from public, anon, authenticated;
 
+-- ============================================================================
+-- member_directory_ids — one page of the public member directory (GET /v1/members), filtered,
+-- searched and sorted entirely in SQL. Returns profile ids in display order; the backend then
+-- loads just those rows. Replaces resolving every service/category/name match to a member-id
+-- list in the API and inlining it into the PostgREST URL, which grew with the data until the
+-- request URL was too long to send.
+--   p_q            free text: member_profiles headline/firm/bio/location, the member's name
+--                  (every word must appear in "first last"), or an offered service/its category
+--   p_service_ids  members offering ANY of these; p_category_id: offering any service in that
+--                  category (both given: both must hold — docs/rest-api.md GET /v1/members)
+--   p_sort         newest | tenure | rate_asc | rate_desc | (default) verified first, newest
+-- Service-role only (granted below); LIKE wildcards in p_q are escaped.
+-- ============================================================================
+
+create or replace function public.member_directory_ids(
+  p_q text default null,
+  p_service_ids uuid[] default null,
+  p_category_id uuid default null,
+  p_countries text[] default null,
+  p_rate_min_cents integer default null,
+  p_rate_max_cents integer default null,
+  p_sort text default null,
+  p_limit integer default 8,
+  p_offset integer default 0
+)
+returns table (profile_id uuid)
+language sql
+stable
+set search_path = public
+as $$
+  with term as (
+    select nullif(btrim(p_q), '') as raw,
+           '%' || replace(replace(replace(btrim(coalesce(p_q, '')), '\', '\\'), '%', '\%'), '_', '\_') || '%' as pattern,
+           array_remove(string_to_array(lower(btrim(coalesce(p_q, ''))), ' '), '') as words
+  ),
+  text_services as (
+    select s.id
+      from services s
+      join categories c on c.id = s.category_id, term
+     where term.raw is not null
+       and (s.name ilike term.pattern or c.name ilike term.pattern)
+  )
+  select mp.profile_id
+    from member_profiles mp
+    join profiles p on p.id = mp.profile_id, term
+   where mp.status = 'active'
+     and (coalesce(cardinality(p_countries), 0) = 0 or mp.country = any(p_countries))
+     and (p_rate_min_cents is null or mp.rate_max_cents >= p_rate_min_cents)
+     and (p_rate_max_cents is null or mp.rate_min_cents <= p_rate_max_cents)
+     and (
+       coalesce(cardinality(p_service_ids), 0) = 0
+       or exists (select 1 from member_services ms
+                   where ms.member_id = mp.profile_id and ms.service_id = any(p_service_ids))
+     )
+     and (
+       p_category_id is null
+       or exists (select 1 from member_services ms join services s on s.id = ms.service_id
+                   where ms.member_id = mp.profile_id and s.category_id = p_category_id)
+     )
+     and (
+       term.raw is null
+       or mp.headline ilike term.pattern or mp.firm_name ilike term.pattern or mp.bio ilike term.pattern
+       or mp.city ilike term.pattern or mp.state ilike term.pattern or mp.country ilike term.pattern
+       or not exists (
+         select 1 from unnest(term.words) w
+          where position(w in lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))) = 0
+       )
+       or exists (select 1 from member_services ms
+                   where ms.member_id = mp.profile_id and ms.service_id in (select id from text_services))
+     )
+   order by
+     case when p_sort = 'newest' then mp.membership_started_at end desc nulls last,
+     case when p_sort = 'tenure' then mp.years_of_experience end desc nulls last,
+     case when p_sort = 'rate_asc' then mp.rate_min_cents end asc nulls first,
+     case when p_sort = 'rate_desc' then mp.rate_max_cents end desc nulls last,
+     case when p_sort is null or p_sort not in ('newest', 'tenure', 'rate_asc', 'rate_desc') then mp.is_verified end desc,
+     case when p_sort is null or p_sort not in ('newest', 'tenure', 'rate_asc', 'rate_desc') then mp.created_at end desc,
+     mp.profile_id
+   limit least(greatest(p_limit, 1), 50)
+  offset greatest(p_offset, 0);
+$$;
+
+revoke execute on function public.member_directory_ids(text, uuid[], uuid, text[], integer, integer, text, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.member_directory_ids(text, uuid[], uuid, text[], integer, integer, text, integer, integer)
+  to service_role;
+
 reset check_function_bodies;
 
 -- ============================================================================

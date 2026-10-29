@@ -41,7 +41,7 @@ export function MemberCard({
       >
         {member.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <img loading="lazy" decoding="async"
             src={member.photoUrl}
             alt={member.name}
             className="h-[196px] w-[156px] rounded-xl border border-line object-cover object-top max-[560px]:h-[160px] max-[560px]:w-full"

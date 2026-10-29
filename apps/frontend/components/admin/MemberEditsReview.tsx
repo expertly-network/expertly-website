@@ -153,7 +153,7 @@ function Logo({ view, fileUrls }: { view: ItemView; fileUrls: Record<string, str
   if (!src) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className="h-10 w-10 flex-none rounded-lg border border-line object-cover" />
+    <img loading="lazy" decoding="async" src={src} alt="" className="h-10 w-10 flex-none rounded-lg border border-line object-cover" />
   );
 }
 
@@ -680,7 +680,7 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
           <div className="flex items-center gap-3">
             {member.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={member.photoUrl} alt="" className="h-14 w-14 flex-none rounded-xl object-cover" />
+              <img loading="lazy" decoding="async" src={member.photoUrl} alt="" className="h-14 w-14 flex-none rounded-xl object-cover" />
             ) : (
               <span className="flex h-14 w-14 flex-none items-center justify-center rounded-xl bg-bg-alt text-lg font-semibold text-ink-2">
                 {member.initials}

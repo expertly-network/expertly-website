@@ -88,7 +88,7 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
                     {badge.label.toUpperCase()}
                   </span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={article.coverImageUrl} alt="" className="h-[140px] w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={article.coverImageUrl} alt="" className="h-[140px] w-full object-cover" />
                 </div>
                 <div className="flex flex-1 flex-col p-5">
                   <span className="mb-2 text-xs text-ink-3">

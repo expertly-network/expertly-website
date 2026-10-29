@@ -21,7 +21,7 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
         >
           {m.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={m.photoUrl} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />
+            <img loading="lazy" decoding="async" src={m.photoUrl} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />
           ) : (
             <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-neon text-xs font-semibold text-ink-2">
               {m.initials}

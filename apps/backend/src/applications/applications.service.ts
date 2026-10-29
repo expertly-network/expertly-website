@@ -28,7 +28,12 @@ import { deriveRegion } from './constants/country-region';
 import { findLocationMismatch } from './location-check';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/work-history';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
-import { ApplicationsRepository, type ApplicationRow, type ServiceDetail } from './applications.repository';
+import {
+  ApplicationsRepository,
+  type ApplicationRow,
+  type MemberProfileInsert,
+  type ServiceDetail,
+} from './applications.repository';
 
 type UploadKind = 'photo' | 'document';
 
@@ -36,6 +41,27 @@ const ALLOWED_MIME: Record<UploadKind, string[]> = {
   photo: ['image/jpeg', 'image/png'],
   document: ['image/jpeg', 'image/png', 'application/pdf'],
 };
+const LINKEDIN_PHOTO_TIMEOUT_MS = 10_000;
+
+// Reads a response body, aborting once it exceeds `maxBytes` (the server may not declare a size).
+async function readCapped(response: Response, maxBytes: number): Promise<Buffer> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = response.body?.getReader();
+  if (!reader) return Buffer.alloc(0);
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error('photo too large');
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
 // How long a signed vetting-document link stays valid.
 const DOCUMENT_URL_TTL_SECONDS = 15 * 60;
 const MAX_BYTES: Record<UploadKind, number> = {
@@ -289,9 +315,21 @@ export class ApplicationsService {
 
     // A caller-supplied URL is already pinned to media.licdn.com by the DTO; refusing redirects
     // keeps the fetch from being bounced to another host.
-    const response = await fetch(pictureUrl, sourceUrl ? { redirect: 'error' } : undefined);
-    if (!response.ok) throw new BadGatewayException('Failed to fetch LinkedIn photo.');
-    const buffer = Buffer.from(await response.arrayBuffer());
+    let buffer: Buffer;
+    try {
+      const response = await fetch(pictureUrl, {
+        signal: AbortSignal.timeout(LINKEDIN_PHOTO_TIMEOUT_MS),
+        ...(sourceUrl ? { redirect: 'error' as const } : {}),
+      });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      // Refuse before buffering when the size is declared, and stop reading past the cap when not.
+      const declared = Number(response.headers.get('content-length'));
+      if (declared > MAX_BYTES.photo) throw new Error('photo too large');
+      buffer = await readCapped(response, MAX_BYTES.photo);
+    } catch (error) {
+      this.logger.warn(`LinkedIn photo fetch failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new BadGatewayException({ code: 'LINKEDIN_PHOTO_UNAVAILABLE', message: 'Failed to fetch LinkedIn photo.' });
+    }
 
     return this.uploadFile(user, 'photo', { buffer, size: buffer.length, originalname: 'linkedin-photo' });
   }
@@ -351,12 +389,13 @@ export class ApplicationsService {
     const reviewedAt = new Date().toISOString();
 
     if (dto.status === 'rejected') {
-      await this.applicationsRepository.applyRejection(applicationId, {
+      const claimed = await this.applicationsRepository.claimForDecision(applicationId, {
         status: 'rejected',
         reviewed_by: reviewer.id,
         reviewed_at: reviewedAt,
         rejection_reason: dto.rejectionReason,
       });
+      if (!claimed) throw this.alreadyReviewed();
       return { status: 'rejected' };
     }
 
@@ -364,6 +403,63 @@ export class ApplicationsService {
       `${application.first_name} ${application.last_name}`
     );
 
+    // Claim the application first (a conditional status update), so a concurrent second
+    // approval can't also provision a member; then provision. Supabase gives no multi-statement
+    // transaction over PostgREST, so a failure part-way is rolled back by hand below and the
+    // admin can simply retry.
+    const claimed = await this.applicationsRepository.claimForDecision(applicationId, {
+      status: 'approved',
+      reviewed_by: reviewer.id,
+      reviewed_at: reviewedAt,
+    });
+    if (!claimed) throw this.alreadyReviewed();
+
+    // Role is promoted last, so a failure before it never leaves a 'member' role behind.
+    const approvedPreference = submittedPreferences.find((p) => p.serviceId === dto.approvedServiceId)!;
+    let profileCreated = false;
+    try {
+      await this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(application, dto, slug));
+      profileCreated = true;
+      await this.applicationsRepository.insertMemberServices([
+        {
+          member_id: application.applicant_id,
+          service_id: approvedPreference.serviceId,
+          custom_label: approvedPreference.customLabel ?? null,
+        },
+      ]);
+      await this.applicationsRepository.promoteToMember(application.applicant_id);
+    } catch (error) {
+      await this.rollbackApproval(application, profileCreated);
+      throw error;
+    }
+
+    return { status: 'approved' };
+  }
+
+  private alreadyReviewed(): ConflictException {
+    return new ConflictException({
+      code: 'APPLICATION_ALREADY_REVIEWED',
+      message: 'This application has already been reviewed.',
+    });
+  }
+
+  // Best-effort undo of a half-provisioned approval: puts the application back in the queue and,
+  // only if THIS approval created it, removes the member profile (its services cascade). A profile
+  // that already existed (the insert failed on it) is never touched.
+  private async rollbackApproval(application: ApplicationRow, profileCreated: boolean): Promise<void> {
+    try {
+      if (profileCreated) await this.applicationsRepository.deleteMemberProfile(application.applicant_id);
+      await this.applicationsRepository.revertDecision(application.id, application.status);
+    } catch (error) {
+      this.logger.error(
+        `Rollback of failed approval for application ${application.id} did not complete — fix by hand`,
+        error instanceof Error ? error.stack : String(error)
+      );
+    }
+  }
+
+  // The member_profiles row an approval creates, mapped from the application.
+  private buildMemberProfile(application: ApplicationRow, dto: ReviewApplicationDto, slug: string): MemberProfileInsert {
     // Same shape assertComplete() now requires at submit time — a current (isCurrent) position
     // with a company name and company website. Older applications submitted before those checks
     // existed may still lack one; fall back to the most recent entry rather than leaving
@@ -389,7 +485,7 @@ export class ApplicationsService {
     }[];
     const currentJob = workExperiences.find((w) => w.isCurrent) ?? workExperiences[0];
 
-    await this.applicationsRepository.insertMemberProfile({
+    return {
       profile_id: application.applicant_id,
       slug,
       bio: application.bio,
@@ -444,21 +540,7 @@ export class ApplicationsService {
       application_id: application.id,
       is_verified: true,
       status: 'active',
-    });
-
-    const approvedPreference = submittedPreferences.find((p) => p.serviceId === dto.approvedServiceId)!;
-    await this.applicationsRepository.insertMemberServices([
-      {
-        member_id: application.applicant_id,
-        service_id: approvedPreference.serviceId,
-        custom_label: approvedPreference.customLabel ?? null,
-      },
-    ]);
-
-    await this.applicationsRepository.promoteToMember(application.applicant_id);
-    await this.applicationsRepository.markApproved(applicationId, reviewer.id, reviewedAt);
-
-    return { status: 'approved' };
+    };
   }
 
   private async resolveServiceDetails(servicePreferences: { serviceId: string }[]): Promise<Map<string, ServiceDetail>> {

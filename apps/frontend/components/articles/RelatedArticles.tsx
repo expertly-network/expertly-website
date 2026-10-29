@@ -37,7 +37,7 @@ export function RelatedArticles({
           <li key={article.id}>
             <Link href={`/articles/${article.slug}`} className="flex gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <img loading="lazy" decoding="async"
                 src={article.coverImageUrl}
                 alt=""
                 className="h-14 w-14 flex-none rounded-lg object-cover"

@@ -6,13 +6,13 @@ import { updateSession } from '@/lib/supabase/middleware';
 const PROTECTED_PREFIXES = ['/dashboard', '/apply', '/admin', '/articles/write', '/consultations'];
 
 export async function middleware(request: NextRequest) {
-  const { response, user } = await updateSession(request);
+  const { response, userId } = await updateSession(request);
 
   const isProtected = PROTECTED_PREFIXES.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix)
   );
 
-  if (isProtected && !user) {
+  if (isProtected && !userId) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('returnTo', request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);

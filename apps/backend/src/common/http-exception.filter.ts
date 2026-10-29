@@ -8,8 +8,8 @@ export interface ApiErrorBody {
   code: string;
   /** Human-readable; an array of messages for request-validation failures. */
   message: string | string[];
-  /** Present on 429s. */
-  retryAfterSeconds?: number;
+  /** Endpoint-specific extras, e.g. `retryAfterSeconds` on 429s. */
+  [extra: string]: unknown;
 }
 
 const DEFAULT_CODES: Record<number, string> = {
@@ -73,7 +73,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (typeof response === 'string') {
         return { statusCode: status, code: defaultCode(status), message: response };
       }
-      const r = response as { code?: unknown; message?: unknown; retryAfterSeconds?: unknown };
+      // Extra keys an endpoint documents (e.g. `retryAfter` on a consultation 409) pass through.
+      const r = response as Record<string, unknown>;
       const message =
         typeof r.message === 'string' || Array.isArray(r.message) ? (r.message as string | string[]) : exception.message;
       const code =
@@ -82,12 +83,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : status === HttpStatus.BAD_REQUEST && Array.isArray(r.message)
             ? 'VALIDATION_FAILED'
             : defaultCode(status);
-      return {
-        statusCode: status,
-        code,
-        message,
-        ...(typeof r.retryAfterSeconds === 'number' ? { retryAfterSeconds: r.retryAfterSeconds } : {}),
-      };
+      return { ...r, statusCode: status, code, message };
     }
 
     if (isClientFastifyError(exception)) {

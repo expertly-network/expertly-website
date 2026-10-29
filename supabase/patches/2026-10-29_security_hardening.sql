@@ -84,6 +84,159 @@ create policy member_profiles_select_auth_admin
   to supabase_auth_admin
   using (true);
 
+-- ---- Member directory: filtering/search/sort/paging in SQL (GET /v1/members) --------------
+
+create or replace function public.member_directory_ids(
+  p_q text default null,
+  p_service_ids uuid[] default null,
+  p_category_id uuid default null,
+  p_countries text[] default null,
+  p_rate_min_cents integer default null,
+  p_rate_max_cents integer default null,
+  p_sort text default null,
+  p_limit integer default 8,
+  p_offset integer default 0
+)
+returns table (profile_id uuid)
+language sql
+stable
+set search_path = public
+as $$
+  with term as (
+    select nullif(btrim(p_q), '') as raw,
+           '%' || replace(replace(replace(btrim(coalesce(p_q, '')), '\', '\\'), '%', '\%'), '_', '\_') || '%' as pattern,
+           array_remove(string_to_array(lower(btrim(coalesce(p_q, ''))), ' '), '') as words
+  ),
+  text_services as (
+    select s.id
+      from services s
+      join categories c on c.id = s.category_id, term
+     where term.raw is not null
+       and (s.name ilike term.pattern or c.name ilike term.pattern)
+  )
+  select mp.profile_id
+    from member_profiles mp
+    join profiles p on p.id = mp.profile_id, term
+   where mp.status = 'active'
+     and (coalesce(cardinality(p_countries), 0) = 0 or mp.country = any(p_countries))
+     and (p_rate_min_cents is null or mp.rate_max_cents >= p_rate_min_cents)
+     and (p_rate_max_cents is null or mp.rate_min_cents <= p_rate_max_cents)
+     and (
+       coalesce(cardinality(p_service_ids), 0) = 0
+       or exists (select 1 from member_services ms
+                   where ms.member_id = mp.profile_id and ms.service_id = any(p_service_ids))
+     )
+     and (
+       p_category_id is null
+       or exists (select 1 from member_services ms join services s on s.id = ms.service_id
+                   where ms.member_id = mp.profile_id and s.category_id = p_category_id)
+     )
+     and (
+       term.raw is null
+       or mp.headline ilike term.pattern or mp.firm_name ilike term.pattern or mp.bio ilike term.pattern
+       or mp.city ilike term.pattern or mp.state ilike term.pattern or mp.country ilike term.pattern
+       or not exists (
+         select 1 from unnest(term.words) w
+          where position(w in lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))) = 0
+       )
+       or exists (select 1 from member_services ms
+                   where ms.member_id = mp.profile_id and ms.service_id in (select id from text_services))
+     )
+   order by
+     case when p_sort = 'newest' then mp.membership_started_at end desc nulls last,
+     case when p_sort = 'tenure' then mp.years_of_experience end desc nulls last,
+     case when p_sort = 'rate_asc' then mp.rate_min_cents end asc nulls first,
+     case when p_sort = 'rate_desc' then mp.rate_max_cents end desc nulls last,
+     case when p_sort is null or p_sort not in ('newest', 'tenure', 'rate_asc', 'rate_desc') then mp.is_verified end desc,
+     case when p_sort is null or p_sort not in ('newest', 'tenure', 'rate_asc', 'rate_desc') then mp.created_at end desc,
+     mp.profile_id
+   limit least(greatest(p_limit, 1), 50)
+  offset greatest(p_offset, 0);
+$$;
+
+revoke execute on function public.member_directory_ids(text, uuid[], uuid, text[], integer, integer, text, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.member_directory_ids(text, uuid[], uuid, text[], integer, integer, text, integer, integer)
+  to service_role;
+
+-- ---- Indexes matched to the API's list queries --------------------------------------------
+
+drop index if exists public.membership_applications_applicant_id_idx;
+create index membership_applications_applicant_id_idx on public.membership_applications (applicant_id, created_at desc);
+create index if not exists membership_applications_created_at_idx on public.membership_applications (created_at desc);
+create index if not exists membership_applications_reviewed_by_idx on public.membership_applications (reviewed_by);
+drop index if exists public.articles_author_id_idx;
+create index articles_author_id_idx on public.articles (author_id, created_at desc);
+drop index if exists public.articles_status_idx;
+create index if not exists articles_status_created_idx on public.articles (status, created_at desc, id);
+drop index if exists public.events_status_idx;
+create index if not exists events_status_start_idx on public.events (status, start_date);
+drop index if exists public.consultation_requests_requester_id_idx;
+create index consultation_requests_requester_id_idx on public.consultation_requests (requester_id, created_at desc);
+drop index if exists public.consultation_requests_member_id_idx;
+create index consultation_requests_member_id_idx on public.consultation_requests (member_id, created_at desc);
+create index if not exists consultation_requests_created_at_idx on public.consultation_requests (created_at desc);
+create index if not exists consultation_messages_sender_id_idx on public.consultation_messages (sender_id);
+drop index if exists public.member_profiles_status_idx;
+create index member_profiles_status_idx on public.member_profiles (status, is_verified desc, created_at desc);
+create index if not exists member_profiles_application_id_idx on public.member_profiles (application_id);
+drop index if exists public.member_profile_edits_member_id_idx;
+create index member_profile_edits_member_id_idx on public.member_profile_edits (member_id, submitted_at desc);
+drop index if exists public.member_profile_edits_status_idx;
+create index member_profile_edits_status_idx on public.member_profile_edits (status, submitted_at desc);
+create index if not exists member_profile_edits_reviewed_by_idx on public.member_profile_edits (reviewed_by);
+drop index if exists public.member_recommendations_recipient_id_idx;
+create index member_recommendations_recipient_id_idx on public.member_recommendations (recipient_id, created_at desc);
+create index if not exists search_documents_source_id_idx on public.search_documents (source_id);
+
+-- ---- Integrity -----------------------------------------------------------------------------
+
+-- One open application per applicant — skipped (with a notice) if duplicates already exist;
+-- resolve those by hand, then re-run this file.
+do $$
+begin
+  if exists (
+    select 1 from public.membership_applications
+     where status in ('draft', 'submitted', 'under_review')
+     group by applicant_id having count(*) > 1
+  ) then
+    raise notice 'membership_applications has applicants with several open applications — unique index NOT created';
+  else
+    create unique index if not exists membership_applications_one_open_per_applicant
+      on public.membership_applications (applicant_id)
+      where status in ('draft', 'submitted', 'under_review');
+  end if;
+end $$;
+
+-- Deleting an admin who reviewed something no longer fails on these references.
+alter table public.membership_applications drop constraint if exists membership_applications_reviewed_by_fkey;
+alter table public.membership_applications add constraint membership_applications_reviewed_by_fkey
+  foreign key (reviewed_by) references public.profiles (id) on delete set null;
+alter table public.member_profile_edits drop constraint if exists member_profile_edits_reviewed_by_fkey;
+alter table public.member_profile_edits add constraint member_profile_edits_reviewed_by_fkey
+  foreign key (reviewed_by) references public.profiles (id) on delete set null;
+alter table public.peer_connect_matches drop constraint if exists peer_connect_matches_reschedule_requested_by_fkey;
+alter table public.peer_connect_matches add constraint peer_connect_matches_reschedule_requested_by_fkey
+  foreign key (reschedule_requested_by) references public.profiles (id) on delete set null;
+alter table public.member_profiles drop constraint if exists member_profiles_application_id_fkey;
+alter table public.member_profiles add constraint member_profiles_application_id_fkey
+  foreign key (application_id) references public.membership_applications (id) on delete set null;
+
+-- NOT VALID: enforced for every new/updated row without failing on rows that already exist.
+-- Once existing data is checked, `alter table … validate constraint …` makes them full checks.
+alter table public.profiles drop constraint if exists profiles_admin_role_only_for_admins;
+alter table public.profiles add constraint profiles_admin_role_only_for_admins
+  check (admin_role is null or role = 'admin') not valid;
+alter table public.events drop constraint if exists events_end_after_start;
+alter table public.events add constraint events_end_after_start
+  check (end_date is null or end_date >= start_date) not valid;
+alter table public.consultation_requests drop constraint if exists consultation_requests_not_self;
+alter table public.consultation_requests add constraint consultation_requests_not_self
+  check (requester_id <> member_id) not valid;
+alter table public.peer_connect_matches drop constraint if exists peer_connect_matches_end_after_start;
+alter table public.peer_connect_matches add constraint peer_connect_matches_end_after_start
+  check (scheduled_end_at > scheduled_start_at) not valid;
+
 -- ---- Least privilege for the browser key (anon / authenticated) ---------------------------
 -- The frontend reads only its own profiles row directly; everything else goes through NestJS.
 

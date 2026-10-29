@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
+import { MAX_LIST_ROWS } from '../common/list-limits';
 
 const RECOMMENDATION_COLUMNS = ['id', 'author_id', 'recipient_id', 'body', 'is_hidden', 'created_at'] as const;
 
@@ -68,7 +69,7 @@ export class RecommendationsRepository {
   async findByRecipient(recipientId: string, includeHidden: boolean): Promise<RecommendationRow[]> {
     let query = this.recommendations().select(RECOMMENDATION_COLUMNS.join(', ')).eq('recipient_id', recipientId);
     if (!includeHidden) query = query.eq('is_hidden', false);
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(MAX_LIST_ROWS);
     if (error) throw new InternalServerErrorException('Failed to load recommendations.');
     return (data ?? []) as unknown as RecommendationRow[];
   }

@@ -74,15 +74,15 @@ export class ArticlesService {
     return toDto(row, serviceDetails, authors);
   }
 
-  // Paged only when `page` or `pageSize` is given; otherwise every match, as before pagination.
+  // Always paged: `pageSize` defaults to DEFAULT_PAGE_SIZE when a page is asked for, and to
+  // MAX_PAGE_SIZE when neither is given (callers that want "everything", e.g. an author's tab),
+  // so no request returns an unbounded list.
   async listPublished(query: ListPublishedQuery): Promise<{ items: ArticleListItemDto[]; total: number }> {
     const { page, pageSize, ...filters } = query;
-    let range: { from: number; to: number } | undefined;
-    if (page !== undefined || pageSize !== undefined) {
-      const size = Math.min(Math.max(pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
-      const from = (Math.max(page ?? 1, 1) - 1) * size;
-      range = { from, to: from + size - 1 };
-    }
+    const fallbackSize = page === undefined && pageSize === undefined ? MAX_PAGE_SIZE : DEFAULT_PAGE_SIZE;
+    const size = Math.min(Math.max(pageSize ?? fallbackSize, 1), MAX_PAGE_SIZE);
+    const from = (Math.max(page ?? 1, 1) - 1) * size;
+    const range = { from, to: from + size - 1 };
     const { rows, total } = await this.articlesRepository.findPublished(filters, range);
     return { items: await this.toListDtos(rows), total };
   }

@@ -10,7 +10,7 @@ function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36
   if (article.authorPhotoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <img loading="lazy" decoding="async"
         src={article.authorPhotoUrl}
         alt=""
         className={`${dimension} flex-none rounded-full object-cover`}
@@ -38,7 +38,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
         <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[360px]">
           {featured.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <img loading="lazy" decoding="async"
               src={featured.coverImageUrl}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"

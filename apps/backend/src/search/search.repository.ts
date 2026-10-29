@@ -93,26 +93,22 @@ export class SearchRepository {
   // ---- source records for the card builder (read-only) --------------------------------
 
   async loadMemberSource(profileId: string): Promise<MemberSource | null> {
-    const { data: profile, error } = await this.client()
-      .from('member_profiles')
-      .select(MEMBER_COLUMNS.join(', '))
-      .eq('profile_id', profileId)
-      .maybeSingle();
-    if (error) throw new Error(`member_profiles read failed: ${error.message}`);
-    if (!profile) return null;
-
-    const { data: person, error: pErr } = await this.client()
-      .from('profiles')
-      .select('first_name, last_name, status, deleted_at')
-      .eq('id', profileId)
-      .maybeSingle();
-    if (pErr) throw new Error(`profiles read failed: ${pErr.message}`);
-
-    const { data: links, error: sErr } = await this.client()
-      .from('member_services')
-      .select('service_id, custom_label, services!inner(name, categories!inner(name))')
-      .eq('member_id', profileId);
-    if (sErr) throw new Error(`member_services read failed: ${sErr.message}`);
+    // All three reads key on the profile id — run them together rather than one after another.
+    const [profileRes, personRes, linksRes] = await Promise.all([
+      this.client().from('member_profiles').select(MEMBER_COLUMNS.join(', ')).eq('profile_id', profileId).maybeSingle(),
+      this.client().from('profiles').select('first_name, last_name, status, deleted_at').eq('id', profileId).maybeSingle(),
+      this.client()
+        .from('member_services')
+        .select('service_id, custom_label, services!inner(name, categories!inner(name))')
+        .eq('member_id', profileId),
+    ]);
+    if (profileRes.error) throw new Error(`member_profiles read failed: ${profileRes.error.message}`);
+    if (!profileRes.data) return null;
+    if (personRes.error) throw new Error(`profiles read failed: ${personRes.error.message}`);
+    if (linksRes.error) throw new Error(`member_services read failed: ${linksRes.error.message}`);
+    const profile = profileRes.data;
+    const person = personRes.data;
+    const links = linksRes.data;
 
     const one = <T>(v: T | T[]): T => (Array.isArray(v) ? v[0] : v);
     return {
@@ -140,19 +136,17 @@ export class SearchRepository {
     if (!data) return null;
     const article = data as unknown as ArticleSource['article'] & { author_id: string };
 
-    const { data: author, error: aErr } = await this.client()
-      .from('profiles')
-      .select('first_name, last_name')
-      .eq('id', article.author_id)
-      .maybeSingle();
-    if (aErr) throw new Error(`profiles read failed: ${aErr.message}`);
-
-    let serviceNames: string[] = [];
-    if (article.service_ids.length > 0) {
-      const { data: svcs, error: svcErr } = await this.client().from('services').select('name').in('id', article.service_ids);
-      if (svcErr) throw new Error(`services read failed: ${svcErr.message}`);
-      serviceNames = ((svcs ?? []) as { name: string }[]).map((s) => s.name);
-    }
+    // Author and service names both hang off the article row only — fetch them together.
+    const [authorRes, servicesRes] = await Promise.all([
+      this.client().from('profiles').select('first_name, last_name').eq('id', article.author_id).maybeSingle(),
+      article.service_ids.length > 0
+        ? this.client().from('services').select('name').in('id', article.service_ids)
+        : Promise.resolve({ data: [] as { name: string }[], error: null }),
+    ]);
+    if (authorRes.error) throw new Error(`profiles read failed: ${authorRes.error.message}`);
+    if (servicesRes.error) throw new Error(`services read failed: ${servicesRes.error.message}`);
+    const author = authorRes.data;
+    const serviceNames = ((servicesRes.data ?? []) as { name: string }[]).map((s) => s.name);
     return { article, author: (author as ArticleSource['author']) ?? null, serviceNames };
   }
 

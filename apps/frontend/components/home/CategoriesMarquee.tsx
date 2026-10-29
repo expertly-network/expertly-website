@@ -22,7 +22,7 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
         >
           {c.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <img loading="lazy" decoding="async"
               src={c.imageUrl}
               alt=""
               className="h-16 w-16 flex-none rounded-xl object-cover"

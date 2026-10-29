@@ -25,6 +25,7 @@ import type {
 } from '@shared/member';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto, MEMBER_UPLOAD_CONTENT_TYPES } from './dto/create-upload.dto';
+import { ListMembersQueryDto, MEMBER_LIST_DEFAULT_PAGE_SIZE } from './dto/list-members-query.dto';
 import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -115,45 +116,26 @@ export class MembersService {
     private readonly adminAccess: AdminAccessService
   ) {}
 
-  async list(query: {
-    q?: string;
-    serviceId?: string[];
-    categoryId?: string;
-    country?: string[];
-    rateMinCents?: number;
-    rateMaxCents?: number;
-    sort?: string;
-    page?: number;
-    pageSize?: number;
-  }): Promise<MemberListItemDto[]> {
-    const page = query.page && query.page > 0 ? query.page : 1;
-    const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : 8;
+  // Filtering, text search, sorting and paging all happen in one SQL function
+  // (member_directory_ids), so a page is always full and nothing grows with the data.
+  async list(query: ListMembersQueryDto): Promise<MemberListItemDto[]> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? MEMBER_LIST_DEFAULT_PAGE_SIZE;
 
-    // Every filter is resolved before the paged query — filtering a fetched page afterwards
-    // silently dropped matches that sat on later pages.
-    let restrictToIds: string[] | undefined;
-    if (query.serviceId && query.serviceId.length > 0) {
-      restrictToIds = [...(await this.membersRepository.findMemberIdsByServices(query.serviceId))];
-    } else if (query.categoryId) {
-      restrictToIds = [...(await this.membersRepository.findMemberIdsByCategory(query.categoryId))];
-    }
-    if (restrictToIds && restrictToIds.length === 0) return [];
-
-    const q = query.q?.trim();
-    const qMatchIds = q ? await this.membersRepository.findMemberIdsMatchingText(q) : undefined;
-
-    const rows = await this.membersRepository.findActiveList(
+    const ids = await this.membersRepository.findDirectoryPageIds(
       {
-        country: query.country,
+        q: query.q?.trim() || undefined,
+        serviceIds: query.serviceId,
+        categoryId: query.categoryId,
+        countries: query.country,
         rateMinCents: query.rateMinCents,
         rateMaxCents: query.rateMaxCents,
-        q,
-        qMatchIds,
-        restrictToIds,
         sort: query.sort,
       },
-      { from: (page - 1) * pageSize, to: page * pageSize - 1 }
+      { limit: pageSize, offset: (page - 1) * pageSize }
     );
+    if (ids.length === 0) return [];
+    const rows = await this.membersRepository.findActiveByIdsInOrder(ids);
 
     const [profilesById, servicesByMember] = await Promise.all([
       this.membersRepository.findProfilesByIds(rows.map((r) => r.profile_id)),

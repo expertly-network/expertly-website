@@ -14,6 +14,15 @@ import { ALL_COUNTRIES } from './countries';
 import { AiDraftGenerationsRepository } from './ai-draft-generations.repository';
 import type { PreparedSourceFile } from './prepare-source-file';
 
+// Every LLM call is bounded: a hung provider request would otherwise hold the member's HTTP request
+// open indefinitely, and the SDK's default of 2 retries could triple even a slow one. Calls that let
+// the model use tools (web search/fetch for research) get a longer budget.
+const AI_CALL_TIMEOUT_MS = 60_000;
+const AI_TOOL_CALL_TIMEOUT_MS = 150_000;
+function boundedCall(timeoutMs: number = AI_CALL_TIMEOUT_MS): { abortSignal: AbortSignal; maxRetries: number } {
+  return { abortSignal: AbortSignal.timeout(timeoutMs), maxRetries: 1 };
+}
+
 // Providers supported by AI_PROVIDER.
 type AiProvider = 'openai' | 'anthropic' | 'google';
 const SUPPORTED_PROVIDERS: AiProvider[] = ['openai', 'anthropic', 'google'];
@@ -243,7 +252,13 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, tools, system: FOLLOWUP_SYSTEM_PROMPT, prompt: brief }));
+      ({ text } = await generateText({
+        model,
+        tools,
+        system: FOLLOWUP_SYSTEM_PROMPT,
+        prompt: brief,
+        ...boundedCall(AI_TOOL_CALL_TIMEOUT_MS),
+      }));
     } catch (error) {
       this.logger.error('AI follow-up question generation failed', error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('Could not generate follow-up questions right now — try again.');
@@ -305,7 +320,7 @@ export class AiService {
 
     try {
       const model = this.resolveModel();
-      const { text } = await generateText({ model, system: DRAFT_SYSTEM_PROMPT, prompt });
+      const { text } = await generateText({ model, system: DRAFT_SYSTEM_PROMPT, prompt, ...boundedCall() });
       const corrected = parseDraftResponse(text);
       const correctedCount = countArticleWords(corrected.body);
       if (correctedCount < MIN_ARTICLE_WORDS || correctedCount > MAX_ARTICLE_WORDS) {
@@ -387,6 +402,7 @@ export class AiService {
         model,
         tools,
         system: DRAFT_SYSTEM_PROMPT,
+        ...boundedCall(AI_TOOL_CALL_TIMEOUT_MS),
         prompt: [
           {
             role: 'user',
@@ -515,7 +531,7 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: REFINE_SYSTEM_PROMPT, prompt }));
+      ({ text } = await generateText({ model, system: REFINE_SYSTEM_PROMPT, prompt, ...boundedCall() }));
     } catch (error) {
       this.logger.error('AI article refine failed', error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('AI refine failed — try again or edit the draft manually.');
@@ -531,7 +547,7 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: TOPICS_SYSTEM_PROMPT, prompt }));
+      ({ text } = await generateText({ model, system: TOPICS_SYSTEM_PROMPT, prompt, ...boundedCall() }));
     } catch (error) {
       this.logger.error('AI topic suggestion failed', error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('Could not generate topic ideas right now — try again.');
@@ -548,7 +564,7 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: SUMMARY_SYSTEM_PROMPT, prompt }));
+      ({ text } = await generateText({ model, system: SUMMARY_SYSTEM_PROMPT, prompt, ...boundedCall() }));
     } catch (error) {
       this.logger.error('AI article summary generation failed', error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('AI summary generation failed.');

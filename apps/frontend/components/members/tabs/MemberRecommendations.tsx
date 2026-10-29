@@ -177,7 +177,7 @@ export function MemberRecommendations({
               <div className="mb-2 flex flex-wrap items-center gap-2.5">
                 {rec.author.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={rec.author.photoUrl} alt="" className="h-9 w-9 flex-none rounded-full object-cover" />
+                  <img loading="lazy" decoding="async" src={rec.author.photoUrl} alt="" className="h-9 w-9 flex-none rounded-full object-cover" />
                 ) : (
                   <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] font-mono text-xs font-bold text-accent">
                     {rec.author.initials}

@@ -46,6 +46,9 @@ create table public.profiles (
 create unique index profiles_email_key on public.profiles (email);
 create index profiles_role_idx on public.profiles (role);
 
+alter table public.profiles
+  add constraint profiles_admin_role_only_for_admins check (admin_role is null or role = 'admin');
+
 create trigger set_profiles_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
@@ -437,7 +440,7 @@ create table public.membership_applications (
   background_check_consent boolean,
 
   -- Review — PATCH /v1/admin/applications/:id writes these on approve/reject.
-  reviewed_by uuid references public.profiles (id),
+  reviewed_by uuid references public.profiles (id) on delete set null,
   reviewed_at timestamptz,
   rejection_reason text,
 
@@ -445,7 +448,14 @@ create table public.membership_applications (
   updated_at timestamptz not null default now()
 );
 
-create index membership_applications_applicant_id_idx on public.membership_applications (applicant_id);
+create index membership_applications_applicant_id_idx on public.membership_applications (applicant_id, created_at desc);
+create index membership_applications_created_at_idx on public.membership_applications (created_at desc);
+create index membership_applications_reviewed_by_idx on public.membership_applications (reviewed_by);
+-- At most one open application per applicant. The draft-or-create path (saveOrSubmit /
+-- uploadFile) is find-then-insert, so two concurrent first saves could otherwise create two drafts.
+create unique index membership_applications_one_open_per_applicant
+  on public.membership_applications (applicant_id)
+  where status in ('draft', 'submitted', 'under_review');
 create index membership_applications_status_idx on public.membership_applications (status);
 
 create trigger set_membership_applications_updated_at
@@ -508,8 +518,10 @@ create table public.articles (
   updated_at timestamptz not null default now()
 );
 
-create index articles_author_id_idx on public.articles (author_id);
-create index articles_status_idx on public.articles (status);
+-- Match the list queries: published/review lists by status newest-first (with the id tiebreak
+-- pagination uses), an author's own list newest-first.
+create index articles_author_id_idx on public.articles (author_id, created_at desc);
+create index articles_status_created_idx on public.articles (status, created_at desc, id);
 
 create trigger set_articles_updated_at
   before update on public.articles
@@ -554,7 +566,10 @@ create table public.events (
   updated_at timestamptz not null default now()
 );
 
-create index events_status_idx on public.events (status);
+create index events_status_start_idx on public.events (status, start_date);
+
+alter table public.events
+  add constraint events_end_after_start check (end_date is null or end_date >= start_date);
 
 create trigger set_events_updated_at
   before update on public.events
@@ -597,8 +612,12 @@ create table public.consultation_requests (
   updated_at timestamptz not null default now()
 );
 
-create index consultation_requests_requester_id_idx on public.consultation_requests (requester_id);
-create index consultation_requests_member_id_idx on public.consultation_requests (member_id);
+create index consultation_requests_requester_id_idx on public.consultation_requests (requester_id, created_at desc);
+create index consultation_requests_member_id_idx on public.consultation_requests (member_id, created_at desc);
+create index consultation_requests_created_at_idx on public.consultation_requests (created_at desc);
+
+alter table public.consultation_requests
+  add constraint consultation_requests_not_self check (requester_id <> member_id);
 create index consultation_requests_service_id_idx on public.consultation_requests (service_id);
 create index consultation_requests_status_idx on public.consultation_requests (status);
 
@@ -629,6 +648,7 @@ create table public.consultation_messages (
 );
 
 create index consultation_messages_request_id_idx on public.consultation_messages (request_id, created_at);
+create index consultation_messages_sender_id_idx on public.consultation_messages (sender_id);
 
 alter table public.consultation_messages enable row level security;
 
@@ -703,7 +723,7 @@ create table public.peer_connect_matches (
   -- confirmed_date null = pending; confirmed_date set = accepted (scheduled_date/start/end
   -- get updated to match at the same time). Declining or cancelling just nulls all three out
   -- again — the prototype never shows a past-reschedule history, so neither does this.
-  reschedule_requested_by uuid references public.profiles (id),
+  reschedule_requested_by uuid references public.profiles (id) on delete set null,
   reschedule_proposed_dates date[] check (array_length(reschedule_proposed_dates, 1) between 1 and 3),
   reschedule_confirmed_date date,
   created_at timestamptz not null default now(),
@@ -711,6 +731,9 @@ create table public.peer_connect_matches (
 );
 
 create index peer_connect_matches_cycle_month_idx on public.peer_connect_matches (cycle_month);
+
+alter table public.peer_connect_matches
+  add constraint peer_connect_matches_end_after_start check (scheduled_end_at > scheduled_start_at);
 create index peer_connect_matches_status_idx on public.peer_connect_matches (status);
 create index peer_connect_matches_reschedule_requested_by_idx on public.peer_connect_matches (reschedule_requested_by);
 
@@ -867,7 +890,7 @@ create table public.member_profiles (
   -- Set when a member was provisioned via an approved application (the eventual, not-yet-built
   -- "approve application" flow — see docs/rest-api.md's Membership applications deferred list);
   -- null for a member added directly by an admin.
-  application_id uuid references public.membership_applications (id),
+  application_id uuid references public.membership_applications (id) on delete set null,
 
   -- Renewal — deliberately minimal. Only two stored facts; everything else (due/due-soon/overdue)
   -- is always computed at read time from membership_started_at plus a hardcoded 12-month
@@ -907,7 +930,9 @@ create table public.member_profiles (
   updated_at timestamptz not null default now()
 );
 
-create index member_profiles_status_idx on public.member_profiles (status);
+-- Directory default sort (verified first, newest) over active profiles.
+create index member_profiles_status_idx on public.member_profiles (status, is_verified desc, created_at desc);
+create index member_profiles_application_id_idx on public.member_profiles (application_id);
 create index member_profiles_member_tier_idx on public.member_profiles (member_tier);
 
 create trigger set_member_profiles_updated_at
@@ -1003,15 +1028,16 @@ create table public.member_profile_edits (
   -- the live profile (approved_verified -> isVerified=true, approved_hygiene -> false); rejected
   -- items are dropped and their reason is what the member sees.
   item_reviews jsonb check (item_reviews is null or jsonb_typeof(item_reviews) = 'array'),
-  reviewed_by uuid references public.profiles (id),
+  reviewed_by uuid references public.profiles (id) on delete set null,
   reviewed_at timestamptz,
   submitted_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create index member_profile_edits_member_id_idx on public.member_profile_edits (member_id);
-create index member_profile_edits_status_idx on public.member_profile_edits (status);
+create index member_profile_edits_member_id_idx on public.member_profile_edits (member_id, submitted_at desc);
+create index member_profile_edits_status_idx on public.member_profile_edits (status, submitted_at desc);
+create index member_profile_edits_reviewed_by_idx on public.member_profile_edits (reviewed_by);
 
 create trigger set_member_profile_edits_updated_at
   before update on public.member_profile_edits
@@ -1044,7 +1070,7 @@ create table public.member_recommendations (
   constraint member_recommendations_unique_pair unique (author_id, recipient_id)
 );
 
-create index member_recommendations_recipient_id_idx on public.member_recommendations (recipient_id);
+create index member_recommendations_recipient_id_idx on public.member_recommendations (recipient_id, created_at desc);
 
 create trigger set_member_recommendations_updated_at
   before update on public.member_recommendations
@@ -1249,6 +1275,8 @@ create index search_documents_name_trgm_idx   on public.search_documents using g
 create index search_documents_service_ids_idx on public.search_documents using gin (service_ids);
 create index search_documents_countries_idx   on public.search_documents using gin (countries);
 create index search_documents_doc_date_idx    on public.search_documents (doc_date desc);
+-- cardContents() hydrates judge input by source_id alone.
+create index search_documents_source_id_idx   on public.search_documents (source_id);
 create index search_documents_pending_idx     on public.search_documents (updated_at)
   where embedded_hash is distinct from content_hash;
 

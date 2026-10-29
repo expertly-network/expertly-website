@@ -103,7 +103,7 @@ export function Testimonials() {
               {/* Anchors attribution to the bottom so every card's photo/name row lines up. */}
               <figcaption className="mt-auto flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <img loading="lazy" decoding="async"
                   src={t.photo}
                   alt=""
                   className="h-10 w-10 flex-none rounded-full object-cover"

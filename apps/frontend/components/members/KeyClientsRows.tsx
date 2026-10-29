@@ -17,7 +17,7 @@ function ClientCard({ client, colorIndex, hidden }: { client: MemberKeyClient; c
     >
       {client.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={client.logoUrl} alt="" className="h-11 w-11 flex-none rounded-[11px] object-cover" />
+        <img loading="lazy" decoding="async" src={client.logoUrl} alt="" className="h-11 w-11 flex-none rounded-[11px] object-cover" />
       ) : (
         <span
           className="flex h-11 w-11 flex-none items-center justify-center rounded-[11px] font-mono text-lg font-extrabold text-bg-card"

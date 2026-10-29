@@ -8,8 +8,10 @@ import { NextResponse, type NextRequest } from 'next/server';
  * writing to only one is the classic bug that silently logs users out after the
  * access token's ~1hr expiry.
  *
- * Uses `getUser()`, not `getSession()`: `getUser()` revalidates the token against
- * Supabase itself, while `getSession()` trusts whatever is in the cookie.
+ * Uses `getClaims()`, not `getSession()`: `getSession()` trusts whatever is in the cookie, while
+ * `getClaims()` refreshes an expired session and then verifies the JWT signature locally against
+ * the project's (cached) JWKS — the same check the backend makes, with no Auth-server round trip
+ * per navigation (`getUser()` would make one on every matched request).
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -33,9 +35,8 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims.sub ?? null;
 
-  return { response: supabaseResponse, user };
+  return { response: supabaseResponse, userId };
 }

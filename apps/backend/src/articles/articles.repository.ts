@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
+import { MAX_LIST_ROWS } from '../common/list-limits';
 
 export type ArticleInsert = Database['public']['Tables']['articles']['Insert'];
 export type ArticleUpdate = Database['public']['Tables']['articles']['Update'];
@@ -149,11 +150,11 @@ export class ArticlesRepository {
     return inserted as unknown as ArticleRow;
   }
 
-  // `range` omitted = every match (the pre-pagination behavior). `total` is the full match count
-  // regardless of `range`, from the same query (`count: 'exact'`), so it costs no extra round trip.
+  // `total` is the full match count regardless of `range`, from the same query
+  // (`count: 'exact'`), so it costs no extra round trip.
   async findPublished(
     filters: PublishedArticleFilters,
-    range?: { from: number; to: number }
+    range: { from: number; to: number }
   ): Promise<{ rows: ArticleListRow[]; total: number }> {
     let query = this.articles()
       .select(LIST_COLUMNS.join(', '), { count: 'exact' })
@@ -166,7 +167,7 @@ export class ArticlesRepository {
     if (filters.serviceIds?.length) query = query.overlaps('service_ids', filters.serviceIds);
     if (filters.countries?.length) query = query.overlaps('countries', filters.countries);
     if (filters.excludeId) query = query.neq('id', filters.excludeId);
-    if (range) query = query.range(range.from, range.to);
+    query = query.range(range.from, range.to);
 
     const { data, error, count } = await query;
 
@@ -215,7 +216,8 @@ export class ArticlesRepository {
     const { data, error } = await this.articles()
       .select(LIST_COLUMNS.join(', '))
       .eq('author_id', authorId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load your articles.');
     return (data ?? []) as unknown as ArticleListRow[];
@@ -247,7 +249,8 @@ export class ArticlesRepository {
     const { data, error } = await this.articles()
       .select(LIST_COLUMNS.join(', '))
       .eq('status', status ?? 'pending_review')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load articles for review.');
     return (data ?? []) as unknown as ArticleListRow[];

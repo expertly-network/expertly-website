@@ -3,6 +3,7 @@ import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { EventDto } from '@shared/event';
 import { generateUniqueSlug } from '../common/slugify';
+import { MAX_LIST_ROWS } from '../common/list-limits';
 
 export type EventInsert = Database['public']['Tables']['events']['Insert'];
 export type EventUpdate = Database['public']['Tables']['events']['Update'];
@@ -44,7 +45,8 @@ export class EventsRepository {
       .select(EVENT_COLUMNS.join(', '))
       .eq('status', 'published')
       .or(`end_date.gte.${sinceIso},and(end_date.is.null,start_date.gte.${sinceIso})`)
-      .order('start_date', { ascending: true });
+      .order('start_date', { ascending: true })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load events.');
     return data as unknown as EventDto[];
@@ -54,7 +56,8 @@ export class EventsRepository {
     const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
       .eq('status', 'published')
-      .order('start_date', { ascending: true });
+      .order('start_date', { ascending: true })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load events.');
     return data as unknown as EventDto[];
@@ -63,7 +66,8 @@ export class EventsRepository {
   async findAllForAdmin(): Promise<EventDto[]> {
     const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
-      .order('start_date', { ascending: true });
+      .order('start_date', { ascending: true })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load events.');
     return data as unknown as EventDto[];

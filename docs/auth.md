@@ -132,11 +132,13 @@ read the session too.)
   in the cookie — no signature check, no network call. This is fine when the only thing you need is
   *the raw token string itself* to hand to someone else who will verify it (the backend), but it is
   **not** sufficient on its own to trust the claims inside for an authorization decision — see
-  `middleware.ts`'s deliberate use of `getUser()` instead, next.
-- **Network-verified read**: `supabase.auth.getUser()` (used only in `lib/supabase/middleware.ts`)
-  actually asks Supabase's server to confirm the session is still valid — a real network call, used
-  specifically where middleware needs a guaranteed-current answer and also needs to refresh a
-  soon-to-expire cookie.
+  `middleware.ts`'s use of `getClaims()` instead, next.
+- **Locally verified read with refresh**: `supabase.auth.getClaims()` (used only in
+  `lib/supabase/middleware.ts`, since 2026-10-29) refreshes a soon-to-expire session cookie and
+  then verifies the JWT signature against the project's cached JWKS — no Auth-server round trip
+  per navigation. It replaced `getUser()` (a network call on every matched request); like every
+  other check in this app, a session revoked server-side keeps working until its access token
+  expires (≤ 1h).
 - **Local-signature-verified read**: `verifySupabaseToken()` (both `verify-token.ts` files) is the
   in-between option this project relies on for every authorization decision: no network call (fast,
   like `getSession()`), but cryptographically trustworthy (unlike `getSession()`), via the
@@ -319,9 +321,9 @@ nav links to show, and how `/apply` or `/login` redirect you before the page eve
 ### Step by step
 
 1. **`middleware.ts`** runs on almost every request (see its `matcher`). It calls `updateSession()`
-   (`lib/supabase/middleware.ts`), which uses `getUser()` — **not** `getSession()` — because this
-   step genuinely needs a real, network-verified check (it also refreshes the session cookie if the
-   access token is close to expiry). If the path starts with a protected prefix
+   (`lib/supabase/middleware.ts`), which uses `getClaims()` — **not** `getSession()` — so the
+   session it acts on is signature-verified (locally, via JWKS) and refreshed if the access token
+   is close to expiry. If the path starts with a protected prefix
    (`PROTECTED_PREFIXES = ['/dashboard', '/apply']` — note `/dashboard` no longer has a real page
    behind it; only `/apply` is live today, see "left for future") and there's no user, it redirects
    to `/login`.

@@ -58,7 +58,7 @@ function MemberAvatar({ name, photoUrl }: { name: string; photoUrl: string | nul
     .join('');
   return photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={photoUrl} alt="" className="h-9 w-9 flex-none rounded-full object-cover" />
+    <img loading="lazy" decoding="async" src={photoUrl} alt="" className="h-9 w-9 flex-none rounded-full object-cover" />
   ) : (
     <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-bg-alt text-xs font-semibold text-ink-2">
       {initials}

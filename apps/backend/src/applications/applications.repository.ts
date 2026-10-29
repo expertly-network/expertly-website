@@ -1,8 +1,12 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import { generateUniqueSlug } from '../common/slugify';
 import type { Database } from '../supabase/database.types';
 import type { ApplicationStatus } from '@shared/membership-application';
+import { MAX_LIST_ROWS } from '../common/list-limits';
+
+// Statuses an admin can still approve or reject.
+const REVIEWABLE_STATUSES: ApplicationStatus[] = ['submitted', 'under_review'];
 
 // Public: the applicant photo, reused as the member's directory photo once approved.
 const PHOTO_BUCKET = 'application-assets';
@@ -159,6 +163,14 @@ export class ApplicationsRepository {
       .select(APPLICATION_ROW_COLUMNS.join(', '))
       .single();
 
+    // 23505 = membership_applications_one_open_per_applicant: a concurrent request already
+    // created this applicant's open application — the caller should reload and retry.
+    if (error?.code === '23505') {
+      throw new ConflictException({
+        code: 'APPLICATION_ALREADY_OPEN',
+        message: 'You already have an open application — reload and try again.',
+      });
+    }
     if (error || !saved) throw new InternalServerErrorException('Failed to save application.');
     return saved as unknown as ApplicationRow;
   }
@@ -185,11 +197,30 @@ export class ApplicationsRepository {
     return data as unknown as ApplicationRow;
   }
 
-  async applyRejection(id: string, patch: Record<string, unknown>): Promise<void> {
+  // Records a review decision only if the application is still awaiting one — a conditional
+  // update, so two concurrent reviews can't both win. False when another review got there first.
+  async claimForDecision(id: string, patch: MembershipApplicationUpdate): Promise<boolean> {
+    const { data, error } = await this.membershipApplications()
+      .update(patch)
+      .eq('id', id)
+      .in('status', REVIEWABLE_STATUSES)
+      .select('id');
+    if (error) throw new InternalServerErrorException('Failed to record review decision.');
+    return (data ?? []).length > 0;
+  }
+
+  // Undoes claimForDecision when provisioning the member fails part-way (see reviewApplication).
+  async revertDecision(id: string, previousStatus: ApplicationStatus): Promise<void> {
     const { error } = await this.membershipApplications()
-      .update(patch as MembershipApplicationUpdate)
+      .update({ status: previousStatus, reviewed_by: null, reviewed_at: null })
       .eq('id', id);
-    if (error) throw new InternalServerErrorException('Failed to reject application.');
+    if (error) throw new InternalServerErrorException('Failed to revert review decision.');
+  }
+
+  // Rollback of a half-provisioned approval; member_services rows cascade with the profile.
+  async deleteMemberProfile(profileId: string): Promise<void> {
+    const { error } = await this.memberProfiles().delete().eq('profile_id', profileId);
+    if (error) throw new InternalServerErrorException('Failed to remove member profile.');
   }
 
   // Same mechanism events/articles use for their own slugs — kebab-case, `-2`/`-3`/... suffix on
@@ -213,20 +244,14 @@ export class ApplicationsRepository {
     if (error) throw new InternalServerErrorException('Failed to promote applicant to member.');
   }
 
-  async markApproved(id: string, reviewerId: string, reviewedAt: string): Promise<void> {
-    const { error } = await this.membershipApplications()
-      .update({ status: 'approved', reviewed_by: reviewerId, reviewed_at: reviewedAt })
-      .eq('id', id);
-    if (error) throw new InternalServerErrorException('Failed to finalize application status.');
-  }
-
   // 🛡️ manageApplications — lighter column set than APPLICATION_ROW_COLUMNS for the list view.
   // service_preferences comes back raw ({serviceId, priority, customLabel}[]) — the service layer
   // resolves it to the full ServicePreference shape, same as ApplicationDto.
   async listForReview(status?: ApplicationStatus): Promise<ApplicationRow[]> {
     let query = this.membershipApplications()
       .select(ADMIN_LIST_COLUMNS.join(', '))
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     // Unfiltered default is every status — the admin UI's own status filter (client-side) is what
     // narrows this down; the backend no longer pre-excludes 'draft'/'approved' rows (changed

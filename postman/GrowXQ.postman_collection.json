@@ -594,7 +594,7 @@
                 }
               ]
             },
-            "description": "🌐 Public. Browse grid — published only, no `body`. The total match count across all pages is in the `X-Total-Count` response header; the body is a plain array. `400` for a non-UUID authorId/serviceId/excludeId or a non-positive page/pageSize.",
+            "description": "🌐 Public. Browse grid — published only, no `body`. The total match count across all pages is in the `X-Total-Count` response header; the body is a plain array. `400` for a non-UUID authorId/serviceId/excludeId or a non-positive page/pageSize. With neither `page` nor `pageSize`, returns the first 50 (never unbounded); `X-Total-Count` is the full total.",
             "auth": {
               "type": "noauth"
             }
@@ -1013,7 +1013,7 @@
                 }
               ]
             },
-            "description": "🌐 Public. Published/active members only.",
+            "description": "🌐 Public. Published/active members only. `pageSize` max 50; params are validated (`q` ≤100 chars, UUID `serviceId`/`categoryId`, integer rates, known `sort`) → `400 VALIDATION_FAILED` otherwise. `serviceId` + `categoryId` together: both must match.",
             "auth": {
               "type": "noauth"
             }

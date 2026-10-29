@@ -20,7 +20,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
       className="flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={article.coverImageUrl} alt="" className="h-[180px] w-full object-cover" />
+      <img loading="lazy" decoding="async" src={article.coverImageUrl} alt="" className="h-[180px] w-full object-cover" />
 
       <div className="flex flex-1 flex-col p-5">
         {/* Service on its own line so a long name never wraps the badge onto two lines;
@@ -59,7 +59,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
         <div className="mt-auto flex items-center gap-2.5 pt-5">
           {article.authorPhotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <img loading="lazy" decoding="async"
               src={article.authorPhotoUrl}
               alt=""
               className="h-8 w-8 flex-none rounded-full object-cover"

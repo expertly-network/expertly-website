@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
+import { MAX_LIST_ROWS } from '../common/list-limits';
 
 export type ConsultationRequestInsert = Database['public']['Tables']['consultation_requests']['Insert'];
 
@@ -125,7 +126,7 @@ export class ConsultationsRepository {
     return data as unknown as ProfileRoleRow | null;
   }
 
-  // Mirrors MembersRepository.findActiveList()'s `.eq('status', 'active')` filter on
+  // Mirrors the member directory's `status = 'active'` filter (member_directory_ids()) on
   // member_profiles — a profiles.role === 'member' row can still belong to a deactivated member
   // profile, which should not be reachable for new consultation requests.
   async isMemberProfileActive(profileId: string): Promise<boolean> {
@@ -195,7 +196,8 @@ export class ConsultationsRepository {
     const { data, error } = await this.consultations()
       .select(CONSULTATION_COLUMNS.join(', '))
       .eq('requester_id', requesterId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load consultation requests.');
     return data as unknown as ConsultationRequestDto[];
@@ -205,7 +207,8 @@ export class ConsultationsRepository {
     const { data, error } = await this.consultations()
       .select(CONSULTATION_COLUMNS.join(', '))
       .eq('member_id', memberId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load consultation requests.');
     return data as unknown as ConsultationRequestDto[];
@@ -214,7 +217,8 @@ export class ConsultationsRepository {
   async findAll(): Promise<ConsultationRequestDto[]> {
     const { data, error } = await this.consultations()
       .select(CONSULTATION_COLUMNS.join(', '))
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load consultation requests.');
     return data as unknown as ConsultationRequestDto[];
@@ -275,7 +279,8 @@ export class ConsultationsRepository {
     const { data, error } = await this.messages()
       .select(MESSAGE_COLUMNS.join(', '))
       .eq('request_id', requestId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load messages.');
     return data as unknown as ConsultationMessageRow[];

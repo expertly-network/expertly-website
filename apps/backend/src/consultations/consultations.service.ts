@@ -102,35 +102,40 @@ export class ConsultationsService {
 
   async create(requester: AuthenticatedUser, dto: CreateConsultationRequestDto): Promise<ConsultationRequestDto> {
     if (dto.memberId === requester.id) {
-      throw new BadRequestException('You cannot request a consultation with yourself.');
+      throw new BadRequestException({ code: 'CONSULTATION_SELF', message: 'You cannot request a consultation with yourself.' });
     }
 
-    const target = await this.repository.findProfileRole(dto.memberId);
-    if (!target || target.role !== 'member' || target.status !== 'active') {
-      throw new BadRequestException('No such member.');
-    }
-    // Same error/message as the not-a-member case above — don't leak whether a member exists but
-    // is deactivated vs. doesn't exist at all.
-    if (!(await this.repository.isMemberProfileActive(dto.memberId))) {
-      throw new BadRequestException('No such member.');
+    if (!dto.serviceId && !dto.customServiceLabel?.trim()) {
+      throw new BadRequestException({
+        code: 'CONSULTATION_SERVICE_REQUIRED',
+        message: 'Please select a service, or describe it under "Other".',
+      });
     }
 
-    // Cross-field rule class-validator can't express on the DTO alone: exactly one of
-    // serviceId/customServiceLabel is required. A provided serviceId must actually be one of
-    // this member's own offered services — never trust an arbitrary services.id from the client.
-    if (dto.serviceId) {
-      if (!(await this.repository.isMemberService(dto.memberId, dto.serviceId))) {
-        throw new BadRequestException('Selected service is not offered by this member.');
-      }
-    } else if (!dto.customServiceLabel?.trim()) {
-      throw new BadRequestException('Please select a service, or describe it under "Other".');
+    // Independent reads — run together, then evaluate in order.
+    const [target, memberActive, offersService, eligibility] = await Promise.all([
+      this.repository.findProfileRole(dto.memberId),
+      this.repository.isMemberProfileActive(dto.memberId),
+      dto.serviceId ? this.repository.isMemberService(dto.memberId, dto.serviceId) : Promise.resolve(true),
+      this.eligibility(requester.id, dto.memberId),
+    ]);
+    // One error for "no such member" and "member deactivated" — don't leak which.
+    if (!target || target.role !== 'member' || target.status !== 'active' || !memberActive) {
+      throw new BadRequestException({ code: 'CONSULTATION_MEMBER_NOT_FOUND', message: 'No such member.' });
+    }
+    // A provided serviceId must actually be one of this member's own offered services — never
+    // trust an arbitrary services.id from the client.
+    if (!offersService) {
+      throw new BadRequestException({
+        code: 'CONSULTATION_SERVICE_NOT_OFFERED',
+        message: 'Selected service is not offered by this member.',
+      });
     }
 
-    const eligibility = await this.eligibility(requester.id, dto.memberId);
     if (eligibility.blocked && eligibility.reason === 'pending') {
       throw new HttpException(
         {
-          statusCode: HttpStatus.CONFLICT,
+          code: 'CONSULTATION_PENDING_EXISTS',
           message: 'You already have a pending request with this member.',
           retryAfter: eligibility.retryAfter,
         },
@@ -140,7 +145,7 @@ export class ConsultationsService {
     if (eligibility.blocked && eligibility.reason === 'rate_limited') {
       throw new HttpException(
         {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          code: 'CONSULTATION_RATE_LIMITED',
           message: 'Too many consultation requests — try again later.',
           resetAt: eligibility.retryAfter,
         },

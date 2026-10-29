@@ -8,41 +8,18 @@ import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import { ListMembersQueryDto } from './dto/list-members-query.dto';
 import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
-
-function toArray(value?: string | string[]): string[] | undefined {
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value : [value];
-}
 
 @Controller('members')
 export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
+  // 🌐 Public — the member directory, one page at a time (pageSize ≤ 50).
   @Public()
   @Get()
-  list(
-    @Query('q') q?: string,
-    @Query('serviceId') serviceId?: string | string[],
-    @Query('categoryId') categoryId?: string,
-    @Query('country') country?: string | string[],
-    @Query('rateMinCents') rateMinCents?: string,
-    @Query('rateMaxCents') rateMaxCents?: string,
-    @Query('sort') sort?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string
-  ): Promise<MemberListItemDto[]> {
-    return this.membersService.list({
-      q,
-      serviceId: toArray(serviceId),
-      categoryId,
-      country: toArray(country),
-      rateMinCents: rateMinCents ? Number(rateMinCents) : undefined,
-      rateMaxCents: rateMaxCents ? Number(rateMaxCents) : undefined,
-      sort,
-      page: page ? Number(page) : undefined,
-      pageSize: pageSize ? Number(pageSize) : undefined,
-    });
+  list(@Query() query: ListMembersQueryDto): Promise<MemberListItemDto[]> {
+    return this.membersService.list(query);
   }
 
   // 👤 Member — the caller's own profile id + slug. Two segments, so it never collides with a

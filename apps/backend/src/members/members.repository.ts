@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
@@ -17,6 +18,7 @@ import type {
   MemberWorkExperience,
   RenewalPaymentStatus,
 } from '@shared/member';
+import { MAX_LIST_ROWS } from '../common/list-limits';
 
 // Selects profile_id, not member_profiles' own surrogate id — profile_id is what the API
 // exposes as MemberDto.id.
@@ -155,21 +157,14 @@ export interface ProfileIdentityRow {
   initials: string | null;
 }
 
-export interface MemberListFilters {
-  country?: string[];
+export interface MemberDirectoryFilters {
+  q?: string;
+  serviceIds?: string[];
+  categoryId?: string;
+  countries?: string[];
   rateMinCents?: number;
   rateMaxCents?: number;
-  q?: string;
-  // Profile ids whose name or services matched `q` — OR-ed with the text-column match.
-  qMatchIds?: string[];
-  // Service/category filter, resolved to member ids before paging so pages stay full.
-  restrictToIds?: string[];
   sort?: string;
-}
-
-// PostgREST's `or=` syntax treats these as separators/operators; a search term never needs them.
-function sanitizeSearchTerm(q: string): string {
-  return q.replace(/[,()*%\\"':]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export type MemberProfileUpdate = Database['public']['Tables']['member_profiles']['Update'];
@@ -204,95 +199,36 @@ export class MembersRepository {
     return this.supabase.db.from('profiles');
   }
 
-  async findActiveList(filters: MemberListFilters, range: { from: number; to: number }): Promise<MemberProfileRow[]> {
-    let dbQuery = this.memberProfiles()
-      .select(MEMBER_PROFILE_COLUMNS.join(', '))
-      .eq('status', 'active');
-
-    if (filters.country && filters.country.length > 0) dbQuery = dbQuery.in('country', filters.country);
-    if (filters.rateMinCents !== undefined) dbQuery = dbQuery.gte('rate_max_cents', filters.rateMinCents);
-    if (filters.rateMaxCents !== undefined) dbQuery = dbQuery.lte('rate_min_cents', filters.rateMaxCents);
-    if (filters.restrictToIds) dbQuery = dbQuery.in('profile_id', filters.restrictToIds);
-    const q = filters.q ? sanitizeSearchTerm(filters.q) : '';
-    if (q) {
-      // member_profiles' own text columns, plus the ids whose name/services matched elsewhere.
-      const clauses = ['headline', 'firm_name', 'bio', 'city', 'state', 'country'].map((c) => `${c}.ilike.%${q}%`);
-      if (filters.qMatchIds && filters.qMatchIds.length > 0) clauses.push(`profile_id.in.(${filters.qMatchIds.join(',')})`);
-      dbQuery = dbQuery.or(clauses.join(','));
-    }
-
-    switch (filters.sort) {
-      case 'newest':
-        dbQuery = dbQuery.order('membership_started_at', { ascending: false }).order('profile_id', { ascending: true });
-        break;
-      case 'tenure':
-        dbQuery = dbQuery.order('years_of_experience', { ascending: false });
-        break;
-      case 'rate_asc':
-        dbQuery = dbQuery.order('rate_min_cents', { ascending: true, nullsFirst: true });
-        break;
-      case 'rate_desc':
-        dbQuery = dbQuery.order('rate_max_cents', { ascending: false, nullsFirst: false });
-        break;
-      default:
-        dbQuery = dbQuery.order('is_verified', { ascending: false }).order('created_at', { ascending: false });
-    }
-
-    const { data, error } = await dbQuery.range(range.from, range.to);
+  // One directory page as profile ids, in display order — see member_directory_ids()
+  // (supabase/migrations/0003_functions.sql). The function isn't in the generated types yet.
+  async findDirectoryPageIds(
+    filters: MemberDirectoryFilters,
+    page: { limit: number; offset: number }
+  ): Promise<string[]> {
+    const { data, error } = await (this.supabase.db as unknown as SupabaseClient).rpc('member_directory_ids', {
+      p_q: filters.q ?? null,
+      p_service_ids: filters.serviceIds?.length ? filters.serviceIds : null,
+      p_category_id: filters.categoryId ?? null,
+      p_countries: filters.countries?.length ? filters.countries : null,
+      p_rate_min_cents: filters.rateMinCents ?? null,
+      p_rate_max_cents: filters.rateMaxCents ?? null,
+      p_sort: filters.sort ?? null,
+      p_limit: page.limit,
+      p_offset: page.offset,
+    });
     if (error) throw new InternalServerErrorException('Failed to load members.');
-    return (data ?? []) as unknown as MemberProfileRow[];
+    return ((data ?? []) as { profile_id: string }[]).map((r) => r.profile_id);
   }
 
-  // Directory search: ids of members whose first/last name or any offered service (or its
-  // category) contains `q`. Full names ("Jane Doe") match when every word hits first or last name.
-  async findMemberIdsMatchingText(rawQ: string): Promise<string[]> {
-    const q = sanitizeSearchTerm(rawQ);
-    if (!q) return [];
-    const words = q.toLowerCase().split(' ');
-
-    const [profilesRes, servicesRes, categoriesRes] = await Promise.all([
-      this.profiles()
-        .select('id, first_name, last_name')
-        .eq('role', 'member')
-        .or(`first_name.ilike.%${words[0]}%,last_name.ilike.%${words[0]}%`),
-      this.services().select('id').ilike('name', `%${q}%`),
-      this.categories().select('id').ilike('name', `%${q}%`),
-    ]);
-    if (profilesRes.error || servicesRes.error || categoriesRes.error) {
-      throw new InternalServerErrorException('Failed to search members.');
-    }
-
-    const ids = new Set<string>();
-    for (const p of profilesRes.data ?? []) {
-      const name = `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase();
-      if (words.every((w) => name.includes(w))) ids.add(p.id);
-    }
-
-    const serviceIds = (servicesRes.data ?? []).map((s) => s.id as string);
-    const categoryIds = (categoriesRes.data ?? []).map((c) => c.id as string);
-    if (categoryIds.length > 0) {
-      const { data, error } = await this.services().select('id').in('category_id', categoryIds);
-      if (error) throw new InternalServerErrorException('Failed to search members.');
-      serviceIds.push(...(data ?? []).map((s) => s.id as string));
-    }
-    if (serviceIds.length > 0) {
-      for (const id of await this.findMemberIdsByServices(serviceIds)) ids.add(id);
-    }
-    return [...ids];
-  }
-
-  async findMemberIdsByServices(serviceIds: string[]): Promise<Set<string>> {
-    const { data, error } = await this.memberServices().select('member_id').in('service_id', serviceIds);
-    if (error) throw new InternalServerErrorException('Failed to filter by service.');
-    return new Set((data ?? []).map((m) => m.member_id as string));
-  }
-
-  async findMemberIdsByCategory(categoryId: string): Promise<Set<string>> {
-    const { data: services, error: servicesError } = await this.services().select('id').eq('category_id', categoryId);
-    if (servicesError) throw new InternalServerErrorException('Failed to filter by category.');
-    const serviceIds = (services ?? []).map((s) => s.id as string);
-    if (serviceIds.length === 0) return new Set();
-    return this.findMemberIdsByServices(serviceIds);
+  // The rows for one directory page (≤ 50 ids), returned in the given order.
+  async findActiveByIdsInOrder(ids: string[]): Promise<MemberProfileRow[]> {
+    const { data, error } = await this.memberProfiles()
+      .select(MEMBER_PROFILE_COLUMNS.join(', '))
+      .eq('status', 'active')
+      .in('profile_id', ids);
+    if (error) throw new InternalServerErrorException('Failed to load members.');
+    const byId = new Map(((data ?? []) as unknown as MemberProfileRow[]).map((r) => [r.profile_id, r]));
+    return ids.flatMap((id) => byId.get(id) ?? []);
   }
 
   // Admin review page (GET /v1/admin/members/:id/edits) — by UUID, any status.
@@ -367,14 +303,18 @@ export class MembersRepository {
     const { data, error } = await this.memberProfileEdits()
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
       .eq('member_id', memberId)
-      .order('submitted_at', { ascending: false });
+      .order('submitted_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load profile edits.');
     return (data ?? []) as unknown as MemberProfileEditRow[];
   }
 
   async adminFindAllProfiles(): Promise<MemberProfileRow[]> {
-    const { data, error } = await this.memberProfiles().select(MEMBER_PROFILE_COLUMNS.join(', ') + ', status');
+    const { data, error } = await this.memberProfiles()
+      .select(MEMBER_PROFILE_COLUMNS.join(', ') + ', status')
+      .order('created_at', { ascending: false })
+      .limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load members.');
     return (data ?? []) as unknown as MemberProfileRow[];
@@ -396,7 +336,7 @@ export class MembersRepository {
   async findAllEditsByStatus(status: MemberEditStatus | 'all'): Promise<MemberProfileEditRow[]> {
     let query = this.memberProfileEdits().select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '));
     if (status !== 'all') query = query.eq('status', status);
-    const { data, error } = await query.order('submitted_at', { ascending: false });
+    const { data, error } = await query.order('submitted_at', { ascending: false }).limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load profile edits.');
     return (data ?? []) as unknown as MemberProfileEditRow[];

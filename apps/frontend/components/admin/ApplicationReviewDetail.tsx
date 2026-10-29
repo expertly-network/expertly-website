@@ -178,7 +178,7 @@ export function ApplicationReviewDetail({
             <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
               {application.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={application.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+                <img loading="lazy" decoding="async" src={application.photoUrl} alt="Profile" className="h-full w-full object-cover" />
               ) : (
                 <span className="text-xs">No photo</span>
               )}

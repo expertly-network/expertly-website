@@ -41,7 +41,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'num
 function Avatar({ src, alt }: { src: string | null | undefined; alt: string }) {
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} className="h-12 w-12 flex-none rounded-full border border-line object-cover" />;
+    return <img loading="lazy" decoding="async" src={src} alt={alt} className="h-12 w-12 flex-none rounded-full border border-line object-cover" />;
   }
   return (
     <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full border border-line bg-bg-alt text-ink-4">

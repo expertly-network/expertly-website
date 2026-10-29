@@ -233,7 +233,7 @@ export function ReviewSubmitStep({
           <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
             {form.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+              <img loading="lazy" decoding="async" src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
             ) : (
               <span className="text-xs">No photo</span>
             )}
