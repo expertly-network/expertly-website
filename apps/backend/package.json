@@ -1,5 +1,5 @@
 {
-  "name": "expertly-backend",
+  "name": "growxq-backend",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
-    "@expertly/shared-types": "workspace:*",
+    "@growxq/shared-types": "workspace:*",
     "@nestjs/cli": "^11.0.24",
     "@types/node": "^20.17.10",
     "@types/sanitize-html": "^2.16.1",

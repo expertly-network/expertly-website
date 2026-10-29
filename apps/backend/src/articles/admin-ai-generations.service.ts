@@ -102,7 +102,7 @@ function toListItem(
   return {
     id: row.id,
     authorId: row.author_id,
-    authorName: authors.get(row.author_id)?.name ?? 'Expertly Member',
+    authorName: authors.get(row.author_id)?.name ?? 'GrowXQ Member',
     status: row.status,
     draftTitle: row.draft_title,
     provider: row.provider,

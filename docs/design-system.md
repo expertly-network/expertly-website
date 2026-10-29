@@ -1,8 +1,8 @@
-# Expertly — Design System Reference
+# GrowXQ — Design System Reference
 
 Where every visual constant (color, font, type size, radius) is defined, and how to change one
 without hunting through components. Source: the design repo's `static_html/assets/theme.css`,
-literally titled "Expertly Design System" — the closest thing to an authoritative spec.
+literally titled "GrowXQ Design System" — the closest thing to an authoritative spec.
 
 **The rule:** never hardcode a color hex, font size, or one-off radius directly in a component.
 Use the token. If a value you need isn't a token yet, add it here first (or ask whether it should
@@ -13,7 +13,7 @@ be), then use it — don't reach for an arbitrary `text-[17px]` or `#00A582` inl
 | What | Source of truth | Consumed via |
 |---|---|---|
 | Colors | CSS custom properties in `apps/frontend/app/globals.css` | Tailwind utilities (`bg-accent`, `text-ink-3`, …) via `tailwind.config.ts` |
-| Fonts | `apps/frontend/app/layout.tsx` (loads Geist + Archivo, exposes as CSS vars) | `font-sans` (Geist, default body) / `font-mono` (Archivo, labels) |
+| Fonts | `apps/frontend/app/layout.tsx` (loads Geist, exposes it as a CSS var) | `font-sans` (Geist, default body) / `font-mono` (also Geist since Oct 2026 — kept as an alias so label call sites didn't need touching) |
 | Type scale (size/line-height/letter-spacing/weight) | `apps/frontend/tailwind.config.ts` → `theme.extend.fontSize` | `text-heading`, `text-eyebrow`, etc. — see table below |
 | Radii | `apps/frontend/tailwind.config.ts` → `theme.extend.borderRadius` | `rounded-input` (10px), `rounded-card` (20px), `rounded-panel` (14px, member profile tab bar/content and inner item cards — `.mp-tabs-nav`/`.mp-tab-content`/`.mp-edu-card`), `rounded-card-lg` (24px, write flow); everything else uses Tailwind's defaults (see below) |
 
@@ -22,12 +22,38 @@ against the design repo, or swapping a value at runtime, is a one-line diff in `
 Typography is a Tailwind `fontSize` scale (not CSS classes like the original `.eyebrow`/`.display`)
 because this is a Tailwind-utility-first codebase — that's "standard practice" for this stack.
 
+## Logo & brand mark
+
+Since 2026-10-30 the GrowXQ logo is **typed text, not an image**: lowercase **grow** with a raised
+green **XQ**, like an exponent ("grow^XQ"), "grow" is set in the headline serif, Cormorant Garamond Semibold (as in the homepage hero), and
+"XQ" in Geist Semibold, so the logo pairs the site's two fonts (final choice 2026-10-30). Use `<Wordmark tone="ink"|"white">`
+from `components/Logo.tsx` (size it with a `text-[…]` class) or `<Logo variant="nav"|"auth"|"sidebar">`
+for the linked header logo. Never hand-type "GrowXQ" as a logo or reintroduce logo images.
+
+| Use | How |
+|---|---|
+| Light surfaces (mobile top bar, auth pages) | `<Logo variant="nav" / "auth">` — ink "grow", green "XQ" |
+| Dark surfaces (sidebar, mobile menu, dark heroes) | `<Logo variant="sidebar">` / `<Wordmark tone="white">` |
+| Collapsed sidebar rail | the green "XQ" alone (`<Logo collapsible>`) |
+| Footer | oversized wordmark with a white-to-green gradient, centred, cropped by the band's bottom edge |
+| Profile PDF header | the same wordmark as react-pdf text (Cormorant Garamond for "grow", Geist Semibold "XQ", `verticalAlign: 'super'`) |
+| Favicon / iOS icon (`app/icon.png`, `app/apple-icon.png`) | green "XQ" on the near-black ink tile |
+
+## Footer
+
+A dark ink band with a soft brand-green glow: four link columns (Navigation, Legal, Social,
+Contact), then the oversized, centred wordmark running off the bottom edge, then a slim white bar with the
+copyright line. The page's `<main>` is at least one screen tall, so the footer always starts below
+the fold, even on a page with little content.
+
 ## Fonts
 
 - **Geist** — body/UI text, the default (`font-sans`). Loaded via the `geist` npm package
   (`geist/font/sans`), not Google Fonts — Geist isn't on Google Fonts' catalog.
-- **Archivo** — small-caps-style labels, eyebrows, mono-ish captions (`font-mono`). Loaded via
-  `next/font/google`.
+- Small labels, eyebrows and captions (`font-mono`, `text-mono-label`, `text-eyebrow`,
+  `text-profile-label`) use Geist too, at normal letter spacing. They were Archivo with wide
+  (0.08–0.14em) tracking until Oct 2026; that letter-spaced label style was removed site-wide
+  at the client's request. Don't reintroduce positive `tracking-[…em]` on labels.
 - Base body: 16px / line-height 1.5 / letter-spacing -0.005em (set once on `body` in
   `globals.css`; don't override per-component unless intentionally using a different scale token).
 
@@ -87,19 +113,19 @@ letter-spacing + weight together.
 
 | Class | Size | Line-height | Tracking | Weight | Use | Origin |
 |---|---|---|---|---|---|---|
-| `text-eyebrow` | 11px | normal | 0.14em | 500 | Small-caps label above a heading | theme.css `.eyebrow` |
+| `text-eyebrow` | 11px | normal | normal | 500 | Small-caps label above a heading | theme.css `.eyebrow` |
 | `text-display` | 44–96px (clamp) | 0.98 | -0.03em | 500 | Hero/marketing display text | theme.css `.display` |
 | `text-headline` | 32–56px (clamp) | 1.04 | -0.025em | 500 | Major section headline | theme.css `.headline` |
 | `text-section-title` | 28–44px (clamp) | 1.08 | -0.02em | 500 | Section heading | theme.css `.section-title` |
 | `text-lede` | 17–20px (clamp) | 1.5 | -0.005em | 400 | **The standard body-paragraph size, used app-wide** for any section/page-intro paragraph that sits directly under a heading and explains what that section is about (pair with `text-ink-3`) — home page section paragraphs, every page hero's subhead, auth card subheads, application-wizard step descriptions. NOT for card/list-item-level text (a member bio excerpt, an FAQ answer, article body prose, sidebar meta) — those stay at `text-sm`/`text-caption`, matching the design's own smaller sizing there. | theme.css `.lede` |
-| `text-heading` | 32px | 1.1 | -0.02em | 500 | Page/card heading (e.g. `/login`'s "Get started with Expertly.") | This app — consolidated from `auth-title` and similar 28–32px headings |
+| `text-heading` | 32px | 1.1 | -0.02em | 500 | Page/card heading (e.g. `/login`'s "Get started with GrowXQ.") | This app — consolidated from `auth-title` and similar 28–32px headings |
 | `text-article-title` | 24–38px (clamp) | 1.12 | -0.025em | 500 | Article detail page `<h1>` only — deliberately its own, smaller-topped clamp than `text-headline`, matching `.art-detail-title` | theme.css `.art-detail-title` |
 | `text-title` | 18px | 1.25 | -0.012em | 500 | Card/item title | This app — consolidated from 17–19px card-title variants across the prototype |
 | `text-stat` | 28px | normal | -0.02em | 500 | Stat numbers (e.g. "20+ Verified experts") | This app — from `auth-stats b` |
 | `text-label` | 12px | normal | normal | 500 | Form field labels | This app — from `auth-field label` |
 | `text-caption` | 13px | 1.4 | normal | 400 | Secondary/meta text (pair with `text-ink-3`) | This app — from `auth-foot`, card meta text |
-| `text-mono-label` | 11px | normal | 0.12em | 500 | Small-caps tag/label, pairs with `font-mono` | This app — from badges, `auth-logos` city names |
-| `text-profile-label` | 11px | normal | 0.08em | (set at call site, 700) | Member profile section heading ("Key Engagements"), pairs with `font-mono` — not uppercased, matching the prototype | styles.css `.mp-section-label` |
+| `text-mono-label` | 11px | normal | normal | 500 | Small-caps tag/label, pairs with `font-mono` | This app — from badges, `auth-logos` city names |
+| `text-profile-label` | 11px | normal | normal | (set at call site, 700) | Member profile section heading ("Key Engagements"), pairs with `font-mono` — not uppercased, matching the prototype | styles.css `.mp-section-label` |
 | `text-profile-body` | 15.5px | 1.7 | — | (400) | Member profile bio paragraph | styles.css `.mp-bio` |
 | `text-profile-item` | 14.5px | 1.45 | — | (500/600 at call site) | Member profile item titles, stats row, tabs, contact values | styles.css `.mp-eng-title` / `.mp-work-title` / `.mp-stat` / `.mp-tab` |
 | `text-profile-meta` | 11px | 1.45 | — | (400) | Member profile item meta (institution · year, company, dates) | styles.css `.mp-edu-meta` / `.mp-work-company` / `.mp-award-meta` |
@@ -124,7 +150,7 @@ consolidate into this token instead.
 **The `profile-*` rows are a deliberate exception to that consolidation.** The member profile
 page was first built with the generic tokens (`text-title` 18px section headings, `text-sm`
 bios), which made it read visibly differently from `member-profile.html`, whose `.mp-*` scale is
-internally consistent (not drift) — small 11px Archivo section labels, 14.5px item titles,
+internally consistent (not drift) — small 11px section labels, 14.5px item titles,
 15.5px bio. Those sizes now have their own named tokens, scoped to the profile page and its
 `components/members/` pieces. Weights are left out of these tokens on purpose because the
 prototype pairs the same size with different weights.
@@ -197,3 +223,48 @@ a separate cleanup task to schedule later.
 - **Adding a genuinely new, recurring size or color** → add it to the relevant table above *and*
   to the config/CSS file in the same change, so this doc never drifts from what the code actually
   has.
+
+### Editorial brand refresh — October 2026
+
+The selected logo direction is reflected in black ink (`ink`: #0B0B0C — was forest green #15392F until 2026-10-27, changed at the user's request; `nav-green` and the profile/PDF header band are the same black), a plain white page (`bg`: #FFFFFF — warm ivory #FAF8EF until 2026-10-29, switched to white at the user's request to match `design/static_html/assets/theme.css`; cards stay white too and separate from the page by their `line` border, as in the prototype), white cards (`bg-card`: #FFFFFF), and warm stone (`bg-alt`: #EFEEE7). The current values in `apps/frontend/app/globals.css` supersede the legacy palette table above. Secondary ink is #2E3033, muted ink #62695F, decorative ink #899085, borders #E0E1D7 / #CBD0C2. **There is exactly one green: the logo green #00A682 (`--accent`), set 2026-10-29 at the user's request** — it replaced the old forest accents #315F48 / #52765D, the verified green #31704D, the separate `--highlight` token and stray hardcoded greens (#16A34A availability dots, mint badges/glows). `accent-2` (hover), `neon` (pale fill), `ok` and `cta` are all derived from `--accent` via `color-mix`/aliases, so changing `--accent` recolors everything. Heading highlight words use `text-accent`. Never hardcode a green hex or rgba — use the token, including in inline `style` (`color-mix(in oklab, var(--accent) N%, transparent)` for tints); the profile PDF mirrors `--accent` by value in `MemberProfilePdf.tsx`. Error red stays unchanged.
+
+H1 and H2 use locally hosted Cormorant Garamond, a high-contrast serif approximation of the generated concept lettering, at their existing sizes, with a consistent medium weight matching the option 02 reference more closely. The generated image does not specify an exact font file. Body copy, navigation, forms, small card headings, and tables retain Geist. **Exception — article titles are always Geist** (`font-sans` on the article page's `h1`, the signed-out teaser in `ArticlePreview.tsx` and the write-flow `ArticleLivePreview.tsx`), so an article's title looks the same on cards, lists and its own page; the serif is reserved for page/section marketing headlines. Any new `h1`/`h2` holding user-authored content (a title, a name) should add `font-sans` the same way. The font and SIL Open Font License are in `public/fonts/brand/`; no font-provider request is needed at runtime. Dark surfaces use the same brand green as light ones. PDF profile names use a static Cormorant Garamond instance and the PDF palette mirrors the website. Layout, content, animations, auth, forms, filters, and API contracts are unchanged by this refresh.
+
+### Dashboard member sections
+
+`components/dashboard/MemberSection.tsx` renders the New members and Members you can connect
+with sections: compact centered circular photos, names, muted roles and join/location metadata.
+Each member is one clickable profile link with a small text action; no repeated icon buttons.
+The bordered section and serif heading match the other dashboard panels. Uses a two-column mobile grid (one on very narrow screens),
+four columns on desktop, and existing theme tokens. Join badges use API membership start dates.
+
+### Perks & Learnings pages
+
+The teammate's standalone HTML references were reviewed for structure and interactions, then
+removed after implementation at the user's request. Durable equivalents are in
+`components/resources/` and the `/perks`, `/learnings`, `/admin/resources` routes.
+
+- `ResourceHero`: current black hero, editorial serif heading with the single accent green,
+  white search field, existing Geist body and shared PageContainer width.
+- Perks: starter-stack logo groups, category chips, featured-first image cards, product-detail
+  dialog, and up-to-three-tool comparison table. Coming-soon state uses actual API status.
+- Learnings: featured thumbnail story, library overview (real counts), layered-thumbnail learning
+  paths, profession/topic/level/duration filters, and video cards. Player includes the ordered
+  queue and previous/next controls. Locked videos render a sign-in or membership call to action
+  and never mount an iframe/video element. YouTube embeds use youtube-nocookie.com.
+- `ResourceDialog`: native HTML dialog for focus trapping, Escape, backdrop dismissal and focus
+  restoration, with a scrollable body and sticky title/close row. Uses existing radii and borders;
+  no custom palette or typography. Resource images fall back to a themed placeholder on failure.
+- Admin: existing dark admin hero and shared form controls; separate client/member offer fieldsets,
+  explicit video access options, ordered collection items with labelled move/remove controls,
+  inactive drafts, deletion confirmation and inline API errors.
+
+At 375px, stack/path groups scroll horizontally, resource cards are one column, and forms stack.
+Desktop uses three library columns and up to five compact collection cards. Empty-search reset,
+loading skeletons and the shared PageError boundary are provided. Browser QA covered 375px and
+desktop, comparison, detail dialogs, video queue, guest/client/member gating, admin create/edit,
+validation, and collection reorder. No backend contract changes in this frontend session.
+
+Prototype-only claimed counts, saves, learning logs, notes, completion progress, and suggestion
+forms were omitted because the API has no corresponding persistence contract. No simulated
+success messages or invented activity numbers are shown.

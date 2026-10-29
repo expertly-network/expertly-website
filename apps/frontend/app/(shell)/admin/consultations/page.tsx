@@ -6,7 +6,7 @@ import { Eyebrow } from '@/components/ui';
 import { AdminConsultationsTable } from '@/components/admin/AdminConsultationsTable';
 
 export const metadata = {
-  title: 'Consultations — Admin — Expertly',
+  title: 'Consultations — Admin — GrowXQ',
 };
 
 // UX-only gate; the backend re-checks role + the manageConsultations permission fresh on every

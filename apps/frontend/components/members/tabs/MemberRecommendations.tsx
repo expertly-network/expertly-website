@@ -132,7 +132,7 @@ export function MemberRecommendations({
 
   return (
     <section aria-labelledby="member-recommendations-heading">
-      <h3 id="member-recommendations-heading" className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+      <h3 id="member-recommendations-heading" className="mb-3 font-mono text-profile-label font-bold text-ink-3">
         Member Recommendations
       </h3>
 

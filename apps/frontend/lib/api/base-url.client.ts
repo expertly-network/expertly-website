@@ -1,7 +1,8 @@
-import { API_HOSTS, FALLBACK_API_URL } from '@/lib/api/base-url.shared';
+import { API_URL_GLOBAL, BUILD_TIME_API_URL } from '@/lib/api/base-url.shared';
 
-// Client Components — reads the browser's own hostname.
+// Client Components — the runtime API_URL the root layout injected into the page.
 export function getApiBaseUrlClient(): string {
-  if (typeof window === 'undefined') return FALLBACK_API_URL;
-  return API_HOSTS[window.location.hostname] ?? FALLBACK_API_URL;
+  if (typeof window === 'undefined') return BUILD_TIME_API_URL;
+  const injected = (window as unknown as Record<string, unknown>)[API_URL_GLOBAL];
+  return typeof injected === 'string' && injected ? injected : BUILD_TIME_API_URL;
 }

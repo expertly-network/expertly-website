@@ -1,4 +1,4 @@
-# Expertly — Build Prompts
+# GrowXQ — Build Prompts
 
 One prompt per session. Paste a prompt's contents as the **first message of a fresh Claude Code
 session** (not a continuation of an existing one — each is meant to start cold, per `CLAUDE.md`'s
@@ -39,7 +39,7 @@ a browser screenshot/description, a passing typecheck), not just assert it passe
 ## 1. Real homepage (frontend only)
 
 ```
-Build the real Expertly homepage, replacing the current placeholder
+Build the real GrowXQ homepage, replacing the current placeholder
 (apps/frontend/app/page.tsx currently just renders BackendConnectivityCheck — a dev scaffold, not
 the real page; remove it once this is live).
 
@@ -490,7 +490,7 @@ whenever, they don't block anything else:
 
 1. Newsletter subscriptions — plain email-capture, POST /v1/newsletter-subscriptions (public),
    admin GET list. No real account tie-in.
-2. Signup-source tracking — a `source` column on profiles (how someone found/joined Expertly),
+2. Signup-source tracking — a `source` column on profiles (how someone found/joined GrowXQ),
    surfaced in the admin user directory. Likely just an additive column + admin display, not a
    new resource.
 3. Global cross-entity search (index.html's homepage search bar spanning members/articles/events)

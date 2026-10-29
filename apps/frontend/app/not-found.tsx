@@ -1,7 +1,7 @@
 import { Logo } from '@/components/Logo';
 import { NotFoundContent } from '@/components/shared/NotFoundContent';
 
-export const metadata = { title: 'Page not found — Expertly' };
+export const metadata = { title: 'Page not found — GrowXQ' };
 
 // URLs that match no route at all render here, outside the (shell) layout — hence the logo.
 export default function RootNotFound() {

@@ -103,7 +103,7 @@ export function WriteArticleFlow({
       if (editArticle) {
         await updateArticle(editArticle.id, payload);
         setSaved(true);
-        router.push(`/articles/${editArticle.id}`);
+        router.push(`/articles/${editArticle.slug}`);
       } else {
         await createArticle({ ...payload, ...creationFields });
         setSaved(true);
@@ -135,7 +135,7 @@ export function WriteArticleFlow({
         const isLive = editArticle.status === 'published' || editArticle.status === 'pending_review';
         const article = await updateArticle(editArticle.id, isLive ? payload : { ...payload, status: 'published' });
         setSaved(true);
-        router.push(`/articles/${article.id}`);
+        router.push(`/articles/${article.slug}`);
       } else {
         const article = await createArticle({ ...payload, ...creationFields });
         setSaved(true);
@@ -150,7 +150,7 @@ export function WriteArticleFlow({
   }
 
   if (step === 'success' && result) {
-    return <WriteSuccess status={result.status} articleId={result.id} />;
+    return <WriteSuccess status={result.status} articleSlug={result.slug} />;
   }
 
   const isLiveEdit =
@@ -168,7 +168,7 @@ export function WriteArticleFlow({
               return;
             }
             if (isEditing) {
-              if (confirmLeave()) router.push(`/articles/${editArticle!.id}`);
+              if (confirmLeave()) router.push(`/articles/${editArticle!.slug}`);
               return;
             }
             if (step === 'choose') {
@@ -206,7 +206,7 @@ export function WriteArticleFlow({
             />
             <WriteOptionCard
               icon={AI_ICON}
-              title="Let Expertly AI draft it"
+              title="Let GrowXQ AI draft it"
               description="Answer a few quick questions and our AI writes a complete first draft for you to review."
               minutes={2}
               ctaLabel="Answer questions"

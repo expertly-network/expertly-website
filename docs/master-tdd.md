@@ -1,4 +1,4 @@
-# Master TDD — Expertly Platform
+# Master TDD — GrowXQ Platform
 
 This is the map of the project, not a duplicate of it. Every technical detail already has a home
 (`docs/database-erd.md`, `docs/rest-api.md`, `docs/auth.md`, `docs/design-system.md`,
@@ -33,7 +33,7 @@ and validate against `docs/user-stories.md`'s acceptance criteria before calling
 
 ## Section 1 — Project overview
 
-Expertly is a membership platform connecting clients with vetted expert members — consultations,
+GrowXQ is a membership platform connecting clients with vetted expert members — consultations,
 peer-to-peer connect, articles, events, perks/templates/learnings, and tiered membership & billing.
 Full framing, brand personality, and design principles: `PRODUCT.md`.
 
@@ -73,7 +73,7 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | `events` | ⚠️ Partially built — public `GET /v1/events` plus admin CRUD (`/v1/admin/events`); public suggestion-queue submission not built | `events/` |
 | `consultation_requests` | ⚠️ Backend built, frontend not | `consultations/` |
 | `peer_connect_matches`, `peer_connect_member_preferences` | 🧱 Schema only | none — see Section 6 |
-| Perks, templates, learnings | 📋 Roadmap — no schema yet | none |
+| Perks / learnings / collections | ✅ Backend + frontend; templates deferred | `0004_tables.sql`, `0008_seed_resources.sql` |
 | Newsletter subscriptions, signup-source tracking | 📋 Roadmap — no schema yet | none |
 | Notifications (any kind) | 🔭 Beyond-roadmap — no schema | none |
 | Vector embeddings / AI search | ✅ Built | `search_documents`, `search_outbox`, `search_query_log` (see `docs/database-erd.md` "AI search") |
@@ -99,8 +99,8 @@ model, made server-real during the Member Directory & Profiles session — `docs
 stale.
 
 Note: `manageEvents` and `manageConsultations` are now wired up (`AdminEventsController`,
-`AdminConsultationsController`, see Section 6). `manageResources` still has no backend module to
-gate — the permission model was scoped ahead of the features it'll gate.
+`AdminConsultationsController`, see Section 6). `manageResources` now gates every
+`AdminResourcesController` route for perks, learnings and collections.
 
 ---
 
@@ -122,12 +122,12 @@ pixel/behavior reference per root `CLAUDE.md`'s methodology.
 | Auth (signup/login/OAuth) | ✅ Built | `login.html`, `admin-login.html` | No custom REST — `supabase-js` direct |
 | Practice areas / taxonomy | ✅ Built | (embedded in several pages) | — |
 | Membership applications | ✅ Built | `apply.html`, `onboarding_form.html`, `review.html` | Payment integration deferred — see `docs/rest-api.md`'s "not built yet" section |
-| Articles | ✅ Built — browse grid + detail page + full write flow (manual + 3-step AI wizard) + My Articles tab + feature-flagged editorial review queue + admin AI-generations log (`/admin/ai-generations` — every ai-draft attempt's inputs vs. output, linked to the saved article) | `articles.html`, `article.html` | Guest sees title+excerpt only on the detail page (`GET /v1/articles/:id` requires auth); `ARTICLES_REVIEW_MODE` env var (`instant` default \| `editorial`) controls whether submitting publishes immediately or queues for `manageArticles` admin approval — see `docs/database-erd.md` |
+| Articles | ✅ Built — browse grid + detail page + full write flow (manual + 3-step AI wizard) + My Articles tab + feature-flagged editorial review queue + admin AI-generations log (`/admin/ai-generations` — every ai-draft attempt's inputs vs. output, linked to the saved article) | `articles.html`, `article.html` | Guest sees title+excerpt only on the detail page (`GET /v1/articles/:idOrSlug` requires auth); `ARTICLES_REVIEW_MODE` env var (`instant` default \| `editorial`) controls whether submitting publishes immediately or queues for `manageArticles` admin approval — see `docs/database-erd.md` |
 | Member directory & profiles | ✅ Built | `members.html`, `member-profile.html`, `dashboard.html`/`dashboard-alt-3.html` | Per-section edit-approval workflow; `docs/roadmap.md`'s framing of this as unbuilt is stale |
 | Consultations | ⚠️ Backend built (create/mine/received/status transitions + admin oversight, rate-limited), frontend not | `consultation-requests.html`, `my-consultations.html` | See `docs/rest-api.md`'s Consultations section; request modal, inbox, and my-consultations pages not built yet |
 | Peer Connect | 🧱 Schema only | `peer-connect.html` | Monthly 1:1 matching program, not a directory — recommend its own scoping session per `docs/roadmap.md` |
 | Events | ✅ Built — homepage teaser, standalone `/events` browse page, admin CRUD at `/admin/events` | `events.html` | `GET /v1/events?upcoming=false` backs the standalone page's month-grouped, client-filtered list (date preset/country/format); `/admin/events` covers direct create/edit/delete. No public suggestion-queue submission endpoint yet — "Suggest an event" is a `mailto:` link. See `docs/rest-api.md` |
-| Perks / Templates / Learnings | 📋 Roadmap | `perks.html`, `templates.html`, `learnings.html` | Identical CRUD shape ×3; public-vs-member-gated is an open product call |
+| Perks / Learnings | ✅ Backend + frontend | `/perks`, `/learnings`, `/admin/resources` | Role-shaped offers, first-video-free learning playlists, perk stacks; templates deferred |
 | Newsletter subscriptions | 📋 Roadmap | `index.html` (footer capture) | Plain email capture, unrelated to accounts |
 | Global cross-entity search | ✅ `POST /v1/search` built; the existing search modal (home, articles, events) now calls it | `index.html` (homepage search bar) | See `docs/rest-api.md` "AI search" |
 | `membership.html` | N/A | `membership.html` | Confirmed fully static marketing/pricing — no backend needed |
@@ -241,7 +241,8 @@ for what turned out to already have schema:
 2. **Consultations** — backend built (create/mine/received/status transitions + admin oversight,
    rate-limited per requester). Frontend (request modal, member inbox, requester's sent-list page)
    remains — its own session, per root `CLAUDE.md`'s backend/frontend split.
-3. **Perks / Templates / Learnings** — no schema yet, low complexity, same shape ×3; resolve
+3. **Perks / Learnings / Templates** — backend, schema and frontend implemented for Perks and
+   Learnings (US-14); Templates backend + frontend implemented 2026-10-30 (US-14-03). Historical planning note: resolve
    public-vs-member-gated once, apply to all three.
 4. **Events** — direct admin CRUD built; remaining scope is just the public suggestion-queue
    submission + approval flow, lower complexity than the original estimate.

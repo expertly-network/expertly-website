@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    container_name: expertly-backend
+    container_name: growxq-backend
     restart: unless-stopped
     env_file:
       - ./apps/backend/.env
@@ -18,7 +18,7 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    container_name: expertly-frontend
+    container_name: growxq-frontend
     restart: unless-stopped
     depends_on:
       - backend

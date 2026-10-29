@@ -121,7 +121,7 @@ export function ArticleLivePreview({
           </button>
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-3 px-7 py-5">
             {serviceName && (
-              <span className="rounded-full border border-white/[0.18] bg-white/10 px-3 py-1 text-[10.5px] font-bold tracking-[0.1em] text-accent">
+              <span className="rounded-full border border-white/[0.18] bg-white/10 px-3 py-1 text-[10.5px] font-bold text-accent">
                 {serviceName.toUpperCase()}
               </span>
             )}
@@ -129,20 +129,20 @@ export function ArticleLivePreview({
         </div>
 
         <div className="p-[24px_22px_28px] min-[760px]:p-[32px_40px_40px]">
-          <h1 className="text-[clamp(22px,2.6vw,32px)] font-medium leading-[1.15] tracking-[-0.025em] text-ink">
+          <h1 className="font-sans text-[clamp(22px,2.6vw,32px)] font-medium leading-[1.15] tracking-[-0.025em] text-ink">
             {title || 'Untitled article'}
           </h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-[18px] border-b border-line pb-[18px]">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-ink-3">
+            <span className="flex items-center gap-1.5 text-caption text-ink-3">
               {CLOCK_ICON}
-              {DATE_FORMAT.format(new Date()).toUpperCase()}
+              {DATE_FORMAT.format(new Date())}
             </span>
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-ink-3">
+            <span className="flex items-center gap-1.5 text-caption text-ink-3">
               {authorName}
             </span>
             {countries.length > 0 && (
-              <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-ink-3">
+              <span className="flex items-center gap-1.5 text-caption text-ink-3">
                 {countries.join(', ')}
               </span>
             )}

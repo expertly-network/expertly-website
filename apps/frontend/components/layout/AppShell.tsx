@@ -12,7 +12,9 @@ export function AppShell({ user, children }: { user: Profile | null; children: R
       <MobileDrawer user={user} />
       <HeroLogoHandoff />
       <div className="flex min-h-screen flex-col min-[1024px]:pl-14">
-        <main className="flex-1">{children}</main>
+        {/* At least a full screen tall (minus the mobile top bar), so the footer always starts
+            below the fold even on a page with little content. */}
+        <main className="min-h-[calc(100svh-59px)] flex-1 min-[1024px]:min-h-[100svh]">{children}</main>
         <Footer />
       </div>
     </div>

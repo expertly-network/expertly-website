@@ -49,6 +49,24 @@ export class ArticleDto {
 
 export type ArticleListItemDto = Omit<ArticleDto, 'body'>;
 
+/**
+ * Query params for `GET /v1/articles`. Sending `page` or `pageSize` pages the result (default
+ * `pageSize` 12, max 50); sending neither returns every match. The total match count across all
+ * pages comes back in the `X-Total-Count` response header — the body stays a plain
+ * `ArticleListItemDto[]`.
+ */
+export interface ListArticlesQuery {
+  authorId?: string;
+  /** Repeatable; matches articles tagged with ANY of the given services. */
+  serviceId?: string[];
+  /** Repeatable; matches articles tagged with ANY of the given countries. */
+  country?: string[];
+  /** Leaves one article out (e.g. the one being read, for "related articles"). */
+  excludeId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export class CreateArticleRequest {
   @ApiProperty() title!: string;
   @ApiProperty() body!: string;

@@ -39,7 +39,7 @@ function TestimonialAuthor({ t, compact }: { t: MemberTestimonial; compact: bool
         )}
       </div>
       {date && (
-        <span className={`flex-none font-mono tracking-[0.02em] text-ink-4 ${compact ? 'text-[9.5px]' : 'text-[10.5px]'}`}>
+        <span className={`flex-none font-mono text-ink-4 ${compact ? 'text-[9.5px]' : 'text-[10.5px]'}`}>
           {date}
         </span>
       )}
@@ -177,7 +177,7 @@ export function ReviewsTab({
                   <div className="min-w-0">
                     <div className="text-profile-item font-semibold text-ink">{award.title}</div>
                     {(award.issuingBody || award.year) && (
-                      <div className="mt-[5px] font-mono text-profile-meta tracking-[0.01em] text-ink-3">
+                      <div className="mt-[5px] font-mono text-profile-meta text-ink-3">
                         {[award.issuingBody, award.year].filter(Boolean).join(' · ')}
                       </div>
                     )}

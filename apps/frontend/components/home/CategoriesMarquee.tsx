@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { Marquee } from '@/components/home/Marquee';
+import { MARQUEE_TILE_HEIGHT, Marquee } from '@/components/home/Marquee';
 import type { CategoryDto } from '@shared/category';
 
-// Member count per category isn't in the contract yet — flagged, not faked. Falls back to a
+// Member count per category isn't in the contract yet — flagged, not faked. Same tile size as
+// FeaturedMembers (280px × MARQUEE_TILE_HEIGHT); falls back to a
 // neutral dot when a category has no image (the old 3-value enum's color coding no longer
 // applies now that categories are real rows, not a fixed taxonomy).
 export function CategoriesMarquee({ categories }: { categories: CategoryDto[] }) {
@@ -17,14 +18,14 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
       renderItem={(c) => (
         <Link
           href={`/members?categoryId=${c.id}`}
-          className="flex w-[240px] items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2"
+          className={`flex w-[280px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
         >
           {c.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={c.imageUrl}
               alt=""
-              className="h-11 w-11 flex-none rounded-xl object-cover"
+              className="h-16 w-16 flex-none rounded-xl object-cover"
             />
           ) : (
             <span aria-hidden="true" className="h-2.5 w-2.5 flex-none rounded-full bg-accent" />

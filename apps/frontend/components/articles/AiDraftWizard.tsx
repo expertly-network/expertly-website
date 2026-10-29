@@ -210,9 +210,9 @@ export function AiDraftWizard({
         : `Condense the article to between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words — keep the key facts and structure.`;
 
     return (
-      <WriteCard headerIcon={AI_ICON} headerTitle="Expertly AI drafted your article">
+      <WriteCard headerIcon={AI_ICON} headerTitle="GrowXQ AI drafted your article">
         <div className="rounded-xl bg-bg-alt px-5 py-[18px]">
-          <div className="mb-3.5 inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] px-2.5 py-1 text-[10.5px] font-bold tracking-[0.08em] text-accent">
+          <div className="mb-3.5 inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] px-2.5 py-1 text-[10.5px] font-bold text-accent">
             AI DRAFT
           </div>
           <h3 className="mb-3.5 text-xl font-semibold tracking-[-0.02em] text-ink">{draft.title}</h3>
@@ -223,7 +223,7 @@ export function AiDraftWizard({
           />
           {draft.sources && draft.sources.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line pt-3.5">
-              <span className="text-[11px] font-semibold tracking-wide text-ink-4">SOURCES</span>
+              <span className="text-[11px] font-semibold text-ink-4">SOURCES</span>
               {draft.sources.map((source, i) => (
                 <a
                   key={source.url + i}
@@ -241,7 +241,7 @@ export function AiDraftWizard({
 
         <div className="flex flex-col gap-4 rounded-card-lg border border-line bg-bg-card p-6">
           <p className="text-xs font-medium text-ink-2">
-            Expertly AI inferred these from your draft — correct anything that&apos;s off before continuing.
+            GrowXQ AI inferred these from your draft — correct anything that&apos;s off before continuing.
           </p>
           <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
             <MultiSelect
@@ -313,7 +313,7 @@ export function AiDraftWizard({
               disabled={refining}
               className="rounded-[9px] border-[1.5px] border-amber-300 bg-bg-card px-4 py-2 text-[13px] font-semibold text-amber-700 transition-colors hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {refining ? 'Working…' : draftWords < MIN_ARTICLE_WORDS ? 'Expand with Expertly AI' : 'Condense with Expertly AI'}
+              {refining ? 'Working…' : draftWords < MIN_ARTICLE_WORDS ? 'Expand with GrowXQ AI' : 'Condense with GrowXQ AI'}
             </button>
           </div>
         )}
@@ -347,7 +347,7 @@ export function AiDraftWizard({
   const backFromStep3 = followUpQuestions.length > 0 ? 2 : 1;
 
   return (
-    <WriteCard headerIcon={AI_ICON} headerTitle="Expertly AI — a few quick questions">
+    <WriteCard headerIcon={AI_ICON} headerTitle="GrowXQ AI — a few quick questions">
       <div className="flex items-start">
         {([1, 2, 3] as const).map((n, i) => {
           const dotState = subStep === n ? 'active' : subStep > n ? 'done' : 'upcoming';
@@ -383,7 +383,7 @@ export function AiDraftWizard({
         <div className="flex flex-col items-center gap-4 py-12 text-center">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-line-2 border-t-accent" />
           <p className="text-[15px] font-semibold text-ink">
-            {generating ? 'Expertly AI is drafting your article…' : 'Expertly AI is reviewing your answers…'}
+            {generating ? 'GrowXQ AI is drafting your article…' : 'GrowXQ AI is reviewing your answers…'}
           </p>
           <p className="max-w-[340px] text-[13px] leading-[1.55] text-ink-3">This usually takes just a few seconds.</p>
         </div>
@@ -521,7 +521,7 @@ export function AiDraftWizard({
             <>
               <label className="flex items-center gap-2.5 text-sm text-ink-2">
                 <input type="checkbox" checked={includeVisual} onChange={(e) => setIncludeVisual(e.target.checked)} className="accent-accent" />
-                Let Expertly AI include a table if it&apos;s relevant to the topic
+                Let GrowXQ AI include a table if it&apos;s relevant to the topic
               </label>
 
               <div className="grid grid-cols-2 gap-4 max-[480px]:grid-cols-1">
@@ -543,7 +543,7 @@ export function AiDraftWizard({
 
               <div className="mt-1 flex items-center justify-between">
                 <WizardBackStep onClick={() => setSubStep(backFromStep3)} />
-                <WriteSubmitButton onClick={generate}>Generate with Expertly AI {ARROW_ICON}</WriteSubmitButton>
+                <WriteSubmitButton onClick={generate}>Generate with GrowXQ AI {ARROW_ICON}</WriteSubmitButton>
               </div>
             </>
           )}

@@ -9,32 +9,52 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Cover image, meta row, title, then an author row.
+// Cover image, service badge, title, countries, then an author row with date + read time.
 export function ArticleCard({ article }: { article: ArticleListItemDto }) {
   const primaryService = article.services[0];
   const designation = formatAuthorDesignation(article.authorHeadline, article.authorFirmName);
 
   return (
     <Link
-      href={`/articles/${article.id}`}
+      href={`/articles/${article.slug}`}
       className="flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={article.coverImageUrl} alt="" className="h-[180px] w-full object-cover" />
 
       <div className="flex flex-1 flex-col p-5">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            {primaryService && <Badge variant="brand">{primaryService.name}</Badge>}
-            <span className="truncate text-xs text-ink-3">{article.countries.join(', ')}</span>
+        {/* Service on its own line so a long name never wraps the badge onto two lines;
+            countries sit under the title, date + read time move to the author row. */}
+        {primaryService && (
+          <div className="mb-3 flex min-w-0" title={primaryService.name}>
+            <Badge variant="brand" className="max-w-full">
+              <span className="truncate">{primaryService.name}</span>
+            </Badge>
           </div>
-          <span className="flex-none text-xs text-ink-3">
-            {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()} ·{' '}
-            {article.readTimeMinutes} min
-          </span>
-        </div>
+        )}
 
         <h3 className="line-clamp-2 text-title text-ink">{article.title}</h3>
+
+        {article.countries.length > 0 && (
+          <div className="mt-2 flex min-w-0 items-center gap-1 text-xs text-ink-3">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+              className="flex-none text-ink-4"
+            >
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span className="truncate" title={article.countries.join(', ')}>
+              {article.countries.join(', ')}
+            </span>
+          </div>
+        )}
 
         <div className="mt-auto flex items-center gap-2.5 pt-5">
           {article.authorPhotoUrl ? (
@@ -56,9 +76,14 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-medium text-ink-2">{article.authorName}</div>
             {designation && (
-              <div className="truncate text-[10px] tracking-wide text-ink-4">{designation}</div>
+              <div className="truncate text-[10px] text-ink-4">{designation}</div>
             )}
           </div>
+          <span className="ml-auto flex-none pl-2 text-right text-xs leading-tight text-ink-3">
+            {DATE_FORMAT.format(new Date(article.createdAt))}
+            <br />
+            {article.readTimeMinutes} min read
+          </span>
         </div>
       </div>
     </Link>

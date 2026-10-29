@@ -464,7 +464,7 @@ export function ReviewSubmitStep({
                 }}
               />
               <span className="text-ink-2">
-                I consent to Expertly verifying my professional credentials and background as part of
+                I consent to GrowXQ verifying my professional credentials and background as part of
                 the membership review process.
               </span>
             </label>

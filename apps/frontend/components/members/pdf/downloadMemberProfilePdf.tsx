@@ -1,7 +1,8 @@
 import { Font, pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
-import type { MemberDto } from '@shared/member';
-import { MemberProfilePdf, PDF_FONT_FAMILY } from './MemberProfilePdf';
+import type { MemberDto, MemberRecommendationDto } from '@shared/member';
+import { apiFetch } from '@/lib/api/client';
+import { MemberProfilePdf, PDF_FONT_FAMILY, PDF_HEADING_FONT_FAMILY, type PdfRecommendation } from './MemberProfilePdf';
 
 // Client-only: builds the member profile PDF in the browser and saves it. Imported lazily from
 // ProfileHeader's PDF button so none of this (or @react-pdf/renderer) is in the page bundle.
@@ -21,6 +22,11 @@ function registerFonts() {
       { src: `${base}/Geist-SemiBold.ttf`, fontWeight: 600 },
       { src: `${base}/Geist-Bold.ttf`, fontWeight: 700 },
     ],
+  });
+  Font.register({
+    family: PDF_HEADING_FONT_FAMILY,
+    src: `${window.location.origin}/fonts/brand/CormorantGaramond-Medium.ttf`,
+    fontWeight: 400,
   });
   // react-pdf hyphenates long words by default ("consul-tation"); a profile reads better without.
   Font.registerHyphenationCallback((word) => [word]);
@@ -62,14 +68,38 @@ function loadPhotoAsPng(url: string, size = 320): Promise<string | null> {
 
 function fileNameFor(member: MemberDto): string {
   const base = member.slug || member.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `${base}-expertly-profile.pdf`;
+  return `${base}-growxq-profile.pdf`;
+}
+
+// The profile page's visible recommendations (same endpoint MemberRecommendations uses), with each
+// author photo pre-loaded. Hidden ones are dropped — the API returns them to the profile owner, but
+// the PDF is meant to be shared. A failed fetch yields none rather than blocking the download.
+async function loadRecommendations(memberId: string): Promise<PdfRecommendation[]> {
+  let items: MemberRecommendationDto[];
+  try {
+    items = await apiFetch<MemberRecommendationDto[]>(`/members/${memberId}/recommendations`);
+  } catch {
+    return [];
+  }
+  const visible = items.filter((rec) => !rec.isHidden);
+  const photos = await Promise.all(
+    visible.map((rec) => (rec.author.photoUrl ? loadPhotoAsPng(rec.author.photoUrl, 96) : Promise.resolve(null)))
+  );
+  return visible.map((rec, i) => ({
+    id: rec.id,
+    authorName: rec.author.name,
+    authorInitials: rec.author.initials,
+    authorPhotoDataUrl: photos[i],
+    body: rec.body,
+    createdAt: rec.createdAt,
+  }));
 }
 
 export async function downloadMemberProfilePdf(member: MemberDto): Promise<void> {
   registerFonts();
   const profileUrl = memberProfileUrl(member.slug);
 
-  const [qrDataUrl, photoDataUrl] = await Promise.all([
+  const [qrDataUrl, photoDataUrl, recommendations] = await Promise.all([
     QRCode.toDataURL(profileUrl, {
       errorCorrectionLevel: 'M',
       margin: 0,
@@ -77,6 +107,7 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
       color: { dark: '#0b0b0c', light: '#ffffff' },
     }),
     member.photoUrl ? loadPhotoAsPng(member.photoUrl) : Promise.resolve(null),
+    loadRecommendations(member.id),
   ]);
 
   const blob = await pdf(
@@ -86,6 +117,7 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
       qrDataUrl={qrDataUrl}
       photoDataUrl={photoDataUrl}
       generatedAt={new Date()}
+      recommendations={recommendations}
     />
   ).toBlob();
 

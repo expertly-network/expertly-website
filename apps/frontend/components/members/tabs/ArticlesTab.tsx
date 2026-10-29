@@ -21,7 +21,7 @@ export function ArticlesTab({
     let cancelled = false;
     getArticles({ authorId })
       .then((result) => {
-        if (!cancelled) setArticles(result);
+        if (!cancelled) setArticles(result.items);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -74,7 +74,7 @@ export function ArticlesTab({
       {articles.map((article) => (
         <li key={article.id}>
           <Link
-            href={`/articles/${article.id}`}
+            href={`/articles/${article.slug}`}
             className="block rounded-xl border border-line p-4 transition-colors hover:border-line-2"
           >
             <div className="font-medium text-ink">{article.title}</div>

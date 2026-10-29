@@ -1,4 +1,4 @@
-# Expertly — REST API
+# GrowXQ — REST API
 
 Fixed contract, derived once per feature and implemented before any frontend work touches it — see
 `CLAUDE.md`. Base path `/v1`. Additive changes (new optional field, new endpoint) don't need a
@@ -340,9 +340,9 @@ Backing `apps/backend/src/articles/`. Schema: `docs/database-erd.md`. Shared typ
 
 Every `ArticleDto`/`ArticleListItemDto` carries a `slug` — generated server-side from `title` on
 `POST` (kebab-case, disambiguated with a `-2`/`-3`/... suffix on collision), never client-writable
-and never regenerated on `PATCH`. Routes below still key on the real `id` (UUID), matching this
-session's article detail route (`/articles/[id]`); `slug` is carried on the DTO for a future
-pretty-URL pass, not wired into routing yet.
+and never regenerated on `PATCH`. `GET /v1/articles/:idOrSlug` accepts either the UUID or the slug
+(added 2026-10-24 — the frontend's detail route is `/articles/[slug]`); the mutating routes
+(`PATCH`/`DELETE`, admin review) still key on the UUID only.
 
 `authorPhotoUrl: string | null` — sourced from the author's `member_profiles.photo_path` (a plain
 public URL built from the `application-assets` Storage path at read time — see
@@ -370,12 +370,32 @@ model call. Additive, no version bump.
 
 The browse grid — published articles only, list shape (no `body`).
 
-**Query params:** `authorId` (optional) — added by the Member Directory & Profiles session so a
-member's profile page can list their own published articles via this endpoint rather than an
-embedded/duplicated array (the prototype embeds a copy of the author's articles directly on the
-profile object — not reproduced).
+**Query params** (all optional; `ListArticlesQuery` in `packages/shared-types/article.ts`):
+- `authorId` (UUID) — added by the Member Directory & Profiles session so a member's profile page
+  can list their own published articles via this endpoint rather than an embedded/duplicated array
+  (the prototype embeds a copy of the author's articles directly on the profile object — not
+  reproduced).
+- `serviceId` (UUID, repeatable) / `country` (repeatable) — added 2026-10-24 with pagination. Each
+  matches articles carrying **any** of the given values; the two combine with AND. Replaces the
+  browse grid's old client-side filtering, which only worked while the whole set was loaded.
+- `excludeId` (UUID) — leaves one article out (the "related articles" box excludes the one being
+  read).
+- `page` / `pageSize` (positive integers) — added 2026-10-24. Sending either one pages the result
+  (`page` defaults to 1, `pageSize` to 12, capped at 50); sending **neither** returns every match,
+  which is the pre-pagination behavior, so existing callers are unaffected (additive, no `/v2`).
+  Order is `created_at` desc with `id` as tiebreak, so page boundaries are stable.
 
-**Response `200`:** `ArticleListItemDto[]`, newest first.
+**Response `200`:** `ArticleListItemDto[]`, newest first — always a plain array (no envelope).
+**Header `X-Total-Count`:** the total number of matches across all pages (exposed via CORS
+`Access-Control-Expose-Headers`, so browser callers can read it). **Errors:** `400` a non-UUID
+`authorId`/`serviceId`/`excludeId`, or a `page`/`pageSize` that isn't a positive integer.
+
+### 🌐 `GET /v1/articles/:idOrSlug/preview`
+
+Added 2026-10-24. The public teaser of one **published** article — `ArticleListItemDto` (title,
+excerpt, cover, author, services…, no `body`), by UUID or slug. Backs the signed-out article page,
+which used to fetch the whole list just to find one entry. **Errors:** `404` no published article
+with that id/slug (drafts, pending and rejected articles are indistinguishable from missing).
 
 ### 🔒 `GET /v1/articles/me`
 
@@ -385,9 +405,11 @@ same convention rather than inventing a second word for "the caller's own resour
 
 **Response `200`:** `ArticleListItemDto[]`, newest first.
 
-### 🔑 `GET /v1/articles/:id`
+### 🔑 `GET /v1/articles/:idOrSlug`
 
-Full article detail, including `body`. Requires being signed in (any role) — **a deliberate product
+Full article detail, including `body`. The path segment is either the article's UUID or its
+`slug` (e.g. `/v1/articles/rbi-s-new-nbfc-framework`) — a UUID-shaped value is looked up by `id`,
+anything else by `slug`. Additive (UUID lookups behave exactly as before), so no `/v2`. Requires being signed in (any role) — **a deliberate product
 decision, not something the static prototype itself enforces**; see
 `docs/database-erd.md`'s "Design decisions" note for the full reasoning.
 
@@ -853,13 +875,14 @@ The directory list — published/active members only.
 city/state/country, and the names of the member's services or their categories), `serviceId` (repeatable),
 `categoryId` (single — broadens to "any service in this category"; combined with `serviceId`, both
 must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
-(`featured`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
+(`featured`\|`newest`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
 `pageSize=8`, matching the prototype's infinite-scroll page size).
 
 **Response `200`:** `MemberListItemDto[]` — id, slug (added 2026-09-27; server-generated, unique,
 permanent — the key for `GET /v1/members/:slug` and the frontend's `/members/[slug]` route), name, initials, headline, bio, firmName,
 region, country, city, services (`{id, name, categoryId, categoryName}[]`, from `member_services`),
-isVerified, memberTier, yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl.
+isVerified, memberTier, yearsOfExperience, rateMinCents, rateMaxCents, rateCurrency, photoUrl, joinedAt (membership start timestamp).
+`sort=newest` orders by membership start descending, with profile ID as a stable tie-breaker.
 Tenure/rate display strings
 (`"18y"`, `"$420/hr"`) are **not** returned — format them client-side from the numeric fields.
 `bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
@@ -1392,3 +1415,156 @@ when the caller never set a phone number (the common case for OAuth signups) —
 a signed-in caller always gets a `200` with possibly-null fields.
 
 **Response `200`:** `{ phoneCountryCode: string | null; phone: string | null }`.
+
+## Perks & Learnings (US-14, backend implemented 2026-10-29)
+
+Source contracts: `packages/shared-types/resource.ts`; validation:
+`apps/backend/src/resources/dto/`. References are the teammate's
+standalone Perks/Learnings HTML files, plus the seeded schema. The original reference files
+were removed after frontend implementation at the user's request; see `docs/design-system.md`
+for the durable UI mapping.
+User progress/saves/notes/completion tracking are out of scope. Templates were added 2026-10-30 — see
+"Templates" below.
+
+### Public browse and role-shaped detail
+
+| Method | Route | Result |
+|---|---|---|
+| GET | `/v1/perks` | `PerkDto[]` |
+| GET | `/v1/perks/:slug` | `PerkDto` |
+| GET | `/v1/learnings` | `LearningDto[]` |
+| GET | `/v1/learnings/:id` | `LearningDto` |
+| GET | `/v1/collections` | `CollectionDto[]` with ordered, role-shaped items |
+| GET | `/v1/collections/:id` | `CollectionDto` |
+
+Metadata is public. Send `Authorization: Bearer <access_token>` to get authorized content.
+An absent token means guest; a supplied malformed/expired/forged token returns **401**, never
+an unverified role. Responses send `Cache-Control: private, no-store` and `Vary: Authorization`.
+Inactive resources/collections are omitted; inactive or unknown detail returns **404**.
+UUID parameters are validated (**400**). Lists return complete ordered arrays (sortOrder then ID),
+without pagination. Optional list filters: `q` (case-insensitive name/title + description/summary),
+`category`, `audience=tax|legal|audit`, `level=beginner|intermediate|advanced`,
+`featured=true|false`, `kind=learning_playlist|perk_stack`. Use only filters relevant to the
+resource; collections have kind/audiences, perks category/featured, and learnings category/audiences/
+level/featured. Invalid enum filters and unknown query fields return **400**.
+
+| Viewer | Perk offers | Learning playback URL |
+|---|---|---|
+| Guest | No codes, offer text, redemption links, terms or expiry | Never returned, including `access=open` |
+| Signed-in client | Only `user_*` tier, if live, unexpired and redeemable | `open`, or `auto` when first in any active playlist |
+| Member | `member_*` tier; falls back to the `user_*` tier when `member_offer` is empty. Live, unexpired and redeemable only | Every active video |
+| Admin on public routes | Same as member | Every active video |
+
+A member never sees less than a client: with no `member_offer`, a member gets the `user_*` tier (added 2026-10-30). A client never gets the `member_*` tier. `coming_soon` and expired offers
+are withheld for every public viewer, including admin. Expiry is inclusive through its UTC date.
+Public perk fields use a single `offer`, `couponCode`, `offerUrl`, `offerTerms`, `offerExpiresAt`,
+`canRedeem`, and `lockReason` (`sign_in`, `membership`, `coming_soon`, `expired`, `unavailable`,
+or null); raw tier-specific columns are never exposed. A product's ordinary `websiteUrl` is public.
+
+Learning metadata includes `videoProvider`, `canWatch`, `lockReason` (`sign_in`, `membership`,
+or null), and `videoUrl` (null when locked). The first-video rule uses the first **stored** ID
+of each active playlist, before search/filtering. An explicitly `members` video stays locked for
+clients even at position zero; `open` overrides playlist position. An inactive first video does
+not promote the second video. A video can be open through any active playlist, regardless of
+which collection is being viewed. Reordering/deactivating/deleting a playlist takes effect on the
+next request. Exactly five seed videos are client-accessible.
+
+Public collections hide inactive children, preserve the remaining order, and return matching
+`itemIds` and `items`. Nested items use the same shaping as detail/list routes. Resource asset
+paths are expanded to the public `resource-assets` bucket URL. Playback protection is API link
+withholding, not DRM: externally hosted/public media can be accessed by anyone who already knows
+its URL.
+
+### Admin CRUD — fresh role + `manageResources`
+
+For each resource `{perks|learnings|collections}`:
+
+| Method | Route | Body / result |
+|---|---|---|
+| GET | `/v1/admin/{resource}` | All rows, including inactive; `Admin*Dto[]` |
+| GET | `/v1/admin/{resource}/:id` | Full `Admin*Dto` |
+| POST | `/v1/admin/{resource}` | `Create*Request`; **201** `Admin*Dto` |
+| PATCH | `/v1/admin/{resource}/:id` | Non-empty `Update*Request`; **200** `Admin*Dto` |
+| DELETE | `/v1/admin/{resource}/:id` | **204**, **404** if absent |
+
+No token: **401**. Clients/members or admins without `manageResources`: **403**. Existing global
+RolesGuard and AdminPermissionGuard re-check the active admin profile and permission in the DB.
+Admin DTOs expose both perk tiers and playback URLs for content management. Slugs are generated
+server-side from perk name / collection title; edits preserve them. Supplying `slug`, IDs,
+timestamps, or unknown fields is rejected. Slug uniqueness conflicts return **409**.
+
+Required create fields:
+
+- Perk: `name`, `category`, HTTPS `websiteUrl`. Default `offerStatus=coming_soon`.
+- Learning: `title`, HTTPS `videoUrl`, positive integer `durationMinutes`, `category`, `level`.
+  Defaults: `videoProvider=youtube`, `access=auto`. YouTube URLs require a valid 11-character video
+  ID on youtube.com/youtu.be/youtube-nocookie.com. `file` allows HTTPS hosted video URLs.
+- Collection: `kind`, `title`. Default empty `itemIds` and `audiences`. `kind` is immutable.
+
+All resources support `isActive` (default true), non-negative `sortOrder` (default 0). Perks and
+learnings also support `isFeatured` (default false). Optional strings/arrays and nullable fields
+are listed in the shared contract. PATCH omission preserves a field; null clears only nullable
+fields. Required/non-nullable fields reject null; empty patches reject with **400**.
+
+For a live perk at least one tier must have offer text and a nonblank code or HTTPS redemption
+URL. Offer text without redemption details, or redemption details without offer text, is **400**.
+`coming_soon` may retain staged offers internally but none are disclosed publicly. To remove a
+tier, clear its offer, code and link together. Dates are ISO `YYYY-MM-DD`.
+
+**Playlist/stack membership and reorder:** PATCH `itemIds` with the complete desired ordered UUID
+array. Add by including another ID; remove by omitting it; reorder by permuting it. Duplicate,
+unknown, or wrong-kind IDs reject the entire write (**400**). Up to 100 IDs; every reference is
+validated against the appropriate table. Inactive items may be staged but remain absent in
+public collections. Concurrent full-array edits are last-write-wins. Deleting a perk/video prunes
+its ID from all collections via the existing database trigger in the same deletion transaction.
+
+Thumbnails must be our resource-assets copies, never YouTube thumbnail URLs (which reveal the
+locked video ID). Accept bucket-relative `learnings/...` paths or HTTPS URLs in our resource-assets
+bucket. Asset content must not embed confidential codes/playback links. No upload endpoint is
+added here; use the existing re-runnable resource upload script / provisioned assets.
+
+### Templates (added 2026-10-30)
+
+Downloadable starter documents (Word / Excel / PowerPoint / PDF). **Every template is
+members-only.** Files live in the private `template-files` Storage bucket; the stored object path
+is never returned by a public route — a member gets a 60-second signed link instead.
+
+| Method | Route | Auth | Result |
+|---|---|---|---|
+| GET | `/v1/templates` | 🌐 optional bearer | `TemplateDto[]` (active only). Query: `q`, `category`, `audience`, `featured` |
+| GET | `/v1/templates/:id` | 🌐 optional bearer | `TemplateDto` |
+| POST | `/v1/templates/:id/download` | 🔒 member | `TemplateDownloadDto` `{ url, fileName, expiresAt }` |
+| GET | `/v1/collections?kind=template_kit` | 🌐 optional bearer | Kits with `items: TemplateDto[]` |
+
+`TemplateDto`: `id, slug, title, description, category, highlights[], fileType, fileName,
+fileSizeBytes, previewImageUrl, audiences, isFeatured, sortOrder, canDownload, lockReason`.
+`previewImageUrl` (added 2026-10-30) is a public teaser image of the first page/sheet/slide — a
+`templates/...` path in the public resource-assets bucket (returned as a full URL) or an HTTPS URL;
+`null` means the UI shows a designed cover (`sign_in` for guests,
+`membership` for clients, `null` for members/admins). No path or URL field.
+
+**Download** — guest **401**, client **403** (JWT role). Because a JWT role can lag a membership
+change by up to the token lifetime, the service then re-reads `profiles` and requires an active
+`member`/`admin` (**403** otherwise). Unknown or inactive id **404**. The signed URL is valid for
+60 seconds, for that one object only, and carries `Content-Disposition: attachment` with the
+template's `fileName`.
+
+**Admin** (🛡️ `manageResources`, same fresh-admin guard as the rest of this module):
+
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/v1/admin/templates` / `/:id` | `AdminTemplateDto` incl. `filePath` and `isActive` |
+| POST | `/v1/admin/templates/upload` | Multipart field `file`, ≤15MB. Type sniffed from the bytes (`file-type`): docx/xlsx/pptx/pdf only, else **400**. Stored at `uploads/<uuid>.<ext>`; returns `TemplateUploadDto` `{ filePath, fileName, fileSizeBytes, fileType }` — the file name is the uploader's, stripped of any path and given the true extension |
+| POST | `/v1/admin/templates` | `CreateTemplateRequest` = metadata + the upload response. `filePath` must match `^(starter\|uploads)/[a-z0-9-]+\.(docx\|xlsx\|pptx\|pdf)$`, end in `fileType`, and exist in the bucket, else **400**. Slug generated server-side |
+| PATCH | `/v1/admin/templates/:id` | Partial. Swapping `filePath` deletes the old `uploads/` object once nothing references it |
+| DELETE | `/v1/admin/templates/:id` | **204**. Pruned from every kit (DB trigger); its `uploads/` file is deleted. Seed `starter/` files are kept |
+
+Kits use the existing collection routes with `kind: 'template_kit'`; `itemIds` must be template ids.
+
+### Verification
+
+There are no automated tests for this module (the one-off dev scripts were removed 2026-10-30).
+Verify a change by calling the API as each role with the Postman collection: a guest (no token),
+a client, a member and an admin. Confirm codes, offer links, playback URLs and template file
+paths never reach a role that shouldn't see them, and that admin routes return **403** to
+non-admins.

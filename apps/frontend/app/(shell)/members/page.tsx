@@ -13,7 +13,7 @@ import { Eyebrow } from '@/components/ui';
 const PAGE_SIZE = MEMBER_LIST_PAGE_SIZE;
 
 export const metadata = {
-  title: 'Members — Expertly',
+  title: 'Members — GrowXQ',
   description:
     'Hire verified finance & legal counsel. Every practitioner is individually credential-verified and peer-reviewed.',
 };

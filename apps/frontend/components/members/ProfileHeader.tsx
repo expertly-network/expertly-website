@@ -19,7 +19,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
   async function share() {
     const url = window.location.href;
     if (navigator.share) {
-      await navigator.share({ title: `${member.name} - Expertly`, url }).catch(() => {});
+      await navigator.share({ title: `${member.name} - GrowXQ`, url }).catch(() => {});
       return;
     }
     try {
@@ -110,7 +110,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
       </Link>
 
       <div className="overflow-hidden rounded-card border border-line bg-bg-card shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        <div className="relative h-[112px] overflow-hidden bg-[#033c2f]">
+        <div className="relative h-[112px] overflow-hidden bg-ink">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -bottom-[30px] -left-10 h-[200px] w-[200px] rounded-full"
@@ -119,7 +119,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-5 right-[10%] h-[180px] w-[180px] rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(0,165,130,0.07) 0%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--accent) 7%, transparent) 0%, transparent 70%)' }}
           />
         </div>
 
@@ -134,7 +134,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
                   className="h-36 w-36 rounded-2xl border-4 border-bg-card object-cover object-top shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
                 />
               ) : (
-                <div className="flex h-36 w-36 items-center justify-center rounded-2xl border-4 border-bg-card bg-[#033c2f] text-4xl font-bold text-bg-card shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+                <div className="flex h-36 w-36 items-center justify-center rounded-2xl border-4 border-bg-card bg-ink text-4xl font-bold text-bg-card shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
                   {member.initials}
                 </div>
               )}
@@ -154,7 +154,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
               {member.name}
             </span>
             <span
-              className={`inline-flex items-center rounded-full border px-2.5 py-[3px] font-mono text-[11px] font-semibold tracking-[0.02em] ${
+              className={`inline-flex items-center rounded-full border px-2.5 py-[3px] font-mono text-[11px] font-semibold ${
                 isSeasoned
                   ? 'border-[#fde68a] bg-[#fef3c7] text-[#d97706]'
                   : 'border-line bg-line text-ink-3'

@@ -2,7 +2,7 @@ import type { MemberEditSection, MemberProfileEditDto } from '@shared/member';
 
 // Matches design/static_html/member-profile.html's sectionBadgeHtml() exactly: pending (amber)
 // if the latest edit for this section is awaiting review; verified (green) if the latest edit
-// was approved or the member is already Expertly-verified overall (with no pending edit in the
+// was approved or the member is already GrowXQ-verified overall (with no pending edit in the
 // way); otherwise no badge. `isVerified` is the member's own MemberDto.isVerified.
 export function getSectionEditBadge(
   section: MemberEditSection,

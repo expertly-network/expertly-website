@@ -687,6 +687,7 @@ export class MembersService {
       rateMinCents: row.rate_min_cents,
       rateMaxCents: row.rate_max_cents,
       rateCurrency: row.rate_currency,
+      joinedAt: row.membership_started_at,
       photoUrl: row.photo_path ? this.membersRepository.buildPhotoUrl(row.photo_path) : (profile?.avatar_url ?? null),
     };
   }

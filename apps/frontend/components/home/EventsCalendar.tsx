@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { SignInLink } from '@/components/auth/SignInLink';
 import { UpcomingEvents } from '@/components/home/UpcomingEvents';
 import type { EventDto } from '@shared/event';
 
@@ -30,6 +31,9 @@ type CalEvent = {
   ed: Date;
   isPast: boolean;
 };
+
+// Bars shown per week row; any further events on a day collapse into a "+N more" line.
+const MAX_LANES = 2;
 
 function startOfDay(d: Date) {
   const c = new Date(d);
@@ -94,9 +98,25 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
         const ds = Math.max(ev.sd.getDate(), Math.max(1, weekStart));
         const de = Math.min(ev.ed.getDate(), Math.min(daysInMonth, weekEnd));
         return { ev, col: ds - weekStart + 1, span: de - ds + 1 };
-      });
+      })
+      // Earliest first, longer spans first on ties, so multi-day bars claim the top lanes.
+      .sort((a, b) => a.col - b.col || b.span - a.span);
 
-    return { days, weekEvs };
+    // First-fit lane packing: each bar takes the first lane that's free from its start column.
+    const laneEnds: number[] = [];
+    const placed = weekEvs.map((item) => {
+      let lane = laneEnds.findIndex((end) => end < item.col);
+      if (lane === -1) lane = laneEnds.length;
+      laneEnds[lane] = item.col + item.span - 1;
+      return { ...item, lane };
+    });
+    const visibleEvs = placed.filter((p) => p.lane < MAX_LANES);
+    // Per weekday column (1-7): events on that day that didn't get a visible lane.
+    const hiddenByCol = Array.from({ length: 7 }, (_, i) =>
+      placed.filter((p) => p.lane >= MAX_LANES && p.col <= i + 1 && i + 1 < p.col + p.span)
+    );
+
+    return { days, weekEvs, visibleEvs, hiddenByCol };
   });
 
   return (
@@ -113,7 +133,8 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               <path d="M15 6l-6 6 6 6" />
             </svg>
           </button>
-          <span className="font-mono text-[13px] font-semibold tracking-[0.1em] text-ink-3">
+          {/* Fixed width (fits "September 2026") so the next arrow doesn't shift month to month. */}
+          <span className="w-[116px] text-center font-mono text-[13px] font-semibold text-ink-3">
             {MONTH_NAMES[mo]} {yr}
           </span>
           <button
@@ -134,14 +155,14 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
                 <div
                   key={d}
-                  className="py-2.5 pb-3.5 text-center font-mono text-[10px] font-bold tracking-[0.14em] text-ink-2"
+                  className="py-2.5 pb-3.5 text-center font-mono text-[10px] font-bold text-ink-2"
                 >
                   {d}
                 </div>
               ))}
             </div>
             {weeks.map((week, wi) => (
-              <div key={wi} className="relative h-[100px] border-b border-line last:border-none">
+              <div key={wi} className="relative h-[112px] border-b border-line last:border-none">
                 <div className="absolute inset-0 grid grid-cols-7">
                   {week.days.map((day, di) =>
                     day ? (
@@ -169,14 +190,14 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                 {week.weekEvs.length > 0 && (
                   <div
                     className="absolute inset-0 grid grid-cols-7 content-start gap-x-1 gap-y-[3px] overflow-hidden px-[5px] pb-[5px] pt-8"
-                    style={{ gridAutoRows: '26px' }}
+                    style={{ gridTemplateRows: '26px 26px 16px' }}
                   >
-                    {week.weekEvs.map(({ ev, col, span }) => {
+                    {week.visibleEvs.map(({ ev, col, span, lane }) => {
                       const content = (
                         <>
                           {ev.cc && (
                             <span
-                              className={`flex-none font-mono text-[8px] font-extrabold tracking-[0.1em] ${ev.isPast ? 'text-ink-3' : 'text-accent'}`}
+                              className={`flex-none font-mono text-[8px] font-extrabold ${ev.isPast ? 'text-ink-3' : 'text-accent'}`}
                             >
                               {ev.cc}
                             </span>
@@ -188,7 +209,7 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                           </span>
                         </>
                       );
-                      const style = { gridColumn: `${col} / span ${span}` };
+                      const style = { gridColumn: `${col} / span ${span}`, gridRow: lane + 1 };
                       // Past events are context only — no click affordance. Upcoming ones jump to
                       // their row on /events (there are no per-event pages yet).
                       return ev.isPast ? (
@@ -214,6 +235,29 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                         </a>
                       );
                     })}
+                    {week.hiddenByCol.map((hidden, i) => {
+                      if (hidden.length === 0) return null;
+                      const day = week.days[i];
+                      const label = `+${hidden.length} more`;
+                      const names = hidden.map((h) => h.ev.title).join('\n');
+                      const style = { gridColumn: `${i + 1}`, gridRow: MAX_LANES + 1 };
+                      const cls = 'self-center truncate px-1 text-[11px] font-semibold leading-none';
+                      return day?.isPast ? (
+                        <span key={`more-${i}`} title={names} className={`${cls} text-ink-4`} style={style}>
+                          {label}
+                        </span>
+                      ) : (
+                        <Link
+                          key={`more-${i}`}
+                          href="/events"
+                          title={names}
+                          className={`${cls} text-accent hover:underline`}
+                          style={style}
+                        >
+                          {label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -227,7 +271,7 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               style={{ background: 'color-mix(in oklab, var(--accent) 18%, transparent)' }}
             />
             <div className="relative z-[1] flex flex-1 flex-col justify-center gap-4 p-7">
-              <span className="font-mono text-[9px] font-bold tracking-[0.14em] text-accent">
+              <span className="font-mono text-[9px] font-bold text-accent">
                 Stay informed
               </span>
               <h3 className="text-[21px] font-semibold leading-tight tracking-[-0.02em] text-bg-card">
@@ -235,15 +279,14 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               </h3>
               <p className="text-[13px] leading-relaxed text-white/50">
                 This is a curated list of all the leading networking events hosted across the
-                industry. Join Expertly, to discover the who, when, where and connect with the
+                industry. Join GrowXQ, to discover the who, when, where and connect with the
                 right network.
               </p>
-              <Link
-                href="/login"
-                className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-bold tracking-[0.02em] text-ink transition-colors hover:bg-accent-2"
+              <SignInLink
+                className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-bold text-ink transition-colors hover:bg-accent-2"
               >
                 Join for free →
-              </Link>
+              </SignInLink>
               <Link
                 href="/events"
                 className="w-fit font-mono text-xs font-medium text-white/35 transition-colors hover:text-white/65"

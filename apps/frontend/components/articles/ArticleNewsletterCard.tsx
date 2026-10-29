@@ -22,7 +22,7 @@ export function ArticleNewsletterCard() {
           Get the next one before your clients do.
         </h3>
         <p className="mt-2 text-xs text-white/60">
-          One email a week — the regulatory changes, rulings, and deal structures Expertly&apos;s
+          One email a week — the regulatory changes, rulings, and deal structures GrowXQ&apos;s
           verified practitioners are actually discussing.
         </p>
         <form

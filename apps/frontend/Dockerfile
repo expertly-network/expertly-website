@@ -31,7 +31,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-RUN pnpm --filter=expertly-frontend run build
+RUN pnpm --filter=growxq-frontend run build
 
 # --- runtime ---
 FROM node:22-alpine AS runtime

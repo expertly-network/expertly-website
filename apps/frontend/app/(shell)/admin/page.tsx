@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Eyebrow } from '@/components/ui';
 
 export const metadata = {
-  title: 'Admin — Expertly',
+  title: 'Admin — GrowXQ',
 };
 
 const ICON_PROPS = {
@@ -73,7 +73,13 @@ const ADMIN_SECTIONS = [
     href: '/admin/ai-generations',
     icon: AI_GENERATIONS_ICON,
     title: 'AI generations',
-    description: 'See what each member gave Expertly AI when drafting an article, and what it wrote back.',
+    description: 'See what each member gave GrowXQ AI when drafting an article, and what it wrote back.',
+  },
+  {
+    href: '/admin/resources',
+    icon: <><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8H8a3 3 0 113-3l1 3zm0 0h4a3 3 0 10-3-3l-1 3z"/></>,
+    title: 'Perks & Learnings',
+    description: 'Manage partner offers, videos, playlists and starter stacks.',
   },
   {
     href: '/admin/events',

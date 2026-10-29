@@ -48,9 +48,9 @@ export function AvailabilityControl({ member }: { member: MemberDto }) {
     <div className="mb-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <span
-          className={`flex items-center gap-1.5 text-caption font-medium ${isAvailable ? 'text-[#16a34a]' : 'text-ink-3'}`}
+          className={`flex items-center gap-1.5 text-caption font-medium ${isAvailable ? 'text-accent' : 'text-ink-3'}`}
         >
-          <span className={`h-2 w-2 flex-none rounded-full ${isAvailable ? 'bg-[#16a34a]' : 'bg-ink-4'}`} />
+          <span className={`h-2 w-2 flex-none rounded-full ${isAvailable ? 'bg-accent' : 'bg-ink-4'}`} />
           {isAvailable ? 'Available for consultations' : 'Currently unavailable'}
         </span>
         <button

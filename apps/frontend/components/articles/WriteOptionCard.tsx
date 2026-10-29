@@ -39,7 +39,7 @@ export function WriteOptionCard({
       />
 
       {badge && (
-        <span className="absolute right-[22px] top-[22px] z-10 rounded-full bg-bg-card px-2.5 py-1 text-[10px] font-bold tracking-[0.08em] text-ink shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]">
+        <span className="absolute right-[22px] top-[22px] z-10 rounded-full bg-bg-card px-2.5 py-1 text-[10px] font-bold text-ink shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]">
           {badge}
         </span>
       )}

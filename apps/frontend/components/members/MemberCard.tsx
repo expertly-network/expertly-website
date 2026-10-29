@@ -76,7 +76,7 @@ export function MemberCard({
               </svg>
             )}
             {tierBadge && (
-              <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#86EFAC] bg-[#F0FDF4] px-2.5 py-[3px] text-[11px] font-semibold text-[#166534]">
+              <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] px-2.5 py-[3px] text-[11px] font-semibold text-accent">
                 🌱 {tierBadge}
               </span>
             )}

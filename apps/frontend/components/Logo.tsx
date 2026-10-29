@@ -1,10 +1,33 @@
 import Link from 'next/link';
 
-// Text size/color per usage context.
+// The GrowXQ wordmark: lowercase "grow" with a raised green "XQ", like an exponent. "grow" is set in
+// the headline serif (Cormorant Garamond Semibold, as in the homepage hero) and "XQ" in Geist
+// Semibold, so the logo pairs the site's two fonts. Real text — crisp at any size and themeable.
+// Size it with a text-[…] class; colour comes from `tone`.
+export function Wordmark({
+  tone = 'ink',
+  className = '',
+}: {
+  tone?: 'ink' | 'white';
+  className?: string;
+}) {
+  return (
+    <span
+      className={`whitespace-nowrap font-[family-name:var(--font-brand-serif)] font-semibold leading-none tracking-[-0.01em] ${tone === 'white' ? 'text-white' : 'text-ink'} ${className}`}
+    >
+      grow
+      <sup className="ml-[0.04em] align-[0.85em] font-sans text-[0.4em] font-semibold tracking-[-0.02em] text-accent">
+        XQ
+      </sup>
+    </span>
+  );
+}
+
+// Size + tone per usage context.
 const VARIANTS = {
-  nav: 'text-[23px] text-nav-green',
-  auth: 'text-2xl text-ink',
-  sidebar: 'text-[20px] text-white',
+  nav: { tone: 'ink', size: 'text-[28px]' },
+  auth: { tone: 'ink', size: 'text-[32px]' },
+  sidebar: { tone: 'white', size: 'text-[26px]' },
 } as const;
 
 export function Logo({
@@ -14,30 +37,31 @@ export function Logo({
 }: {
   variant?: keyof typeof VARIANTS;
   className?: string;
-  // When true, "xpertly" collapses to zero width, showing only "E." until hovered.
+  // When true (the sidebar's collapsed rail), only the green "XQ" mark shows until the rail is
+  // hovered, then the full wordmark fades in.
   collapsible?: boolean;
 }) {
+  const { tone, size } = VARIANTS[variant];
+
   return (
-    <Link
-      href="/"
-      aria-label="Expertly home"
-      className={`inline-flex items-baseline font-semibold tracking-[-0.02em] ${VARIANTS[variant]} ${className}`}
-    >
-      {/* Hidden while a stellar hero is in view; see HeroLogoHandoff. */}
-      <span className={collapsible ? 'sidebar-logo-mark' : ''}>E</span>
+    <Link href="/" aria-label="GrowXQ home" className={`inline-flex items-center ${className}`}>
+      {collapsible && (
+        // Hidden while a stellar hero is in view (sidebar-logo-*); see HeroLogoHandoff.
+        <span
+          aria-hidden="true"
+          className="sidebar-logo-mark font-sans text-[15px] font-bold tracking-[-0.03em] text-accent group-hover:hidden"
+        >
+          XQ
+        </span>
+      )}
       <span
         className={
           collapsible
-            ? 'sidebar-logo-text max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width] duration-200 group-hover:max-w-[140px] group-hover:opacity-100 group-hover:delay-150'
-            : ''
+            ? 'sidebar-logo-text hidden max-w-0 overflow-x-clip opacity-0 transition-[opacity,max-width] duration-200 group-hover:block group-hover:max-w-[200px] group-hover:opacity-100 group-hover:delay-150'
+            : 'block'
         }
       >
-        xpertly
-      </span>
-      <span
-        className={`text-accent-2 ${collapsible ? 'sidebar-logo-dot ml-px mb-px h-1.5 w-1.5 flex-none rounded-full bg-accent-2' : ''}`}
-      >
-        {collapsible ? '' : '.'}
+        <Wordmark tone={tone} className={size} />
       </span>
     </Link>
   );

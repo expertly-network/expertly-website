@@ -82,7 +82,7 @@ jobs:
           file: apps/backend/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/expertly-backend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/growxq-backend:latest
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
@@ -93,7 +93,7 @@ jobs:
           file: apps/frontend/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/expertly-frontend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/growxq-frontend:latest
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

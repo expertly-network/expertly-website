@@ -1,6 +1,6 @@
-# Expertly Postman collection
+# GrowXQ Postman collection
 
-`Expertly.postman_collection.json` covers every route in `apps/backend` (68 requests). Structure
+`GrowXQ.postman_collection.json` covers every route in `apps/backend` (68 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
@@ -29,9 +29,9 @@ so the whole thing is runnable without the frontend.
 
 ## Setup (one-time)
 
-1. Import both files into Postman: `Expertly.postman_collection.json` and
-   `Expertly.postman_environment.json`.
-2. Select the **Expertly Local** environment (top-right environment picker).
+1. Import both files into Postman: `GrowXQ.postman_collection.json` and
+   `GrowXQ.postman_environment.json`.
+2. Select the **GrowXQ Local** environment (top-right environment picker).
 3. Fill in, from your `apps/backend/.env` / `apps/frontend/.env`:
    - `supabaseUrl` → `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`
    - `supabaseAnonKey` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -64,7 +64,7 @@ This collection is **derived from the fixed contract** in `docs/rest-api.md` +
 > Whenever an endpoint is added, removed, or changes shape — a new route, a renamed/added/removed
 > field, a changed enum, a new required query param — update this collection in the **same**
 > change that touches `docs/rest-api.md` / `packages/shared-types/`. A PR that changes the backend
-> contract without touching `postman/Expertly.postman_collection.json` is incomplete.
+> contract without touching `postman/GrowXQ.postman_collection.json` is incomplete.
 
 That update follows the two principles at the top of this file:
 
@@ -80,5 +80,5 @@ That update follows the two principles at the top of this file:
 In practice: add/edit the matching request in Postman itself (Content-Type headers, query params,
 and a realistic mock body — not an empty one), then **Export** the collection
 (`...` menu → Export → Collection v2.1) back over this file, or hand-edit the JSON directly for a
-small change. Keep `Expertly.postman_environment.json` in sync too if you add a new resource-id
+small change. Keep `GrowXQ.postman_environment.json` in sync too if you add a new resource-id
 variable.

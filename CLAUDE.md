@@ -1,6 +1,6 @@
-# Expertly
+# GrowXQ
 
-Expertly is a membership platform connecting clients with vetted expert members (consultations,
+GrowXQ is a membership platform connecting clients with vetted expert members (consultations,
 peer-to-peer connect, articles, events, perks/templates/learnings, tiered membership & billing).
 Three roles: `client` (public signup), `member` (vetted expert, application-gated), `admin`.
 
@@ -92,7 +92,7 @@ order:
    actually breaking an existing shape goes to `/v2` rather than silently changing `/v1`. **Also**
    write the request/response interfaces into `packages/shared-types/<resource>.ts` (see its
    `README.md`) — this makes the contract compiler-enforced, not just documentation someone has to
-   read carefully. **Also** update `postman/Expertly.postman_collection.json` — see "Postman
+   read carefully. **Also** update `postman/GrowXQ.postman_collection.json` — see "Postman
    collection" below; this is not optional cleanup, it's part of landing the contract change.
 2. **Frontend session**, separate, implements pages against that now-fixed contract, importing
    types from `packages/shared-types/` (`import type` only — see that folder's `README.md` for
@@ -102,7 +102,7 @@ order:
 
 ## Postman collection — must stay in sync with the contract
 
-`postman/Expertly.postman_collection.json` (+ `postman/Expertly.postman_environment.json`,
+`postman/GrowXQ.postman_collection.json` (+ `postman/GrowXQ.postman_environment.json`,
 `postman/README.md`) is a Postman collection covering every `apps/backend` route, with real headers,
 query params, and an editable mock body per request — kept in the repo so anyone can exercise the
 REST API without the frontend.
@@ -295,7 +295,7 @@ At the end of any session touching backend or frontend:
 □ Note any TODOs or explicitly deferred scope — name it, don't leave it silent
 □ Confirm docs/rest-api.md / docs/database-erd.md / packages/shared-types/ were updated
   if the contract changed
-□ Confirm postman/Expertly.postman_collection.json was updated to match — any contract
+□ Confirm postman/GrowXQ.postman_collection.json was updated to match — any contract
   change (§ "Postman collection") that lands without it is incomplete
 □ Confirm no hardcoded credentials or keys
 □ Confirm pnpm typecheck passes

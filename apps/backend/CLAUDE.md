@@ -1,4 +1,4 @@
-# Expertly backend (`apps/backend/`)
+# GrowXQ backend (`apps/backend/`)
 
 NestJS REST API in front of Postgres. This file covers conventions specific to working in this
 app. Architecture-level rules (backend/frontend session split, schema-and-contract-derived-once

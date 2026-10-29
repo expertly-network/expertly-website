@@ -1,4 +1,4 @@
-# Expertly
+# GrowXQ
 
 A Next.js frontend + NestJS backend, each independently dockerized, backed by Supabase Auth.
 See [`CLAUDE.md`](CLAUDE.md) for the full architecture, [`docs/auth.md`](docs/auth.md) for how
@@ -73,8 +73,8 @@ from the **repo root**, not from inside `apps/backend/`/`apps/frontend/`.
 
 **Backend:**
 ```bash
-docker build -t expertly-backend -f apps/backend/Dockerfile .
-docker run -d --rm --name expertly-backend -p 4000:4000 expertly-backend
+docker build -t growxq-backend -f apps/backend/Dockerfile .
+docker run -d --rm --name growxq-backend -p 4000:4000 growxq-backend
 ```
 
 **Frontend:**
@@ -83,18 +83,18 @@ docker run -d --rm --name expertly-backend -p 4000:4000 expertly-backend
 the browser, not on the server), so they must be passed as build args, not just runtime `-e` flags:
 
 ```bash
-docker build -t expertly-frontend -f apps/frontend/Dockerfile \
+docker build -t growxq-frontend -f apps/frontend/Dockerfile \
   --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000 \
   --build-arg NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key \
   .
-docker run -d --rm --name expertly-frontend -p 3000:3000 expertly-frontend
+docker run -d --rm --name growxq-frontend -p 3000:3000 growxq-frontend
 ```
 
 Visit http://localhost:3000 to confirm the same connectivity works
 cross-container.
 
-Stop both with `docker stop expertly-backend expertly-frontend`.
+Stop both with `docker stop growxq-backend growxq-frontend`.
 
 ### Using docker compose
 
@@ -131,7 +131,7 @@ there's no separate `:dev` build to maintain.
 
 **Deploys are fully automatic**: every push to `main` runs `.github/workflows/ci.yml`, which
 lints, typechecks, and builds (the merge gate) — then, only if that passes, builds both Docker
-images, pushes them to `ghcr.io/expertly-network/expertly-{backend,frontend}:latest`, and calls
+images, pushes them to `ghcr.io/expertly-network/growxq-{backend,frontend}:latest`, and calls
 Coolify's deploy API to redeploy both apps with the new images. No manual steps, no SSH, no
 `docker compose` needed.
 

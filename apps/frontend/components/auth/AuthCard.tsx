@@ -25,7 +25,7 @@ const COPY: Record<AuthMode, Record<AuthView, { title: string; sub: string }> & 
     },
     // Passive clickwrap — no checkbox, no separate confirmation step. Continuing (any path:
     // email or LinkedIn) is itself the acceptance; see the linked version of this text below.
-    foot: "By continuing, you agree to Expertly's Terms of Service.",
+    foot: "By continuing, you agree to GrowXQ's Terms of Service.",
   },
   member: {
     signin: {
@@ -92,7 +92,7 @@ export function AuthCard({
         {mode === 'user' && (
           <>
             {!awaitingEmailConfirmation && (
-              <div className="my-5 flex items-center gap-3 text-[11px] tracking-[0.1em] text-ink-3">
+              <div className="my-5 flex items-center gap-3 text-[11px] text-ink-3">
                 <span className="h-px flex-1 bg-line" />
                 or
                 <span className="h-px flex-1 bg-line" />
@@ -123,7 +123,7 @@ export function AuthCard({
 
         {mode === 'user' ? (
           <p className="mt-5 text-center text-[13px] text-ink-3">
-            By continuing, you agree to Expertly&apos;s{' '}
+            By continuing, you agree to GrowXQ&apos;s{' '}
             <a
               href={TERMS_OF_SERVICE_URL}
               target="_blank"

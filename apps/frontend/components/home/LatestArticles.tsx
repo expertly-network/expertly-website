@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Card, Badge } from '@/components/ui';
+import { Badge } from '@/components/ui';
 import { formatArticleDate, formatReadTime, formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
 
@@ -34,7 +34,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
 
   return (
     <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr]">
-      <Link href={`/articles/${featured.id}`} className="flex flex-col gap-5">
+      <Link href={`/articles/${featured.slug}`} className="flex flex-col gap-5">
         <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[360px]">
           {featured.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -51,7 +51,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
           )}
         </div>
         <div>
-          <div className="font-mono text-[11px] tracking-[0.1em] text-ink-3">
+          <div className="font-mono text-[11px] text-ink-3">
             {formatArticleDate(featured.createdAt)} · {formatReadTime(featured.readTimeMinutes)}
           </div>
           <h3 className="mt-3.5 text-heading text-ink">{featured.title}</h3>
@@ -71,12 +71,12 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
         {rest.map((a, i) => {
           const designation = formatAuthorDesignation(a.authorHeadline, a.authorFirmName);
           return (
-            <Link key={a.id} href={`/articles/${a.id}`} className="flex gap-4 py-4">
+            <Link key={a.id} href={`/articles/${a.slug}`} className="flex gap-4 py-4">
               <div className="font-mono text-sm text-ink-4">0{i + 2}</div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   {a.services[0] && <Badge variant="neutral">{a.services[0].name}</Badge>}
-                  <span className="font-mono text-[10px] tracking-[0.08em] text-ink-3">
+                  <span className="font-mono text-[10px] text-ink-3">
                     {formatReadTime(a.readTimeMinutes)} · {formatArticleDate(a.createdAt)}
                   </span>
                 </div>

@@ -1,4 +1,5 @@
 import { getArticlesServer, getMyArticlesServer, getCategoriesServer } from '@/lib/api/server';
+import { ARTICLES_PAGE_SIZE } from '@/lib/api/articles-query';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { ArticlesHero } from '@/components/articles/ArticlesHero';
 import { ArticlesTabsSection } from '@/components/articles/ArticlesTabsSection';
@@ -6,7 +7,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { SuccessNotice } from '@/components/shared/SuccessNotice';
 
 export const metadata = {
-  title: 'Articles — Expertly',
+  title: 'Articles — GrowXQ',
   description:
     'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
 };
@@ -16,8 +17,8 @@ export default async function ArticlesPage({
 }: {
   searchParams: { tab?: string; saved?: string };
 }) {
-  const [articles, categories, profile] = await Promise.all([
-    getArticlesServer(),
+  const [firstPage, categories, profile] = await Promise.all([
+    getArticlesServer({ page: 1, pageSize: ARTICLES_PAGE_SIZE }),
     getCategoriesServer(),
     getSessionUser(),
   ]);
@@ -39,7 +40,8 @@ export default async function ArticlesPage({
             </div>
           )}
           <ArticlesTabsSection
-            articles={articles}
+            articles={firstPage.items}
+            totalArticles={firstPage.total}
             categories={categories}
             myArticles={myArticles}
             canWrite={canWrite}

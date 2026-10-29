@@ -1,4 +1,4 @@
-# Expertly — Authentication & Authorization Reference
+# GrowXQ — Authentication & Authorization Reference
 
 Full reference for how auth actually works in this repo, kept separate from `CLAUDE.md` so that
 file stays scannable as more features ship. Linked from `CLAUDE.md`'s architecture-decisions
@@ -269,7 +269,7 @@ name/email/photo with us — it does **not** imply consent to the *scrape*: an a
 to satisfy this identity check and still click "Skip — I'll fill this in manually" instead of
 running the actual import. `linkedinImportConsent` is a separate, real checkbox (still present,
 unchanged) shown only after connecting, right next to the profile-URL field — "I consent to
-Expertly extracting my bio, work history, and education from this LinkedIn profile and displaying
+GrowXQ extracting my bio, work history, and education from this LinkedIn profile and displaying
 it on my member listing." It's set `true` only when the applicant actually checks it and runs the
 import via `POST /v1/applications/me/linkedin-import`, never implicitly. (An earlier version of
 this session's work auto-set it `true` on connecting instead of keeping the checkbox — that
@@ -336,10 +336,9 @@ nav links to show, and how `/apply` or `/login` redirect you before the page eve
 3. **`AppShell`/`Sidebar`/`MobileDrawer`** (`components/layout/`) receive the resulting `Profile |
    null` and render accordingly — initials + name in the footer, "Apply Now" only for `client`s,
    sign-in link when logged out.
-4. **The one DB-fresh alternative**: `lib/auth/profile.ts`'s `getCurrentProfile()` bypasses the JWT
-   claim entirely and queries `profiles` directly. Nothing uses this yet — it's reserved for a
-   future page that needs guaranteed-current data (e.g. immediately before a sensitive action),
-   mirroring the backend's admin fresh-check pattern below.
+4. **Fresh authorization for sensitive actions** is enforced by the backend's guards against
+   the current profile and permissions. The unused frontend DB-fresh profile helper was removed;
+   no page depended on it, and frontend rendering continues to use `getSessionUser()`.
 
 ### Flowchart — page render / route gating
 
@@ -579,9 +578,8 @@ enabled by default on every table in this repo means the grant alone is not suff
   manually reading Postgres logs after a user-reported failure. There's no automated check today
   that would catch a similar `custom_access_token_hook` permission regression before a real user
   hits it.
-- **`getCurrentProfile()` (frontend) and the backend's admin fresh-check are the only DB-fresh
-  reads that exist** — no page currently calls `getCurrentProfile()`; it's reserved for a future
-  sensitive/destructive frontend action that can't tolerate claim staleness.
+- **Sensitive authorization is checked fresh by the backend's guards.** Frontend rendering uses
+  JWT session claims; the unused DB-fresh frontend helper was removed during cleanup.
 - **Whether LinkedIn-connect (Part 1b) should eventually replace email/password login, not just add
   to it, is an open product decision — deliberately not implemented.** See Part 1b's own "Open
   decision" note for the mechanics (`unlinkIdentity()`) and why it was held back (permanent,

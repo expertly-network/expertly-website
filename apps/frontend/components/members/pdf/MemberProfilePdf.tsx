@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
 import type { MemberDto } from '@shared/member';
-import { displayHost, externalHref, formatMonthYear, formatRate, formatWorkPeriod } from '@/lib/members/format';
+import { displayHost, externalHref, formatMonthYear, formatRate } from '@/lib/members/format';
+import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
+import { toTextBlocks } from '@/lib/text/text-blocks';
 
 // The downloadable member profile — a single-column, read-top-to-bottom document rather than
 // the web page's tabbed layout. Rendered by @react-pdf/renderer, which draws to PDF primitives
@@ -9,20 +11,21 @@ import { displayHost, externalHref, formatMonthYear, formatRate, formatWorkPerio
 // app/globals.css by value. Keep the two in sync if a brand color changes.
 const C = {
   ink: '#0b0b0c',
-  ink2: '#1e1e20',
-  ink3: '#5c5c61',
-  ink4: '#9a9aa0',
-  line: '#ececee',
-  line2: '#dbdbde',
-  bgAlt: '#f2fbf7',
-  accent: '#00a582',
-  band: '#033c2f', // header band, same as the web profile's `.mp-header-band`
+  ink2: '#2e3033',
+  ink3: '#62695f',
+  ink4: '#899085',
+  line: '#e0e1d7',
+  line2: '#cbd0c2',
+  bgAlt: '#efeee7',
+  accent: '#00a682',
+  band: '#0b0b0c', // header band, same as the web profile's `.mp-header-band`
   white: '#ffffff',
   seasonedText: '#b45309',
   seasonedBg: '#fef3c7',
 };
 
 export const PDF_FONT_FAMILY = 'Geist';
+export const PDF_HEADING_FONT_FAMILY = 'Cormorant Garamond';
 
 const s = StyleSheet.create({
   page: {
@@ -48,9 +51,10 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  brand: { color: C.white, fontSize: 13, fontWeight: 700, letterSpacing: 0.2 },
-  brandDot: { color: C.accent },
-  bandNote: { color: 'rgba(255,255,255,0.7)', fontSize: 8, letterSpacing: 0.8 },
+  // Text wordmark, same as the site's <Wordmark>: white "grow" + raised green "XQ".
+  brand: { fontFamily: PDF_HEADING_FONT_FAMILY, fontWeight: 400, fontSize: 16, color: C.white, letterSpacing: -0.1 },
+  brandSup: { fontFamily: PDF_FONT_FAMILY, fontSize: 6.6, fontWeight: 600, color: C.accent, verticalAlign: 'super', letterSpacing: -0.2 },
+  bandNote: { color: 'rgba(255,255,255,0.7)', fontSize: 8.5 },
 
   body: { paddingHorizontal: 40 },
 
@@ -71,7 +75,7 @@ const s = StyleSheet.create({
   identityText: { flex: 1 },
   // Explicit lineHeight: the page's 1.45 isn't applied to this line box, so the badge row below
   // started inside the name's descenders.
-  name: { fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: -0.3, lineHeight: 1.25 },
+  name: { fontFamily: PDF_HEADING_FONT_FAMILY, fontSize: 20, fontWeight: 400, color: C.ink, letterSpacing: -0.3, lineHeight: 1.25 },
   // Badges sit on their own row under the name: next to a 20pt name they wrapped unpredictably
   // and floated off its baseline. Each is a fixed-height View with the label centred inside —
   // react-pdf paints a styled <Text>'s background around its line box, which put the label
@@ -86,7 +90,7 @@ const s = StyleSheet.create({
     gap: 3,
   },
   chipText: { fontSize: 7, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1 },
-  verifiedChip: { backgroundColor: '#e0f4ee' },
+  verifiedChip: { backgroundColor: '#dbf2ed' },
   verifiedText: { color: C.accent },
   seasonedChip: { backgroundColor: C.seasonedBg },
   seasonedText: { color: C.seasonedText },
@@ -109,7 +113,7 @@ const s = StyleSheet.create({
   },
   summaryCol: { flex: 1, padding: 12 },
   summaryDivider: { width: 1, backgroundColor: C.line },
-  label: { fontSize: 7, fontWeight: 700, color: C.ink3, letterSpacing: 0.8, marginBottom: 4 },
+  label: { fontSize: 8, fontWeight: 700, color: C.ink3, marginBottom: 4 },
   fee: { fontSize: 14, fontWeight: 700, color: C.ink },
   availability: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   availabilityText: { fontSize: 8.5 },
@@ -122,11 +126,12 @@ const s = StyleSheet.create({
 
   // Sections
   section: { marginTop: 18 },
+  // Normal case, normal spacing — same as the profile page's section headings (the letter-spaced
+  // caps label style was removed site-wide in Oct 2026).
   sectionTitle: {
-    fontSize: 8,
+    fontSize: 9.5,
     fontWeight: 700,
     color: C.accent,
-    letterSpacing: 1,
     paddingBottom: 4,
     marginBottom: 8,
     borderBottomWidth: 1,
@@ -134,7 +139,11 @@ const s = StyleSheet.create({
   },
   headline: { fontSize: 10.5, fontWeight: 600, color: C.ink, marginBottom: 4 },
   bio: { fontSize: 9.5, color: C.ink3, lineHeight: 1.6 },
-  bioGap: { marginTop: 5 },
+  textBlocks: { gap: 5 },
+  bulletList: { gap: 2 },
+  bulletRow: { flexDirection: 'row' },
+  bulletMark: { width: 9 },
+  bulletText: { flex: 1 },
 
   engagement: {
     flexDirection: 'row',
@@ -175,7 +184,12 @@ const s = StyleSheet.create({
   roleTitle: { fontSize: 10, fontWeight: 600, color: C.ink, flex: 1 },
   roleDates: { fontSize: 8, color: C.ink3 },
   roleCompany: { fontSize: 8.5, color: C.ink3, marginTop: 1 },
-  roleDesc: { fontSize: 8.5, color: C.ink3, marginTop: 3, lineHeight: 1.5 },
+  roleDesc: { fontSize: 8.5, color: C.ink3, lineHeight: 1.5 },
+  roleDescWrap: { marginTop: 3 },
+  // A company with several consecutive roles (same grouping as the profile page's timeline).
+  groupCompany: { fontSize: 10, fontWeight: 600, color: C.ink, flex: 1 },
+  groupRoles: { borderTopWidth: 1, borderTopColor: C.line, marginTop: 6, paddingTop: 6, gap: 7 },
+  subRoleTitle: { fontSize: 9.5, fontWeight: 500, color: C.ink, flex: 1 },
 
   twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   cell: {
@@ -197,6 +211,16 @@ const s = StyleSheet.create({
   quoteText: { fontSize: 9, color: C.ink2, lineHeight: 1.55 },
   quoteBy: { fontSize: 8, color: C.ink3, marginTop: 3 },
   quoteName: { fontWeight: 600, color: C.ink },
+
+  // Member recommendations
+  rec: { borderWidth: 1, borderColor: C.line, borderRadius: 8, padding: 10, marginBottom: 8 },
+  recHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  recAvatar: { width: 22, height: 22, borderRadius: 11 },
+  recInitials: { backgroundColor: C.bgAlt, alignItems: 'center', justifyContent: 'center' },
+  recInitialsText: { fontSize: 7.5, fontWeight: 700, color: C.accent },
+  recName: { fontSize: 9.5, fontWeight: 600, color: C.ink },
+  recDate: { fontSize: 7.5, color: C.ink4, marginTop: 1 },
+  recBody: { fontSize: 9, color: C.ink2, lineHeight: 1.55 },
 
   // Footer (repeated on every page)
   footer: {
@@ -223,15 +247,57 @@ export interface MemberProfilePdfProps {
   /** PNG data URL, already cropped square; null falls back to initials. */
   photoDataUrl: string | null;
   generatedAt: Date;
+  /** Visible member-to-member recommendations (hidden ones are never passed in). */
+  recommendations: PdfRecommendation[];
 }
 
-// Same rule as the profile page's FormattedText: each line of the bio is its own paragraph.
-function bioParagraphs(bio: string): string[] {
-  return bio
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
+// A recommendation as the PDF needs it: the author's photo is pre-loaded to a data URL, like the
+// member's own photo, since react-pdf can't use cross-origin image URLs directly.
+export interface PdfRecommendation {
+  id: string;
+  authorName: string;
+  authorInitials: string;
+  authorPhotoDataUrl: string | null;
+  body: string;
+  createdAt: string;
+}
+
+// "2019 – Present · 6 yrs" — same pieces as the profile page's <Period>.
+function PdfPeriod({ range, duration }: { range: string; duration: string | null }) {
+  return (
+    <Text style={s.roleDates}>
+      {range}
+      {duration ? ` · ${duration}` : ''}
+    </Text>
+  );
+}
+
+// react-pdf counterpart of components/shared/FormattedText.tsx — same toTextBlocks() parsing, so
+// the PDF splits paragraphs and bullet lists exactly as the profile page does.
+// The text styles PdfTextBlocks is used with (bio, role descriptions).
+type PdfTextStyle = typeof s.bio | typeof s.roleDesc;
+
+function PdfTextBlocks({ text, style }: { text: string; style: PdfTextStyle }) {
+  return (
+    <View style={s.textBlocks}>
+      {toTextBlocks(text).map((block, i) =>
+        block.kind === 'p' ? (
+          <Text key={i} style={style}>
+            {block.text}
+          </Text>
+        ) : (
+          <View key={i} style={s.bulletList}>
+            {block.items.map((item, j) => (
+              <View key={j} style={s.bulletRow}>
+                <Text style={[style, s.bulletMark]}>•</Text>
+                <Text style={[style, s.bulletText]}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        )
+      )}
+    </View>
+  );
 }
 
 function Check({ size, color = C.accent }: { size: number; color?: string }) {
@@ -247,7 +313,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={s.section}>
       <Text style={s.sectionTitle} minPresenceAhead={40}>
-        {title.toUpperCase()}
+        {title}
       </Text>
       {children}
     </View>
@@ -269,7 +335,14 @@ function ContactLine({ label, value, href }: { label: string; value: string; hre
   );
 }
 
-export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, generatedAt }: MemberProfilePdfProps) {
+export function MemberProfilePdf({
+  member,
+  profileUrl,
+  qrDataUrl,
+  photoDataUrl,
+  generatedAt,
+  recommendations,
+}: MemberProfilePdfProps) {
   const location = [member.city, member.country].filter(Boolean).join(', ');
   const firm = member.firmName && member.firmName !== 'Independent' ? member.firmName : null;
   const designation =
@@ -282,18 +355,18 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
 
   return (
     <Document
-      title={`${member.name} - Expertly profile`}
-      author="Expertly"
-      creator="Expertly"
-      producer="Expertly"
+      title={`${member.name} - GrowXQ profile`}
+      author="GrowXQ"
+      creator="GrowXQ"
+      producer="GrowXQ"
       subject={`Expert profile of ${member.name}`}
     >
       <Page size="A4" style={s.page}>
         <View style={s.band} fixed>
           <Text style={s.brand}>
-            Expertly<Text style={s.brandDot}>.</Text>
+            grow<Text style={s.brandSup}>XQ</Text>
           </Text>
-          <Text style={s.bandNote}>VERIFIED EXPERT PROFILE</Text>
+          <Text style={s.bandNote}>Verified expert profile</Text>
         </View>
 
         <View style={s.body}>
@@ -311,7 +384,7 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
                 {member.isVerified && (
                   <View style={[s.chip, s.verifiedChip]}>
                     <Check size={6.5} />
-                    <Text style={[s.chipText, s.verifiedText]}>Expertly Verified</Text>
+                    <Text style={[s.chipText, s.verifiedText]}>GrowXQ Verified</Text>
                   </View>
                 )}
                 <View style={[s.chip, isSeasoned ? s.seasonedChip : s.memberChip]}>
@@ -335,11 +408,11 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
           {/* Fee / availability | contact */}
           <View style={s.summary} wrap={false}>
             <View style={s.summaryCol}>
-              <Text style={s.label}>CONSULTATION FEE</Text>
+              <Text style={s.label}>Consultation fee</Text>
               <Text style={s.fee}>{formatRate(member.rateMinCents, member.rateMaxCents, member.rateCurrency)}</Text>
               <View style={s.availability}>
-                <View style={[s.availabilityDot, { backgroundColor: member.isAvailable ? '#16a34a' : C.ink4 }]} />
-                <Text style={[s.availabilityText, { color: member.isAvailable ? '#16a34a' : C.ink3 }]}>
+                <View style={[s.availabilityDot, { backgroundColor: member.isAvailable ? C.accent : C.ink4 }]} />
+                <Text style={[s.availabilityText, { color: member.isAvailable ? C.accent : C.ink3 }]}>
                   {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
                 </Text>
               </View>
@@ -347,7 +420,7 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
             </View>
             <View style={s.summaryDivider} />
             <View style={s.summaryCol}>
-              <Text style={s.label}>CONTACT</Text>
+              <Text style={s.label}>Contact</Text>
               {member.contactEmail && (
                 <ContactLine label="Email" value={member.contactEmail} href={`mailto:${member.contactEmail}`} />
               )}
@@ -381,13 +454,7 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
           {(member.headline || member.bio) && (
             <Section title="About">
               {member.headline ? <Text style={s.headline}>{member.headline}</Text> : null}
-              {member.bio
-                ? bioParagraphs(member.bio).map((para, i) => (
-                    <Text key={i} style={i > 0 ? [s.bio, s.bioGap] : s.bio}>
-                      {para}
-                    </Text>
-                  ))
-                : null}
+              {member.bio ? <PdfTextBlocks text={member.bio} style={s.bio} /> : null}
             </Section>
           )}
 
@@ -421,21 +488,52 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
 
           {member.workExperiences.length > 0 && (
             <Section title="Work Experience">
+              {/* Mirrors components/members/WorkHistoryTimeline.tsx: consecutive roles at one
+                  company are a single entry (company, "N roles", overall period) with the roles
+                  nested; a lone role shows title, company and its own period. */}
               <View style={s.timeline}>
-                {member.workExperiences.map((work) => {
-                  const { range, duration } = formatWorkPeriod(work.startYear, work.endYear, work.isCurrent);
-                  return (
-                    <View key={work.id} style={s.role} wrap={false}>
-                      <View style={s.roleDot} />
-                      <View style={s.roleTop}>
-                        <Text style={s.roleTitle}>{work.title}</Text>
-                        <Text style={s.roleDates}>
-                          {range}
-                          {duration ? ` · ${duration}` : ''}
-                        </Text>
+                {groupByCompany(member.workExperiences).map((group) => {
+                  if (group.roles.length === 1) {
+                    const role = group.roles[0];
+                    return (
+                      <View key={role.id} style={s.role} wrap={false}>
+                        <View style={s.roleDot} />
+                        <View style={s.roleTop}>
+                          <Text style={s.roleTitle}>{role.title}</Text>
+                          <PdfPeriod {...rolePeriod(role)} />
+                        </View>
+                        <Text style={s.roleCompany}>{group.company}</Text>
+                        {role.description ? (
+                          <View style={s.roleDescWrap}>
+                            <PdfTextBlocks text={role.description} style={s.roleDesc} />
+                          </View>
+                        ) : null}
                       </View>
-                      <Text style={s.roleCompany}>{work.company}</Text>
-                      {work.description ? <Text style={s.roleDesc}>{work.description}</Text> : null}
+                    );
+                  }
+                  return (
+                    <View key={group.roles[0].id} style={s.role}>
+                      <View style={s.roleDot} />
+                      <View style={s.roleTop} wrap={false}>
+                        <Text style={s.groupCompany}>{group.company}</Text>
+                        <PdfPeriod {...groupPeriod(group.roles)} />
+                      </View>
+                      <Text style={s.roleCompany}>{group.roles.length} roles</Text>
+                      <View style={s.groupRoles}>
+                        {group.roles.map((role) => (
+                          <View key={role.id} wrap={false}>
+                            <View style={s.roleTop}>
+                              <Text style={s.subRoleTitle}>{role.title}</Text>
+                              <PdfPeriod {...rolePeriod(role)} />
+                            </View>
+                            {role.description ? (
+                              <View style={s.roleDescWrap}>
+                                <PdfTextBlocks text={role.description} style={s.roleDesc} />
+                              </View>
+                            ) : null}
+                          </View>
+                        ))}
+                      </View>
                     </View>
                   );
                 })}
@@ -495,11 +593,36 @@ export function MemberProfilePdf({ member, profileUrl, qrDataUrl, photoDataUrl, 
               })}
             </Section>
           )}
+
+          {/* Same section, order and content as the profile page's MemberRecommendations. */}
+          {recommendations.length > 0 && (
+            <Section title="Member Recommendations">
+              {recommendations.map((rec) => (
+                <View key={rec.id} style={s.rec} wrap={false}>
+                  <View style={s.recHead}>
+                    {rec.authorPhotoDataUrl ? (
+                      // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop
+                      <Image src={rec.authorPhotoDataUrl} style={s.recAvatar} />
+                    ) : (
+                      <View style={[s.recAvatar, s.recInitials]}>
+                        <Text style={s.recInitialsText}>{rec.authorInitials}</Text>
+                      </View>
+                    )}
+                    <View>
+                      <Text style={s.recName}>{rec.authorName}</Text>
+                      <Text style={s.recDate}>{formatMonthYear(rec.createdAt)}</Text>
+                    </View>
+                  </View>
+                  <Text style={s.recBody}>{rec.body}</Text>
+                </View>
+              ))}
+            </Section>
+          )}
         </View>
 
         <View style={s.footer} fixed>
           <Text>
-            <Text style={s.footerBrand}>Generated by Expertly</Text> on {generatedOn} ·{' '}
+            <Text style={s.footerBrand}>Generated by GrowXQ</Text> on {generatedOn} ·{' '}
             <Link src={profileUrl} style={s.link}>
               {displayHost(profileUrl)}
             </Link>

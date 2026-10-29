@@ -26,18 +26,18 @@ import type { ArticleListItemDto } from '@shared/article';
 import type { EventDto } from '@shared/event';
 
 export const metadata = {
-  title: 'Expertly — Vetted finance & legal experts, on demand',
+  title: 'GrowXQ — Vetted finance & legal experts, on demand',
   description:
     'A specialist network of verified senior finance and legal practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
 };
 
 const FAQ_MEMBERSHIP = [
   {
-    q: 'Who can join Expertly?',
-    a: 'Expertly is open to all practising finance and legal professionals across the world. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers to collaborate, share knowledge, and grow across borders - Expertly is the right place for you.',
+    q: 'Who can join GrowXQ?',
+    a: 'GrowXQ is open to all practising finance and legal professionals across the world. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers to collaborate, share knowledge, and grow across borders - GrowXQ is the right place for you.',
   },
   {
-    q: 'What types of professionals are on Expertly?',
+    q: 'What types of professionals are on GrowXQ?',
     a: 'Our network spans professionals across all finance and legal domains - including tax and transfer pricing advisors, M&A and transaction advisors, investment bankers, private equity and venture capital advisors, insolvency and restructuring professionals, corporate and commercial lawyers, dispute resolution and arbitration counsel, banking and finance lawyers, capital markets and securities lawyers, intellectual property and technology lawyers, company secretaries, compliance and governance professionals, forensic accountants, valuation experts, and cost accountants.',
   },
   {
@@ -53,23 +53,23 @@ const FAQ_MEMBERSHIP = [
     a: 'Membership is a flat $499/year, with zero commission on any work you win. Occasionally, we offer promotional discount codes for new members - keep an eye on our website and social media channels for such offers.',
   },
   {
-    q: 'Can I publish articles on Expertly?',
+    q: 'Can I publish articles on GrowXQ?',
     a: 'Yes - members can publish articles through the member portal. Articles are reviewed before going live and becoming visible to the public, helping you build your professional brand and reach a targeted audience of peers and potential clients.',
   },
   {
-    q: 'Can firms or organisations join Expertly?',
-    a: 'Membership on Expertly is individual-based, not firm-based. Each professional joins on their own merits, credentials, and experience - independent of the firm or organisation they work for. This means your profile, reputation, articles, and network on Expertly belong entirely to you. If you move firms, set up your own practice, or change roles, your membership and everything you have built on the platform remains fully intact.',
+    q: 'Can firms or organisations join GrowXQ?',
+    a: 'Membership on GrowXQ is individual-based, not firm-based. Each professional joins on their own merits, credentials, and experience - independent of the firm or organisation they work for. This means your profile, reputation, articles, and network on GrowXQ belong entirely to you. If you move firms, set up your own practice, or change roles, your membership and everything you have built on the platform remains fully intact.',
   },
 ];
 
 const FAQ_CLIENTS = [
   {
-    q: 'Is Expertly free to browse?',
+    q: 'Is GrowXQ free to browse?',
     a: "Yes. Anyone can browse the member directory, view article headlines, and view event headlines without signing up. Full contact details of members, consultation requests, and full article and event details require registering a free account as a 'User'.",
   },
   {
     q: 'What is the difference between a User and a Member?',
-    a: 'A User is a person who has created a free account on Expertly but is not a member. A User can view member contact details, place consultation requests, read full articles, and view all event details - but cannot post a profile or write articles. A Member can create a profile, be searchable on the platform, write articles, and more.',
+    a: 'A User is a person who has created a free account on GrowXQ but is not a member. A User can view member contact details, place consultation requests, read full articles, and view all event details - but cannot post a profile or write articles. A Member can create a profile, be searchable on the platform, write articles, and more.',
   },
   {
     q: 'Can I request a consultation with a member?',
@@ -77,15 +77,15 @@ const FAQ_CLIENTS = [
   },
   {
     q: 'What does the Verified badge actually mean?',
-    a: "The Verified badge is awarded only to profiles we have manually reviewed and approved. Verification covers professional credentials, qualifications, and years of experience as declared in the member's profile. If any section of a profile does not display the Verified badge, that information is either under review or has not yet been verified by the Expertly team.",
+    a: "The Verified badge is awarded only to profiles we have manually reviewed and approved. Verification covers professional credentials, qualifications, and years of experience as declared in the member's profile. If any section of a profile does not display the Verified badge, that information is either under review or has not yet been verified by the GrowXQ team.",
   },
   {
-    q: 'How does Expertly handle complaints or concerns about a member?',
-    a: "All members are required to maintain good standing with their respective professional bodies as a condition of membership. If you have a genuine concern about a member's conduct on the platform, you may submit a complaint through the platform and it will be reviewed by the Expertly compliance team. We take the integrity of our network seriously and will take appropriate action where warranted.",
+    q: 'How does GrowXQ handle complaints or concerns about a member?',
+    a: "All members are required to maintain good standing with their respective professional bodies as a condition of membership. If you have a genuine concern about a member's conduct on the platform, you may submit a complaint through the platform and it will be reviewed by the GrowXQ compliance team. We take the integrity of our network seriously and will take appropriate action where warranted.",
   },
   {
     q: 'Are consultations handled on the platform?',
-    a: 'No. Expertly acts as a discovery and connection directory. Once you connect with an expert, you schedule, agree on terms, and conduct your engagement offline or on your preferred systems directly with the practitioner.',
+    a: 'No. GrowXQ acts as a discovery and connection directory. Once you connect with an expert, you schedule, agree on terms, and conduct your engagement offline or on your preferred systems directly with the practitioner.',
   },
   {
     q: 'Is my search activity private?',
@@ -108,7 +108,7 @@ async function loadHomeData() {
         })
       ),
       getCategoriesServer(),
-      getArticlesServer(),
+      getArticlesServer({ pageSize: 5 }),
       getEventsServer(),
     ]);
 
@@ -117,7 +117,7 @@ async function loadHomeData() {
   const categories: CategoryDto[] =
     categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
   const articles: ArticleListItemDto[] =
-    articlesResult.status === 'fulfilled' ? articlesResult.value.slice(0, 5) : [];
+    articlesResult.status === 'fulfilled' ? articlesResult.value.items : [];
   const events: EventDto[] = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
 
   return { members, categories, articles, events };
@@ -240,7 +240,7 @@ export default async function HomePage() {
 
       <Testimonials />
 
-      <DualCta showApply={showApply} />
+      <DualCta />
       <Newsletter />
 
       {/* FAQ */}
@@ -256,8 +256,8 @@ export default async function HomePage() {
           </div>
           <p className="mt-12 text-sm text-ink-3">
             Still curious? Email us at{' '}
-            <a href="mailto:contact@expertly.global" className="text-accent underline">
-              contact@expertly.global
+            <a href="mailto:contact@growxq.com" className="text-accent underline">
+              contact@growxq.com
             </a>
             . We reply within one business day.
           </p>

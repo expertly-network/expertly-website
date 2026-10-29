@@ -6,7 +6,7 @@ import { Eyebrow } from '@/components/ui';
 import { ApplicationReviewDetail } from '@/components/admin/ApplicationReviewDetail';
 
 export const metadata = {
-  title: 'Review application — Admin — Expertly',
+  title: 'Review application — Admin — GrowXQ',
 };
 
 export default async function AdminApplicationDetailPage({ params }: { params: { id: string } }) {

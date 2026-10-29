@@ -366,3 +366,26 @@ grant execute on function
 revoke execute on function public.search_trg() from public, anon, authenticated;
 
 reset check_function_bodies;
+
+-- ============================================================================
+-- collections_prune_item — trigger function on perks + learnings. collections.item_ids is an
+-- ordered uuid[] with no FK (a Postgres array can't carry one), so deleting a perk or video
+-- strips its id from every collection here, in the same transaction — a collection can never
+-- point at a row that no longer exists, even for a delete that bypasses the API.
+-- ============================================================================
+
+create or replace function public.collections_prune_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.collections
+     set item_ids = array_remove(item_ids, old.id)
+   where item_ids @> array[old.id];
+  return old;
+end;
+$$;
+
+revoke execute on function public.collections_prune_item() from public, anon, authenticated;

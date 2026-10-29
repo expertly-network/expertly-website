@@ -239,7 +239,7 @@ export function StellarOrbitHero({
                     {num}
                     {suffix}
                   </span>
-                  <span className="whitespace-nowrap font-mono text-[10px] font-medium tracking-[0.1em] text-white/35">
+                  <span className="whitespace-nowrap font-mono text-[10px] font-medium text-white/35">
                     {label}
                   </span>
                 </div>
@@ -321,10 +321,10 @@ export function StellarOrbitHero({
 
                 <div className="absolute left-1/2 top-1/2 z-10 flex h-[116px] w-[116px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-accent/25 [background:radial-gradient(circle_at_center,color-mix(in_oklab,var(--accent)_10%,transparent)_0%,color-mix(in_oklab,var(--accent)_4%,transparent)_60%,transparent_80%)]">
                   <div className="text-center">
-                    <span className="block text-[28px] font-semibold leading-none tracking-[-0.04em] text-neon">
+                    <span className="block text-[28px] font-semibold leading-none tracking-[-0.04em] text-accent">
                       {orbitCount}k+
                     </span>
-                    <span className="mt-1 block font-mono text-[9.5px] tracking-[0.1em] text-white/45">
+                    <span className="mt-1 block font-mono text-[9.5px] text-white/45">
                       Practitioners
                     </span>
                   </div>

@@ -10,12 +10,15 @@ import type { CategoryDto } from '@shared/category';
 
 export function ArticlesTabsSection({
   articles,
+  totalArticles,
   categories,
   myArticles,
   canWrite,
   initialTab = 'browse',
 }: {
+  /** First page of the browse grid; the grid fetches further pages itself. */
   articles: ArticleListItemDto[];
+  totalArticles: number;
   categories: CategoryDto[];
   myArticles: ArticleListItemDto[];
   canWrite: boolean;
@@ -40,7 +43,7 @@ export function ArticlesTabsSection({
       <div className="mt-8">
         {tab === 'browse' ? (
           articles.length > 0 ? (
-            <ArticlesGrid articles={articles} categories={categories} />
+            <ArticlesGrid initialArticles={articles} initialTotal={totalArticles} categories={categories} />
           ) : (
             <p className="py-16 text-center text-sm text-ink-3">
               No articles published yet — check back soon.

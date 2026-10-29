@@ -61,7 +61,7 @@ export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) 
                 'radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%)',
             }}
           />
-          <span className="relative font-mono text-[9px] font-bold tracking-[0.14em] text-white/40">
+          <span className="relative font-mono text-[9px] font-bold text-white/40">
             FOR PRACTITIONERS
           </span>
           <h3 className="relative mt-2 text-title text-bg-card">Join the network.</h3>

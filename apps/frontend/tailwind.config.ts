@@ -41,7 +41,9 @@ const config: Config = {
 
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-archivo)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Historically Archivo with wide tracking; now the same face as body text so small labels
+        // read as plain text, not letter-spaced caps-style tags.
+        mono: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
 
       // Typography scale — the single place font-size/line-height/
@@ -53,7 +55,7 @@ const config: Config = {
       // from (theme.css's own named scale vs. this app's additions).
       fontSize: {
         // From theme.css verbatim — the design's own hero/marketing scale.
-        eyebrow: ['11px', { lineHeight: 'normal', letterSpacing: '0.14em', fontWeight: '500' }],
+        eyebrow: ['11px', { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' }],
         display: [
           'clamp(44px, 6.5vw, 96px)',
           { lineHeight: '0.98', letterSpacing: '-0.03em', fontWeight: '500' },
@@ -88,13 +90,13 @@ const config: Config = {
         caption: ['13px', { lineHeight: '1.4', letterSpacing: 'normal', fontWeight: '400' }],
         'mono-label': [
           '11px',
-          { lineHeight: 'normal', letterSpacing: '0.12em', fontWeight: '500' },
+          { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' },
         ],
 
         // Member profile page (design/static_html/assets/styles.css's .mp-* scale). Weights are
         // left to the call site since the prototype pairs the same size with 500/600/700.
         // `.mp-section-label` — "KEY ENGAGEMENTS"-style section heading, pairs with `font-mono`.
-        'profile-label': ['11px', { lineHeight: 'normal', letterSpacing: '0.08em' }],
+        'profile-label': ['11px', { lineHeight: 'normal', letterSpacing: 'normal' }],
         // `.mp-bio`
         'profile-body': ['15.5px', { lineHeight: '1.7' }],
         // `.mp-eng-title` / `.mp-edu-degree` / `.mp-work-title` / `.mp-stat` / `.mp-tab`

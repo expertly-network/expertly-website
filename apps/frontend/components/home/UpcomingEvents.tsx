@@ -9,7 +9,7 @@ export function UpcomingEvents({ events }: { events: EventDto[] }) {
       {events.slice(0, 4).map((e) => (
         <Card key={e.id} padding="md" className="flex h-full gap-4">
           <div className="flex-none text-center">
-            <div className="font-mono text-[11px] tracking-[0.1em] text-accent">
+            <div className="font-mono text-[11px] text-accent">
               {formatEventMonth(e.startDate)}
             </div>
             <div className="text-xl font-semibold text-ink">{formatEventDay(e.startDate)}</div>

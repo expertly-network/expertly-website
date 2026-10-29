@@ -61,7 +61,7 @@ export class MemberEngagement {
   @ApiProperty() organization!: string;
   /** Required when submitting; null only on legacy/seeded items that predate the field. */
   @ApiProperty({ nullable: true, type: String }) clientName!: string | null;
-  /** Owner/admin only (omitted for other viewers) — used by the Expertly team for random verification. */
+  /** Owner/admin only (omitted for other viewers) — used by the GrowXQ team for random verification. */
   @ApiPropertyOptional({ nullable: true, type: String }) clientEmail?: string | null;
   @ApiProperty({ enum: ENGAGEMENT_VERIFICATION_METHODS, isArray: true }) verificationMethods!: EngagementVerificationMethod[];
   /** Free-text description of the method; only meaningful when verificationMethods includes 'other'. */
@@ -95,7 +95,7 @@ export class MemberTestimonial {
   @ApiProperty({ nullable: true, type: String }) clientCompany!: string | null;
   @ApiProperty({ nullable: true, type: String }) serviceName!: string | null;
   @ApiProperty({ nullable: true, type: String }) occurredOn!: string | null;
-  /** Optional. Owner/admin only (omitted for other viewers) — lets the Expertly team randomly verify the testimonial with the client. */
+  /** Optional. Owner/admin only (omitted for other viewers) — lets the GrowXQ team randomly verify the testimonial with the client. */
   @ApiPropertyOptional({ nullable: true, type: String }) clientEmail?: string | null;
   @ApiProperty() isVerified!: boolean;
   /** Owner/admin only. */
@@ -126,6 +126,8 @@ export class MemberKeyClient {
 
 // GET /v1/members list-view shape. No child arrays, no self-edit state.
 export class MemberListItemDto {
+  /** Membership start date; used for the dashboard new-member feed. */
+  @ApiPropertyOptional() joinedAt?: string;
   @ApiProperty() id!: string;
   /** Server-generated at provisioning time, kebab-case, never regenerated afterward. */
   @ApiProperty() slug!: string;

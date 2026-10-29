@@ -6,7 +6,7 @@ import { Eyebrow } from '@/components/ui';
 import { AdminMemberEditsTable } from '@/components/admin/AdminMemberEditsTable';
 
 export const metadata = {
-  title: 'Profile edits — Admin — Expertly',
+  title: 'Profile edits — Admin — GrowXQ',
 };
 
 // UX-only gate; the backend re-checks manageMembers fresh on every request.

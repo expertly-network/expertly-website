@@ -197,6 +197,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      collections: {
+        Row: {
+          audiences: string[];
+          cover_image_url: string | null;
+          created_at: string;
+          description: string;
+          id: string;
+          is_active: boolean;
+          item_ids: string[];
+          kind: string;
+          slug: string;
+          sort_order: number;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          audiences?: string[];
+          cover_image_url?: string | null;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          is_active?: boolean;
+          item_ids?: string[];
+          kind: string;
+          slug: string;
+          sort_order?: number;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          audiences?: string[];
+          cover_image_url?: string | null;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          is_active?: boolean;
+          item_ids?: string[];
+          kind?: string;
+          slug?: string;
+          sort_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       consultation_messages: {
         Row: {
           body: string;
@@ -384,6 +429,66 @@ export type Database = {
           title?: string;
           updated_at?: string;
           venue_name?: string | null;
+        };
+        Relationships: [];
+      };
+      learnings: {
+        Row: {
+          access: string;
+          audiences: string[];
+          category: string;
+          channel: string | null;
+          created_at: string;
+          duration_minutes: number;
+          id: string;
+          is_active: boolean;
+          is_featured: boolean;
+          level: string;
+          sort_order: number;
+          summary: string;
+          thumbnail_url: string | null;
+          title: string;
+          updated_at: string;
+          video_provider: string;
+          video_url: string;
+        };
+        Insert: {
+          access?: string;
+          audiences?: string[];
+          category: string;
+          channel?: string | null;
+          created_at?: string;
+          duration_minutes: number;
+          id?: string;
+          is_active?: boolean;
+          is_featured?: boolean;
+          level: string;
+          sort_order?: number;
+          summary?: string;
+          thumbnail_url?: string | null;
+          title: string;
+          updated_at?: string;
+          video_provider?: string;
+          video_url: string;
+        };
+        Update: {
+          access?: string;
+          audiences?: string[];
+          category?: string;
+          channel?: string | null;
+          created_at?: string;
+          duration_minutes?: number;
+          id?: string;
+          is_active?: boolean;
+          is_featured?: boolean;
+          level?: string;
+          sort_order?: number;
+          summary?: string;
+          thumbnail_url?: string | null;
+          title?: string;
+          updated_at?: string;
+          video_provider?: string;
+          video_url?: string;
         };
         Relationships: [];
       };
@@ -819,6 +924,87 @@ export type Database = {
           },
         ];
       };
+      perks: {
+        Row: {
+          category: string;
+          cover_image_url: string | null;
+          created_at: string;
+          description: string;
+          id: string;
+          is_active: boolean;
+          is_featured: boolean;
+          logo_url: string | null;
+          member_coupon_code: string | null;
+          member_offer: string | null;
+          member_offer_url: string | null;
+          name: string;
+          offer_expires_at: string | null;
+          offer_status: string;
+          offer_terms: string | null;
+          products: string[];
+          slug: string;
+          sort_order: number;
+          tagline: string;
+          updated_at: string;
+          user_coupon_code: string | null;
+          user_offer: string | null;
+          user_offer_url: string | null;
+          website_url: string;
+        };
+        Insert: {
+          category: string;
+          cover_image_url?: string | null;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          is_active?: boolean;
+          is_featured?: boolean;
+          logo_url?: string | null;
+          member_coupon_code?: string | null;
+          member_offer?: string | null;
+          member_offer_url?: string | null;
+          name: string;
+          offer_expires_at?: string | null;
+          offer_status?: string;
+          offer_terms?: string | null;
+          products?: string[];
+          slug: string;
+          sort_order?: number;
+          tagline?: string;
+          updated_at?: string;
+          user_coupon_code?: string | null;
+          user_offer?: string | null;
+          user_offer_url?: string | null;
+          website_url: string;
+        };
+        Update: {
+          category?: string;
+          cover_image_url?: string | null;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          is_active?: boolean;
+          is_featured?: boolean;
+          logo_url?: string | null;
+          member_coupon_code?: string | null;
+          member_offer?: string | null;
+          member_offer_url?: string | null;
+          name?: string;
+          offer_expires_at?: string | null;
+          offer_status?: string;
+          offer_terms?: string | null;
+          products?: string[];
+          slug?: string;
+          sort_order?: number;
+          tagline?: string;
+          updated_at?: string;
+          user_coupon_code?: string | null;
+          user_offer?: string | null;
+          user_offer_url?: string | null;
+          website_url?: string;
+        };
+        Relationships: [];
+      };
       peer_connect_matches: {
         Row: {
           action_items: NonNullable<Json>;
@@ -1062,6 +1248,66 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      templates: {
+        Row: {
+          audiences: string[];
+          category: string;
+          created_at: string;
+          description: string;
+          file_name: string;
+          file_path: string;
+          file_size_bytes: number;
+          file_type: string;
+          preview_image_url: string | null;
+          highlights: string[];
+          id: string;
+          is_active: boolean;
+          is_featured: boolean;
+          slug: string;
+          sort_order: number;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          audiences?: string[];
+          category: string;
+          created_at?: string;
+          description?: string;
+          file_name: string;
+          file_path: string;
+          file_size_bytes: number;
+          file_type: string;
+          preview_image_url?: string | null;
+          highlights?: string[];
+          id?: string;
+          is_active?: boolean;
+          is_featured?: boolean;
+          slug: string;
+          sort_order?: number;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          audiences?: string[];
+          category?: string;
+          created_at?: string;
+          description?: string;
+          file_name?: string;
+          file_path?: string;
+          file_size_bytes?: number;
+          file_type?: string;
+          preview_image_url?: string | null;
+          highlights?: string[];
+          id?: string;
+          is_active?: boolean;
+          is_featured?: boolean;
+          slug?: string;
+          sort_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
     };
     Views: {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Badge, Button, Textarea } from '@/components/ui';
+import { Button, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { reviewArticle } from '@/lib/api/articles';
 import { ApiError } from '@/lib/api/client';

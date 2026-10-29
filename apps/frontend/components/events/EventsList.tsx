@@ -111,7 +111,7 @@ export function EventsList({
         />
         {FORMAT_OPTIONS.map((opt) => {
           const active = formatFilter.includes(opt.value);
-          // In Person tints green, Hybrid tints teal.
+          // Both formats tint the brand green (--ok is an alias of --accent).
           const activeColorVar = opt.value === 'in_person' ? '--ok' : '--accent';
           return (
             <button
@@ -122,7 +122,7 @@ export function EventsList({
                   active ? prev.filter((f) => f !== opt.value) : [...prev, opt.value]
                 )
               }
-              className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] bg-bg-card px-3.5 py-2 font-mono text-[12px] font-semibold tracking-[0.04em] transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] bg-bg-card px-3.5 py-2 font-mono text-[12px] font-semibold transition-colors ${
                 active ? '' : 'border-line-2 text-ink-3 hover:border-ink-3 hover:text-ink'
               }`}
               style={
@@ -130,7 +130,7 @@ export function EventsList({
                   ? {
                       borderColor: `color-mix(in oklab, var(${activeColorVar}) 35%, transparent)`,
                       background: `color-mix(in oklab, var(${activeColorVar}) 10%, var(--bg-card))`,
-                      color: opt.value === 'in_person' ? 'color-mix(in oklab, var(--ok) 80%, #000)' : 'var(--accent)',
+                      color: 'var(--accent)',
                     }
                   : undefined
               }
@@ -151,7 +151,7 @@ export function EventsList({
           <button
             type="button"
             onClick={resetFilters}
-            className="font-mono text-[11px] font-semibold tracking-[0.05em] text-accent"
+            className="font-mono text-[11px] font-semibold text-accent"
           >
             Clear all filters ✕
           </button>
@@ -188,7 +188,7 @@ export function EventsList({
         </Card>
       ) : (
         <div className="py-16 text-center">
-          <div className="font-mono text-[11px] tracking-[0.12em] text-ink-4">No results</div>
+          <div className="font-mono text-[11px] text-ink-4">No results</div>
           <h3 className="mb-5 mt-2.5 text-[22px] font-medium tracking-[-0.02em] text-ink">
             No events match these filters.
           </h3>

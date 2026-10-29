@@ -2,30 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Expertly design tokens — default "Neon Mint" palette. */
+/* GrowXQ design tokens — one brand green (the logo's #00A682) plus neutrals. Every green on the
+   site derives from --accent; don't introduce a second green hex anywhere. */
 :root {
   --bg: #ffffff;
-  --bg-alt: #f2fbf7;
+  --bg-alt: #efeee7;
   --bg-card: #ffffff;
 
   --ink: #0b0b0c;
-  --ink-2: #1e1e20;
-  --ink-3: #5c5c61;
-  --ink-4: #9a9aa0;
+  --ink-2: #2e3033;
+  --ink-3: #62695f;
+  --ink-4: #899085;
 
-  --line: #ececee;
-  --line-2: #dbdbde;
+  --line: #e0e1d7;
+  --line-2: #cbd0c2;
 
-  --accent: #00a582;
-  --accent-2: #00c99e;
-  --neon: #8bfcd8;
-  --ok: #0e9e6e;
+  /* The single brand green, rgb(0,166,130) — buttons, links, heading highlights, success. */
+  --accent: #00a682;
+  /* Same green, slightly deeper — hover/pressed states only. */
+  --accent-2: color-mix(in oklab, var(--accent) 86%, black);
+  /* Same green, pale tint — decorative fills (avatar fallbacks). */
+  --neon: color-mix(in oklab, var(--accent) 14%, white);
+  --ok: var(--accent);
   --error: #dc2626;
-  --nav-green: #0b3a2d;
+  --nav-green: #0b0b0c;
 
-  /* "Write an Article" CTA — a distinct, more saturated green than --accent. */
-  --cta: #1b8a4b;
-  --cta-hover: #156b3a;
+  --cta: var(--accent);
+  --cta-hover: var(--accent-2);
+}
+
+/* Editorial type is limited to headings; controls and body copy retain Geist. */
+@layer base {
+  h1, h2 {
+    font-family: var(--font-brand-serif), Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+    font-optical-sizing: auto;
+  }
 }
 
 /* Write-flow entrance/success animations. */
@@ -116,7 +128,7 @@ body {
   inset: 0;
   border-radius: 9999px;
   padding: 1px;
-  background: linear-gradient(180deg, rgba(0, 165, 130, 0) 0%, rgba(0, 165, 130, 0.85) 43%, rgba(0, 165, 130, 0) 100%);
+  background: linear-gradient(180deg, transparent 0%, color-mix(in oklab, var(--accent) 85%, transparent) 43%, transparent 100%);
   -webkit-mask:
     linear-gradient(var(--bg-card) 0 0) content-box,
     linear-gradient(var(--bg-card) 0 0);
@@ -138,7 +150,6 @@ body {
 /* Hero → sidebar wordmark handoff — only one logo shown at a time while a stellar hero is
    in view. */
 html.in-hero .sidebar-logo-mark,
-html.in-hero .sidebar-logo-dot,
 html.in-hero .sidebar-logo-text {
   opacity: 0 !important;
   transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -200,3 +211,6 @@ html.in-hero .hero-logo-handoff {
     animation: none !important;
   }
 }
+
+/* Preserve existing heading sizes, with the editorial font weight. */
+h1, h2 { font-weight: 500 !important; }

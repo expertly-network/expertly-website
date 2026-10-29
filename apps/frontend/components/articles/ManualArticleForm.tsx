@@ -289,7 +289,7 @@ export function ManualArticleForm({
             {suggestTags(selectedServices.map((s) => s.name), value.countries).map((tag) => (
               <span
                 key={tag}
-                className="rounded-full border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-1.5 text-[11.5px] font-semibold tracking-[0.02em] text-accent"
+                className="rounded-full border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-1.5 text-[11.5px] font-semibold text-accent"
               >
                 {tag}
               </span>
@@ -322,7 +322,7 @@ export function ManualArticleForm({
             </svg>
           </WriteSubmitButton>
           <p className="mt-1.5 text-xs text-ink-3">
-            See exactly how it&apos;ll look on Expertly before you submit it.
+            See exactly how it&apos;ll look on GrowXQ before you submit it.
           </p>
         </div>
       </div>

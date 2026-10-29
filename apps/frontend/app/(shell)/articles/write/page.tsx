@@ -6,7 +6,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { WriteArticleFlow } from '@/components/articles/WriteArticleFlow';
 
 export const metadata = {
-  title: 'Write an Article — Expertly',
+  title: 'Write an Article — GrowXQ',
 };
 
 // Redirects clients (not yet vetted) away. `?edit=<id>` is the owner/admin edit entry point,

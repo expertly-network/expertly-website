@@ -6,7 +6,7 @@ import { Eyebrow } from '@/components/ui';
 import { AdminAiGenerationsTable } from '@/components/admin/AdminAiGenerationsTable';
 
 export const metadata = {
-  title: 'AI generations — Admin — Expertly',
+  title: 'AI generations — Admin — GrowXQ',
 };
 
 // UX-only gate; the backend re-checks role + the manageArticles permission fresh on every
@@ -29,7 +29,7 @@ export default async function AdminAiGenerationsPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">AI generations</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Every article draft generated with Expertly AI. Open one to see exactly what the member
+            Every article draft generated with GrowXQ AI. Open one to see exactly what the member
             gave the AI, and what it wrote back. Showing the 200 most recent.
           </p>
         </PageContainer>

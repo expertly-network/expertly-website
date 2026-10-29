@@ -1,4 +1,4 @@
-# User Stories — Expertly Platform
+# User Stories — GrowXQ Platform
 
 Status badges match `docs/master-tdd.md`'s conventions: ✅ Built · 🧱 Schema only, no API ·
 📋 Roadmap (scoped in `docs/roadmap.md`, nothing built) · 🔭 Beyond-roadmap (sketched, not
@@ -13,8 +13,8 @@ Design source for every story is the matching `design/static_html/*.html` page, 
 
 ## US-01 — Guest Experience ✅
 
-### US-01-01: Discovering Expertly for the first time
-As a visitor, I want to understand what Expertly is and see credible signals (featured members,
+### US-01-01: Discovering GrowXQ for the first time
+As a visitor, I want to understand what GrowXQ is and see credible signals (featured members,
 articles, practice areas) so I can decide whether to sign up or apply.
 - [ ] Homepage renders without auth, with featured members, latest articles, and categories
       marquee sourced from the real APIs (`GET /v1/members`, `GET /v1/articles`, `GET /v1/categories`)
@@ -35,7 +35,7 @@ before signing up.
 - [x] `GET /v1/articles` returns only `published` articles to unauthenticated callers
 - [x] `GET /v1/articles/:id` 🔑 requires auth for full body per `docs/rest-api.md` — guest sees list
       + excerpt only, not full body, unless that's since changed in the contract (frontend:
-      `/articles/[id]` fetches the public list and shows a title+excerpt preview for guests,
+      `/articles/[slug]` fetches the public list and shows a title+excerpt preview for guests,
       rather than calling the gated endpoint)
 
 ---
@@ -128,10 +128,15 @@ member portal.
 ### US-05-01: Viewing my dashboard
 As a member, I want a single landing page summarizing my activity so I don't have to hunt across
 pages.
-- [ ] `/dashboard` route, gated to authenticated users by middleware
+- [x] `/dashboard` route, gated to authenticated users by middleware and restricted to members by the page
 - [ ] Per `docs/roadmap.md`: no dedicated dashboard endpoint exists — widgets compose from each
       feature's own list endpoint. The "activity stats"/"your contributions" widget shape is
       **flagged, not decided** — don't invent a shape for it without a product decision
+- Implemented dashboard composes existing profile, consultations, own articles, published articles,
+  member directory, and upcoming events endpoints. Activity cards show literal consultation and
+  article-status counts only; reach, referral goals, billing, and personal schedule widgets remain
+  deferred until their contracts and product behavior exist. Includes loading, empty, and
+  independent section-error states.
 
 ---
 
@@ -173,7 +178,7 @@ As a member, I want to write and submit an article so I can build visibility and
 - [x] Frontend write flow at `/articles/write` (`WriteArticleFlow`), reached from a "Write an
       Article" button in the `/articles` page's tab row (member/admin only) — matches
       `design/static_html/articles.html`'s write-flow prototype step-for-step: choose a path
-      ("Write it yourself" / "Let Expertly AI draft it") → that path's form → a shared live
+      ("Write it yourself" / "Let GrowXQ AI draft it") → that path's form → a shared live
       preview of exactly how the article will render → submit → success.
 - [x] Practice area(s) and countries are both genuinely multi-select (`MultiSelect`, searchable +
       removable chips); cover image is auto-picked via a live Unsplash search keyed by practice
@@ -182,7 +187,7 @@ As a member, I want to write and submit an article so I can build visibility and
       persisted (cosmetic only, matching the prototype's own tags-are-UI-only behavior).
 - [x] Article content is authored in a real rich text editor (Tiptap —
       `RichTextEditor`), not a plain textarea: bold, italic, underline, bullet/numbered lists,
-      blockquote, inline code, code block, and links. Matches the reference Expertly repo's own
+      blockquote, inline code, code block, and links. Matches the reference GrowXQ repo's own
       editor choice; kept in lockstep with `ArticlesService`'s `sanitize-html` allowlist (no
       headings/images/tables in either).
 - [x] AI-drafting path: a 3-step wizard (tell us about it; adaptive follow-ups, skipped when the
@@ -273,7 +278,7 @@ editorial review and approve or reject it.
       on their "My Articles" tab
 
 ### US-10-03: Seeing how an AI-written article was generated
-As an admin with `manageArticles` permission, I want to see exactly what a member gave Expertly
+As an admin with `manageArticles` permission, I want to see exactly what a member gave GrowXQ
 AI when drafting an article and what the AI wrote back, so I can judge an article's provenance and
 the AI's output quality.
 - [x] `GET /v1/admin/ai-generations` / `GET /v1/admin/ai-generations/:id`, gated by
@@ -373,7 +378,7 @@ As a client or member, I want to suggest an event for the community calendar.
       registration URL too — enforced server-side (`400` naming every missing field) and mirrored
       client-side as inline per-field errors, not just a generic banner. See `docs/rest-api.md`'s
       "Publish requirements" subsection.
-- Not built: `/events`'s "Suggest an event" card is a `mailto:contact@expertly.global` link, not
+- Not built: `/events`'s "Suggest an event" card is a `mailto:contact@growxq.com` link, not
   a form — there's nowhere to submit a suggestion to yet. The public submission → pending-queue
   half of this story remains deferred.
 
@@ -386,19 +391,47 @@ As a guest or user, I want to see upcoming published events.
 
 ---
 
-## US-14 — Perks, Templates, Learnings 📋
+## US-14 — Perks, Learnings & Templates
 
-### US-14-01: Browsing perks/templates/learnings
-As a member (or possibly guest — public-vs-gated is an open product call per
-`docs/roadmap.md`), I want to browse discounts, downloadable templates, and learning resources.
-- [ ] All three resources share one CRUD shape; no member-facing submission for any of them
-- [ ] No redemption/download/completion tracking exists in the design — don't add it speculatively
+### US-14-01: Browsing perks and learnings
+As a visitor/client/member, I can discover resources while receiving only content my role permits.
+- [x] Public metadata lists and detail for perks, learnings and ordered collections.
+- [x] Guests receive no offer secrets or video URLs. Clients receive only their live, unexpired
+      perk tier and explicit-open/first-playlist-video access. Members get member-tier offers
+      (falling back to the client tier when a perk has no member offer, so a member never sees
+      less than a client) and all active videos. No nested-collection bypass.
+- [x] Guests can browse perk cards and the video library, but opening a perk or a video shows a
+      sign-in prompt instead of details, offers, links or playback.
+- [x] Coming-soon/expired offers, inactive resources and members-only videos are withheld.
+- [x] Own-copy thumbnails avoid disclosing locked YouTube IDs.
+- [x] No redemption/download/progress/completion tracking added speculatively.
+- [x] Perks/Learnings pages and admin management page built from the teammate references,
+      adapted to the current GrowXQ theme.
 
-### US-14-02: Admin managing perks/templates/learnings
-As an admin with `manageResources` permission, I want to add/edit/remove perks, templates, and
-learnings.
-- [ ] Link/file URL is required server-side — the prototype's admin forms allow empty links that
-      render as dead buttons; don't reproduce that
+### US-14-03: Templates (added 2026-10-30)
+As a member, I can download professional starter templates; others can browse them.
+- [x] 12 real starter files (Word/Excel/PowerPoint) seeded, with working formulas in the
+      workbooks, plus 3 template kits.
+- [x] Every template is members-only: guests see a sign-in prompt, clients a membership prompt.
+- [x] Downloads are 60-second signed links for one file; the stored path is never exposed to
+      non-admins; the member role is re-checked in the database on every download.
+- [x] Admins upload files (type sniffed from bytes, ≤15MB) and manage templates and kits.
+- [x] `/templates` page (kits, categories, search; guest sign-in gate, client membership prompt,
+      member download), admin Templates tab (upload → save → delete) and sidebar links. Checked
+      in a browser as guest (375px + 1440px), client, member (real download) and admin.
+
+### US-14-02: Admin managing resources
+As an admin with manageResources permission, I can manage products, videos, playlists and stacks.
+- [x] Fresh active admin role and manageResources on every admin route.
+- [x] Create/read/edit/delete resources and collections; itemIds replaces membership/order atomically.
+- [x] Validate referenced IDs, kind, duplicate IDs, URLs, nulls, and redeemable offers; no dead links.
+- [x] Deleted perk/video references are pruned by the existing DB trigger.
+- [x] Shared contracts, database docs, REST docs and role-organized Postman requests.
+- [x] Verified once in dev (2026-10-29/30) across guest/client/member/admin, including raw-table
+      denial and reviewer/stale-admin rejection. The one-off test scripts were removed afterwards.
+- [x] Responsive browser QA at 375px and desktop: search/empty states, comparison, details,
+      playlist playback and queue, guest/client/member gates, admin creation/editing/validation
+      and playlist reordering. Inactive QA fixtures removed; seeded content preserved.
 
 ---
 
@@ -408,7 +441,7 @@ learnings.
 As a visitor, I want to subscribe with just my email, unrelated to creating an account.
 - [ ] `POST /v1/newsletter-subscriptions` 🌐; admin `GET` list
 
-### US-15-02: Tracking how a user found Expertly
+### US-15-02: Tracking how a user found GrowXQ
 As an admin, I want to see how each user found/joined the platform.
 - [ ] Likely an additive `source` column on `profiles`, not a new resource — confirm before adding
       a table

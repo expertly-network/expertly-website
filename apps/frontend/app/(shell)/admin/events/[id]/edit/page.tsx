@@ -6,7 +6,7 @@ import { Eyebrow } from '@/components/ui';
 import { EventForm } from '@/components/admin/EventForm';
 
 export const metadata = {
-  title: 'Edit event — Admin — Expertly',
+  title: 'Edit event — Admin — GrowXQ',
 };
 
 export default async function EditAdminEventPage({ params }: { params: { id: string } }) {

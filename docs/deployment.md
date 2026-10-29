@@ -1,4 +1,4 @@
-# Expertly — Deployment Reference (Coolify, dev environment)
+# GrowXQ (formerly Expertly) — Deployment Reference (Coolify, dev environment)
 
 **Scope: this document covers the `dev` Coolify environment only — it is not a production
 deployment guide.** Production deployment is a separate, deliberately-not-yet-done effort that
@@ -54,29 +54,28 @@ deployed" — see the scope note at the top of this file.
 
 | App | Image | Domains currently routed to it |
 |---|---|---|
-| `expertly-backend` | `ghcr.io/expertly-network/expertly-backend:latest` | `api.expertly.network`, `dev-api.expertly.network` |
-| `expertly-frontend` | `ghcr.io/expertly-network/expertly-frontend:latest` | `expertly.network`, `www.expertly.network`, `dev.expertly.network`, `www.dev.expertly.network` |
+| `expertly-backend` | `ghcr.io/expertly-network/growxq-backend:latest` (was `expertly-backend` before the Oct 2026 rename) | `api.expertly.network`, `dev-api.expertly.network` |
+| `expertly-frontend` | `ghcr.io/expertly-network/growxq-frontend:latest` (was `expertly-frontend`) | `expertly.network`, `www.expertly.network`, `dev.expertly.network`, `www.dev.expertly.network` |
 
-This was a deliberate choice over building separate `:dev`/`:prod` images: `NEXT_PUBLIC_*` env vars
-are inlined into the frontend's client bundle at `next build` time, so they can't be swapped per
-environment at container-start time the way a normal env var can. Building two images just to get
-two different `NEXT_PUBLIC_API_URL` values would also mean two build pipelines and two things to
-keep in sync. Instead, the single frontend image resolves its API base URL **at runtime, from the
-request's hostname**:
+The frontend is **one image** for every environment. `NEXT_PUBLIC_*` env vars are inlined into the
+client bundle at `next build` time, so they can't differ per environment. The API base URL is
+therefore **runtime configuration**: each frontend container gets an `API_URL` env var (set in
+Coolify, no rebuild needed to change it):
 
-- `apps/frontend/lib/api/base-url.shared.ts` — the `API_HOSTS` map (hostname → API origin) and a
-  `FALLBACK_API_URL`.
-- `apps/frontend/lib/api/base-url.client.ts` — reads `window.location.hostname` (browser-side
-  calls, e.g. `apiFetch` in `lib/api/client.ts`).
-- `apps/frontend/lib/api/base-url.server.ts` — reads the `host` header via `next/headers`
-  (Server Components / Route Handlers, e.g. `lib/api/server.ts`). Kept in a **separate file** from
-  the client version deliberately — importing `next/headers` anywhere reachable from a
-  Client Component bundle breaks the Next.js build ("You're importing a component that needs
-  next/headers... not supported in the pages/ directory"), even if the import is unused on that
-  code path.
+- `apps/frontend/lib/api/base-url.server.ts` — Server Components / Route Handlers read
+  `process.env.API_URL` per request (it also calls `headers()`, which keeps those pages rendered at
+  request time rather than prerendered during `next build`). Kept in a **separate file** from the
+  client version — importing `next/headers` anywhere reachable from a Client Component bundle
+  breaks the build.
+- `apps/frontend/app/layout.tsx` — injects that same value into every page as
+  `window.__API_URL__` (a one-line inline script).
+- `apps/frontend/lib/api/base-url.client.ts` — browser-side calls (`apiFetch` in
+  `lib/api/client.ts`) read `window.__API_URL__`.
+- Fallback when `API_URL` is unset: the build-time `NEXT_PUBLIC_API_URL`, then
+  `http://localhost:4000`.
 
-Adding a third domain (e.g. a staging environment) means adding one entry to `API_HOSTS`, not a
-new image or a new Coolify app.
+Until Oct 2026 this was a hard-coded hostname → API map (`API_HOSTS`) in `base-url.shared.ts`;
+it was replaced so no domain lives in code (the GrowXQ rebrand changes every domain).
 
 ## Search worker (second app, same image)
 
@@ -89,7 +88,7 @@ started with a different command — a second Coolify resource, not a second rep
 | Setting | Value |
 |---|---|
 | Resource type | Docker Image |
-| Image | `ghcr.io/expertly-network/expertly-backend:latest` (same tag as the API) |
+| Image | `ghcr.io/expertly-network/growxq-backend:latest` (same tag as the API) |
 | Entry point | env var `APP_ENTRY=worker`. Coolify's Docker Image apps have no start-command override, so the image's `CMD` (`apps/backend/Dockerfile`) runs `dist/apps/backend/src/${APP_ENTRY:-main}.js` — unset on the API app (runs `main.js`), `worker` here (runs `worker.js`, same as `pnpm start:worker`). Any other value exits with an error |
 | Domains / exposed port | **none** — it listens on no port |
 | Healthcheck | **disabled** — `/v1/health` belongs to the API only; the worker has no HTTP server, so a path healthcheck would mark it permanently unhealthy and trigger rollbacks |
@@ -124,7 +123,7 @@ environment. The worker logs to stdout; look for `Search worker running.` and th
    merge gate.
 2. **Build & Push Docker Images** (only runs if step 1 passes, and only on `push` to `main`, not
    on PRs) — builds both Dockerfiles for `linux/amd64` and pushes
-   `ghcr.io/expertly-network/expertly-{backend,frontend}:latest`, authenticated with the
+   `ghcr.io/expertly-network/growxq-{backend,frontend}:latest`, authenticated with the
    workflow's own `GITHUB_TOKEN` (no PAT needed — GHCR under the repo's own org needs nothing
    extra). Frontend build-args (`NEXT_PUBLIC_*`) come from repo secrets — see below.
 3. **Trigger Coolify redeploy** — the last step of the same job. Since Coolify's apps here are
@@ -156,7 +155,7 @@ redeploys every `autodeploy`-tagged app with the new images. Fully automatic, no
 
 | Secret | Purpose |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Frontend build-arg fallback (used pre-runtime-resolution / non-matched hosts) |
+| `NEXT_PUBLIC_API_URL` | Frontend build-arg fallback, used only when the container's runtime `API_URL` is unset |
 | `NEXT_PUBLIC_SUPABASE_URL` | Frontend build-arg — baked into the client bundle |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Frontend build-arg — baked into the client bundle (public-by-design, safe to bake in) |
 | `COOLIFY_API_TOKEN` | Bearer token for the deploy-trigger step. Created under Coolify → **Keys & Tokens → API Tokens**, scoped to the `Deploy` permission only (least privilege — it can't read/write anything else). **Expires 2027-08-18** — needs manual rotation before then, since an expired token fails the deploy step silently-ish (the `curl` will just 401). |
@@ -224,7 +223,7 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
 - **Container-level debugging**: Coolify → **Terminal** (left nav) gives a browser-based shell on
   the VPS or any of its containers — no SSH client needed. Useful commands:
   ```bash
-  docker ps -a --filter ancestor=ghcr.io/expertly-network/expertly-frontend:latest \
+  docker ps -a --filter ancestor=ghcr.io/expertly-network/growxq-frontend:latest \
     --format 'table {{.ID}}\t{{.Status}}\t{{.CreatedAt}}\t{{.Names}}'
   docker inspect <container-id> --format '{{json .Config.Labels}}' | tr ',' '\n' | grep -i traefik
   ```
@@ -237,3 +236,30 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
   curl https://api.expertly.network/v1/health
   curl https://dev-api.expertly.network/v1/health
   ```
+
+## GrowXQ rebrand — migration checklist (Oct 2026)
+
+The product was renamed Expertly → GrowXQ (domain `growxq.com`). The code, package names
+(`growxq-frontend`, `growxq-backend`, `@growxq/shared-types`) and CI image names
+(`growxq-{backend,frontend}`) are renamed; everything below is infrastructure that has to be
+moved by hand. Until it is, the live facts elsewhere in this file (Coolify app names, the
+`expertly.network` domains, Supabase URLs) still describe the running setup.
+
+1. **Before the first deploy of the rename:** point the Coolify apps (frontend, backend,
+   search worker) at the new images `ghcr.io/expertly-network/growxq-{frontend,backend}:latest`
+   — CI no longer pushes the old `expertly-*` tags, so they'd silently stay on the last old image.
+2. **Set `API_URL` on the frontend app** in Coolify to the backend's public URL (today
+   `https://api.expertly.network`; after DNS moves, the new API host). Without it the frontend
+   falls back to the build-time `NEXT_PUBLIC_API_URL` secret.
+3. DNS: add the `growxq.com` (+ `www`, and the API/dev hosts you choose) records, then add those
+   domains to the Coolify apps.
+4. Update `API_URL` (step 2) to the new API host once its DNS resolves.
+5. Supabase → Authentication → URL Configuration: Site URL → the new domain; add
+   `https://<new domain>/auth/callback` (and the dev one) to the Redirect URLs allow-list.
+   Supabase email templates (confirm signup, reset password) — replace any "Expertly" wording.
+6. `NEXT_PUBLIC_SITE_URL` (frontend) → the new domain, for Open Graph link previews.
+7. LinkedIn: the footer still links to `linkedin.com/company/expertly-network` until a GrowXQ
+   company page exists; the LinkedIn OAuth app's name/logo is set in the LinkedIn developer portal.
+8. Mailbox: the site now shows `contact@growxq.com` (contact, event suggestions, suspended-account
+   message) — make sure it receives mail.
+

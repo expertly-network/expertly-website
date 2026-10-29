@@ -3,7 +3,7 @@ import type { MemberKeyClient } from '@shared/member';
 // Cycled by index, same palette design/static_html/member-profile.html uses for a Key Client's
 // fallback initial-letter icon when it has no logoUrl.
 const CLIENT_ICON_COLORS = [
-  '#0A66C2', '#F97316', '#16A34A', '#7C3AED', '#DC2626', '#0891B2', '#B45309', '#1D4ED8', '#9333EA', '#059669',
+  '#0A66C2', '#F97316', '#00A682', '#7C3AED', '#DC2626', '#0891B2', '#B45309', '#1D4ED8', '#9333EA', '#DB2777',
 ];
 
 // A row only scrolls once it holds at least this many logos; fewer sit still, each shown once.
@@ -36,7 +36,7 @@ function ClientRow({ label, clients, offset }: { label: string; clients: MemberK
   const animated = clients.length >= MARQUEE_MIN_LOGOS;
   return (
     <div>
-      <div className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+      <div className="mb-2 font-mono text-[10px] font-semibold uppercase text-ink-3">
         {label} ({clients.length})
       </div>
       {animated ? (

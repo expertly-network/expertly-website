@@ -4,7 +4,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Button, Card, Eyebrow } from '@/components/ui';
 
 export const metadata = {
-  title: 'Membership benefits — Expertly',
+  title: 'Membership benefits — GrowXQ',
   description:
     'One flat annual fee: client discovery, unlimited publishing, a vetted peer network and member events — with zero commission on any work you win.',
 };
@@ -27,7 +27,7 @@ const PILLARS: { n: string; title: string; body: string; stats: [string, string]
   {
     n: '01 · Client Discovery',
     title: 'Stop chasing leads. Start choosing them.',
-    body: 'Clients search Expertly by practice area and jurisdiction — in plain English. Your verified profile surfaces when they do. No bidding wars, no agency cut, no cold outreach: consultation requests come straight to you.',
+    body: 'Clients search GrowXQ by practice area and jurisdiction — in plain English. Your verified profile surfaces when they do. No bidding wars, no agency cut, no cold outreach: consultation requests come straight to you.',
     stats: [
       ['$0', 'Commission charged'],
       ['100%', 'Fees kept by you'],
@@ -37,7 +37,7 @@ const PILLARS: { n: string; title: string; body: string; stats: [string, string]
   {
     n: '02 · Thought Leadership',
     title: 'Publish once. Get discovered for years.',
-    body: 'A sharp take on regulatory change is why a client calls you instead of the firm next door. Every article you publish becomes a permanent, searchable asset under your name — written yourself, or drafted with Expertly AI from your own notes.',
+    body: 'A sharp take on regulatory change is why a client calls you instead of the firm next door. Every article you publish becomes a permanent, searchable asset under your name — written yourself, or drafted with GrowXQ AI from your own notes.',
     stats: [
       ['Unlimited', 'Articles'],
       ['Searchable', 'By clients, in plain English'],
@@ -56,7 +56,7 @@ const PILLARS: { n: string; title: string; body: string; stats: [string, string]
   {
     n: '04 · Exclusive Events',
     title: 'In the room with the right people.',
-    body: 'A curated calendar of conferences and summits relevant to finance and legal practitioners, reviewed by the Expertly team — plus member-only roundtables as the network grows.',
+    body: 'A curated calendar of conferences and summits relevant to finance and legal practitioners, reviewed by the GrowXQ team — plus member-only roundtables as the network grows.',
     stats: [
       ['Curated', 'By practice & jurisdiction'],
       ['Global', 'Financial centres'],
@@ -86,7 +86,7 @@ const STEPS: [string, string, string][] = [
 ];
 
 const CHECKS: [string, string][] = [
-  ['Identity & credentials', 'Every applicant connects a real LinkedIn account, and the details submitted at onboarding are checked by the Expertly team before a profile goes live.'],
+  ['Identity & credentials', 'Every applicant connects a real LinkedIn account, and the details submitted at onboarding are checked by the GrowXQ team before a profile goes live.'],
   ['Peer references', 'Two professional references are contacted as part of every application — regardless of seniority.'],
   ['Proof-backed details', 'Key engagements, clients, testimonials and awards added later carry a Verified badge only when backed by proof the team has reviewed.'],
   ['Ongoing review', 'Verification is not a one-time exercise — facts and conduct are reviewed on an ongoing basis to keep the badge meaningful.'],
@@ -114,7 +114,7 @@ export default async function MembershipPage() {
         />
         <PageContainer className="relative grid items-center gap-10 lg:grid-cols-[1fr_400px]">
           <div>
-            <Eyebrow dark>Expertly Membership</Eyebrow>
+            <Eyebrow dark>GrowXQ Membership</Eyebrow>
             <h1 className="mt-5 text-headline text-bg-card">
               Everything you need to grow your practice, without giving up a{' '}
               <span className="text-accent">cut</span> of what you earn.
@@ -158,7 +158,7 @@ export default async function MembershipPage() {
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="text-mono-label text-accent">{p.n}</span>
                   {p.soon && (
-                    <span className="rounded-full bg-bg-alt px-2.5 py-1 text-[11px] font-semibold tracking-[0.04em] text-ink-3">
+                    <span className="rounded-full bg-bg-alt px-2.5 py-1 text-[11px] font-semibold text-ink-3">
                       Coming soon
                     </span>
                   )}

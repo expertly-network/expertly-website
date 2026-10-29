@@ -137,24 +137,43 @@ create policy services_select_all
 -- (docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md §2), except one typo fix
 -- ("Gfit" -> "Gift" under Direct Tax) and the numbering gap at #4 closed (categories are keyed by
 -- name, not the client's original S.No). sort_order is source order within each category.
-insert into public.categories (name, sort_order) values
-  ('Direct Tax', 1),
-  ('Indirect Tax', 2),
-  ('Other taxes', 3),
-  ('Corporate compliances & Secretarial assistance', 4),
-  ('Accounting & related compliances', 5),
-  ('Audit & Assurance', 6),
-  ('Legal - Corporate, M&A & Capital Markets', 7),
-  ('Legal - Banking, Finance & Insolvency', 8),
-  ('Legal - Dispute Resolution & Investigations', 9),
-  ('Legal - Regulatory, Competition & Public Law', 10),
-  ('Legal - Data Protection, Technology & IP', 11),
-  ('Legal - Employment & Immigration', 12),
-  ('Legal - Real Estate, Infrastructure & Environment', 13),
-  ('Legal - Private Client, Family & Wealth', 14),
-  ('Legal - Sector-Specific Practices', 15),
-  ('Notarial & Admin Services', 16),
-  ('Others', 17);
+-- image_url: square Unsplash crops (free licence, hotlinked per Unsplash API guidelines), shown as the
+-- homepage Coverage tile thumbnails. Admins can replace any of them via PATCH /v1/admin/categories/:id.
+insert into public.categories (name, sort_order, image_url) values
+  ('Direct Tax', 1,
+   'https://images.unsplash.com/photo-1709880945165-d2208c6ad2ec?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHx0YXglMjBjYWxjdWxhdG9yfGVufDF8fHx8MTc5MzI5MTMwNnww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Indirect Tax', 2,
+   'https://images.unsplash.com/photo-1731686602391-7484df33a03c?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxyZWNlaXB0cyUyMGludm9pY2V8ZW58MXx8fHwxNzkzMjkxMTYyfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Other taxes', 3,
+   'https://images.unsplash.com/photo-1554224154-26032ffc0d07?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHx0YXglMjBmb3Jtc3xlbnwxfHx8fDE3OTMyOTEzMDd8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Corporate compliances & Secretarial assistance', 4,
+   'https://images.unsplash.com/photo-1695388474402-ed805a890d8d?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxvZmZpY2UlMjBwYXBlcndvcmt8ZW58MXx8fHwxNzkzMjkxMzA4fDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Accounting & related compliances', 5,
+   'https://images.unsplash.com/photo-1642043175009-5997b3a078d8?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxhY2NvdW50aW5nJTIwbGVkZ2VyfGVufDF8fHx8MTc5MzI5MTMwOHww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Audit & Assurance', 6,
+   'https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxmaW5hbmNpYWwlMjBhdWRpdHxlbnwxfHx8fDE3OTMyOTEzMDl8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Corporate, M&A & Capital Markets', 7,
+   'https://images.unsplash.com/photo-1573164574572-cb89e39749b4?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxib2FyZHJvb20lMjBtZWV0aW5nfGVufDF8fHx8MTc5MzI5MTMwOXww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Banking, Finance & Insolvency', 8,
+   'https://images.unsplash.com/photo-1554469384-e58fac16e23a?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxiYW5rJTIwYnVpbGRpbmd8ZW58MXx8fHwxNzkzMjkxMzA5fDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Dispute Resolution & Investigations', 9,
+   'https://images.unsplash.com/photo-1676181739859-08330dea8999?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxnYXZlbHxlbnwxfHx8fDE3OTMyOTExODh8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Regulatory, Competition & Public Law', 10,
+   'https://images.unsplash.com/photo-1523292562811-8fa7962a78c8?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxnb3Zlcm5tZW50JTIwYnVpbGRpbmclMjBjb2x1bW5zfGVufDF8fHx8MTc5MzI5MTMxMHww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Data Protection, Technology & IP', 11,
+   'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxkYXRhJTIwc2VjdXJpdHl8ZW58MXx8fHwxNzkzMjkxMzEwfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Employment & Immigration', 12,
+   'https://images.unsplash.com/photo-1553697388-94e804e2f0f6?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxwYXNzcG9ydCUyMHRyYXZlbHxlbnwxfHx8fDE3OTMyOTEzMTF8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Real Estate, Infrastructure & Environment', 13,
+   'https://images.unsplash.com/photo-1514565131-fce0801e5785?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxza3lsaW5lJTIwYnVpbGRpbmdzfGVufDF8fHx8MTc5MzI5MTMxMXww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Private Client, Family & Wealth', 14,
+   'https://images.unsplash.com/photo-1558036117-15d82a90b9b1?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxmYW1pbHklMjBlc3RhdGUlMjBob21lfGVufDF8fHx8MTc5MzI5MTMxMnww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal - Sector-Specific Practices', 15,
+   'https://images.unsplash.com/photo-1717386255773-1e3037c81788?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyeSUyMGZhY3Rvcnl8ZW58MXx8fHwxNzkzMjkxMzEzfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Notarial & Admin Services', 16,
+   'https://images.unsplash.com/photo-1603796846097-bee99e4a601f?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxzaWduaW5nJTIwZG9jdW1lbnR8ZW58MXx8fHwxNzkzMjkxMTkwfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Others', 17,
+   'https://images.unsplash.com/photo-1535957998253-26ae1ef29506?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxvZmZpY2UlMjBkZXNrfGVufDF8fHx8MTc5MzI5MTMxM3ww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70');
 
 insert into public.services (category_id, name, sort_order, is_custom)
 select c.id, s.name, s.sort_order, s.is_custom
@@ -1303,3 +1322,197 @@ alter table public.search_query_log         enable row level security;
 
 revoke all on table public.search_documents, public.search_outbox, public.search_query_log
   from anon, authenticated;
+
+-- ============================================================================
+-- Perks, Learnings & Collections (US-14). Three tables:
+--   perks        — one row per recommended product, with a separate offer per tier: clients
+--                  ("user_*") and members ("member_*") can get different codes/links.
+--   learnings    — one row per video (YouTube today; GrowXQ's own uploads later).
+--   collections  — admin-curated, ordered groups: learning playlists and perk "starter stacks".
+--                  item_ids is an ordered uuid[] (position = array order) and may be empty.
+--
+-- Security: coupon codes, offer links and members-only video links are shaped per role in the
+-- API (see docs/rest-api.md "Perks & Learnings"). These tables hold those secrets, so RLS is on
+-- with no policies AND every grant is revoked from anon/authenticated — only the backend's
+-- service-role client can read them; the browser's anon key can't reach them via PostgREST.
+-- ============================================================================
+
+create table public.perks (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  category text not null check (category in (
+    'Tax & Compliance', 'Accounting & Audit', 'Corporate Secretarial', 'Legal', 'AI Tools',
+    'Practice & Productivity'
+  )),
+  tagline text not null default '',
+  description text not null default '',
+  products text[] not null default '{}',
+  website_url text not null check (website_url ~ '^https://'),
+  logo_url text,
+  cover_image_url text,
+  -- Offer. While 'coming_soon', no tier's offer/code/link is ever returned by the API.
+  offer_status text not null default 'coming_soon' check (offer_status in ('coming_soon', 'live')),
+  user_offer text,
+  user_coupon_code text,
+  user_offer_url text check (user_offer_url ~ '^https://'),
+  member_offer text,
+  member_coupon_code text,
+  member_offer_url text check (member_offer_url ~ '^https://'),
+  offer_terms text,
+  offer_expires_at date,
+  is_featured boolean not null default false,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- A tier with offer text must say how to redeem it (a code, a link, or both) — no dead button.
+  constraint perks_user_offer_redeemable
+    check (user_offer is null or user_coupon_code is not null or user_offer_url is not null),
+  constraint perks_member_offer_redeemable
+    check (member_offer is null or member_coupon_code is not null or member_offer_url is not null)
+);
+
+create index perks_active_category_idx on public.perks (is_active, category, sort_order);
+
+create trigger set_perks_updated_at
+  before update on public.perks
+  for each row execute function public.set_updated_at();
+
+create table public.learnings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  summary text not null default '',
+  video_provider text not null default 'youtube' check (video_provider in ('youtube', 'file')),
+  -- Never returned to a viewer who can't watch the video (see `access`).
+  video_url text not null check (video_url ~ '^https://'),
+  -- Our own Storage copy — never YouTube's thumbnail URL, which embeds the video id.
+  thumbnail_url text,
+  channel text,
+  duration_minutes integer not null check (duration_minutes > 0),
+  category text not null check (category in (
+    'AI essentials', 'Legal & drafting', 'Tax & accounting', 'Audit & assurance',
+    'Excel & decks', 'Automation', 'Data & privacy'
+  )),
+  level text not null check (level in ('beginner', 'intermediate', 'advanced')),
+  audiences text[] not null default '{}' check (audiences <@ array['tax', 'legal', 'audit']),
+  -- auto: open to every signed-in user if it's the first video of any active playlist, else
+  -- members-only. open/members: an admin override that ignores playlists.
+  access text not null default 'auto' check (access in ('auto', 'open', 'members')),
+  is_featured boolean not null default false,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  search_tsv tsvector generated always as (
+    to_tsvector('english', title || ' ' || summary || ' ' || coalesce(channel, ''))
+  ) stored,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index learnings_active_category_idx on public.learnings (is_active, category, sort_order);
+create index learnings_search_idx on public.learnings using gin (search_tsv);
+
+create trigger set_learnings_updated_at
+  before update on public.learnings
+  for each row execute function public.set_updated_at();
+
+create table public.collections (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('learning_playlist', 'perk_stack', 'template_kit')),
+  slug text not null,
+  title text not null,
+  description text not null default '',
+  audiences text[] not null default '{}' check (audiences <@ array['tax', 'legal', 'audit']),
+  -- learning ids for a playlist, perk ids for a stack, template ids for a kit. Validated against the right table by the
+  -- API on every write; pruned on delete by collections_prune_item().
+  item_ids uuid[] not null default '{}',
+  cover_image_url text,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (kind, slug)
+);
+
+create index collections_items_idx on public.collections using gin (item_ids);
+
+create trigger set_collections_updated_at
+  before update on public.collections
+  for each row execute function public.set_updated_at();
+
+create trigger perks_prune_collections
+  after delete on public.perks
+  for each row execute function public.collections_prune_item();
+create trigger learnings_prune_collections
+  after delete on public.learnings
+  for each row execute function public.collections_prune_item();
+
+alter table public.perks       enable row level security;
+alter table public.learnings   enable row level security;
+alter table public.collections enable row level security;
+
+revoke all on table public.perks, public.learnings, public.collections from anon, authenticated;
+
+-- Storage — resource-assets bucket: perk logos/covers and learning thumbnails. Public: nothing
+-- here is sensitive (thumbnails are our own copies keyed by learning id, never the YouTube id).
+insert into storage.buckets (id, name, public)
+values ('resource-assets', 'resource-assets', true)
+on conflict (id) do nothing;
+
+-- ============================================================================
+-- templates — downloadable starter documents (Word / Excel / PowerPoint / PDF) for members.
+-- Every template is members-only: the file lives in the PRIVATE `template-files` bucket and is
+-- only ever handed out as a short-lived signed URL, minted per request by the API for a member
+-- or admin. file_path is never returned to a non-admin. Curated bundles ("kits") are
+-- collections rows with kind = 'template_kit'.
+-- ============================================================================
+
+create table public.templates (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  description text not null default '',
+  category text not null check (category in (
+    'Audit', 'Tax', 'Legal', 'Corporate & compliance', 'Practice management'
+  )),
+  -- What's inside, as short bullets for the card/detail view ("3 sheets", "Variance formulas").
+  highlights text[] not null default '{}',
+  file_type text not null check (file_type in ('docx', 'xlsx', 'pptx', 'pdf')),
+  -- Object path inside the private template-files bucket. Never sent to non-admins.
+  file_path text not null,
+  file_name text not null,
+  file_size_bytes integer not null check (file_size_bytes > 0),
+  -- Public teaser image of the first page/sheet/slide (path in the public resource-assets bucket,
+  -- e.g. templates/previews/<slug>.jpg). Optional; the UI falls back to a designed cover.
+  preview_image_url text,
+  audiences text[] not null default '{}' check (audiences <@ array['tax', 'legal', 'audit']),
+  is_featured boolean not null default false,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  search_tsv tsvector generated always as (
+    to_tsvector('english', title || ' ' || description)
+  ) stored,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index templates_active_category_idx on public.templates (is_active, category, sort_order);
+create index templates_search_idx on public.templates using gin (search_tsv);
+
+create trigger set_templates_updated_at
+  before update on public.templates
+  for each row execute function public.set_updated_at();
+
+create trigger templates_prune_collections
+  after delete on public.templates
+  for each row execute function public.collections_prune_item();
+
+alter table public.templates enable row level security;
+revoke all on table public.templates from anon, authenticated;
+
+-- Storage — template-files bucket. PRIVATE: objects are only reachable through signed URLs the
+-- API mints for members/admins (see docs/rest-api.md "Templates"). No storage.objects policy is
+-- granted to anon/authenticated, so the browser key can't list or read it directly.
+insert into storage.buckets (id, name, public)
+values ('template-files', 'template-files', false)
+on conflict (id) do nothing;

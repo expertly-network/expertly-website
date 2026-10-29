@@ -9,7 +9,7 @@ const CHECK_ICON = (
 );
 
 // Copy adapts to whether the article was published or sent for review.
-export function WriteSuccess({ status, articleId }: { status: ArticleStatus; articleId: string }) {
+export function WriteSuccess({ status, articleSlug }: { status: ArticleStatus; articleSlug: string }) {
   const isPublished = status === 'published';
 
   return (
@@ -31,7 +31,7 @@ export function WriteSuccess({ status, articleId }: { status: ArticleStatus; art
         </div>
       </div>
       <div className="flex gap-3 border-t border-line pt-5">
-        {isPublished && <Button href={`/articles/${articleId}`}>View article</Button>}
+        {isPublished && <Button href={`/articles/${articleSlug}`}>View article</Button>}
         <Button href="/articles" variant={isPublished ? 'secondary' : 'primary'}>
           Back to articles
         </Button>

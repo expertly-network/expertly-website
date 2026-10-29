@@ -41,7 +41,7 @@ export function LinkedInImportStep({
   const [linkPending, setLinkPending] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   // Two separate consents: connecting LinkedIn (linkedinLinked, above) verifies identity; this
-  // checkbox is the applicant's consent to Expertly actually extracting bio/work-history/
+  // checkbox is the applicant's consent to GrowXQ actually extracting bio/work-history/
   // education text from their public profile and displaying it on their member listing. Being
   // connected doesn't imply the second — an applicant can connect to satisfy the identity check
   // and still choose "Skip" to enter everything manually instead.
@@ -230,7 +230,7 @@ export function LinkedInImportStep({
                 onChange={(e) => update({ linkedinImportConsent: e.target.checked })}
               />
               <span className="text-ink-2">
-                I consent to Expertly extracting my bio, work history, and education from this
+                I consent to GrowXQ extracting my bio, work history, and education from this
                 LinkedIn profile and displaying it on my member listing.{' '}
                 <a
                   href={LINKEDIN_DATA_USE_URL}

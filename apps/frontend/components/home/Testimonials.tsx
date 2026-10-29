@@ -9,7 +9,7 @@ const TESTIMONIALS = {
   members: [
     {
       quote:
-        "Expertly gave me access to a calibre of clients I simply couldn't reach anywhere else. Every enquiry is from someone who genuinely values expert advice.",
+        "GrowXQ gave me access to a calibre of clients I simply couldn't reach anywhere else. Every enquiry is from someone who genuinely values expert advice.",
       name: 'Priya Venkatesh',
       role: 'GST & Indirect Tax Director · Hyderabad',
       photo: 'https://randomuser.me/api/portraits/women/68.jpg',
@@ -21,7 +21,7 @@ const TESTIMONIALS = {
       photo: 'https://randomuser.me/api/portraits/men/52.jpg',
     },
     {
-      quote: "Publishing articles on Expertly built my professional brand faster than anything else I've tried.",
+      quote: "Publishing articles on GrowXQ built my professional brand faster than anything else I've tried.",
       name: 'Amara Osei',
       role: 'Corporate Counsel · Accra',
       photo: 'https://randomuser.me/api/portraits/women/90.jpg',
@@ -36,7 +36,7 @@ const TESTIMONIALS = {
   clients: [
     {
       quote:
-        'We replaced six months of RFPs with one afternoon on Expertly. Found the right M&A counsel in Chennai by Tuesday, signed by Friday.',
+        'We replaced six months of RFPs with one afternoon on GrowXQ. Found the right M&A counsel in Chennai by Tuesday, signed by Friday.',
       name: 'Oliver Schmidt',
       role: 'Capital Markets Partner · Frankfurt',
       photo: 'https://randomuser.me/api/portraits/men/41.jpg',

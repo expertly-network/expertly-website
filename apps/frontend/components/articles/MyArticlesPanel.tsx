@@ -80,10 +80,10 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
               key={article.id}
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
             >
-              <Link href={`/articles/${article.id}`} className="flex flex-1 flex-col">
+              <Link href={`/articles/${article.slug}`} className="flex flex-1 flex-col">
                 <div className="relative">
                   <span
-                    className={`absolute left-3 top-3 z-[2] rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.05em] text-bg-card ${badge.className}`}
+                    className={`absolute left-3 top-3 z-[2] rounded-full px-2.5 py-1 text-[10px] font-bold text-bg-card ${badge.className}`}
                   >
                     {badge.label.toUpperCase()}
                   </span>
@@ -92,7 +92,7 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
                 </div>
                 <div className="flex flex-1 flex-col p-5">
                   <span className="mb-2 text-xs text-ink-3">
-                    {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()}
+                    {DATE_FORMAT.format(new Date(article.createdAt))}
                   </span>
                   <h3 className="line-clamp-2 text-title text-ink">{article.title}</h3>
                   {article.status === 'rejected' && article.rejectionReason && (

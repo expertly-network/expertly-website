@@ -6,7 +6,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { SearchBox } from '@/components/search/SearchBox';
 
 // The panel's top row is a real search input: type, press Enter, and the AI search modal opens
-// with the results (POST /v1/search). "Try Expertly" just moves the cursor into that input.
+// with the results (POST /v1/search). "Try GrowXQ" just moves the cursor into that input.
 export function AiSearchTeaser() {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -14,14 +14,14 @@ export function AiSearchTeaser() {
     <section className="border-b border-line bg-bg-alt py-24">
       <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
         <div>
-          <Eyebrow>Expertly · Intelligent Discovery</Eyebrow>
+          <Eyebrow>GrowXQ · Intelligent Discovery</Eyebrow>
           <h2 className="mt-4 text-section-title text-ink">
             Ask in plain English. Get <span className="text-accent">exactly</span> who &amp; what
             you need.
           </h2>
           <p className="mt-5 max-w-[480px] text-lede text-ink-3">
             One query searches the entire network at once, no filters to fiddle with, no jargon
-            required. Describe the matter and Expertly search surfaces the right people, the
+            required. Describe the matter and GrowXQ search surfaces the right people, the
             relevant reading, and the events worth your time.
           </p>
           <ul className="mt-6 flex flex-col gap-3 text-[15px] text-ink-2">
@@ -51,7 +51,7 @@ export function AiSearchTeaser() {
             </li>
           </ul>
           <Button type="button" onClick={() => inputRef.current?.focus()} className="mt-8">
-            Try Expertly →
+            Try GrowXQ →
           </Button>
         </div>
 
@@ -72,7 +72,7 @@ export function AiSearchTeaser() {
           </div>
           <div className="flex items-center justify-end border-t border-line px-5 py-3 text-[11px] text-ink-3 sm:justify-between">
             <span className="hidden sm:inline">↵ search · esc close</span>
-            <span>Powered by Expertly</span>
+            <span>Powered by GrowXQ</span>
           </div>
         </Card>
       </PageContainer>

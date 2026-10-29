@@ -12,3 +12,5 @@ supabase/.temp/
 
 # Local-only, contains real admin credentials filled in by hand — never commit.
 supabase/trigger_embeddings_via_api.py
+# Content images live in Supabase Storage; keep local exports out of source control.
+supabase/seed-assets/

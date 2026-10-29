@@ -222,6 +222,9 @@ export class MembersRepository {
     }
 
     switch (filters.sort) {
+      case 'newest':
+        dbQuery = dbQuery.order('membership_started_at', { ascending: false }).order('profile_id', { ascending: true });
+        break;
       case 'tenure':
         dbQuery = dbQuery.order('years_of_experience', { ascending: false });
         break;

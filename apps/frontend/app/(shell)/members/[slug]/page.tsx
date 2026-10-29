@@ -9,11 +9,11 @@ import { ProfileClient } from './ProfileClient';
 // (thrown from the page body, after loading.tsx has already flushed, it would still be a 200).
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) return { title: 'Member profile — Expertly' };
+  if (!sessionUser) return { title: 'Member profile — GrowXQ' };
   const member = await getMemberServer(params.slug);
   if (!member) notFound();
   return {
-    title: `${member.name} — Expertly`,
+    title: `${member.name} — GrowXQ`,
     description: member.headline ?? undefined,
   };
 }

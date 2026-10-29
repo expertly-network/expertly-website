@@ -13,7 +13,7 @@ export function generateStaticParams() {
 
 export function generateMetadata({ params }: { params: { doc: string } }): Metadata {
   const doc = LEGAL_DOCS[params.doc];
-  return doc ? { title: `${doc.title} — Expertly` } : {};
+  return doc ? { title: `${doc.title} — GrowXQ` } : {};
 }
 
 export default function LegalPage({ params }: { params: { doc: string } }) {

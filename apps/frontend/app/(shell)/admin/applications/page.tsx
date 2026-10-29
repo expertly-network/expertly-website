@@ -6,7 +6,7 @@ import { Eyebrow } from '@/components/ui';
 import { AdminApplicationsTable } from '@/components/admin/AdminApplicationsTable';
 
 export const metadata = {
-  title: 'Applications — Admin — Expertly',
+  title: 'Applications — Admin — GrowXQ',
 };
 
 // UX-only gate; the backend re-checks permissions fresh on every request.

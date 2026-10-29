@@ -3,6 +3,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui';
 import type { Profile } from '@/lib/auth/types';
 import { SignOutButton } from '@/components/layout/SignOutButton';
+import { SignInButton, SignInLink } from '@/components/auth/SignInLink';
 
 // 'rail' = collapsed icon rail that expands on hover. 'full' = always expanded.
 type SidebarVariant = 'rail' | 'full';
@@ -19,9 +20,9 @@ function navLabelClasses(variant: SidebarVariant) {
   return 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width] duration-200 group-hover:max-w-[160px] group-hover:opacity-100 group-hover:delay-150';
 }
 
-function soonBadgeClasses(variant: SidebarVariant) {
+function betaBadgeClasses(variant: SidebarVariant) {
   const base =
-    'ml-auto flex-none rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.06em] text-accent-2';
+    'ml-auto flex-none rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-bold text-accent-2';
   if (variant === 'full') return base;
   return `${base} hidden group-hover:inline-block`;
 }
@@ -79,18 +80,12 @@ const PERKS_ICON = (
     <circle cx="7" cy="7" r="1.5" />
   </>
 );
-const DISCOUNTS_ICON = (
-  <>
-    <path d="M19 5L5 19" />
-    <circle cx="6.5" cy="6.5" r="2.5" />
-    <circle cx="17.5" cy="17.5" r="2.5" />
-  </>
-);
 
-// Articles, Events, Members, and (for a client/admin) Consultations are real destinations under
-// "Explore". "Member Benefits" is a member-only section — Consultations is real there too
-// (a member both sends and receives requests); Dashboard/Learnings/Templates/Perks/Discounts
-// don't exist yet, so they render inert with a "Soon" pill instead of linking to a 404.
+// "Explore" holds Articles, Events, Members and (for a client/admin) Consultations, plus
+// Learnings, Perks and Templates for everyone who isn't a member. Members get those three under
+// "Member Benefits" instead, alongside Dashboard and Consultations (a member both sends and
+// receives requests). Learnings/Perks/Templates are clickable and carry a "Beta" pill while
+// their offers and libraries are pre-launch.
 export function SidebarNav({
   user,
   variant = 'full',
@@ -125,6 +120,26 @@ export function SidebarNav({
         <svg {...iconProps}>{MEMBERS_ICON}</svg>
         <span className={navLabelClasses(variant)}>Members</span>
       </Link>
+      {/* Members already get these under "Member Benefits"; everyone else gets them here. */}
+      {user?.role !== 'member' && (
+        <>
+          <Link href="/learnings" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{LEARNINGS_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Learnings</span>
+            <span className={betaBadgeClasses(variant)}>BETA</span>
+          </Link>
+          <Link href="/perks" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{PERKS_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Perks</span>
+            <span className={betaBadgeClasses(variant)}>BETA</span>
+          </Link>
+          <Link href="/templates" className={navLinkClasses(variant)}>
+            <svg {...iconProps}>{TEMPLATES_ICON}</svg>
+            <span className={navLabelClasses(variant)}>Templates</span>
+            <span className={betaBadgeClasses(variant)}>BETA</span>
+          </Link>
+        </>
+      )}
       {user?.role !== 'member' && user?.role !== 'admin' && (
         <Link href="/membership" className={navLinkClasses(variant)}>
           <svg {...iconProps}>{BENEFITS_ICON}</svg>
@@ -142,35 +157,29 @@ export function SidebarNav({
         <>
           <div className="my-1 h-px bg-white/10" />
           <div className={navSectionLabelClasses(variant)}>Member Benefits</div>
-          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+          <Link href="/dashboard" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{DASHBOARD_ICON}</svg>
             <span className={navLabelClasses(variant)}>Dashboard</span>
-            <span className={soonBadgeClasses(variant)}>SOON</span>
-          </span>
+          </Link>
           <Link href="/consultations" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{CONSULTATIONS_ICON}</svg>
             <span className={navLabelClasses(variant)}>Consultations</span>
           </Link>
-          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+          <Link href="/learnings" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{LEARNINGS_ICON}</svg>
             <span className={navLabelClasses(variant)}>Learnings</span>
-            <span className={soonBadgeClasses(variant)}>SOON</span>
-          </span>
-          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <span className={betaBadgeClasses(variant)}>BETA</span>
+          </Link>
+          <Link href="/templates" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{TEMPLATES_ICON}</svg>
             <span className={navLabelClasses(variant)}>Templates</span>
-            <span className={soonBadgeClasses(variant)}>SOON</span>
-          </span>
-          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
+            <span className={betaBadgeClasses(variant)}>BETA</span>
+          </Link>
+          <Link href="/perks" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{PERKS_ICON}</svg>
             <span className={navLabelClasses(variant)}>Perks</span>
-            <span className={soonBadgeClasses(variant)}>SOON</span>
-          </span>
-          <span className={`${navLinkClasses(variant)} cursor-default opacity-50`} aria-disabled="true">
-            <svg {...iconProps}>{DISCOUNTS_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Discounts</span>
-            <span className={soonBadgeClasses(variant)}>SOON</span>
-          </span>
+            <span className={betaBadgeClasses(variant)}>BETA</span>
+          </Link>
         </>
       )}
 
@@ -208,15 +217,14 @@ export function SidebarFooter({
         <Button href="/apply" size="sm" fullWidth>
           Apply Now
         </Button>
-        <Button
-          href="/login"
+        <SignInButton
           variant="ghost"
           size="sm"
           fullWidth
           className="text-white/80 hover:bg-white/10 hover:text-white"
         >
           Sign In
-        </Button>
+        </SignInButton>
       </div>
     );
 
@@ -227,13 +235,12 @@ export function SidebarFooter({
     return (
       <div className="border-t border-white/10 px-2 pb-4 pt-4">
         <div className="flex justify-center group-hover:hidden">
-          <Link
-            href="/login"
+          <SignInLink
             aria-label="Sign in"
             className="flex h-9 w-9 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             {SIGN_IN_SVG}
-          </Link>
+          </SignInLink>
         </div>
         <div className="hidden group-hover:block">{buttons}</div>
       </div>

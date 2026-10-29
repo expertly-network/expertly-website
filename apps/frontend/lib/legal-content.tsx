@@ -17,7 +17,7 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
     draft: true,
     body: (
       <p>
-        By using Expertly, you agree to these Terms &amp; Conditions. The full terms are being finalised
+        By using GrowXQ, you agree to these Terms &amp; Conditions. The full terms are being finalised
         with legal review and will be published here.
       </p>
     ),
@@ -27,7 +27,7 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
     draft: true,
     body: (
       <p>
-        This Privacy Policy describes how Expertly collects, uses, and protects your information. The full
+        This Privacy Policy describes how GrowXQ collects, uses, and protects your information. The full
         policy is being finalised with legal review and will be published here.
       </p>
     ),
@@ -49,7 +49,7 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
     body: (
       <>
         <p>
-          When you provide a LinkedIn profile URL during your membership application, Expertly reads the
+          When you provide a LinkedIn profile URL during your membership application, GrowXQ reads the
           publicly visible sections of that profile — your name, professional summary, profile photo, work
           history (job titles, employers, locations, dates and role descriptions), and education
           (institutions, degrees, fields of study, years) — and uses them to pre-fill the matching fields

@@ -9,7 +9,7 @@ export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
         <h3 className="mt-2 text-title text-ink">Events worth your time.</h3>
         <p className="mt-2 text-sm text-ink-3">
           Only conferences and summits relevant to finance and legal professionals make the
-          list, personally reviewed by the Expertly team.
+          list, personally reviewed by the GrowXQ team.
         </p>
       </Card>
 
@@ -21,7 +21,7 @@ export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
           it for the calendar.
         </p>
         <Button
-          href="mailto:contact@expertly.global?subject=Event%20suggestion"
+          href="mailto:contact@growxq.com?subject=Event%20suggestion"
           variant="secondary"
           className="mt-4"
         >
@@ -42,7 +42,7 @@ export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
             <div className="mb-1 text-mono-label text-white/50">For members</div>
             <h3 className="mt-2 text-title text-bg-card">Get early access to events.</h3>
             <p className="mt-2 text-sm text-white/60">
-              Expertly members receive early-bird notifications and introductions to event
+              GrowXQ members receive early-bird notifications and introductions to event
               organisers.
             </p>
             <Button href="/apply" variant="secondary-dark" className="mt-4">

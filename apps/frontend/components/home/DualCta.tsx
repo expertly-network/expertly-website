@@ -1,8 +1,7 @@
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
-// Members already have the practitioner side, so their CTA points at publishing instead of /apply.
-export function DualCta({ showApply = true }: { showApply?: boolean }) {
+export function DualCta() {
   return (
     <section className="border-b border-line py-24">
       <PageContainer>
@@ -11,11 +10,12 @@ export function DualCta({ showApply = true }: { showApply?: boolean }) {
           One <span className="text-accent">platform</span>. Two powerful paths.
         </h2>
         <p className="mt-5 max-w-2xl text-lede text-ink-3">
-          Whether you need the expertise or you are the expertise - Expertly is built to deliver
+          Whether you need the expertise or you are the expertise - GrowXQ is built to deliver
           real value, both ways.
         </p>
         <div className="mt-14 grid gap-4 lg:grid-cols-2">
-          <Card padding="xl">
+          {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
+          <Card padding="xl" className="!bg-bg-alt">
             <div className="text-mono-label text-ink-3">For Clients &amp; Businesses</div>
             <h3 className="mt-6 text-heading text-ink">
               Find the right <span className="text-accent">expert</span>. Fast.
@@ -52,7 +52,7 @@ export function DualCta({ showApply = true }: { showApply?: boolean }) {
             <div className="relative">
               <div className="text-mono-label text-white/60">For Finance &amp; Legal Pros</div>
               <h3 className="mt-6 text-heading text-bg">
-                Build your professional <span className="text-neon">presence</span>.
+                Build your professional <span className="text-accent">presence</span>.
               </h3>
               <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-white/80">
                 {[
@@ -71,15 +71,9 @@ export function DualCta({ showApply = true }: { showApply?: boolean }) {
                   </li>
                 ))}
               </ul>
-              {showApply ? (
-                <Button href="/apply" variant="secondary-dark" className="mt-10">
-                  Apply for membership
-                </Button>
-              ) : (
-                <Button href="/articles/write" variant="secondary-dark" className="mt-10">
-                  Write an article
-                </Button>
-              )}
+              <Button href="/apply" variant="secondary-dark" className="mt-10">
+                Apply now
+              </Button>
             </div>
           </Card>
         </div>

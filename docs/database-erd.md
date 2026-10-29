@@ -1,4 +1,4 @@
-# Expertly — Database ERD
+# GrowXQ — Database ERD
 
 Derived per-feature from `design/static_html/`, per `CLAUDE.md`'s "fixed contract, derived once"
 convention — not a speculative upfront spec. Grows as each feature's backend session lands.
@@ -187,7 +187,7 @@ page), `admin-dashboard.html`'s article panels, and `assets/admin-data.js`/`arti
 — read in full, not spot-checked, per this doc's own methodology.
 
 **Flow:** a signed-in `member` (or `admin`) writes an article through one of two paths (write it
-themselves, or answer the Expertly AI wizard's 3 steps) and submits it. What happens next is a
+themselves, or answer the GrowXQ AI wizard's 3 steps) and submits it. What happens next is a
 deliberate, reversed decision from this table's original note (see "Design decisions" below): an
 `ARTICLES_REVIEW_MODE` env var (`instant` default | `editorial`) controls whether submitting
 publishes immediately (`instant`, the original-and-still-default behavior) or sets `status` to
@@ -200,7 +200,7 @@ also flip `status` back to `draft` (self-service unpublish) via `PATCH` regardle
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
-| `slug` | text NOT NULL, unique | **always server-generated** from `title` on `POST` (kebab-case, `-2`/`-3`/... suffix on collision) — never client-writable, never regenerated on `PATCH`. On `ArticleDto` but not yet wired into routing (article detail route is still `/articles/[id]`) |
+| `slug` | text NOT NULL, unique | **always server-generated** from `title` on `POST` (kebab-case, `-2`/`-3`/... suffix on collision) — never client-writable, never regenerated on `PATCH`, so it's a permanent URL key — the frontend detail route is `/articles/[slug]`, backed by `GET /v1/articles/:idOrSlug` |
 | `author_id` | uuid FK → `profiles.id` | |
 | `status` | enum `draft`\|`pending_review`\|`published`\|`rejected` | default `draft`; which of `published`/`pending_review` a submission resolves to is decided server-side by `ARTICLES_REVIEW_MODE`, never client-chosen directly (see "Flow" above) |
 | `title` | text | |
@@ -306,7 +306,7 @@ feature, not derived from (and in one case directly contradicting) what the stat
   prototype's write form is a bare `<textarea>` (`.anv-textarea-notepad`) — no formatting at all.
   `apps/frontend/components/articles/RichTextEditor.tsx` adds a toolbar for bold/italic/underline,
   bullet/numbered lists, blockquote, inline code, code block, and links, matching the reference
-  Expertly repo's own editor choice. Deliberately no headings (would fight the detail page's own
+  GrowXQ repo's own editor choice. Deliberately no headings (would fight the detail page's own
   h2/h3 hierarchy), images, or tables — kept in lockstep with
   `ArticlesService`'s `sanitize-html` allowlist above; a toolbar button with no matching allowed
   tag would silently vanish on save. The AI wizard's plain-text draft is converted to real `<p>`
@@ -320,9 +320,6 @@ feature, not derived from (and in one case directly contradicting) what the stat
   real per-article data.
 - View/like/comment counters — anonymous, `localStorage`-based in the prototype, unrelated to any
   account; a plausible separate future feature, not part of this CRUD-with-ownership contract.
-- Slug-based routing (`/articles/[slug]` instead of `/articles/[id]`) — `slug` exists on the row
-  and DTO (server-generated, unique) but the frontend detail route still keys on `id`; wiring
-  slug-based lookup into `GET /v1/articles/:id` is a small, self-contained follow-up, not done now.
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
 
@@ -542,7 +539,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `availability_notes` | text, nullable | Same endpoint; ≤200 chars, shown under the status. |
 | `contact_email`, `contact_phone`, `linkedin_url`, `website` | nullable | editable via the `contact` self-edit section |
 | `work_email` | citext, nullable | Optional professional address, separate from `contact_email` (application / LinkedIn-sourced). Editable via the `contact` section; shown on the profile contact tab only when set. |
-| `is_verified` | bool, default `false` | the overall "Expertly Verified" badge — distinct from the per-item `is_verified` flags on credentials/testimonials |
+| `is_verified` | bool, default `false` | the overall "GrowXQ Verified" badge — distinct from the per-item `is_verified` flags on credentials/testimonials |
 | `photo_path` | text, nullable | Same convention as `membership_applications.photo_path`: a Storage path within the (public) `application-assets` bucket, copied verbatim from the source application's `photo_path` on approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL. Resolved to a plain, permanent URL at read time (`MembersService`/`ArticlesRepository`) — **never a signed URL**, since this column is read back directly with no read-time refresh. (An earlier version of this column, named `photo_url`, held a baked-in 1-hour signed URL that went dead an hour after approval — that was the original bug this design fixes.) Since 2026-10-21 the member can replace it via `PATCH /v1/members/:id` (`photoUploadPath`), which writes a new `members/<id>/profile-photo-<uuid>.<ext>` path in the same bucket (live immediately, no review). |
 | `status` | enum `active`\|`deactivated` | admin-controlled; deactivating does not delete the row |
 | `application_id` | uuid FK → `membership_applications.id`, nullable | set when provisioned via an approved application (that approval endpoint is still deferred — see `docs/rest-api.md`); null for a member added directly by an admin |
@@ -855,3 +852,73 @@ and the requester rates the conversation (`rating` on `consultation_requests`) i
 - Deleting a `consultation_requests` row — the admin dashboard prototype has a "Delete" action
   gated by a `deleteContent` permission; no product decision has been made on retention/deletion
   policy for this table, so no endpoint exists for it.
+
+## Perks, Learnings & Collections — US-14
+
+Implemented schema: `0004_tables.sql` (already applied in dev before this API session).
+Seed: `0008_seed_resources.sql`: 21 coming-soon perks, 20 videos, 5 learning playlists and
+5 perk stacks; `0009_seed_templates.sql`: 12 members-only templates and 3 template kits. Seeded images are bucket-relative resource-assets paths. All 62 images live in
+Supabase Storage; the API expands those paths into public URLs. Local source copies and
+upload helpers are deliberately not kept in the repo (`supabase/seed-assets/` is gitignored). No new schema migration was needed to complete the API.
+
+Storage content is managed separately from source code. A fresh Supabase project must restore
+or copy the `resource-assets` bucket from a Storage backup, preserving the object paths used by
+`0008_seed_resources.sql`. Running SQL seeds alone does not restore image objects, and the same applies to the
+private `template-files` bucket behind `0009_seed_templates.sql`. Maintain that
+backup outside the Git repository; do not use the development bucket as the only backup.
+
+- **perks**: UUID PK; unique slug; product name/category/tagline/description/products; public
+  website/logo/cover; separate nullable user/member offer text, coupon code and redemption URL;
+  coming_soon/live status; terms/expiry; featured/order/active flags; timestamps. DB checks enforce
+  HTTPS URLs and that any tier's non-null offer has a code or redemption URL. The API additionally
+  checks blank values, requires offer text for redemption details and requires at least one valid
+  tier before publishing live.
+- **learnings**: UUID PK; title/summary; youtube/file provider and confidential HTTPS video URL;
+  own-copy thumbnail; channel/duration/category/level/audiences; auto/open/members access;
+  featured/order/active flags; generated English search tsvector and timestamps. Public queries
+  never return video URLs to unauthorized viewers. `auto` is client-open only for the first
+  stored video ID of an active learning_playlist. Five seeded videos qualify.
+- **collections**: UUID PK; learning_playlist/perk_stack kind; unique `(kind, slug)`;
+  title/description/audiences; ordered `item_ids uuid[]`; cover/order/active flags; timestamps.
+  Empty arrays are valid. Array order is playback/display order. The API validates UUIDs against
+  the correct table on every write; kind cannot be changed after creation. Full-array updates
+  are last-write-wins. Inactive children are withheld publicly, not removed from the stored array.
+
+`collections_prune_item()` in `0003_functions.sql` runs AFTER DELETE on perks and learnings,
+removing deleted IDs from all arrays transactionally. Arrays do not carry foreign keys; API
+validation and deletion pruning are separate protections. A concurrent reference write racing
+with deletion is not FK-protected; public response assembly drops missing rows safely.
+
+All three tables have RLS enabled, no browser policies, and all table grants revoked from anon
+and authenticated. Only the backend service role accesses raw rows. Role-specific response
+shaping, verified optional bearer auth and admin `manageResources` authorization live in the
+Resources module. The public Storage bucket is for non-confidential images; do not place gated
+videos or coupon secrets in image assets. Schema details and access rules: REST API US-14 section.
+Templates and per-user progress/saves/notes are explicitly deferred.
+
+### templates (added 2026-10-30)
+
+Downloadable starter documents. **All members-only.** Kits are `collections` rows with
+`kind = 'template_kit'` (the kind check now allows `learning_playlist`, `perk_stack`,
+`template_kit`), so no extra table.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `slug` | text unique | server-generated from `title` |
+| `title`, `description` | text | |
+| `category` | text check | `Audit`, `Tax`, `Legal`, `Corporate & compliance`, `Practice management` |
+| `highlights` | text[] | short "what's inside" bullets |
+| `file_type` | text check | `docx`, `xlsx`, `pptx`, `pdf` |
+| `file_path` | text | object path in the **private** `template-files` bucket (`starter/…` seed files, `uploads/<uuid>.<ext>` admin uploads). Never returned to non-admins |
+| `file_name` | text | download name (`Content-Disposition`) |
+| `file_size_bytes` | int > 0 | |
+| `preview_image_url` | text, nullable | public teaser image path in resource-assets (`templates/previews/<slug>.jpg`) |
+| `audiences` | text[] ⊆ tax/legal/audit | |
+| `is_featured`, `sort_order`, `is_active` | | |
+| `search_tsv` | tsvector, generated | title + description, GIN-indexed |
+| `created_at`, `updated_at` | timestamptz | `set_updated_at` trigger |
+
+RLS on, all grants revoked from `anon`/`authenticated`; `collections_prune_item()` also fires on
+template delete. The `template-files` bucket is private with no storage policies — files are only
+reachable through 60-second signed URLs minted by the API.

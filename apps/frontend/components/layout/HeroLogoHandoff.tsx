@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Wordmark } from '@/components/Logo';
 
 // Crossfades the sidebar's collapsed logo mark with a floating wordmark while a stellar hero
-// is in view. Safe on any page — if no #hero-stellar element exists, this is a no-op.
+// is in view. Desktop only: below 1024px there's no sidebar, and the mobile top bar has its own
+// logo (showing this there drew a second, overlapping logo). Safe on any page — if no #hero-stellar element exists, this is a no-op.
 export function HeroLogoHandoff() {
   useEffect(() => {
     let intersectionObserver: IntersectionObserver | null = null;
@@ -47,11 +49,10 @@ export function HeroLogoHandoff() {
   return (
     <a
       href="/"
-      aria-label="Expertly home"
-      className="hero-logo-handoff fixed left-6 top-7 z-[75] inline-flex items-baseline gap-0 text-[20px] font-semibold tracking-[-0.02em] text-bg-card"
+      aria-label="GrowXQ home"
+      className="hero-logo-handoff fixed left-6 top-7 z-[75] hidden items-center min-[1024px]:inline-flex"
     >
-      Expertly
-      <span className="ml-px mb-px h-1.5 w-1.5 flex-none rounded-full bg-accent-2" />
+      <Wordmark tone="white" className="text-[24px]" />
     </a>
   );
 }

@@ -14,7 +14,7 @@ trust and clarity matter more than novelty.
 
 ## Product Purpose
 
-Expertly is a membership platform connecting clients with vetted expert members: consultations,
+GrowXQ is a membership platform connecting clients with vetted expert members: consultations,
 peer-to-peer connect, articles, events, perks/templates/learnings, and tiered membership &
 billing. Success looks like a platform that reads as credible and premium enough that experts want
 to be associated with it and clients trust it enough to pay for access and book time with strangers.

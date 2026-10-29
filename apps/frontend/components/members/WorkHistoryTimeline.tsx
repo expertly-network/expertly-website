@@ -1,45 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { FormattedText } from '@/components/shared/FormattedText';
-import { formatWorkPeriod } from '@/lib/members/format';
+import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
+
+// The profile PDF renders this same timeline (components/members/pdf/MemberProfilePdf.tsx) from the
+// same helpers — change both together (see apps/frontend/CLAUDE.md).
 import type { MemberWorkExperience } from '@shared/member';
-
-// Descriptions longer than this start collapsed behind "Show more".
-const COLLAPSE_CHARS = 220;
-
-interface CompanyGroup {
-  company: string;
-  roles: MemberWorkExperience[];
-}
-
-// Consecutive roles at the same company (LinkedIn's grouped sub-roles: a promotion ladder, or
-// several concurrent roles) render as one company card with the roles nested inside, instead of
-// as unrelated entries. Only consecutive ones — a later return to the same firm stays separate.
-function groupByCompany(works: MemberWorkExperience[]): CompanyGroup[] {
-  const groups: CompanyGroup[] = [];
-  for (const work of works) {
-    const last = groups[groups.length - 1];
-    if (last && last.company.trim().toLowerCase() === work.company.trim().toLowerCase()) last.roles.push(work);
-    else groups.push({ company: work.company, roles: [work] });
-  }
-  return groups;
-}
-
-function groupPeriod(roles: MemberWorkExperience[]) {
-  const startYear = Math.min(...roles.map((r) => r.startYear));
-  const isCurrent = roles.some((r) => r.isCurrent);
-  const endYear = isCurrent ? null : Math.max(...roles.map((r) => r.endYear ?? r.startYear));
-  return formatWorkPeriod(startYear, endYear, isCurrent);
-}
 
 function Description({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
-  const long = text.length > COLLAPSE_CHARS;
+  const [overflows, setOverflows] = useState(false);
+  const clampRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const el = clampRef.current;
+    if (!el) return;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, expanded]);
+
   return (
     <div className="mt-2 text-caption leading-relaxed text-ink-3">
-      {long && !expanded ? <p className="line-clamp-3">{text}</p> : <FormattedText text={text} className="gap-2" />}
-      {long && (
+      {expanded ? (
+        <FormattedText text={text} className="gap-2" />
+      ) : (
+        <p ref={clampRef} className="line-clamp-3 whitespace-pre-line">
+          {text}
+        </p>
+      )}
+      {(expanded || overflows) && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -102,9 +95,7 @@ export function WorkHistoryTimeline({
                       <div className="text-profile-item font-semibold text-ink">{group.roles[0].title}</div>
                       <div className="mt-0.5 text-profile-meta text-ink-3">{group.company}</div>
                     </div>
-                    <Period
-                      {...formatWorkPeriod(group.roles[0].startYear, group.roles[0].endYear, group.roles[0].isCurrent)}
-                    />
+                    <Period {...rolePeriod(group.roles[0])} />
                   </div>
                   {group.roles[0].description ? <Description text={group.roles[0].description} /> : addDescription}
                 </>
@@ -122,7 +113,7 @@ export function WorkHistoryTimeline({
                       <li key={role.id}>
                         <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
                           <div className="min-w-0 text-profile-item font-medium text-ink">{role.title}</div>
-                          <Period {...formatWorkPeriod(role.startYear, role.endYear, role.isCurrent)} />
+                          <Period {...rolePeriod(role)} />
                         </div>
                         {role.description ? <Description text={role.description} /> : addDescription}
                       </li>

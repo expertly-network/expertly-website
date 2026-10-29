@@ -1,4 +1,4 @@
-# Expertly frontend (`apps/frontend/`)
+# GrowXQ frontend (`apps/frontend/`)
 
 Next.js App Router + TypeScript + Tailwind. This file covers conventions specific to working in
 this app. Architecture-level rules (the backend/frontend session split, the API-as-fixed-contract
@@ -28,6 +28,20 @@ Import request/response shapes from `@shared/*` (`packages/shared-types/`) with 
 never redefine a copy of a DTO locally. If a page needs data the current API doesn't provide, that
 is a contract gap to flag back (see root CLAUDE.md), not something to patch around client-side
 (e.g. fetching extra fields from Supabase directly to fill the gap).
+
+## Member profile ↔ profile PDF — always change both
+
+The downloadable profile PDF (`components/members/pdf/MemberProfilePdf.tsx`, react-pdf) is a
+second renderer of the member profile page (`app/(shell)/members/[slug]/`, `components/members/`).
+**Any change to what the profile shows or how — a section added/removed/reordered, a field, how
+work history is grouped or dated, how text is formatted, labels/headings — must be made in the PDF
+in the same change.** Shared logic lives in one place so the two can't drift: work-history
+grouping/periods in `lib/members/work-history.ts`, paragraph/bullet parsing in
+`lib/text/text-blocks.ts`, value formatting in `lib/members/format.ts`, logo assets in
+`lib/brand.ts`. Put new display logic in `lib/` and call it from both, rather than writing it
+inside one renderer. Data the page fetches separately (member recommendations, via
+`/members/:id/recommendations`) is fetched by `downloadMemberProfilePdf.tsx` too — a new
+separately-loaded section needs the same.
 
 ## Auth
 

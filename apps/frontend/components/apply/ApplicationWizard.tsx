@@ -77,7 +77,7 @@ export function ApplicationWizard() {
   //
   // Deliberately does NOT touch linkedinImportConsent — connecting LinkedIn verifies identity
   // (and, via LinkedIn's own OAuth consent screen, already covers sharing name/email/photo with
-  // us); it is a separate thing from the applicant's consent to having Expertly extract and
+  // us); it is a separate thing from the applicant's consent to having GrowXQ extract and
   // publish their bio/work-history/education, which stays a real opt-in checkbox in
   // LinkedInImportStep, set only when they actually choose to run that import.
   useEffect(() => {

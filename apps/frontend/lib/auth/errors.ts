@@ -3,8 +3,8 @@ import { isAuthApiError, type AuthError } from '@supabase/supabase-js';
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'Incorrect email or password.',
   email_not_confirmed:
-    "Please confirm your email address — check your inbox for a link from Expertly.",
-  user_banned: 'This account has been suspended. Contact support@expertly.com.',
+    "Please confirm your email address — check your inbox for a link from GrowXQ.",
+  user_banned: 'This account has been suspended. Contact contact@growxq.com.',
   user_already_exists:
     "An account already exists for this email. Try signing in, or use 'Forgot password'.",
   weak_password:

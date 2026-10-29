@@ -22,7 +22,7 @@ export function SearchBox({
   buttonLabel?: string;
   /** Icon / dot shown before the input. */
   leading?: ReactNode;
-  /** Lets a parent focus the input (e.g. a "Try Expertly" button). */
+  /** Lets a parent focus the input (e.g. a "Try GrowXQ" button). */
   inputRef?: Ref<HTMLInputElement>;
   className?: string;
 }) {
@@ -50,7 +50,7 @@ export function SearchBox({
           enterKeyHint="search"
           maxLength={MAX_QUERY_LENGTH}
           placeholder={placeholder}
-          aria-label="Search Expertly"
+          aria-label="Search GrowXQ"
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3 [&::-webkit-search-cancel-button]:hidden"
         />
         <button

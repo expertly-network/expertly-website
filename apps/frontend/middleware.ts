@@ -3,7 +3,7 @@ import { updateSession } from '@/lib/supabase/middleware';
 
 // Routes that require a signed-in user. Add more prefixes here as new protected
 // pages ship (e.g. '/peer-connect').
-const PROTECTED_PREFIXES = ['/apply', '/admin', '/articles/write', '/consultations'];
+const PROTECTED_PREFIXES = ['/dashboard', '/apply', '/admin', '/articles/write', '/consultations'];
 
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);

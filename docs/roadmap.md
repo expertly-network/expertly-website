@@ -1,4 +1,4 @@
-# Expertly — REST API roadmap
+# GrowXQ — REST API roadmap
 
 **Status: planning only.** Nothing in this document is built or is a "fixed contract" the way
 `docs/rest-api.md`/`docs/database-erd.md` are — those two remain the source of truth for what
@@ -204,7 +204,7 @@ dead buttons.
 - **Newsletter subscriptions** — a plain email-capture form, unrelated to real accounts.
   `POST /v1/newsletter-subscriptions` 🌐, admin `GET` list.
 - **Signup-source tracking** — the admin user-directory table has a `source` column (how someone
-  found/joined Expertly) with no corresponding field on `profiles` today — likely just an additive
+  found/joined GrowXQ) with no corresponding field on `profiles` today — likely just an additive
   column, not a new resource.
 - **Global cross-entity search** (implied by `index.html`'s homepage search bar, spanning
   members/articles/events) — no new domain, just a possible future aggregate endpoint over

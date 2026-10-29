@@ -7,7 +7,7 @@ import { Eyebrow } from '@/components/ui';
 import { AiGenerationDetail } from '@/components/admin/AiGenerationDetail';
 
 export const metadata = {
-  title: 'AI generation — Admin — Expertly',
+  title: 'AI generation — Admin — GrowXQ',
 };
 
 // UX-only gate; the backend re-checks role + the manageArticles permission fresh on every request.
@@ -39,7 +39,7 @@ export default async function AdminAiGenerationDetailPage({ params }: { params: 
             {generation.draftTitle ?? 'Failed generation'}
           </h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Everything {generation.authorName} gave Expertly AI, and what it wrote back.
+            Everything {generation.authorName} gave GrowXQ AI, and what it wrote back.
           </p>
         </PageContainer>
       </section>

@@ -7,7 +7,7 @@ import { Eyebrow } from '@/components/ui';
 import { MemberEditsReview } from '@/components/admin/MemberEditsReview';
 
 export const metadata = {
-  title: 'Review profile edits — Admin — Expertly',
+  title: 'Review profile edits — Admin — GrowXQ',
 };
 
 export default async function AdminMemberEditsDetailPage({ params }: { params: { memberId: string } }) {

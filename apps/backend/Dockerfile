@@ -18,8 +18,8 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter=expertly-backend run build
-RUN pnpm --filter=expertly-backend deploy --prod /app/deploy
+RUN pnpm --filter=growxq-backend run build
+RUN pnpm --filter=growxq-backend deploy --prod /app/deploy
 
 # --- runtime: plain node, no pnpm/corepack needed ---
 FROM node:22-alpine AS runtime

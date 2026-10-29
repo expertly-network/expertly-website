@@ -20,7 +20,7 @@ const BENEFITS = [
   },
   {
     title: 'Privacy First',
-    body: 'Expertly never stores your password. Your data is used solely for verification.',
+    body: 'GrowXQ never stores your password. Your data is used solely for verification.',
     icon: (
       <>
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />

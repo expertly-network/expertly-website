@@ -34,3 +34,8 @@ itself); start the worker so it builds the cards and then
 embeds them (`pnpm worker`).
 Cards are derived data — nothing about search needs to be restored from a dump.
 
+**Content seeds** (real launch content, not dev fixtures): `0008_seed_resources.sql` (perks,
+learning videos, playlists, stacks) and `0009_seed_templates.sql` (templates, template kits).
+Their image/document columns hold Storage object paths, so the public `resource-assets` and
+private `template-files` buckets must be restored from a Storage backup (same object paths).
+

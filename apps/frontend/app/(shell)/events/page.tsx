@@ -9,9 +9,9 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Eyebrow } from '@/components/ui';
 
 export const metadata = {
-  title: 'Events — Expertly',
+  title: 'Events — GrowXQ',
   description:
-    'Conferences, summits, and professional meetings curated for the Expertly network: in person, hybrid, or on-demand.',
+    'Conferences, summits, and professional meetings curated for the GrowXQ network: in person, hybrid, or on-demand.',
 };
 
 export default async function EventsPage() {
@@ -27,7 +27,7 @@ export default async function EventsPage() {
             homepage's stellar hero), this page's own hero was the one still missing it. */}
         <div
           className="pointer-events-none absolute -right-[8%] -top-[35%] h-[480px] w-[480px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(0,165,130,0.16) 0%, transparent 65%)' }}
+          style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--accent) 16%, transparent) 0%, transparent 65%)' }}
           aria-hidden="true"
         />
         <EventsHeroOrbit />
@@ -40,7 +40,7 @@ export default async function EventsPage() {
             Be part of what&apos;s <span className="font-normal text-accent">next.</span>
           </h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Conferences, summits, and professional meetings curated for the Expertly network: in
+            Conferences, summits, and professional meetings curated for the GrowXQ network: in
             person, hybrid, or on-demand.
           </p>
           <EventsHeroSearch />

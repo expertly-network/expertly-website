@@ -21,7 +21,7 @@ export function AuthRightPanel() {
       <div className="relative max-w-[520px]">
         <span className="text-eyebrow text-white/60">Trusted by professionals in</span>
 
-        <div className="mb-12 mt-6 grid grid-cols-3 gap-x-6 gap-y-2.5 font-mono text-[11px] tracking-[0.14em] text-white/50">
+        <div className="mb-12 mt-6 grid grid-cols-3 gap-x-6 gap-y-2.5 font-mono text-[11px] text-white/50">
           {CITIES.map((city) => (
             <div key={city}>{city}</div>
           ))}
@@ -29,7 +29,7 @@ export function AuthRightPanel() {
 
         <div className="my-12 border-y border-white/[0.12] py-8">
           <blockquote className="mb-6 text-[22px] font-normal leading-[1.35] tracking-[-0.015em] text-white">
-            &ldquo;The right clients finally found me. Expertly tripled my inbound in 60
+            &ldquo;The right clients finally found me. GrowXQ tripled my inbound in 60
             days.&rdquo;
           </blockquote>
           <figcaption className="flex items-center gap-3">
@@ -48,19 +48,19 @@ export function AuthRightPanel() {
         <div className="flex gap-8">
           <div>
             <b className="block text-stat text-white">20+</b>
-            <span className="text-[10px] capitalize tracking-[0.1em] text-white/50">
+            <span className="text-[10px] capitalize text-white/50">
               Verified experts
             </span>
           </div>
           <div>
             <b className="block text-stat text-white">20+</b>
-            <span className="text-[10px] capitalize tracking-[0.1em] text-white/50">
+            <span className="text-[10px] capitalize text-white/50">
               Countries
             </span>
           </div>
           <div>
             <b className="block text-stat text-white">100+</b>
-            <span className="text-[10px] capitalize tracking-[0.1em] text-white/50">
+            <span className="text-[10px] capitalize text-white/50">
               Consultations
             </span>
           </div>

@@ -63,7 +63,7 @@ export function EventRow({
       }`}
     >
       <div>
-        <span className="mb-[5px] block font-mono text-[10px] tracking-[0.12em] text-ink-4">Date</span>
+        <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Date</span>
         <span className="text-[17px] font-medium leading-[1.2] tracking-[-0.02em] text-ink">
           {formatDateRange(event.startDate, event.endDate)}
         </span>
@@ -89,9 +89,9 @@ export function EventRow({
 
       {location && (
         <div>
-          <span className="mb-[5px] block font-mono text-[10px] tracking-[0.12em] text-ink-4">Location</span>
+          <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Location</span>
           <div className="text-[13px] font-medium text-ink-2">{event.city}</div>
-          <div className="mt-0.5 font-mono text-[11px] tracking-[0.04em] text-ink-4">{event.country}</div>
+          <div className="mt-0.5 font-mono text-[11px] text-ink-4">{event.country}</div>
         </div>
       )}
 

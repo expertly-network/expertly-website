@@ -26,7 +26,7 @@ export function Newsletter() {
           }}
         >
           <div className="relative max-w-xl">
-            <Eyebrow dark>The Expertly Brief · Weekly</Eyebrow>
+            <Eyebrow dark>The GrowXQ Brief · Weekly</Eyebrow>
             <h2 className="mt-4 text-section-title text-bg-card">
               <span className="text-accent">Regulatory</span> changes. New members. Case studies.
             </h2>

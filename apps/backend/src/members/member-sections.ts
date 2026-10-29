@@ -60,7 +60,7 @@ export function normalizeLiveItem(section: MemberEditSection, item: SectionItem,
     out.verificationMethods = Array.isArray(item.verificationMethods) ? item.verificationMethods : [];
     out.verificationMethodOther = item.verificationMethodOther ?? null;
   }
-  // A client's email exists only so the Expertly team can randomly verify the relationship — it's
+  // A client's email exists only so the GrowXQ team can randomly verify the relationship — it's
   // a third party's address, so like proof it's visible to the owning member and admins only.
   if (section === 'engagements' || section === 'testimonials') {
     if (includeProof) out.clientEmail = item.clientEmail ?? null;

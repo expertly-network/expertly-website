@@ -5,7 +5,7 @@ import { AvailabilityControl } from '@/components/members/AvailabilityControl';
 import type { MemberDto } from '@shared/member';
 
 // `.mp-sidebar-label`
-const LABEL = 'font-mono text-[10px] font-semibold tracking-[0.08em] text-ink-3';
+const LABEL = 'font-mono text-[10px] font-semibold text-ink-3';
 
 export function ProfileSidebar({
   member,
@@ -32,7 +32,7 @@ export function ProfileSidebar({
             <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
           </div>
           <p className="mt-2.5 text-[11.5px] leading-relaxed text-ink-4">
-            Changes you submit go live once the Expertly team verifies them.
+            Changes you submit go live once the GrowXQ team verifies them.
           </p>
         </Card>
       )}
@@ -59,11 +59,11 @@ export function ProfileSidebar({
           <>
             <div
               className={`mb-2 flex items-center gap-1.5 text-caption font-medium ${
-                member.isAvailable ? 'text-[#16a34a]' : 'text-ink-3'
+                member.isAvailable ? 'text-accent' : 'text-ink-3'
               }`}
             >
               <span
-                className={`h-2 w-2 flex-none rounded-full ${member.isAvailable ? 'bg-[#16a34a]' : 'bg-ink-4'}`}
+                className={`h-2 w-2 flex-none rounded-full ${member.isAvailable ? 'bg-accent' : 'bg-ink-4'}`}
               />
               {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
             </div>
@@ -107,12 +107,12 @@ export function ProfileSidebar({
               <path d="M12 2l2.4 5H20l-4.5 3.5 1.7 5.5L12 13l-5.2 3 1.7-5.5L4 7h5.6L12 2z" fill="var(--accent)" />
               <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="font-mono text-[10.5px] font-bold tracking-[0.14em] text-white/90">
-              Expertly Verified
+            <span className="font-mono text-[10.5px] font-bold text-white/90">
+              GrowXQ Verified
             </span>
           </div>
           <p className="relative text-sm leading-[1.55] text-white/60">
-            {member.name}&apos;s identity and credentials have been verified by the Expertly
+            {member.name}&apos;s identity and credentials have been verified by the GrowXQ
             team.
           </p>
         </Card>

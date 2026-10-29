@@ -2,9 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 
-const MINT_LINE = (a: number) => `rgba(0,201,158,${a})`;
-const MINT_DOT = (a: number) => `rgba(139,252,216,${a})`;
-
 type Ring = { r: number; speed: number; dots: number[] };
 
 // Ported 1:1 from design/static_html/assets/hero-mesh.js's `orbit` motif — the events hero's
@@ -18,6 +15,8 @@ export function EventsHeroOrbit() {
     const host = canvas?.closest('section');
     const ctx = canvas?.getContext('2d');
     if (!canvas || !host || !ctx) return;
+    // Canvas can't take a CSS variable, so read the brand green once from the design tokens.
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
 
     let cx = 0;
     let cy = 0;
@@ -43,7 +42,8 @@ export function EventsHeroOrbit() {
     function frame() {
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
       for (const ring of rings) {
-        ctx!.strokeStyle = MINT_LINE(0.16);
+        ctx!.globalAlpha = 0.16;
+        ctx!.strokeStyle = accent;
         ctx!.lineWidth = 1;
         ctx!.beginPath();
         ctx!.arc(cx, cy, ring.r, 0, Math.PI * 2);
@@ -53,13 +53,15 @@ export function EventsHeroOrbit() {
           const x = cx + Math.cos(a) * ring.r;
           const y = cy + Math.sin(a) * ring.r;
           ctx!.beginPath();
-          ctx!.fillStyle = MINT_DOT(0.9);
+          ctx!.globalAlpha = 0.9;
+          ctx!.fillStyle = accent;
           ctx!.arc(x, y, 3, 0, Math.PI * 2);
           ctx!.fill();
         }
       }
       ctx!.beginPath();
-      ctx!.fillStyle = MINT_DOT(0.5);
+      ctx!.globalAlpha = 0.5;
+      ctx!.fillStyle = accent;
       ctx!.arc(cx, cy, 2, 0, Math.PI * 2);
       ctx!.fill();
       raf = requestAnimationFrame(frame);

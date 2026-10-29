@@ -7,8 +7,18 @@ import fastifyMultipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
-  app.enableCors({ methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'] });
+  // Fastify's router rejects any path param over 100 chars by default ("exceeding the max param
+  // length"), and slugs are derived from full titles (articles, events, members) with no cap —
+  // a long article title produced a ~115-char slug that every /articles/:slug route rejected.
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ maxParamLength: 500 })
+  );
+  app.enableCors({
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'],
+    // Pagination total on GET /v1/articles — browsers hide non-safelisted headers otherwise.
+    exposedHeaders: ['X-Total-Count'],
+  });
 
   await app.register(fastifyMultipart, { limits: { fileSize: 15 * 1024 * 1024 } });
 
@@ -21,7 +31,7 @@ async function bootstrap() {
   const swaggerDocument = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('Expertly API')
+      .setTitle('GrowXQ API')
       .setDescription('Live, generated API reference.')
       .setVersion('1.0')
       .addBearerAuth()

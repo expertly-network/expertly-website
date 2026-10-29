@@ -160,7 +160,7 @@ export function EventForm({ event }: { event?: EventDto }) {
             label="Organizer"
             value={state.organiserName}
             onChange={(e) => set('organiserName', e.target.value)}
-            placeholder="e.g. Expertly Network"
+            placeholder="e.g. GrowXQ Network"
             error={fieldErrors.organiserName}
           />
         </div>

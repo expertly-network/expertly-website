@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Expertly API",
-    "description": "Every `apps/backend` REST endpoint, grouped to match `docs/rest-api.md`. Base path `/v1` (set via `{{baseUrl}}`). Public/member routes are grouped by resource near the top; every 🛡️ admin-only route lives in the single **Admin** folder at the bottom instead, with one sub-folder per resource.\n\nQuick start:\n1. Import the companion environment file (`Expertly.postman_environment.json`) and select it top-right.\n2. Fill in `supabaseUrl` / `supabaseAnonKey` (from your `.env`) and `testEmail` / `testPassword` (an existing Supabase user).\n3. Run **Auth (Supabase) → Sign in** — it auto-saves a real JWT into `accessToken`, which every other request inherits as its Bearer token.\n4. Replace the placeholder `{{...Id}}` variables with real ids as you create resources (most GET list endpoints return them).\n\n⚠️ **Keep this collection in sync with the contract.** Whenever an endpoint is added, removed, or its request/response shape changes (see root `CLAUDE.md` → \"Database schema & REST API\"), update this file in the same change — see `postman/README.md`.",
+    "name": "GrowXQ API",
+    "description": "Every `apps/backend` REST endpoint, grouped to match `docs/rest-api.md`. Base path `/v1` (set via `{{baseUrl}}`). Public/member routes are grouped by resource near the top; every 🛡️ admin-only route lives in the single **Admin** folder at the bottom instead, with one sub-folder per resource.\n\nQuick start:\n1. Import the companion environment file (`GrowXQ.postman_environment.json`) and select it top-right.\n2. Fill in `supabaseUrl` / `supabaseAnonKey` (from your `.env`) and `testEmail` / `testPassword` (an existing Supabase user).\n3. Run **Auth (Supabase) → Sign in** — it auto-saves a real JWT into `accessToken`, which every other request inherits as its Bearer token.\n4. Replace the placeholder `{{...Id}}` variables with real ids as you create resources (most GET list endpoints return them).\n\n⚠️ **Keep this collection in sync with the contract.** Whenever an endpoint is added, removed, or its request/response shape changes (see root `CLAUDE.md` → \"Database schema & REST API\"), update this file in the same change — see `postman/README.md`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -117,6 +117,30 @@
       "value": "00000000-0000-0000-0000-000000000009",
       "type": "string",
       "description": "A member_profile_edits.id, e.g. from GET /admin/member-edits."
+    },
+    {
+      "key": "perkId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "perkSlug",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "learningId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "collectionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "templateId",
+      "value": ""
     }
   ],
   "item": [
@@ -154,7 +178,7 @@
                 }
               ]
             },
-            "description": "Calls Supabase directly (NOT the Expertly backend) to exchange email/password for a JWT. Requires an existing user in your Supabase project (sign up via the frontend first, or use the Supabase dashboard). On success, the test script below auto-saves `access_token`/`refresh_token` into this environment’s `accessToken`/`refreshToken` variables, so every other request’s inherited Bearer auth picks it up immediately — no copy/paste needed.",
+            "description": "Calls Supabase directly (NOT the GrowXQ backend) to exchange email/password for a JWT. Requires an existing user in your Supabase project (sign up via the frontend first, or use the Supabase dashboard). On success, the test script below auto-saves `access_token`/`refresh_token` into this environment’s `accessToken`/`refreshToken` variables, so every other request’s inherited Bearer auth picks it up immediately — no copy/paste needed.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
@@ -521,12 +545,12 @@
       "name": "Articles",
       "item": [
         {
-          "name": "GET /articles — List published articles",
+          "name": "GET /articles — List published articles (filterable, paginated)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/articles",
+              "raw": "{{baseUrl}}/articles?page=1&pageSize=12",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -535,6 +559,34 @@
               ],
               "query": [
                 {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Optional — 1-based page. Sending page or pageSize pages the result; sending neither returns every match."
+                },
+                {
+                  "key": "pageSize",
+                  "value": "12",
+                  "description": "Optional — default 12, max 50."
+                },
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}",
+                  "description": "Optional, repeatable (UUID) — articles tagged with ANY of these services.",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "India",
+                  "description": "Optional, repeatable — articles tagged with ANY of these countries.",
+                  "disabled": true
+                },
+                {
+                  "key": "excludeId",
+                  "value": "{{articleId}}",
+                  "description": "Optional (UUID) — leave this article out (used by related articles).",
+                  "disabled": true
+                },
+                {
                   "key": "authorId",
                   "value": "{{memberId}}",
                   "description": "Optional — a member's own published articles.",
@@ -542,7 +594,30 @@
                 }
               ]
             },
-            "description": "🌐 Public. Browse grid — published only, no `body`.",
+            "description": "🌐 Public. Browse grid — published only, no `body`. The total match count across all pages is in the `X-Total-Count` response header; the body is a plain array. `400` for a non-UUID authorId/serviceId/excludeId or a non-positive page/pageSize.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /articles/{{articleId}}/preview — Public teaser of a published article",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}",
+                "preview"
+              ]
+            },
+            "description": "🌐 Public. `ArticleListItemDto` (no `body`) of one published article — what a signed-out visitor sees. Accepts the UUID or the slug in place of `{{articleId}}`. `404` if there's no published article with that id/slug.",
             "auth": {
               "type": "noauth"
             }
@@ -596,7 +671,7 @@
           "response": []
         },
         {
-          "name": "GET /articles/{{articleId}} — Get article detail",
+          "name": "GET /articles/{{articleId}} — Get article detail (by UUID or slug)",
           "request": {
             "method": "GET",
             "header": [],
@@ -610,7 +685,7 @@
                 "{{articleId}}"
               ]
             },
-            "description": "🔑 Auth, any role. `404` (not `403`) if it’s a draft the caller can’t see."
+            "description": "🔑 Auth, any role. The path segment is the article's UUID **or** its slug — to look up by slug instead, replace `{{articleId}}` with e.g. `rbi-s-new-nbfc-framework-final-regulations-on-exemption-from-nbfc-registration` (the `slug` field from `GET /articles`). `404` (not `403`) if it’s a draft the caller can’t see."
           },
           "response": []
         },
@@ -922,7 +997,7 @@
                 {
                   "key": "sort",
                   "value": "featured",
-                  "description": "featured | tenure | rate_asc | rate_desc",
+                  "description": "featured | newest | tenure | rate_asc | rate_desc (newest: membership start descending; response includes joinedAt)",
                   "disabled": false
                 },
                 {
@@ -1410,6 +1485,280 @@
               }
             },
             "description": "🔒 Auth, any role. Natural-language search over members, articles and events. `query` 2–500 chars (`400` otherwise); `scope` `all`|`members`|`articles`|`events`; `limit` 1–20. Response: `{ logId, answer, results, applied, degraded, ms }` — `answer` is composed from `results` only; each result may carry `relevance`, `match` and a one-line `reason` when a topic was searched. Rate limit 10/min + 100/hour per user → `429` `{ statusCode, error, message, retryAfterSeconds: 30 }` (counted per API instance). Takes several seconds (two AI calls).\n\nTo send feedback on an answer instead, replace the whole body with:\n```json\n{\n  \"action\": \"feedback\",\n  \"logId\": \"<the logId from a previous answer>\",\n  \"rating\": 1,\n  \"note\": \"optional, max 500 chars\"\n}\n```\n`rating` is `1` or `-1`; response `{ ok: true }`; scoped to your own question; feedback has its own limit of 30/min."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Perks, Learnings & Templates",
+      "description": "Metadata is public. Keep bearer auth for role-specific content; set No Auth to verify guest redaction. Invalid supplied tokens return 401. See docs/rest-api.md US-14.",
+      "item": [
+        {
+          "name": "GET /perks — Browse active metadata and authorized content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/perks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perks"
+              ]
+            },
+            "description": "Optional filters: q/category/audience/level/featured/kind as appropriate. Lists are sortOrder then ID; no pagination. Cache-Control private,no-store.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /perks/{{perkSlug}} — Read role-shaped detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/perks/{{perkSlug}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perks",
+                "{{perkSlug}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /learnings — Browse active metadata and authorized content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/learnings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "learnings"
+              ]
+            },
+            "description": "Optional filters: q/category/audience/level/featured/kind as appropriate. Lists are sortOrder then ID; no pagination. Cache-Control private,no-store.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /learnings/{{learningId}} — Read role-shaped detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/learnings/{{learningId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "learnings",
+                "{{learningId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /collections — Browse active metadata and authorized content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/collections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "collections"
+              ]
+            },
+            "description": "Optional filters: q/category/audience/level/featured/kind as appropriate. Lists are sortOrder then ID; no pagination. Cache-Control private,no-store.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /collections/{{collectionId}} — Read role-shaped detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/collections/{{collectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "collections",
+                "{{collectionId}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /templates — Browse templates (metadata only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/templates?q=&category=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": ""
+                },
+                {
+                  "key": "category",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "🌐 Optional bearer. Every template is members-only: canDownload is true only for members/admins; lockReason is sign_in (guest) or membership (client). No file path or URL is ever returned here.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /templates/{{templateId}} — Read one template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "🌐 Optional bearer. Same shape as the list item.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /templates/{{templateId}}/download — Get a 60-second download link",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/templates/{{templateId}}/download",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                "{{templateId}}",
+                "download"
+              ]
+            },
+            "description": "🔒 member. Guest 401, client 403. The member role is re-checked in the database. Returns { url, fileName, expiresAt }; the signed url works for 60 seconds, for this one file only.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "response": []
         }
@@ -1964,7 +2313,7 @@
                 "description": "🛡️ manageEvents. Omitting `status` defaults to 'draft'. A draft only strictly needs title/description/startDate — the rest become required once `status` resolves to 'published' (see Publish requirements in docs/rest-api.md).",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Cross-Border M&A Masterclass\",\n  \"description\": \"A half-day workshop covering deal structuring, due diligence, and post-merger integration for cross-border transactions.\",\n  \"shortDescription\": \"Hands-on workshop on cross-border M&A fundamentals.\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1507679799987-c73779587ccf\",\n  \"startDate\": \"2026-11-12T09:00:00.000Z\",\n  \"endDate\": \"2026-11-12T17:00:00.000Z\",\n  \"timezone\": \"America/New_York\",\n  \"eventType\": \"Workshop\",\n  \"eventFormat\": \"hybrid\",\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"venueName\": \"Expertly HQ\",\n  \"isFree\": false,\n  \"registrationUrl\": \"https://example.com/events/cross-border-ma-masterclass\",\n  \"organiserName\": \"Expertly Events Team\",\n  \"status\": \"published\"\n}",
+                  "raw": "{\n  \"title\": \"Cross-Border M&A Masterclass\",\n  \"description\": \"A half-day workshop covering deal structuring, due diligence, and post-merger integration for cross-border transactions.\",\n  \"shortDescription\": \"Hands-on workshop on cross-border M&A fundamentals.\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1507679799987-c73779587ccf\",\n  \"startDate\": \"2026-11-12T09:00:00.000Z\",\n  \"endDate\": \"2026-11-12T17:00:00.000Z\",\n  \"timezone\": \"America/New_York\",\n  \"eventType\": \"Workshop\",\n  \"eventFormat\": \"hybrid\",\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"venueName\": \"GrowXQ HQ\",\n  \"isFree\": false,\n  \"registrationUrl\": \"https://example.com/events/cross-border-ma-masterclass\",\n  \"organiserName\": \"GrowXQ Events Team\",\n  \"status\": \"published\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2224,6 +2573,776 @@
                 }
               },
               "response": []
+            }
+          ]
+        },
+        {
+          "name": "Perks, Learnings, Templates & Collections",
+          "description": "Every request requires an active admin with manageResources. IDs come from create/list responses.",
+          "item": [
+            {
+              "name": "Perks",
+              "item": [
+                {
+                  "name": "GET /admin/perks — List all including inactive",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/perks",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "perks"
+                      ]
+                    },
+                    "description": "",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "GET /admin/perks/{{perkId}} — Read full management fields",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/perks/{{perkId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "perks",
+                        "{{perkId}}"
+                      ]
+                    },
+                    "description": "",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "POST /admin/perks — Create resource",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/perks",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "perks"
+                      ]
+                    },
+                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Example product\",\n  \"category\": \"AI Tools\",\n  \"websiteUrl\": \"https://example.com\",\n  \"offerStatus\": \"coming_soon\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "PATCH /admin/perks/{{perkId}} — Edit fields or ordered membership",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/perks/{{perkId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "perks",
+                        "{{perkId}}"
+                      ]
+                    },
+                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only. To clear client tier instead, replace the whole body with:\n{\n  \"userOffer\": null,\n  \"userCouponCode\": null,\n  \"userOfferUrl\": null\n}",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"userOffer\": \"Client discount\",\n  \"userCouponCode\": \"CLIENT10\",\n  \"memberOffer\": \"Member discount\",\n  \"memberCouponCode\": \"MEMBER20\",\n  \"offerStatus\": \"live\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "DELETE /admin/perks/{{perkId}} — Delete resource",
+                  "request": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/perks/{{perkId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "perks",
+                        "{{perkId}}"
+                      ]
+                    },
+                    "description": "204; deleting a perk/video prunes all collection references. 404 if absent.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Learnings",
+              "item": [
+                {
+                  "name": "GET /admin/learnings — List all including inactive",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/learnings",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "learnings"
+                      ]
+                    },
+                    "description": "",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "GET /admin/learnings/{{learningId}} — Read full management fields",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/learnings/{{learningId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "learnings",
+                        "{{learningId}}"
+                      ]
+                    },
+                    "description": "",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "POST /admin/learnings — Create resource",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/learnings",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "learnings"
+                      ]
+                    },
+                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"title\": \"Example learning\",\n  \"videoProvider\": \"youtube\",\n  \"videoUrl\": \"https://www.youtube.com/watch?v=FwOTs4UxQS4\",\n  \"durationMinutes\": 10,\n  \"category\": \"AI essentials\",\n  \"level\": \"beginner\",\n  \"access\": \"auto\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "PATCH /admin/learnings/{{learningId}} — Edit fields or ordered membership",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/learnings/{{learningId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "learnings",
+                        "{{learningId}}"
+                      ]
+                    },
+                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"access\": \"members\",\n  \"isActive\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "DELETE /admin/learnings/{{learningId}} — Delete resource",
+                  "request": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/learnings/{{learningId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "learnings",
+                        "{{learningId}}"
+                      ]
+                    },
+                    "description": "204; deleting a perk/video prunes all collection references. 404 if absent.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Collections",
+              "item": [
+                {
+                  "name": "GET /admin/collections — List all including inactive",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/collections",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "collections"
+                      ]
+                    },
+                    "description": "",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "GET /admin/collections/{{collectionId}} — Read full management fields",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/collections/{{collectionId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "collections",
+                        "{{collectionId}}"
+                      ]
+                    },
+                    "description": "",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "POST /admin/collections — Create resource",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/collections",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "collections"
+                      ]
+                    },
+                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields. To create a perk stack instead, replace the whole body with:\n{\n  \"kind\": \"perk_stack\",\n  \"title\": \"Example stack\",\n  \"itemIds\": [\n    \"{{perkId}}\"\n  ]\n}\n\nkind is one of learning_playlist, perk_stack, template_kit; itemIds must be ids of that kind (videos, perks or templates). To create a template kit instead, replace the whole body with:\n{\n  \"kind\": \"template_kit\",\n  \"title\": \"New audit engagement\",\n  \"itemIds\": [\"{{templateId}}\"]\n}",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"kind\": \"learning_playlist\",\n  \"title\": \"Example playlist\",\n  \"audiences\": [\n    \"tax\"\n  ],\n  \"itemIds\": [\n    \"{{learningId}}\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "PATCH /admin/collections/{{collectionId}} — Edit fields or ordered membership",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/collections/{{collectionId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "collections",
+                        "{{collectionId}}"
+                      ]
+                    },
+                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only. Supply the entire desired itemIds array to add/remove/reorder; no duplicates, IDs must match kind. Kind is immutable. Empty itemIds removes all items.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"itemIds\": [\n    \"{{learningId}}\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "DELETE /admin/collections/{{collectionId}} — Delete resource",
+                  "request": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/collections/{{collectionId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "collections",
+                        "{{collectionId}}"
+                      ]
+                    },
+                    "description": "204; deleting a perk/video prunes all collection references. 404 if absent.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Templates",
+              "item": [
+                {
+                  "name": "GET /admin/templates — List all including inactive",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/templates",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "templates"
+                      ]
+                    },
+                    "description": "🛡️ manageResources. Includes filePath and isActive.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "GET /admin/templates/{{templateId}} — Read full management fields",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "templates",
+                        "{{templateId}}"
+                      ]
+                    },
+                    "description": "🛡️ manageResources.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "POST /admin/templates/upload — Upload a template file",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/templates/upload",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "templates",
+                        "upload"
+                      ]
+                    },
+                    "description": "🛡️ manageResources. Multipart field `file` (choose a .docx/.xlsx/.pptx/.pdf, ≤15MB). The type is sniffed from the bytes; anything else is 400. Returns { filePath, fileName, fileSizeBytes, fileType } — paste it into POST /admin/templates.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "file",
+                          "type": "file",
+                          "src": []
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "POST /admin/templates — Create template",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/templates",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "templates"
+                      ]
+                    },
+                    "description": "🛡️ manageResources. Upload the file first and copy its response fields in. filePath must exist in the private template-files bucket. Slug generated server-side. previewImageUrl is an optional public teaser image (templates/... resource-assets path or HTTPS).",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"title\": \"Example template\",\n  \"category\": \"Tax\",\n  \"description\": \"What it helps with.\",\n  \"highlights\": [\n    \"What is inside\"\n  ],\n  \"filePath\": \"uploads/REPLACE-WITH-UPLOAD-RESPONSE.docx\",\n  \"fileName\": \"Example template.docx\",\n  \"fileSizeBytes\": 38190,\n  \"fileType\": \"docx\",\n  \"audiences\": [\n    \"tax\"\n  ],\n  \"previewImageUrl\": null\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "PATCH /admin/templates/{{templateId}} — Edit fields or swap the file",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "templates",
+                        "{{templateId}}"
+                      ]
+                    },
+                    "description": "🛡️ manageResources. Partial. To replace the file, upload a new one and send filePath/fileName/fileSizeBytes/fileType together; the old uploads/ file is deleted once unused.",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"isFeatured\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "DELETE /admin/templates/{{templateId}} — Delete template",
+                  "request": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "templates",
+                        "{{templateId}}"
+                      ]
+                    },
+                    "description": "🛡️ manageResources. 204. Removed from every kit; its uploaded file is deleted (seed starter/ files are kept).",
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{accessToken}}",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
             }
           ]
         }

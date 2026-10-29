@@ -114,7 +114,7 @@ export function ContactTab({
                 {item.icon}
               </span>
               <span className="min-w-0">
-                <span className="block truncate font-mono text-[10px] font-semibold tracking-[0.08em] text-ink-3">
+                <span className="block truncate font-mono text-[10px] font-semibold text-ink-3">
                   {item.label}
                 </span>
                 <span className="block truncate text-profile-item font-semibold text-ink" title={item.value}>

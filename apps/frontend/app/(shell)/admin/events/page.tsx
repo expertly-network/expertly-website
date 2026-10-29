@@ -7,7 +7,7 @@ import { AdminEventsList } from '@/components/admin/AdminEventsList';
 import { AdminEventsImportExport } from '@/components/admin/AdminEventsImportExport';
 
 export const metadata = {
-  title: 'Events — Admin — Expertly',
+  title: 'Events — Admin — GrowXQ',
 };
 
 // UX-only gate; the backend re-checks permissions fresh on every request.
