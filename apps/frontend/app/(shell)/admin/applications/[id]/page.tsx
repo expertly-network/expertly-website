@@ -9,7 +9,8 @@ export const metadata = {
   title: 'Review application — Admin — GrowXQ',
 };
 
-export default async function AdminApplicationDetailPage({ params }: { params: { id: string } }) {
+export default async function AdminApplicationDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const profile = await getSessionUser();
   if (!profile) {
     redirect(`/login?returnTo=/admin/applications/${params.id}`);

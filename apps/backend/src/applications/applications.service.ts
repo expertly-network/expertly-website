@@ -17,7 +17,7 @@ import type {
   ServicePreference,
 } from '@shared/membership-application';
 import { randomUUID } from 'node:crypto';
-import { fromBuffer as sniffFileType } from 'file-type';
+import { sniffFileType } from '../common/sniff-file-type';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
 import { CouponPreviewDto } from './dto/coupon-preview.dto';

@@ -11,7 +11,8 @@ export const metadata = {
 };
 
 // UX-only gate; the backend re-checks role + the manageArticles permission fresh on every request.
-export default async function AdminAiGenerationDetailPage({ params }: { params: { id: string } }) {
+export default async function AdminAiGenerationDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const profile = await getSessionUser();
   if (!profile) {
     redirect(`/login?returnTo=/admin/ai-generations/${params.id}`);

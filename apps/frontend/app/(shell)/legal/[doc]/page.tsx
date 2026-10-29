@@ -11,12 +11,14 @@ export function generateStaticParams() {
   return Object.keys(LEGAL_DOCS).map((doc) => ({ doc }));
 }
 
-export function generateMetadata({ params }: { params: { doc: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ doc: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const doc = LEGAL_DOCS[params.doc];
   return doc ? { title: `${doc.title} — GrowXQ` } : {};
 }
 
-export default function LegalPage({ params }: { params: { doc: string } }) {
+export default async function LegalPage(props: { params: Promise<{ doc: string }> }) {
+  const params = await props.params;
   const doc = LEGAL_DOCS[params.doc];
   if (!doc) notFound();
 

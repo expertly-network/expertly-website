@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { fromBuffer as sniffFileType } from 'file-type';
+import { sniffFileType } from '../common/sniff-file-type';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminMemberEditsDetailDto,

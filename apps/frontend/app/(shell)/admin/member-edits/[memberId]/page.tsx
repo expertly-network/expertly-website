@@ -10,7 +10,8 @@ export const metadata = {
   title: 'Review profile edits — Admin — GrowXQ',
 };
 
-export default async function AdminMemberEditsDetailPage({ params }: { params: { memberId: string } }) {
+export default async function AdminMemberEditsDetailPage(props: { params: Promise<{ memberId: string }> }) {
+  const params = await props.params;
   const profile = await getSessionUser();
   if (!profile) {
     redirect(`/login?returnTo=/admin/member-edits/${params.memberId}`);

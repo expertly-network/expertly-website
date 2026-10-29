@@ -12,11 +12,12 @@ export const metadata = {
     'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
 };
 
-export default async function ArticlesPage({
-  searchParams,
-}: {
-  searchParams: { tab?: string; saved?: string };
-}) {
+export default async function ArticlesPage(
+  props: {
+    searchParams: Promise<{ tab?: string; saved?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const [firstPage, categories, profile] = await Promise.all([
     getArticlesServer({ page: 1, pageSize: ARTICLES_PAGE_SIZE }),
     getCategoriesServer(),

@@ -9,7 +9,8 @@ export const metadata = {
   title: 'Edit event — Admin — GrowXQ',
 };
 
-export default async function EditAdminEventPage({ params }: { params: { id: string } }) {
+export default async function EditAdminEventPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const profile = await getSessionUser();
   if (!profile) {
     redirect(`/login?returnTo=/admin/events/${params.id}/edit`);

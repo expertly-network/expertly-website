@@ -1,17 +1,8 @@
 import { createClient } from '@/lib/supabase/client';
 import { getApiBaseUrlClient } from '@/lib/api/base-url.client';
+import { apiErrorFromResponse } from '@/lib/api/errors';
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number,
-    /** Present on a 429 from POST /v1/search: seconds to wait before retrying. */
-    public readonly retryAfterSeconds?: number
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+export { ApiError } from '@/lib/api/errors';
 
 // Exact format RolesGuard throws on a role-rank rejection (apps/backend/src/auth/guards/
 // roles.guard.ts). Deliberately narrow — not every 403 — because this is the one case a token
@@ -64,15 +55,7 @@ async function apiRequest(path: string, options: RequestInit): Promise<Response>
     }
   }
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    // message is an array for validation failures; join into a readable string.
-    const message = Array.isArray(body?.message)
-      ? body.message.join(' ')
-      : (body?.message ?? `Request failed with status ${res.status}`);
-    const retryAfterSeconds = typeof body?.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined;
-    throw new ApiError(message, res.status, retryAfterSeconds);
-  }
+  if (!res.ok) throw await apiErrorFromResponse(res);
 
   return res;
 }

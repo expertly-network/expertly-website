@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { Wordmark } from '@/components/Logo';
 
@@ -47,12 +48,12 @@ export function HeroLogoHandoff() {
   }, []);
 
   return (
-    <a
+    <Link
       href="/"
       aria-label="GrowXQ home"
       className="hero-logo-handoff fixed left-6 top-7 z-[75] hidden items-center min-[1024px]:inline-flex"
     >
       <Wordmark tone="white" className="text-[24px]" />
-    </a>
+    </Link>
   );
 }

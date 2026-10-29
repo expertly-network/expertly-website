@@ -18,11 +18,12 @@ export const metadata = {
     'Hire verified finance & legal counsel. Every practitioner is individually credential-verified and peer-reviewed.',
 };
 
-export default async function MembersPage({
-  searchParams,
-}: {
-  searchParams: Record<string, string | string[] | undefined>;
-}) {
+export default async function MembersPage(
+  props: {
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const filters = parseMemberFilters(searchParams);
   const query = buildMembersQueryString({ ...filters, page: 1, pageSize: PAGE_SIZE });
 

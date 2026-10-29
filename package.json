@@ -12,6 +12,17 @@
   "devDependencies": {
     "turbo": "^2.10.9"
   },
-  "engines": { "node": ">=22.0.0" },
-  "packageManager": "pnpm@9.15.0"
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "fastify": "^5.12.7",
+      "multer": "^2.5.0",
+      "js-yaml@5": "^5.4.1",
+      "postcss@8": "^8.5.18",
+      "source-map-js": "^1.2.2"
+    }
+  }
 }

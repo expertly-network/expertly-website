@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorFromResponse } from '@/lib/api/errors';
 import type {
   PerkDto,
   LearningDto,
@@ -13,20 +13,15 @@ import type {
 } from '@shared/resource';
 
 async function read<T>(path: string): Promise<T> {
+  const supabase = await createClient();
   const {
     data: { session },
-  } = await createClient().auth.getSession();
-  const response = await fetch(`${getApiBaseUrlServer()}/v1${path}`, {
+  } = await supabase.auth.getSession();
+  const response = await fetch(`${await getApiBaseUrlServer()}/v1${path}`, {
     cache: 'no-store',
     headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
   });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new ApiError(
-      body?.message || 'Resources could not be loaded.',
-      response.status,
-    );
-  }
+  if (!response.ok) throw await apiErrorFromResponse(response, 'Resources could not be loaded.');
   return response.json();
 }
 export const getPerksServer = () => read<PerkDto[]>('/perks');

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ProfilesRepository } from '../auth/profiles.repository';
 import { randomUUID } from 'node:crypto';
-import { fromBuffer as sniffFileType } from 'file-type';
+import { sniffFileType } from '../common/sniff-file-type';
 import {
   ResourcesRepository,
   type PerkRow,

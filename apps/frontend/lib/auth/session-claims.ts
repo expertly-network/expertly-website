@@ -16,7 +16,7 @@ import type { Profile } from '@/lib/auth/types';
  * single verification.
  */
 export const getSessionUser = cache(async (): Promise<Profile | null> => {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();

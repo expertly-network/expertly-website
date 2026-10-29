@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorFromResponse } from '@/lib/api/errors';
 import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
 import { ARTICLES_TOTAL_COUNT_HEADER, buildArticlesQueryString } from '@/lib/api/articles-query';
 import type { AdminApplicationListItemDto, ApplicationDto } from '@shared/membership-application';
@@ -24,240 +24,160 @@ import type {
 import type { EventDto } from '@shared/event';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
 
-// Returns the caller's current application, or null if none exists.
 // Public, viewer-independent lists (no Authorization header) are cached in Next's data cache for
 // this long — each one costs several sequential Supabase round trips on the backend, and they were
 // re-fetched on every navigation. Trade-off: a new/edited article, event or member can take up to a
 // minute to show up in these lists (there's no on-publish revalidation hook yet).
 const PUBLIC_LIST_REVALIDATE_SECONDS = 60;
 
-export async function getMyApplicationServer(): Promise<ApplicationDto | null> {
-  const supabase = createClient();
+// Bearer token for the current request's session, or null when signed out. Reads the cookie
+// session (getSession) — the backend verifies the JWT itself, so this needs no extra round trip.
+async function sessionToken(): Promise<string | null> {
+  const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) return null;
+  return session?.access_token ?? null;
+}
 
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/applications/me`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
+interface ServerGetOptions<E> {
+  /** Returned without calling the API when the route needs a session and there isn't one. */
+  signedOut: E;
+  /** Statuses that mean "nothing to show" rather than an error; they return `signedOut` too. */
+  emptyOn?: readonly number[];
+  /** Message used when the error body has none. */
+  errorMessage: string;
+}
+
+// Authenticated, per-viewer GET — never cached.
+async function authedGet<T, E>(path: string, options: ServerGetOptions<E>): Promise<T | E> {
+  const token = await sessionToken();
+  if (!token) return options.signedOut;
+
+  const res = await fetch(`${await getApiBaseUrlServer()}/v1${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   });
+  if (options.emptyOn?.includes(res.status)) return options.signedOut;
+  if (!res.ok) throw await apiErrorFromResponse(res, options.errorMessage);
+  return (await res.json()) as T;
+}
 
+// Public, viewer-independent GET — cached for PUBLIC_LIST_REVALIDATE_SECONDS. A 404 resolves to
+// null so single-item callers can render "not found"; any other failure throws.
+async function publicGet(path: string, errorMessage: string): Promise<Response | null> {
+  const res = await fetch(`${await getApiBaseUrlServer()}/v1${path}`, {
+    next: { revalidate: PUBLIC_LIST_REVALIDATE_SECONDS },
+  });
   if (res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load application.', res.status);
-  }
+  if (!res.ok) throw await apiErrorFromResponse(res, errorMessage);
+  return res;
+}
 
-  return res.json();
+// publicGet for a list endpoint: a 404 (never expected) is an empty list, not a crash.
+async function publicList<T>(path: string, errorMessage: string): Promise<T[]> {
+  const res = await publicGet(path, errorMessage);
+  return res ? ((await res.json()) as T[]) : [];
+}
+
+// Returns the caller's current application, or null if none exists.
+export function getMyApplicationServer(): Promise<ApplicationDto | null> {
+  return authedGet<ApplicationDto, null>('/applications/me', {
+    signedOut: null,
+    emptyOn: [404],
+    errorMessage: 'Failed to load application.',
+  });
 }
 
 // Returns applications for the admin review queue.
-export async function getAdminApplicationsServer(status?: string): Promise<AdminApplicationListItemDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
+export function getAdminApplicationsServer(status?: string): Promise<AdminApplicationListItemDto[]> {
   const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/applications${qs}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+  return authedGet<AdminApplicationListItemDto[], AdminApplicationListItemDto[]>(`/admin/applications${qs}`, {
+    signedOut: [],
+    errorMessage: 'Failed to load applications.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load applications.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns full detail for the admin review page, or null if not found.
-export async function getAdminApplicationServer(id: string): Promise<ApplicationDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/applications/${id}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getAdminApplicationServer(id: string): Promise<ApplicationDto | null> {
+  return authedGet<ApplicationDto, null>(`/admin/applications/${encodeURIComponent(id)}`, {
+    signedOut: null,
+    emptyOn: [400, 404],
+    errorMessage: 'Failed to load application.',
   });
-
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load application.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns the caller's own sent consultation requests.
-export async function getMyConsultationsServer(): Promise<ConsultationRequestDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/consultations/mine`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getMyConsultationsServer(): Promise<ConsultationRequestDto[]> {
+  return authedGet<ConsultationRequestDto[], ConsultationRequestDto[]>('/consultations/mine', {
+    signedOut: [],
+    errorMessage: 'Failed to load your consultation requests.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load your consultation requests.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns consultation requests received by the caller (member role only — the backend 403s otherwise).
-export async function getReceivedConsultationsServer(): Promise<ConsultationRequestDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/consultations/received`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getReceivedConsultationsServer(): Promise<ConsultationRequestDto[]> {
+  return authedGet<ConsultationRequestDto[], ConsultationRequestDto[]>('/consultations/received', {
+    signedOut: [],
+    errorMessage: 'Failed to load consultation requests.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load consultation requests.', res.status);
-  }
-
-  return res.json();
 }
 
 // Every consultation request regardless of requester or member — admin oversight queue.
-export async function getAdminConsultationsServer(): Promise<ConsultationRequestDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/consultations`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getAdminConsultationsServer(): Promise<ConsultationRequestDto[]> {
+  return authedGet<ConsultationRequestDto[], ConsultationRequestDto[]>('/admin/consultations', {
+    signedOut: [],
+    errorMessage: 'Failed to load consultation requests.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load consultation requests.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns the member directory list for the given query string.
-export async function getMembersServer(queryString: string): Promise<MemberListItemDto[]> {
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/members${queryString}`, {
-    next: { revalidate: PUBLIC_LIST_REVALIDATE_SECONDS },
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load members.', res.status);
-  }
-
-  return res.json();
+export function getMembersServer(queryString: string): Promise<MemberListItemDto[]> {
+  return publicList<MemberListItemDto>(`/members${queryString}`, 'Failed to load members.');
 }
 
 // Returns a member's full profile by slug, or null if signed out or not found.
-export async function getMemberServer(slug: string): Promise<MemberDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/members/${encodeURIComponent(slug)}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getMemberServer(slug: string): Promise<MemberDto | null> {
+  return authedGet<MemberDto, null>(`/members/${encodeURIComponent(slug)}`, {
+    signedOut: null,
+    emptyOn: [404],
+    errorMessage: 'Failed to load member profile.',
   });
-
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load member profile.', res.status);
-  }
-
-  return res.json();
 }
 
 // The signed-in member's own profile handle, or null when there's no session / no member profile.
-export async function getMyMemberProfileServer(): Promise<MyMemberProfileDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/members/me/profile`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getMyMemberProfileServer(): Promise<MyMemberProfileDto | null> {
+  return authedGet<MyMemberProfileDto, null>('/members/me/profile', {
+    signedOut: null,
+    emptyOn: [403, 404],
+    errorMessage: 'Failed to load your profile.',
   });
-
-  if (res.status === 404 || res.status === 403) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load your profile.', res.status);
-  }
-
-  return res.json();
 }
 
-// Returns the caller's own pending profile edit requests.
+// Returns the caller's own pending profile edit requests. Best-effort: the profile page renders
+// without the "pending edits" badges rather than failing when this one call errors.
 export async function getMyMemberEditsServer(id: string): Promise<MemberProfileEditDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/members/${id}/edits`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    return await authedGet<MemberProfileEditDto[], MemberProfileEditDto[]>(`/members/${encodeURIComponent(id)}/edits`, {
+      signedOut: [],
+      errorMessage: 'Failed to load your profile edits.',
+    });
+  } catch {
+    return [];
+  }
 }
 
 // Returns the active category→service taxonomy tree.
-export async function getCategoriesServer(): Promise<CategoryDto[]> {
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/categories`, {
-    next: { revalidate: PUBLIC_LIST_REVALIDATE_SECONDS },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load categories.', res.status);
-  }
-  return res.json();
+export function getCategoriesServer(): Promise<CategoryDto[]> {
+  return publicList<CategoryDto>('/categories', 'Failed to load categories.');
 }
 
-// Returns published articles, optionally filtered by author.
 // Published articles matching `query`, plus the total match count across all pages.
 export async function getArticlesServer(
   query: ListArticlesQuery = {}
 ): Promise<{ items: ArticleListItemDto[]; total: number }> {
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/articles${buildArticlesQueryString(query)}`, {
-    next: { revalidate: PUBLIC_LIST_REVALIDATE_SECONDS },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load articles.', res.status);
-  }
+  const res = await publicGet(`/articles${buildArticlesQueryString(query)}`, 'Failed to load articles.');
+  if (!res) return { items: [], total: 0 };
   const items = (await res.json()) as ArticleListItemDto[];
   const total = Number(res.headers.get(ARTICLES_TOTAL_COUNT_HEADER) ?? items.length);
   return { items, total: Number.isFinite(total) ? total : items.length };
@@ -265,219 +185,90 @@ export async function getArticlesServer(
 
 // Public teaser (no body) of one published article by UUID or slug; null if there's none.
 export async function getArticlePreviewServer(idOrSlug: string): Promise<ArticleListItemDto | null> {
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/articles/${encodeURIComponent(idOrSlug)}/preview`, {
-    next: { revalidate: PUBLIC_LIST_REVALIDATE_SECONDS },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load article.', res.status);
-  }
-  return res.json();
+  const res = await publicGet(`/articles/${encodeURIComponent(idOrSlug)}/preview`, 'Failed to load article.');
+  return res ? ((await res.json()) as ArticleListItemDto) : null;
 }
 
 // Returns the caller's own articles regardless of status.
-export async function getMyArticlesServer(): Promise<ArticleListItemDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/articles/me`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getMyArticlesServer(): Promise<ArticleListItemDto[]> {
+  return authedGet<ArticleListItemDto[], ArticleListItemDto[]>('/articles/me', {
+    signedOut: [],
+    errorMessage: 'Failed to load your articles.',
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load your articles.', res.status);
-  }
-  return res.json();
 }
 
 // Returns articles for the admin review queue.
-export async function getAdminArticlesServer(status?: string): Promise<AdminArticleListItemDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
+export function getAdminArticlesServer(status?: string): Promise<AdminArticleListItemDto[]> {
   const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/articles${qs}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+  return authedGet<AdminArticleListItemDto[], AdminArticleListItemDto[]>(`/admin/articles${qs}`, {
+    signedOut: [],
+    errorMessage: 'Failed to load articles for review.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load articles for review.', res.status);
-  }
-
-  return res.json();
 }
 
 // Admin AI-generations log — newest first, optionally narrowed to one status.
-export async function getAdminAiGenerationsServer(status?: AiGenerationStatus): Promise<AdminAiGenerationListItemDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
+export function getAdminAiGenerationsServer(status?: AiGenerationStatus): Promise<AdminAiGenerationListItemDto[]> {
   const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/ai-generations${qs}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+  return authedGet<AdminAiGenerationListItemDto[], AdminAiGenerationListItemDto[]>(`/admin/ai-generations${qs}`, {
+    signedOut: [],
+    errorMessage: 'Failed to load AI generations.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load AI generations.', res.status);
-  }
-
-  return res.json();
 }
 
 // One AI generation's full inputs + output, or null if signed out or not found.
-export async function getAdminAiGenerationServer(id: string): Promise<AdminAiGenerationDetailDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/ai-generations/${encodeURIComponent(id)}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getAdminAiGenerationServer(id: string): Promise<AdminAiGenerationDetailDto | null> {
+  return authedGet<AdminAiGenerationDetailDto, null>(`/admin/ai-generations/${encodeURIComponent(id)}`, {
+    signedOut: null,
+    emptyOn: [400, 404],
+    errorMessage: 'Failed to load AI generation.',
   });
-
-  if (res.status === 400 || res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load AI generation.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns a single article's full detail (by UUID or slug), or null if signed out or not found.
-export async function getArticleServer(idOrSlug: string): Promise<ArticleDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/articles/${encodeURIComponent(idOrSlug)}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getArticleServer(idOrSlug: string): Promise<ArticleDto | null> {
+  return authedGet<ArticleDto, null>(`/articles/${encodeURIComponent(idOrSlug)}`, {
+    signedOut: null,
+    emptyOn: [401, 404],
+    errorMessage: 'Failed to load article.',
   });
-
-  if (res.status === 401 || res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load article.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns events, upcoming-only by default.
-export async function getEventsServer(params: { upcoming?: boolean } = {}): Promise<EventDto[]> {
+export function getEventsServer(params: { upcoming?: boolean } = {}): Promise<EventDto[]> {
   const qs = params.upcoming === false ? '?upcoming=false' : '';
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/events${qs}`, {
-    next: { revalidate: PUBLIC_LIST_REVALIDATE_SECONDS },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load events.', res.status);
-  }
-  return res.json();
+  return publicList<EventDto>(`/events${qs}`, 'Failed to load events.');
 }
 
 // Returns every event for the admin list, regardless of status.
-export async function getAdminEventsServer(): Promise<EventDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/events`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getAdminEventsServer(): Promise<EventDto[]> {
+  return authedGet<EventDto[], EventDto[]>('/admin/events', {
+    signedOut: [],
+    errorMessage: 'Failed to load events.',
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load events.', res.status);
-  }
-
-  return res.json();
 }
 
 // Returns a single event for the admin edit page, or null if not found.
-export async function getAdminEventServer(id: string): Promise<EventDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/events/${id}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getAdminEventServer(id: string): Promise<EventDto | null> {
+  return authedGet<EventDto, null>(`/admin/events/${encodeURIComponent(id)}`, {
+    signedOut: null,
+    emptyOn: [400, 404],
+    errorMessage: 'Failed to load event.',
   });
-
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load event.', res.status);
-  }
-
-  return res.json();
 }
 
 // Admin profile-edit queue — every member's edits with the given status (default: pending).
-export async function getAdminMemberEditsServer(status: MemberEditStatusFilter = 'pending'): Promise<MemberProfileEditDto[]> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/member-edits?status=${encodeURIComponent(status)}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load profile edits.', res.status);
-  }
-
-  return res.json();
+export function getAdminMemberEditsServer(status: MemberEditStatusFilter = 'pending'): Promise<MemberProfileEditDto[]> {
+  return authedGet<MemberProfileEditDto[], MemberProfileEditDto[]>(
+    `/admin/member-edits?status=${encodeURIComponent(status)}`,
+    { signedOut: [], errorMessage: 'Failed to load profile edits.' }
+  );
 }
 
 // One member's edits + live section values for the admin review page, or null if not found.
-export async function getAdminMemberEditsDetailServer(memberId: string): Promise<AdminMemberEditsDetailDto | null> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const res = await fetch(`${getApiBaseUrlServer()}/v1/admin/members/${encodeURIComponent(memberId)}/edits`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
+export function getAdminMemberEditsDetailServer(memberId: string): Promise<AdminMemberEditsDetailDto | null> {
+  return authedGet<AdminMemberEditsDetailDto, null>(`/admin/members/${encodeURIComponent(memberId)}/edits`, {
+    signedOut: null,
+    emptyOn: [400, 404],
+    errorMessage: 'Failed to load profile edits.',
   });
-
-  if (res.status === 404 || res.status === 400) return null;
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new ApiError(body?.message ?? 'Failed to load profile edits.', res.status);
-  }
-
-  return res.json();
 }

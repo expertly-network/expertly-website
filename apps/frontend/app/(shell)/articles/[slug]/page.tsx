@@ -61,7 +61,8 @@ async function loadRelated(article: ArticleDto): Promise<ArticleListItemDto[]> {
 
 // Only published articles get real Open Graph data; a signed-in reader's draft/pending article
 // still gets its own tab title. Runs before the page streams, so an unknown slug is a real 404.
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const article = await getArticlePreviewServer(params.slug);
   if (!article) {
     const sessionUser = await getSessionUser();
@@ -90,7 +91,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function ArticleDetailPage({ params }: { params: { slug: string } }) {
+export default async function ArticleDetailPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const sessionUser = await getSessionUser();
 
   // A signed-out visitor gets a teaser (title + excerpt), never the full body. The URL key is the

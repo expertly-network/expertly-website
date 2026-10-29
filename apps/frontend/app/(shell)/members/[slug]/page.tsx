@@ -7,7 +7,8 @@ import { ProfileClient } from './ProfileClient';
 
 // Resolved before the page streams, so an unknown slug's notFound() here returns a real HTTP 404
 // (thrown from the page body, after loading.tsx has already flushed, it would still be a 200).
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const sessionUser = await getSessionUser();
   if (!sessionUser) return { title: 'Member profile — GrowXQ' };
   const member = await getMemberServer(params.slug);
@@ -18,7 +19,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function MemberProfilePage({ params }: { params: { slug: string } }) {
+export default async function MemberProfilePage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const sessionUser = await getSessionUser();
   if (!sessionUser) {
     return <ProfileAuthWall />;

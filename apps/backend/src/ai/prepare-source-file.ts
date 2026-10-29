@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { fromBuffer as sniffFileType } from 'file-type';
+import { sniffFileType } from '../common/sniff-file-type';
 
 const MAX_SOURCE_FILE_BYTES = 15 * 1024 * 1024;
 

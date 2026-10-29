@@ -4,8 +4,8 @@ import { cookies } from 'next/headers';
 // Server Component / Route Handler / Server Action client. Server Components render read-only
 // and cannot write cookies, so setAll below silently no-ops there — middleware.ts is what
 // actually persists refreshed session cookies.
-export function createClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

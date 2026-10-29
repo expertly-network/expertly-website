@@ -23,14 +23,14 @@ export const metadata: Metadata = {
   description: 'Connecting clients with vetted expert members',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   // Runtime API_URL for Client Components (see lib/api/base-url.shared.ts). `<` is escaped so an
   // env value can never close the script tag.
-  const apiUrlScript = `window.${API_URL_GLOBAL}=${JSON.stringify(getApiBaseUrlServer()).replace(/</g, '\\u003c')};`;
+  const apiUrlScript = `window.${API_URL_GLOBAL}=${JSON.stringify(await getApiBaseUrlServer()).replace(/</g, '\\u003c')};`;
 
   return (
     <html lang="en" className={`${GeistSans.variable} ${brandSerif.variable}`}>
