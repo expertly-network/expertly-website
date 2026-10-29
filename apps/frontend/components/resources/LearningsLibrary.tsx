@@ -6,6 +6,7 @@ import { Badge, Button, Card, Input, Select } from '@/components/ui';
 import { ResourceHero } from './ResourceHero';
 import { ResourceImage } from './ResourceImage';
 import { ResourceDialog } from './ResourceDialog';
+import { ExternalLink } from '@/components/shared/ExternalLink';
 
 function embedUrl(video: LearningDto): string | null {
   if (!video.canWatch || !video.videoUrl || video.videoProvider !== 'youtube')
@@ -390,14 +391,9 @@ export function LearningsLibrary({
               )}
               <p className="mt-3 text-xs text-ink-3">
                 If the player is unavailable,{' '}
-                <a
-                  className="text-accent underline"
-                  href={current.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <ExternalLink className="text-accent underline" url={current.videoUrl}>
                   open the original video ↗
-                </a>
+                </ExternalLink>
                 .
               </p>
             </>

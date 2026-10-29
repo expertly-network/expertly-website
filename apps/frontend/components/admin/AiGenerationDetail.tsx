@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Badge, Card } from '@/components/ui';
 import { AiGenerationStatusBadge } from '@/components/admin/AiGenerationStatusBadge';
 import type { AdminAiGenerationDetailDto, ArticleStatus } from '@shared/article';
+import { ExternalLink } from '@/components/shared/ExternalLink';
 
 const DATETIME_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -114,9 +115,9 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
               <ul className="flex flex-col gap-1">
                 {inputs.sourceLinks.map((url, i) => (
                   <li key={url + i}>
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline hover:text-ink">
+                    <ExternalLink url={url} className="break-all text-accent underline hover:text-ink">
                       {url}
-                    </a>
+                    </ExternalLink>
                   </li>
                 ))}
               </ul>
@@ -198,9 +199,9 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
                   <ul className="flex flex-col gap-1">
                     {output.sources.map((source, i) => (
                       <li key={source.url + i}>
-                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline hover:text-ink">
+                        <ExternalLink url={source.url} className="break-all text-accent underline hover:text-ink">
                           {source.title || source.url}
-                        </a>
+                        </ExternalLink>
                       </li>
                     ))}
                   </ul>

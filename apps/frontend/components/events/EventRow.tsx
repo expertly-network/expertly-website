@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
 import type { EventDto } from '@shared/event';
+import { externalHref } from '@/lib/members/format';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' });
 
@@ -35,8 +36,9 @@ export function EventRow({
 }) {
   const location = [event.city, event.country].filter(Boolean).join(', ');
 
-  const registerAction = event.registrationUrl ? (
-    <Button href={event.registrationUrl} variant="secondary" size="sm" className="self-start">
+  const registrationHref = externalHref(event.registrationUrl);
+  const registerAction = registrationHref ? (
+    <Button href={registrationHref} variant="secondary" size="sm" className="self-start">
       Register →
     </Button>
   ) : (

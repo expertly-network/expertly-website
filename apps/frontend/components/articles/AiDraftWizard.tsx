@@ -11,6 +11,7 @@ import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS, countArticleWords } from '@/lib/articles/word-count';
 import type { AiDraftArticleResponse } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
+import { ExternalLink } from '@/components/shared/ExternalLink';
 
 type SubStep = 1 | 2 | 3;
 
@@ -232,15 +233,13 @@ export function AiDraftWizard({
             <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line pt-3.5">
               <span className="text-[11px] font-semibold text-ink-4">SOURCES</span>
               {draft.sources.map((source, i) => (
-                <a
+                <ExternalLink
                   key={source.url + i}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  url={source.url}
                   className="text-[12px] text-accent underline underline-offset-2 hover:text-ink"
                 >
                   {source.title || source.url}
-                </a>
+                </ExternalLink>
               ))}
             </div>
           )}

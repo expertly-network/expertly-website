@@ -6,6 +6,7 @@ import { Badge, Button, Card, Input, Select } from '@/components/ui';
 import { ResourceHero } from './ResourceHero';
 import { ResourceImage } from './ResourceImage';
 import { ResourceDialog } from './ResourceDialog';
+import { externalHref } from '@/lib/members/format';
 
 export function PerksLibrary({
   perks,
@@ -345,10 +346,10 @@ export function PerksLibrary({
                     </Button>
                   </div>
                 )}
-                {selected.offerUrl && (
+                {externalHref(selected.offerUrl) && (
                   <Button
                     className="mt-4"
-                    href={selected.offerUrl}
+                    href={externalHref(selected.offerUrl) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -379,7 +380,7 @@ export function PerksLibrary({
           <Button
             className="mt-5"
             variant="ghost"
-            href={selected.websiteUrl}
+            href={externalHref(selected.websiteUrl) ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
           >
