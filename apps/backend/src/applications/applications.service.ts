@@ -15,6 +15,7 @@ import type {
   ApplicationStatus,
   BillingPeriod,
   CouponPreviewResponse,
+  MembershipTier,
   ServicePreference,
 } from '@shared/membership-application';
 import { randomUUID } from 'node:crypto';
@@ -30,6 +31,7 @@ import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/wo
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import {
   ApplicationsRepository,
+  type ApplicationDocumentRow,
   type ApplicationRow,
   type MemberProfileInsert,
   type ServiceDetail,
@@ -70,7 +72,7 @@ const MAX_BYTES: Record<UploadKind, number> = {
 };
 
 // Columns a draft's save-on-advance write is allowed to touch, mapped to their DTO key.
-const WRITABLE_COLUMNS: Record<string, keyof UpdateApplicationDto> = {
+const WRITABLE_COLUMNS: Partial<Record<keyof ApplicationRow, keyof UpdateApplicationDto>> = {
   first_name: 'firstName',
   last_name: 'lastName',
   contact_email: 'contactEmail',
@@ -99,7 +101,7 @@ const WRITABLE_COLUMNS: Record<string, keyof UpdateApplicationDto> = {
   current_step: 'currentStep',
 };
 
-const REQUIRED_TO_SUBMIT: [string, string][] = [
+const REQUIRED_TO_SUBMIT: [keyof ApplicationRow, string][] = [
   ['first_name', 'firstName'],
   ['last_name', 'lastName'],
   ['contact_email', 'contactEmail'],
@@ -112,8 +114,8 @@ const REQUIRED_TO_SUBMIT: [string, string][] = [
   ['billing_period', 'billingPeriod'],
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Row = Record<string, any>;
+// A partial membership_applications row being assembled from a request, before it's written.
+type ApplicationPatch = Partial<ApplicationRow>;
 
 @Injectable()
 export class ApplicationsService {
@@ -145,10 +147,11 @@ export class ApplicationsService {
     // A rejected application isn't reused — a new application starts a fresh row.
     const existing = latest && latest.status === 'draft' ? latest : null;
 
-    const patch: Row = {};
-    for (const [column, key] of Object.entries(WRITABLE_COLUMNS)) {
+    const patch: ApplicationPatch = {};
+    // Column names come from WRITABLE_COLUMNS, values from the validated DTO field it maps to.
+    for (const [column, key] of Object.entries(WRITABLE_COLUMNS) as [keyof ApplicationRow, keyof UpdateApplicationDto][]) {
       const value = dto[key];
-      if (value !== undefined) patch[column] = value;
+      if (value !== undefined) (patch as Record<string, unknown>)[column] = value;
     }
 
     // Work history is validated (no end-before-start; overlapping roles are allowed) and stored
@@ -164,7 +167,7 @@ export class ApplicationsService {
       patch.region = deriveRegion(patch.country as string);
     }
 
-    const merged: Row = { ...(existing ?? { status: 'draft' }), ...patch };
+    const merged: ApplicationPatch = { ...(existing ?? { status: 'draft' }), ...patch };
 
     if (
       merged.rate_min_cents != null &&
@@ -186,9 +189,10 @@ export class ApplicationsService {
     if (dto.status === 'submitted') {
       this.assertComplete(merged);
 
-      const selectedTier = computeTier(merged.years_of_experience);
+      // assertComplete() above guarantees both are set (REQUIRED_TO_SUBMIT).
+      const selectedTier = computeTier(merged.years_of_experience as number);
       const listPriceCents = MEMBERSHIP_PRICE_CENTS[merged.billing_period as BillingPeriod];
-      const couponResult = applyCoupon(merged.coupon_code, listPriceCents);
+      const couponResult = applyCoupon(merged.coupon_code ?? undefined, listPriceCents);
       if (!couponResult.valid) throw new BadRequestException({
         code: 'COUPON_INVALID',
         message: 'Invalid or expired coupon code.',
@@ -292,7 +296,7 @@ export class ApplicationsService {
       existing = await this.applicationsRepository.insert({ applicant_id: user.id });
     }
 
-    const existingDocuments = (existing.documents ?? []) as Row[];
+    const existingDocuments = existing.documents ?? [];
     // The photo path deliberately has no extension: it must stay stable across re-uploads (the
     // upload is `upsert: true`), and baking the sniffed extension in here meant re-uploading in a
     // different format (e.g. jpg -> png) produced a second, orphaned object instead of replacing
@@ -309,7 +313,7 @@ export class ApplicationsService {
       await this.applicationsRepository.uploadDocument(path, file.buffer, sniffed.mime);
     }
 
-    const patch: Row =
+    const patch: ApplicationPatch =
       kind === 'photo'
         ? { photo_path: path }
         : {
@@ -448,6 +452,17 @@ export class ApplicationsService {
       `${application.first_name} ${application.last_name}`
     );
 
+    // Columns a member profile can't exist without. assertComplete() requires them at submit time,
+    // so only an application submitted before those checks existed can lack one.
+    const memberTier = dto.memberTier ?? application.selected_tier;
+    if (!application.country || application.years_of_experience === null || !memberTier) {
+      throw new ConflictException({
+        code: 'APPLICATION_INCOMPLETE',
+        message: "This application is missing its country, years of experience or tier, so it can't be approved as is.",
+      });
+    }
+    const required = { country: application.country, yearsOfExperience: application.years_of_experience, memberTier };
+
     // Claim the application first (a conditional status update), so a concurrent second
     // approval can't also provision a member; then provision. Supabase gives no multi-statement
     // transaction over PostgREST, so a failure part-way is rolled back by hand below and the
@@ -463,7 +478,7 @@ export class ApplicationsService {
     const approvedPreference = submittedPreferences.find((p) => p.serviceId === dto.approvedServiceId)!;
     let profileCreated = false;
     try {
-      await this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(application, dto, slug));
+      await this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(application, dto, slug, required));
       profileCreated = true;
       await this.applicationsRepository.insertMemberServices([
         {
@@ -504,7 +519,12 @@ export class ApplicationsService {
   }
 
   // The member_profiles row an approval creates, mapped from the application.
-  private buildMemberProfile(application: ApplicationRow, dto: ReviewApplicationDto, slug: string): MemberProfileInsert {
+  private buildMemberProfile(
+    application: ApplicationRow,
+    dto: ReviewApplicationDto,
+    slug: string,
+    required: { country: string; yearsOfExperience: number; memberTier: MembershipTier }
+  ): MemberProfileInsert {
     // Same shape assertComplete() now requires at submit time — a current (isCurrent) position
     // with a company name and company website. Older applications submitted before those checks
     // existed may still lack one; fall back to the most recent entry rather than leaving
@@ -537,14 +557,14 @@ export class ApplicationsService {
       firm_name: currentJob?.company ?? null,
       firm_website: currentJob?.companyUrl ?? null,
       region: application.region,
-      country: application.country,
+      country: required.country,
       state: application.state,
       city: application.city,
-      years_of_experience: application.years_of_experience,
+      years_of_experience: required.yearsOfExperience,
       rate_min_cents: application.rate_min_cents,
       rate_max_cents: application.rate_max_cents,
       // Admin can override the tier computed at submission; falls back to it when omitted.
-      member_tier: dto.memberTier ?? application.selected_tier,
+      member_tier: required.memberTier,
       // Explicit rather than omitted-and-DB-defaulted, so the inserted row's start date is always
       // traceable to a value this call actually decided (the admin's input, or "now" computed
       // here) — same effective default as before, just no longer implicit.
@@ -630,7 +650,7 @@ export class ApplicationsService {
     return details;
   }
 
-  private assertComplete(row: Row) {
+  private assertComplete(row: ApplicationPatch) {
     const missing = REQUIRED_TO_SUBMIT.filter(([column]) => row[column] === null || row[column] === undefined).map(
       ([, key]) => key
     );
@@ -684,7 +704,7 @@ export class ApplicationsService {
 
   // Signed, expiring URLs — documents are only ever returned to the applicant themselves or to an
   // admin with manageApplications, and the link stops working after DOCUMENT_URL_TTL_SECONDS.
-  private async resolveDocuments(documents: Row[]): Promise<ApplicationDocumentDto[]> {
+  private async resolveDocuments(documents: ApplicationDocumentRow[]): Promise<ApplicationDocumentDto[]> {
     const urls = await this.applicationsRepository.createSignedDocumentUrls(
       documents.map((doc) => doc.path as string),
       DOCUMENT_URL_TTL_SECONDS
@@ -766,7 +786,9 @@ export class ApplicationsService {
       rateMinCents: row.rate_min_cents,
       rateMaxCents: row.rate_max_cents,
       selectedTier: row.selected_tier,
-      billingPeriod: row.billing_period,
+      // The DB enum still has the retired 'monthly'; the API only sells annual (BillingPeriod), and
+      // new rows can't be monthly (UpdateApplicationDto) — a legacy monthly row reads as unset.
+      billingPeriod: row.billing_period === 'annual' ? 'annual' : null,
       listPriceCents: row.list_price_cents,
       couponCode: row.coupon_code,
       discountAmountCents: row.discount_amount_cents,

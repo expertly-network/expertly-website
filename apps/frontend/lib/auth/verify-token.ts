@@ -28,7 +28,12 @@ interface SupabaseJwtPayload {
 
 // Verifies a Supabase access token and returns the profile it encodes.
 export async function verifySupabaseToken(token: string): Promise<Profile> {
-  const { payload } = await jwtVerify(token, getJwks(), { audience: 'authenticated' });
+  // Same checks as the backend (apps/backend/src/auth/verify-token.ts): signature, expiry,
+  // audience, and that this project's Auth server issued it.
+  const { payload } = await jwtVerify(token, getJwks(), {
+    audience: 'authenticated',
+    issuer: `${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '')}/auth/v1`,
+  });
   const claims = payload as unknown as SupabaseJwtPayload;
 
   const claimedRole = claims.app_role;

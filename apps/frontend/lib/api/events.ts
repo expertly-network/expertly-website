@@ -1,6 +1,4 @@
-import { apiFetch } from '@/lib/api/client';
-import { createClient } from '@/lib/supabase/client';
-import { getApiBaseUrlClient } from '@/lib/api/base-url.client';
+import { ApiError, apiFetch, apiFetchResponse } from '@/lib/api/client';
 import type { CreateEventRequest, EventDto, ImportEventsResponse, UpdateEventRequest } from '@shared/event';
 
 export function createEvent(body: CreateEventRequest): Promise<EventDto> {
@@ -35,43 +33,22 @@ export class ImportEventsError extends Error {
   }
 }
 
-async function authHeader(): Promise<Record<string, string>> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-}
-
 export async function importEventsCsv(file: File): Promise<ImportEventsResponse> {
   const formData = new FormData();
   formData.append('file', file);
-
-  const res = await fetch(`${getApiBaseUrlClient()}/v1/admin/events/import`, {
-    method: 'POST',
-    headers: await authHeader(),
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const rowErrors = Array.isArray(body?.message)
-      ? body.message
-      : [body?.message ?? `Request failed with status ${res.status}`];
-    throw new ImportEventsError(rowErrors, res.status);
+  try {
+    return await apiFetch<ImportEventsResponse>('/admin/events/import', { method: 'POST', body: formData });
+  } catch (err) {
+    // The import's 400 lists one message per bad row — keep them separate for the results table.
+    if (err instanceof ApiError) throw new ImportEventsError(err.messages, err.statusCode);
+    throw err;
   }
-
-  return res.json();
 }
 
 // Downloads straight to the browser rather than returning a URL — the export endpoint requires
 // the same Bearer auth as every other admin route, so a plain `<a href>` to it won't work.
 export async function downloadEventsCsv(): Promise<void> {
-  const res = await fetch(`${getApiBaseUrlClient()}/v1/admin/events/export`, {
-    headers: await authHeader(),
-  });
-  if (!res.ok) throw new Error(`Failed to export events (status ${res.status}).`);
-
+  const res = await apiFetchResponse('/admin/events/export');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

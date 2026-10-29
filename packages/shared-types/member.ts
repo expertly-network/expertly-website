@@ -317,9 +317,9 @@ export class MemberProfileEditDto {
     ],
   })
   section!: MemberEditSection;
-  // Shape depends on `section`; left untyped for Swagger/OpenAPI.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  @ApiProperty({ type: 'object', additionalProperties: true }) payload: any;
+  // Shape depends on `section` (an object for headline_bio/contact, an array of items otherwise) —
+  // narrow it by `section` before reading fields.
+  @ApiProperty({ type: 'object', additionalProperties: true }) payload!: unknown;
   @ApiProperty({ nullable: true, type: String }) proofFileUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) proofLink!: string | null;
   @ApiProperty({ enum: ['pending', 'verified', 'rejected'] }) status!: MemberEditStatus;

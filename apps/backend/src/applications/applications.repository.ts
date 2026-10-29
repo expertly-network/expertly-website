@@ -2,7 +2,14 @@ import { ConflictException, Injectable, InternalServerErrorException, NotFoundEx
 import { SupabaseService } from '../auth/supabase.service';
 import { generateUniqueSlug } from '../common/slugify';
 import type { Database } from '../supabase/database.types';
-import type { ApplicationStatus } from '@shared/membership-application';
+import type {
+  AdminApplicationListItemDto,
+  ApplicationStatus,
+  EducationInput,
+  PeerReferenceInput,
+  ServicePreferenceInput,
+  WorkExperienceInput,
+} from '@shared/membership-application';
 import { MAX_LIST_ROWS } from '../common/list-limits';
 
 // Statuses an admin can still approve or reject.
@@ -86,7 +93,39 @@ const ADMIN_LIST_COLUMNS = [
   'servicePreferences:service_preferences',
 ] as const;
 
-export type ApplicationRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type ApplicationTableRow = Database['public']['Tables']['membership_applications']['Row'];
+
+/** One stored entry of membership_applications.documents (see ApplicationsService.uploadFile). */
+export interface ApplicationDocumentRow {
+  id: string;
+  filename: string;
+  path: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+// The JSONB columns, typed as the API writes them (validated by UpdateApplicationDto on the way
+// in) — the generated types only know them as `Json`.
+interface ApplicationJsonColumns {
+  work_experiences: WorkExperienceInput[];
+  educations: EducationInput[];
+  peer_references: PeerReferenceInput[];
+  documents: ApplicationDocumentRow[];
+  service_preferences: ServicePreferenceInput[];
+}
+
+/** A membership_applications row as APPLICATION_ROW_COLUMNS selects it. */
+export type ApplicationRow = Omit<
+  Pick<ApplicationTableRow, (typeof APPLICATION_ROW_COLUMNS)[number]>,
+  keyof ApplicationJsonColumns
+> &
+  ApplicationJsonColumns;
+
+/** A row as ADMIN_LIST_COLUMNS selects it — already camelCase (aliased in the select). */
+export type AdminApplicationListRow = Omit<AdminApplicationListItemDto, 'servicePreferences'> & {
+  servicePreferences: ServicePreferenceInput[];
+};
 
 // membership_applications' write shape is built from a runtime column-name map
 // (WRITABLE_COLUMNS in applications.service.ts), not literal properties, so insert/update here
@@ -250,7 +289,7 @@ export class ApplicationsRepository {
   // 🛡️ manageApplications — lighter column set than APPLICATION_ROW_COLUMNS for the list view.
   // service_preferences comes back raw ({serviceId, priority, customLabel}[]) — the service layer
   // resolves it to the full ServicePreference shape, same as ApplicationDto.
-  async listForReview(status?: ApplicationStatus): Promise<ApplicationRow[]> {
+  async listForReview(status?: ApplicationStatus): Promise<AdminApplicationListRow[]> {
     let query = this.membershipApplications()
       .select(ADMIN_LIST_COLUMNS.join(', '))
       .order('created_at', { ascending: false })
@@ -263,7 +302,7 @@ export class ApplicationsRepository {
 
     const { data, error } = await query;
     if (error) throw new InternalServerErrorException('Failed to load applications.');
-    return (data ?? []) as unknown as ApplicationRow[];
+    return (data ?? []) as unknown as AdminApplicationListRow[];
   }
 
   async findServiceDetails(ids: string[]): Promise<Map<string, ServiceDetail>> {

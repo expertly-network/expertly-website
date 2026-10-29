@@ -66,6 +66,11 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+// The raw Response, for a non-JSON body (e.g. a CSV download). Same auth + error handling.
+export function apiFetchResponse(path: string, options: RequestInit = {}): Promise<Response> {
+  return apiRequest(path, options);
+}
+
 // For a paged list endpoint: the array body plus the total match count from `totalHeader`.
 export async function apiFetchPage<T>(
   path: string,

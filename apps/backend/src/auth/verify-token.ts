@@ -30,7 +30,7 @@ interface SupabaseJwtPayload {
 export async function verifySupabaseToken(token: string): Promise<AuthenticatedUser> {
   const { payload } = await jwtVerify(token, getJwks(), {
     audience: 'authenticated',
-    issuer: `${(process.env.SUPABASE_URL ?? "").replace(/\/+$/, "")}/auth/v1`,
+    issuer: `${(process.env.SUPABASE_URL ?? '').replace(/\/+$/, '')}/auth/v1`,
   });
   const claims = payload as unknown as SupabaseJwtPayload;
 

@@ -12,9 +12,11 @@ export function slugify(title: string, fallback: string): string {
 }
 
 // Generates a slug for a title, appending `-2`, `-3`, ... until it's unique in the given table.
-// `reserved`, when passed, also treats any slug already in that set as taken without a DB round
-// trip — callers inserting several new rows in one batch (e.g. bulk import) pass the same Set
-// across calls so two rows sharing a title don't both land on the same unreserved-in-DB slug.
+// One query: every existing slug equal to the base or starting with `<base>-` (the base is always
+// [a-z0-9-], so it's safe inside the filter), then the first free suffix is picked in memory.
+// `reserved`, when passed, also treats any slug already in that set as taken — callers inserting
+// several new rows in one batch (e.g. bulk import) pass the same Set across calls so two rows
+// sharing a title don't both land on the same unreserved-in-DB slug.
 export async function generateUniqueSlug(
   db: SupabaseClient,
   table: string,
@@ -23,17 +25,14 @@ export async function generateUniqueSlug(
   reserved?: Set<string>
 ): Promise<string> {
   const base = slugify(title, fallback);
-  let candidate = base;
-  for (let suffix = 2; ; suffix++) {
-    if (!reserved?.has(candidate)) {
-      const { data, error } = await db.from(table).select('id').eq('slug', candidate).maybeSingle();
+  const { data, error } = await db.from(table).select('slug').or(`slug.eq.${base},slug.like.${base}-%`);
+  if (error) throw new InternalServerErrorException(`Failed to generate ${fallback} slug.`);
 
-      if (error) throw new InternalServerErrorException(`Failed to generate ${fallback} slug.`);
-      if (!data) {
-        reserved?.add(candidate);
-        return candidate;
-      }
-    }
+  const taken = new Set(((data ?? []) as { slug: string }[]).map((r) => r.slug));
+  let candidate = base;
+  for (let suffix = 2; taken.has(candidate) || reserved?.has(candidate); suffix++) {
     candidate = `${base}-${suffix}`;
   }
+  reserved?.add(candidate);
+  return candidate;
 }

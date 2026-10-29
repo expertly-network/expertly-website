@@ -3,6 +3,7 @@ import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
 import { MAX_LIST_ROWS } from '../common/list-limits';
+import { generateUniqueSlug } from '../common/slugify';
 
 export type ArticleInsert = Database['public']['Tables']['articles']['Insert'];
 export type ArticleUpdate = Database['public']['Tables']['articles']['Update'];
@@ -107,15 +108,6 @@ export interface AuthorInfo {
 }
 
 // Kebab-cases a title for use as the base of a slug.
-function slugify(title: string): string {
-  const base = title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return base || 'article';
-}
-
 @Injectable()
 export class ArticlesRepository {
   constructor(private readonly supabase: SupabaseService) { }
@@ -353,14 +345,6 @@ export class ArticlesRepository {
   }
 
   async findUniqueSlug(title: string): Promise<string> {
-    const base = slugify(title);
-    let candidate = base;
-    for (let suffix = 2; ; suffix++) {
-      const { data, error } = await this.articles().select('id').eq('slug', candidate).maybeSingle();
-
-      if (error) throw new InternalServerErrorException('Failed to generate article slug.');
-      if (!data) return candidate;
-      candidate = `${base}-${suffix}`;
-    }
+    return generateUniqueSlug(this.supabase.db, 'articles', title, 'article');
   }
 }

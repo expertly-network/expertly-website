@@ -8,7 +8,9 @@ export class ApiError extends Error {
     /** Stable machine-readable error code from the API body, e.g. `CONSULTATION_PENDING_EXISTS`. */
     public readonly code?: string,
     /** Present on a 429: seconds to wait before retrying. */
-    public readonly retryAfterSeconds?: number
+    public readonly retryAfterSeconds?: number,
+    /** Each message separately — a VALIDATION_FAILED body lists one per failed rule/row. */
+    public readonly messages: string[] = [message]
   ) {
     super(message);
     this.name = 'ApiError';
@@ -25,16 +27,15 @@ interface ApiErrorBody {
 // (a proxy's HTML error page, an empty 502).
 export async function apiErrorFromResponse(res: Response, fallbackMessage?: string): Promise<ApiError> {
   const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
-  // message is an array for validation failures; join into a readable string.
-  const message = Array.isArray(body?.message)
-    ? body.message.join(' ')
-    : typeof body?.message === 'string'
-      ? body.message
-      : (fallbackMessage ?? `Request failed with status ${res.status}`);
+  // message is an array for validation failures; `message` joins it into one readable string.
+  const messages = Array.isArray(body?.message)
+    ? body.message.map(String)
+    : [typeof body?.message === 'string' ? body.message : (fallbackMessage ?? `Request failed with status ${res.status}`)];
   return new ApiError(
-    message,
+    messages.join(' '),
     res.status,
     typeof body?.code === 'string' ? body.code : undefined,
-    typeof body?.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined
+    typeof body?.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined,
+    messages
   );
 }

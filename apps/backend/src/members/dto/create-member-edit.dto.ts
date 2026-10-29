@@ -21,8 +21,7 @@ export class CreateMemberEditDto {
   section!: MemberEditSection;
 
   @IsDefined()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload!: any;
+  payload!: unknown;
 
   // Storage object path from POST /v1/members/:id/uploads, not a fully-qualified URL.
   @IsOptional()
