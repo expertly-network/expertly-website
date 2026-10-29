@@ -238,6 +238,17 @@ export class ResourcesRepository {
   private templates() {
     return this.supabase.db.from('templates');
   }
+
+  private memberProfiles() {
+    return this.supabase.db.from('member_profiles');
+  }
+
+  // member_profiles.status for a member, or null when they have no member profile.
+  async findMemberStatus(profileId: string): Promise<'active' | 'deactivated' | null> {
+    const { data, error } = await this.memberProfiles().select('status').eq('profile_id', profileId).maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to check membership.');
+    return (data?.status as 'active' | 'deactivated' | undefined) ?? null;
+  }
   async listTemplates(): Promise<TemplatePublicRow[]> {
     const { data, error } = await this.templates()
       .select(TEMPLATE_PUBLIC_COLUMNS)

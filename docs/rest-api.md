@@ -133,6 +133,10 @@ satisfies a `member` check) is wrong here; enforced as an explicit check in
 the auth guard, passes body validation) and then gets a `403`, not a `401`/`400` — a deliberate
 ordering: NestJS validates the request body before the controller method (and this role check)
 ever runs, so a malformed body from a non-client caller surfaces as `400` first, not `403`.
+Submitting (`status: 'submitted'`) also requires a LinkedIn identity linked to the account
+(`docs/auth.md` Part 1b) — checked server-side since 2026-10-29: `400 LINKEDIN_NOT_CONNECTED`.
+Draft writes are conditional on the row still being a draft: a save that races a submit or a
+decision gets `409 APPLICATION_LOCKED` instead of overwriting validated fields.
 
 **Behavior:**
 - No application yet, or the caller's most recent one is `rejected` → creates a **new** `draft`
@@ -217,7 +221,8 @@ authenticated user's id — never accepts an id param, so there's no cross-user 
 
 **Request:** `{ linkedinUrl }` — must be a LinkedIn profile URL (`linkedin.com/in/<handle>`, scheme
 and country subdomain optional, ≤300 chars; added 2026-10-29), since it's forwarded to a paid
-scraping agent. Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever profile data the
+scraping agent. **Client accounts only** (applicants; `403 APPLICATION_CLIENTS_ONLY` otherwise).
+Pure fetch-and-normalize — does **not** write to the draft. Fetches whatever profile data the
 configured `LinkedInImportProvider` can produce for the given URL and returns it directly; the
 frontend merges the result into its wizard state and saves it through `POST /v1/applications/me`
 like any manually-entered edit, so there's exactly one write path regardless of how the data
@@ -695,7 +700,12 @@ Approve (→ `published`) or reject (→ `rejected` + `rejectionReason`) an arti
 `pending_review`. Same guard chain as the `GET` above.
 
 **Request:** `AdminArticleReviewRequest` — `status: 'published' | 'rejected'`, `rejectionReason`
-required when rejecting.
+required when rejecting (≤2000 chars), and optional `expectedUpdatedAt` (added 2026-10-29) — the
+`updatedAt` from the review list. The decision is a conditional write: it applies only while the
+article is still `pending_review` and, when `expectedUpdatedAt` is sent, unchanged since the
+reviewer loaded it; otherwise `409 ARTICLE_CHANGED_SINCE_REVIEW` (an author can't swap content, or
+withdraw it, between the reviewer's view and the decision). `GET /v1/admin/articles` items now
+carry `updatedAt` for this.
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not admin or lacks `manageArticles` ·
 `400` article isn't `pending_review`, or rejecting without a reason. Codes: `404 ARTICLE_NOT_FOUND` · `400 ARTICLE_NOT_PENDING_REVIEW`, `REJECTION_REASON_REQUIRED`.
@@ -964,6 +974,10 @@ Backs the frontend's `/members/me` route, which redirects to `/members/<slug>` (
 "View my profile" button for members).
 
 ### 🔒 `GET /v1/members/:slug`
+
+**Visibility (2026-10-29):** `404 MEMBER_NOT_FOUND` unless both the listing
+(`member_profiles.status = 'active'`) and the account (`profiles.status = 'active'`, not deleted)
+are live — the owner and admins with `manageMembers` still see it.
 
 **Keyed on the member's slug, not the UUID** (e.g. `/v1/members/priya-menon`) — changed in place on
 `/v1` on 2026-09-27 as a deliberate exception to the "breaking changes go to `/v2`" rule: the

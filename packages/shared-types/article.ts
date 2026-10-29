@@ -189,12 +189,19 @@ export class AdminArticleListItemDto {
   /** Set when the article was saved from an AI draft — links to GET /v1/admin/ai-generations/:id. */
   @ApiProperty({ nullable: true, type: String }) aiGenerationId!: string | null;
   @ApiProperty() createdAt!: string;
+  /** Version of the content as listed — send it back as `expectedUpdatedAt` when reviewing. */
+  @ApiProperty() updatedAt!: string;
 }
 
 export class AdminArticleReviewRequest {
   @ApiProperty({ enum: ['published', 'rejected'] }) status!: 'published' | 'rejected';
   /** Required when status is 'rejected'. */
   @ApiPropertyOptional() rejectionReason?: string;
+  /**
+   * The article's `updatedAt` as the reviewer saw it. When sent, the decision only applies if the
+   * article hasn't changed since — otherwise `409 ARTICLE_CHANGED_SINCE_REVIEW`.
+   */
+  @ApiPropertyOptional() expectedUpdatedAt?: string;
 }
 
 // ---------------------------------------------------------------------------------------------

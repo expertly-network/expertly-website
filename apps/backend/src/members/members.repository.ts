@@ -80,7 +80,7 @@ const MEMBER_PROFILE_EDIT_COLUMNS = [
   'submitted_at',
 ] as const;
 
-const PROFILE_IDENTITY_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'avatar_url', 'initials'] as const;
+const PROFILE_IDENTITY_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'avatar_url', 'initials', 'status', 'deleted_at'] as const;
 
 // The columns PATCH /members/:id may write (owner, applied immediately).
 export interface MemberSelfUpdate {
@@ -155,6 +155,9 @@ export interface ProfileIdentityRow {
   email: string;
   avatar_url: string | null;
   initials: string | null;
+  /** profiles.status — the account, as opposed to member_profiles.status (the listing). */
+  status: 'active' | 'suspended' | 'deleted';
+  deleted_at: string | null;
 }
 
 export interface MemberDirectoryFilters {

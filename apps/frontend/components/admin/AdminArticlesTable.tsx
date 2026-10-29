@@ -26,7 +26,7 @@ function AdminArticleRow({
     setError(null);
     setBusy('approve');
     try {
-      await reviewArticle(article.id, { status: 'published' });
+      await reviewArticle(article.id, { status: 'published', expectedUpdatedAt: article.updatedAt });
       onDecided(article.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to approve this article.');
@@ -42,7 +42,7 @@ function AdminArticleRow({
     setError(null);
     setBusy('reject');
     try {
-      await reviewArticle(article.id, { status: 'rejected', rejectionReason: reason.trim() });
+      await reviewArticle(article.id, { status: 'rejected', rejectionReason: reason.trim(), expectedUpdatedAt: article.updatedAt });
       onDecided(article.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to reject this article.');

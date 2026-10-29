@@ -270,11 +270,13 @@ export class SearchRepository {
     const articleMap = new Map(articles.map((r) => [r.id, r]));
     const eventMap = new Map(events.map((r) => [r.id, r]));
 
+    // Re-checked live, not trusted from the card: a member deactivated or an article/event
+    // unpublished since its card was last rebuilt (the worker may lag or be down) is dropped.
     const out: SearchResult[] = [];
     for (const h of hits) {
       if (h.doc_type === 'member') {
         const r = memberMap.get(h.source_id);
-        if (!r) continue;
+        if (!r || r.status !== 'active') continue;
         const member: MemberSearchResult = {
           type: 'member', id: h.source_id, name: h.title, slug: r.slug, headline: r.headline, firm: r.firm_name,
           location: [r.city, r.country].filter(Boolean).join(', '), services: services.get(h.source_id) ?? [],
@@ -285,7 +287,7 @@ export class SearchRepository {
         out.push(member);
       } else if (h.doc_type === 'article') {
         const r = articleMap.get(h.source_id);
-        if (!r) continue;
+        if (!r || r.status !== 'published') continue;
         const article: ArticleSearchResult = {
           type: 'article', id: h.source_id, title: r.title, slug: r.slug, excerpt: (r.excerpt ?? '').slice(0, 300),
           countries: r.countries, publishedAt: r.created_at, readTimeMinutes: r.read_time_minutes,
@@ -293,7 +295,7 @@ export class SearchRepository {
         out.push(article);
       } else {
         const r = eventMap.get(h.source_id);
-        if (!r) continue;
+        if (!r || r.status !== 'published') continue;
         const event: EventSearchResult = {
           type: 'event', id: h.source_id, title: r.title, slug: r.slug, summary: r.short_description,
           startsAt: r.start_date, endsAt: r.end_date, location: [r.city, r.country].filter(Boolean).join(', '),
@@ -389,12 +391,12 @@ export class SearchRepository {
   }
 }
 
-const HYDRATE_MEMBER_COLUMNS = 'profile_id,slug,headline,firm_name,city,country,is_available,rate_min_cents,rate_max_cents,rate_currency';
-const HYDRATE_ARTICLE_COLUMNS = 'id,slug,title,excerpt,countries,created_at,read_time_minutes';
-const HYDRATE_EVENT_COLUMNS = 'id,slug,title,short_description,start_date,end_date,city,country,event_format,is_free,registration_url';
+const HYDRATE_MEMBER_COLUMNS = 'profile_id,status,slug,headline,firm_name,city,country,is_available,rate_min_cents,rate_max_cents,rate_currency';
+const HYDRATE_ARTICLE_COLUMNS = 'id,status,slug,title,excerpt,countries,created_at,read_time_minutes';
+const HYDRATE_EVENT_COLUMNS = 'id,status,slug,title,short_description,start_date,end_date,city,country,event_format,is_free,registration_url';
 
 interface MemberRow {
-  profile_id: string; slug: string; headline: string | null; firm_name: string | null; city: string | null;
+  profile_id: string; status: string; slug: string; headline: string | null; firm_name: string | null; city: string | null;
   country: string; is_available: boolean; rate_min_cents: number | null; rate_max_cents: number | null; rate_currency: string;
 }
 interface MemberServiceNameRow {
@@ -402,9 +404,9 @@ interface MemberServiceNameRow {
   services: { name: string } | { name: string }[] | null;
 }
 interface ArticleRow {
-  id: string; slug: string; title: string; excerpt: string | null; countries: string[]; created_at: string; read_time_minutes: number;
+  id: string; status: string; slug: string; title: string; excerpt: string | null; countries: string[]; created_at: string; read_time_minutes: number;
 }
 interface EventRow {
-  id: string; slug: string; title: string; short_description: string | null; start_date: string; end_date: string | null;
+  id: string; status: string; slug: string; title: string; short_description: string | null; start_date: string; end_date: string | null;
   city: string | null; country: string | null; event_format: string | null; is_free: boolean; registration_url: string | null;
 }

@@ -226,15 +226,14 @@ export class ArticlesRepository {
     return updated as unknown as ArticleRow;
   }
 
-  async applyReview(id: string, patch: ArticleUpdate): Promise<ArticleRow> {
-    const { data: updated, error } = await this.articles()
-      .update(patch)
-      .eq('id', id)
-      .select(ARTICLE_COLUMNS.join(', '))
-      .single();
+  // Null when the article is no longer pending review, or (with expectedUpdatedAt) has changed.
+  async applyReview(id: string, patch: ArticleUpdate, expectedUpdatedAt?: string): Promise<ArticleRow | null> {
+    let query = this.articles().update(patch).eq('id', id).eq('status', 'pending_review');
+    if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
+    const { data: updated, error } = await query.select(ARTICLE_COLUMNS.join(', ')).maybeSingle();
 
-    if (error || !updated) throw new InternalServerErrorException('Failed to review article.');
-    return updated as unknown as ArticleRow;
+    if (error) throw new InternalServerErrorException('Failed to review article.');
+    return (updated as unknown as ArticleRow | null) ?? null;
   }
 
   async findForReview(status?: ArticleStatus): Promise<ArticleListRow[]> {

@@ -214,14 +214,27 @@ export class ApplicationsRepository {
     return saved as unknown as ApplicationRow;
   }
 
+  // Draft writes only land while the row is still a draft — a save racing a submit (or an admin
+  // decision) can't overwrite fields that were already validated and locked.
   async updateById(id: string, patch: Record<string, unknown>): Promise<ApplicationRow> {
+    return this.updateDraft(id, patch, 'Failed to save application.');
+  }
+
+  private async updateDraft(id: string, patch: Record<string, unknown>, failure: string): Promise<ApplicationRow> {
     const { data: saved, error } = await this.membershipApplications()
       .update(patch as MembershipApplicationUpdate)
       .eq('id', id)
+      .eq('status', 'draft')
       .select(APPLICATION_ROW_COLUMNS.join(', '))
-      .single();
+      .maybeSingle();
 
-    if (error || !saved) throw new InternalServerErrorException('Failed to save application.');
+    if (error) throw new InternalServerErrorException(failure);
+    if (!saved) {
+      throw new ConflictException({
+        code: 'APPLICATION_LOCKED',
+        message: 'This application was submitted or decided in the meantime — reload it.',
+      });
+    }
     return saved as unknown as ApplicationRow;
   }
 
@@ -339,6 +352,13 @@ export class ApplicationsRepository {
   // Reads the `picture` claim off the caller's linked LinkedIn OAuth identity, if any — via the
   // Admin API (service-role only), not a table select; Supabase stores identities on auth.users,
   // not in a public-schema table this client can query directly.
+  // Whether the account has a LinkedIn identity linked (Auth Admin API, like the picture below).
+  async hasLinkedInIdentity(userId: string): Promise<boolean> {
+    const { data, error } = await this.supabase.db.auth.admin.getUserById(userId);
+    if (error || !data.user) throw new InternalServerErrorException('Failed to check linked accounts.');
+    return (data.user.identities ?? []).some((i) => i.provider === 'linkedin_oidc');
+  }
+
   async findLinkedInPictureUrl(userId: string): Promise<string | null> {
     const { data, error } = await this.supabase.db.auth.admin.getUserById(userId);
     if (error || !data.user) return null;
@@ -385,14 +405,7 @@ export class ApplicationsRepository {
   }
 
   async saveUploadReference(id: string, patch: Record<string, unknown>): Promise<ApplicationRow> {
-    const { data: saved, error } = await this.membershipApplications()
-      .update(patch as MembershipApplicationUpdate)
-      .eq('id', id)
-      .select(APPLICATION_ROW_COLUMNS.join(', '))
-      .single();
-
-    if (error || !saved) throw new InternalServerErrorException('Failed to save upload reference.');
-    return saved as unknown as ApplicationRow;
+    return this.updateDraft(id, patch, 'Failed to save upload reference.');
   }
 
   // application-assets is a public bucket — this is a plain, permanent URL, not a signed one.

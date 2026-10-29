@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AdminAccessService } from '../auth/admin-access.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
@@ -216,6 +216,7 @@ export class ArticlesService {
       countries: row.countries,
       aiGenerationId: row.ai_generation_id,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 
@@ -235,10 +236,19 @@ export class ArticlesService {
       });
     }
 
-    const row = await this.articlesRepository.applyReview(id, {
-      status: dto.status,
-      rejection_reason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null,
-    });
+    // Conditional on the article still pending (and, when sent, unchanged since the reviewer
+    // loaded it) — an author can't swap the content, or withdraw it, between view and decision.
+    const row = await this.articlesRepository.applyReview(
+      id,
+      { status: dto.status, rejection_reason: dto.status === 'rejected' ? dto.rejectionReason!.trim() : null },
+      dto.expectedUpdatedAt
+    );
+    if (!row) {
+      throw new ConflictException({
+        code: 'ARTICLE_CHANGED_SINCE_REVIEW',
+        message: 'The article changed after you opened it — reload and review the current version.',
+      });
+    }
 
     this.generateSummaryIfNeeded(row);
     const [serviceDetails, authors] = await Promise.all([

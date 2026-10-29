@@ -188,6 +188,14 @@ export class ApplicationsService {
 
     if (dto.status === 'submitted') {
       this.assertComplete(merged);
+      // docs/auth.md Part 1b: a connected LinkedIn account is what verifies the applicant is the
+      // person in the profile — enforced here, not only by the wizard.
+      if (!(await this.applicationsRepository.hasLinkedInIdentity(user.id))) {
+        throw new BadRequestException({
+          code: 'LINKEDIN_NOT_CONNECTED',
+          message: 'Connect your LinkedIn account before submitting your application.',
+        });
+      }
 
       // assertComplete() above guarantees both are set (REQUIRED_TO_SUBMIT).
       const selectedTier = computeTier(merged.years_of_experience as number);
@@ -232,7 +240,15 @@ export class ApplicationsService {
     return this.toDto(data, serviceDetails);
   }
 
-  async importFromLinkedIn(linkedinUrl: string) {
+  // Applicants only (client accounts — same rule as saveOrSubmit): it's a paid scrape that returns
+  // a third party's profile data, not a general-purpose lookup.
+  async importFromLinkedIn(user: AuthenticatedUser, linkedinUrl: string) {
+    if (user.role !== 'client') {
+      throw new ForbiddenException({
+        code: 'APPLICATION_CLIENTS_ONLY',
+        message: 'Only client accounts can import a LinkedIn profile into an application.',
+      });
+    }
     return this.linkedInImportProvider.importProfile(linkedinUrl);
   }
 

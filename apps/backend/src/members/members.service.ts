@@ -156,9 +156,17 @@ export class MembersService {
 
   async findOneBySlug(slug: string, user: AuthenticatedUser): Promise<MemberDto> {
     const row = await this.membersRepository.findDetailBySlug(slug);
+    if (!row) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
 
-    if (!row || (row.status !== 'active' && row.profile_id !== user.id)) {
-      throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+    // Visible when both the listing and the account are live — a suspended/deleted account is
+    // hidden here too, as in the directory and search. The owner, and admins who manage
+    // members, still see it.
+    if (row.profile_id !== user.id) {
+      const account = (await this.membersRepository.findProfilesByIds([row.profile_id])).get(row.profile_id);
+      const listed = row.status === 'active' && account?.status === 'active' && !account.deleted_at;
+      if (!listed && !(await this.adminAccess.hasFreshPermission(user, 'manageMembers'))) {
+        throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+      }
     }
 
     return this.toDetailDto(row, user);

@@ -488,11 +488,16 @@ export class ResourcesService {
   // change by up to the token's lifetime. A download hands out the paid file itself, so the role
   // is re-confirmed from the database here (same posture as admin routes).
   async downloadTemplate(id: string, userId: string): Promise<TemplateDownloadDto> {
-    const profile = await this.profiles.findById(userId);
+    const [profile, memberStatus] = await Promise.all([
+      this.profiles.findById(userId),
+      this.repository.findMemberStatus(userId),
+    ]);
     if (
       !profile ||
       profile.status !== 'active' ||
-      (profile.role !== 'member' && profile.role !== 'admin')
+      (profile.role !== 'member' && profile.role !== 'admin') ||
+      // Fresh, like the role: a deactivated member can't keep minting paid-file links.
+      (profile.role === 'member' && memberStatus !== 'active')
     )
       throw new ForbiddenException({
         code: 'TEMPLATE_MEMBERS_ONLY',

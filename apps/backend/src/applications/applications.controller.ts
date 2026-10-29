@@ -35,8 +35,11 @@ export class ApplicationsController {
   // Fetches and normalizes LinkedIn profile data; does not save it.
   @RateLimit('linkedin-import', ...RATE_LIMITS.linkedinImport)
   @Post('me/linkedin-import')
-  importLinkedIn(@Body() dto: LinkedInImportRequestDto): Promise<LinkedInImportResponse> {
-    return this.applicationsService.importFromLinkedIn(dto.linkedinUrl);
+  importLinkedIn(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: LinkedInImportRequestDto
+  ): Promise<LinkedInImportResponse> {
+    return this.applicationsService.importFromLinkedIn(user, dto.linkedinUrl);
   }
 
   // Stateless price calculation — doesn't touch or require a draft application.
