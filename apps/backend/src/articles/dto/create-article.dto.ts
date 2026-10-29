@@ -1,5 +1,6 @@
 import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID, MaxLength } from 'class-validator';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
+import { MAX_ARTICLE_BODY_LENGTH } from '../word-count';
 
 const ARTICLE_STATUSES: ArticleStatus[] = ['draft', 'published'];
 const CREATION_MODES: ArticleCreationMode[] = ['manual', 'ai'];
@@ -13,9 +14,11 @@ export class CreateArticleDto {
   // Word count (800-2000) is enforced server-side; skipped for drafts.
   @IsString()
   @IsNotEmpty()
+  @MaxLength(MAX_ARTICLE_BODY_LENGTH)
   body!: string;
 
-  @IsUrl()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @MaxLength(2048)
   coverImageUrl!: string;
 
   @IsArray()

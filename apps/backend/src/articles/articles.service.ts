@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AdminAccessService } from '../auth/admin-access.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminArticleListItemDto,
@@ -46,7 +47,8 @@ export class ArticlesService {
   constructor(
     private readonly articlesRepository: ArticlesRepository,
     private readonly aiService: AiService,
-    private readonly aiDraftGenerationsRepository: AiDraftGenerationsRepository
+    private readonly aiDraftGenerationsRepository: AiDraftGenerationsRepository,
+    private readonly adminAccess: AdminAccessService
   ) { }
 
   // Resolves a submission to 'published' or 'pending_review' based on the review mode.
@@ -57,7 +59,11 @@ export class ArticlesService {
   async findOne(idOrSlug: string, user: AuthenticatedUser): Promise<ArticleDto> {
     const row = await this.articlesRepository.findByIdOrSlugOrThrow(idOrSlug);
 
-    if (row.status !== 'published' && row.author_id !== user.id && user.role !== 'admin') {
+    if (
+      row.status !== 'published' &&
+      row.author_id !== user.id &&
+      !(await this.adminAccess.hasFreshPermission(user, 'manageArticles'))
+    ) {
       throw new NotFoundException('Article not found.');
     }
 
@@ -135,9 +141,24 @@ export class ArticlesService {
 
   async update(id: string, user: AuthenticatedUser, dto: UpdateArticleDto): Promise<ArticleDto> {
     const existing = await this.articlesRepository.findByIdOrThrow(id);
-    this.assertOwnerOrAdmin(existing, user);
+    await this.assertCanModify(existing, user);
     const body = dto.body !== undefined ? sanitizeArticleBody(dto.body) : undefined;
-    const resultingStatus: ArticleStatus | undefined = dto.status === undefined ? undefined : dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
+    let resultingStatus: ArticleStatus | undefined =
+      dto.status === undefined ? undefined : dto.status === 'draft' ? 'draft' : this.resolveSubmitStatus();
+    // Editorial mode: an author editing the content of an already-published article sends it
+    // back for review — otherwise approval could be bypassed by publishing something harmless
+    // and editing it afterwards. (Admins editing someone else's article keep its status.)
+    const changesContent =
+      dto.title !== undefined || dto.body !== undefined || dto.coverImageUrl !== undefined || dto.serviceIds !== undefined;
+    if (
+      resultingStatus === undefined &&
+      existing.status === 'published' &&
+      this.reviewMode === 'editorial' &&
+      existing.author_id === user.id &&
+      changesContent
+    ) {
+      resultingStatus = 'pending_review';
+    }
     const effectiveStatus = resultingStatus ?? existing.status;
     if (effectiveStatus !== 'draft') assertWordCount(body ?? existing.body);
     if (dto.serviceIds !== undefined) {
@@ -223,7 +244,7 @@ export class ArticlesService {
 
   async remove(id: string, user: AuthenticatedUser): Promise<void> {
     const existing = await this.articlesRepository.findByIdOrThrow(id);
-    this.assertOwnerOrAdmin(existing, user);
+    await this.assertCanModify(existing, user);
     await this.articlesRepository.deleteById(id);
   }
 
@@ -266,10 +287,11 @@ export class ArticlesService {
     return generationId;
   }
 
-  private assertOwnerOrAdmin(row: ArticleRow, user: AuthenticatedUser): void {
-    if (row.author_id !== user.id && user.role !== 'admin') {
-      throw new ForbiddenException('You can only modify your own articles.');
-    }
+  // The author, or an admin with manageArticles confirmed fresh from the DB (not the JWT claim).
+  private async assertCanModify(row: ArticleRow, user: AuthenticatedUser): Promise<void> {
+    if (row.author_id === user.id) return;
+    if (await this.adminAccess.hasFreshPermission(user, 'manageArticles')) return;
+    throw new ForbiddenException({ code: 'ARTICLE_NOT_OWNER', message: 'You can only modify your own articles.' });
   }
 
   private async assertActiveServiceIds(ids: string[], customLabels?: Record<string, string>): Promise<void> {

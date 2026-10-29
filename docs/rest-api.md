@@ -22,11 +22,53 @@ not a replacement for it (this file is the *design* contract, decided before imp
 Swagger just reflects whatever's actually implemented right now, which can drift from this file if
 they aren't both updated together).
 
-**Deliberately left open in every environment for now**, including once deployed — see the comment
-on `SwaggerModule.setup()` in `apps/backend/src/main.ts`. It doesn't expose real data (only route
-names and DTO shapes), but it does hand a full map of the backend's routes to anyone with the URL.
-**Future improvement**: gate it to non-production only (`process.env.NODE_ENV !== 'production'`)
-once that tradeoff is worth revisiting — not done yet, a deliberate deferral, not an oversight.
+**Off in production** (since 2026-10-29): served only when `NODE_ENV !== 'production'`, or when
+`SWAGGER_ENABLED=true` is set explicitly — it hands a full map of every route, admin ones included,
+to anyone with the URL.
+
+## Errors
+
+Every error response — validation, auth, rate limit, not found, unexpected — has one shape, produced
+by the global `HttpExceptionFilter` (`apps/backend/src/common/http-exception.filter.ts`):
+
+```json
+{ "statusCode": 409, "code": "CONSULTATION_PENDING_EXISTS", "message": "…" }
+```
+
+- `code` is stable and machine-readable — clients branch on it, never on `message`. Endpoint-
+  specific codes are listed under each endpoint; anything without one gets the status default:
+  `BAD_REQUEST`, `VALIDATION_FAILED` (DTO validation — `message` is then an array of strings),
+  `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`,
+  `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`.
+- `429` responses also carry `retryAfterSeconds`.
+- A `5xx` never includes a database or provider message (it's logged server-side instead).
+
+Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_INVALID`;
+`403 ACCOUNT_SUSPENDED` (the token's `app_status` claim isn't `active`); `403 ROLE_REQUIRED`;
+`403 MEMBER_DEACTIVATED` (member-only route, the caller's member profile is deactivated);
+`403 ADMIN_NOT_CONFIRMED` (admin route, fresh `profiles` check failed).
+
+## Rate limits
+
+Every authenticated route is rate-limited **per user** (`RateLimitGuard`,
+`apps/backend/src/common/rate-limit/`) → `429 RATE_LIMITED` with `retryAfterSeconds`. Default: 300
+requests/minute. Tighter, shared buckets on the expensive or abusable routes:
+
+| Bucket | Routes | Limits |
+|---|---|---|
+| `ai-draft` | `POST /v1/articles/ai-draft` | 3/min, 20/hour, 50/day |
+| `ai` | `ai-refine`, `ai-followup-questions`, `suggest-topics` | 10/min, 60/hour, 200/day |
+| `linkedin-import` | `POST /v1/applications/me/linkedin-import` | 5/hour, 10/day |
+| `cover-images` | `GET /v1/articles/cover-images` | 20/min, 200/hour |
+| `coupon` | `POST /v1/applications/me/coupon-preview` | 10/min, 30/hour |
+| `upload` | application uploads + LinkedIn photo, `POST /v1/members/:id/uploads` | 20/min, 200/day |
+| `write` | create article, member edit, consultation + message, recommendation | 20/min, 300/day |
+
+`POST /v1/search` additionally keeps its own limits (see "AI search"). Counters are in memory, i.e.
+per API instance. Anonymous (`🌐 Public`) requests aren't counted: public pages are server-rendered
+by the Next.js app, so all signed-out traffic reaches the API from one server IP — public endpoints
+rely on capped page sizes, Next's data cache and the reverse proxy's edge rate limit instead
+(`docs/deployment.md`).
 
 ## Membership applications
 
@@ -366,7 +408,7 @@ summarizeArticle`) the first time an article transitions to `status: 'published'
 and never awaited by the publish/approve request, so it never blocks or fails that response; on
 an AI failure the field is just left `null` and the error is logged, no retry. Uses the same
 `AI_PROVIDER`/`AI_MODEL` config as `POST /v1/articles/ai-draft`. Not regenerated on later edits to
-an already-published article. Seed data (`supabase/migrations/0007_dev_seed_articles.sql`) still
+an already-published article. Seed data (`supabase/seed/dev/03_articles.sql`) still
 pre-populates it for dev fixtures so the callout has something to show without waiting on a real
 model call. Additive, no version bump.
 
@@ -1383,13 +1425,13 @@ the way out.
 **Errors:** `400` (validation, query length, missing `logId`/`rating` for feedback), `401` (not
 signed in), `429`.
 
-**Rate limits** — `429` with body `{ statusCode: 429, error, message, retryAfterSeconds: 30 }`:
+**Rate limits** — `429` with body `{ statusCode: 429, code: 'RATE_LIMITED', message, retryAfterSeconds: 30 }`:
 
 - questions: **10 per minute and 100 per hour** per user;
 - `action: 'feedback'`: its own, looser **30 per minute** (separate counter).
 
 Counts are kept in memory, so they are **per API instance** (a second API instance has its own
-counters). Keyed by user id (IP only as a fallback).
+counters). Keyed by user id.
 
 **Latency:** several seconds is normal — it is two sequential AI calls plus the database. Measured
 on dev (5 sequential questions, 40 documents): median ≈ 7.4 s, worst ≈ 15.5 s end-to-end; planner
@@ -1411,7 +1453,7 @@ consumed it yet, so there is no compatibility shim):
 | article `published_at`, `read_time_minutes` | `publishedAt`, `readTimeMinutes` |
 | event `starts_at`, `ends_at`, `is_free`, `registration_url` | `startsAt`, `endsAt`, `isFree`, `registrationUrl` |
 | `applied.service_ids`, `date_from`, `date_to`, `max_hourly_rate_usd` | `applied.serviceIds`, `dateFrom`, `dateTo`, `maxHourlyRateUsd` |
-| error body `{ error }` only | `{ statusCode, error, message }` (+ `retryAfterSeconds` on 429) |
+| error body `{ error }` only | `{ statusCode, code, message }` (+ `retryAfterSeconds` on 429) — see "Errors" |
 | `search_query_log.applied` (stored snake_case) | stored camelCase from now on; older rows keep the old keys |
 
 Operational command (in `apps/backend`): `pnpm worker` (the background worker, locally).

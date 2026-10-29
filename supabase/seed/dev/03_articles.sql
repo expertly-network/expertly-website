@@ -3,17 +3,17 @@
 -- GET /v1/articles/:id, and the homepage's Latest Articles / member profile Articles tab
 -- against real data.
 --
--- Same status as 0005_dev_seed_members.sql / 0006_dev_seed_events.sql: not part of the
+-- Same status as 01_members.sql / 02_events.sql: not part of the
 -- pre-production single-schema convention (supabase/migrations/README.md) — a deliberate
 -- one-off exception, apply/tear down manually, never against production.
 --
 -- Content is genuinely written per article (not the design prototype's generic filler body —
--- see docs/database-erd.md's "Design decisions" note on why), one topic per real practice_areas
+-- see docs/database-erd.md's "Design decisions" note on why), one topic per real services
 -- row, each attributed to a seeded member (0005) whose own practiceAreas/country genuinely match
 -- the article's subject and byline location. `slug` is hand-computed here the same way
 -- ArticlesService.generateUniqueSlug() would (kebab-case title, no collisions in this set).
 --
--- Apply: `psql "$DATABASE_URL" -f supabase/migrations/0007_dev_seed_articles.sql`
+-- Apply: `psql "$DATABASE_URL" -f supabase/seed/dev/03_articles.sql`
 -- Idempotent: re-running is safe — `on conflict (slug) do nothing`.
 -- ============================================================================
 
@@ -23,7 +23,7 @@
 -- there is no real LLM call behind it (see docs/rest-api.md's "not built yet" note).
 insert into public.articles (
   slug, author_id, status, title, body, excerpt, read_time_minutes, cover_image_url,
-  practice_area_ids, countries, created_at, updated_at, ai_summary
+  service_ids, countries, created_at, updated_at, ai_summary
 )
 select
   v.slug,
@@ -34,7 +34,7 @@ select
   v.excerpt,
   v.read_time_minutes,
   v.cover_image_url,
-  (select array_agg(pa.id) from public.practice_areas pa where pa.name = any(v.practice_area_names)),
+  (select coalesce(array_agg(pa.id), '{}') from public.services pa where pa.name = any(v.service_names) and not pa.is_custom),
   array[v.country],
   v.created_at,
   v.created_at,
@@ -57,7 +57,7 @@ from (values
  'Digital services have outgrown the indirect tax frameworks most jurisdictions built for goods, and the disputes we see are rarely about whether tax is owed — it is about where.',
  3,
  'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1200&q=70',
- array['Indirect Tax'],
+ array['GST / VAT / Sales Tax advisory'],
  'Singapore',
  timestamptz '2026-08-20 09:00:00+00',
  $s1$Digital services now trigger indirect tax obligations in multiple jurisdictions simultaneously — the real dispute is where liability lands, not whether tax is owed.
@@ -78,7 +78,7 @@ Treat compliance as an ongoing operational function with clear ownership, not a 
  'Regulatory regimes now move faster than deal timelines, and a clean diligence report at signing is no longer a guarantee of a clean close.',
  4,
  'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=70',
- array['M&A Tax', 'Dispute Resolution'],
+ array['M&A / Transaction Tax', 'Litigation: General Commercial'],
  'Germany',
  timestamptz '2026-08-10 09:00:00+00',
  $s2$Regulatory regimes now move faster than deal timelines, so a clean diligence report at signing no longer guarantees a clean close.
@@ -102,7 +102,7 @@ Data room indexing discipline is now a liability control — a document buried t
  'The legal work that determines whether a merger actually creates value happens after closing, during integration — and it is routinely under-resourced.',
  3,
  'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=70',
- array['Corporate Law', 'Restructuring'],
+ array['Corporate Laws', 'Restructuring/Insolvency'],
  'United Kingdom',
  timestamptz '2026-07-28 09:00:00+00',
  $s3$The legal work that determines whether a merger actually creates value happens during integration, not at signing or closing.
@@ -127,7 +127,7 @@ Document decision rights, signing authority, and reporting lines explicitly befo
  'The documentation that survives an audit is written for a specific, skeptical reader — and that is not the same document most groups actually produce.',
  3,
  'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=70',
- array['Transfer Pricing'],
+ array['Transfer pricing'],
  'India',
  timestamptz '2026-07-15 09:00:00+00',
  $s4$Documentation that merely satisfies filing requirements often fails real audit scrutiny — auditors cross-reference it against customs filings, VAT returns, even job postings.
@@ -151,7 +151,7 @@ Pillar Two now interacts directly with transfer pricing outcomes, so documentati
  'Licensing agreements written even three years ago rarely anticipated that content might end up training a model rather than being used directly — that gap is now the most contested clause in the room.',
  3,
  'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=70',
- array['IP & Technology'],
+ array['Intellectual property (IP) Laws'],
  'United Arab Emirates',
  timestamptz '2026-07-02 09:00:00+00',
  $s5$Legacy licenses rarely anticipated licensed content training a model rather than being used directly — this is now the most contested clause in tech licensing.
@@ -223,7 +223,7 @@ Dual-track processes and more aggressive earnout structures are becoming standar
  'Cross-border insolvencies rarely fail because of one bad decision — they fail when a plan built around one jurisdiction runs into another jurisdiction''s creditor priority rules midway through.',
  4,
  'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=70',
- array['Restructuring', 'Corporate Law'],
+ array['Restructuring/Insolvency', 'Corporate Laws'],
  'South Africa',
  timestamptz '2026-05-22 09:00:00+00',
  $s8$Cross-border insolvencies fail when a plan built around one jurisdiction's assumptions collides with another jurisdiction's creditor priority rules mid-implementation.
@@ -247,14 +247,14 @@ Map creditor priority under every relevant jurisdiction's law before finalising 
  'The technical disclosure requirement is rarely the hard part — the internal data-collection workflow fast enough to actually meet the deadline is where most issuers are losing time.',
  3,
  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=70',
- array['Capital Markets', 'Compliance'],
+ array['Capital Markets', 'Regulatory Compliance Audit'],
  'Japan',
  timestamptz '2026-05-08 09:00:00+00',
  $s9$Expanded disclosure requirements are straining compliance less on understanding what to disclose and more on building the process to actually produce it on schedule.
 Assign clear ownership for each new disclosure category to a specific internal function, with a full quarter of buffer before the first mandatory filing.
 Early enforcement has focused on inconsistency between regulatory filings and investor-facing materials — align legal, investor relations, and data owners in one review cycle.$s9$)
 
-) as v(slug, author_name, title, body, excerpt, read_time_minutes, cover_image_url, practice_area_names, country, created_at, ai_summary)
+) as v(slug, author_name, title, body, excerpt, read_time_minutes, cover_image_url, service_names, country, created_at, ai_summary)
 join public.profiles p on p.first_name || ' ' || p.last_name = v.author_name
 on conflict (slug) do nothing;
 

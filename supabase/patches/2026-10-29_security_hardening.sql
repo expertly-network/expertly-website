@@ -48,4 +48,53 @@ update storage.buckets
                                   'application/vnd.openxmlformats-officedocument.presentationml.presentation']
  where id = 'template-files';
 
+-- ---- Token claims: account + member status (custom_access_token_hook) ---------------------
+
+create or replace function public.custom_access_token_hook(event jsonb)
+returns jsonb
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  claims jsonb;
+  user_role text;
+  user_status text;
+  member_status text;
+begin
+  select p.role::text, p.status::text, mp.status::text
+    into user_role, user_status, member_status
+    from public.profiles p
+    left join public.member_profiles mp on mp.profile_id = p.id
+   where p.id = (event ->> 'user_id')::uuid;
+  claims := coalesce(event -> 'claims', '{}'::jsonb);
+  claims := jsonb_set(claims, '{app_role}', to_jsonb(coalesce(user_role, 'client')));
+  claims := jsonb_set(claims, '{app_status}', to_jsonb(coalesce(user_status, 'active')));
+  claims := jsonb_set(claims, '{app_member_status}', coalesce(to_jsonb(member_status), 'null'::jsonb));
+  event := jsonb_set(event, '{claims}', claims);
+  return event;
+end;
+$$;
+
+grant execute on function public.custom_access_token_hook to supabase_auth_admin;
+grant select (profile_id, status) on table public.member_profiles to supabase_auth_admin;
+drop policy if exists member_profiles_select_auth_admin on public.member_profiles;
+create policy member_profiles_select_auth_admin
+  on public.member_profiles for select
+  to supabase_auth_admin
+  using (true);
+
+-- ---- Least privilege for the browser key (anon / authenticated) ---------------------------
+-- The frontend reads only its own profiles row directly; everything else goes through NestJS.
+
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+revoke execute on all functions in schema public from public, anon, authenticated;
+
+grant select on table public.profiles to authenticated;
+
+alter default privileges in schema public revoke all on tables from anon, authenticated;
+alter default privileges in schema public revoke all on sequences from anon, authenticated;
+alter default privileges in schema public revoke execute on functions from public, anon, authenticated;
+
 commit;

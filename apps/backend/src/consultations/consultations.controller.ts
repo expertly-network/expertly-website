@@ -6,6 +6,7 @@ import { ConsultationsService } from './consultations.service';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 import { CreateConsultationMessageDto } from './dto/create-consultation-message.dto';
 import { UpdateConsultationDto } from './dto/update-consultation.dto';
+import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
 
 // 🔑 Auth on create; 🔒 Owner on the rest — ownership/role checks live in ConsultationsService,
 // not here.
@@ -13,6 +14,7 @@ import { UpdateConsultationDto } from './dto/update-consultation.dto';
 export class ConsultationsController {
   constructor(private readonly service: ConsultationsService) {}
 
+  @RateLimit('write', ...RATE_LIMITS.write)
   @Post()
   create(
     @CurrentUser() user: AuthenticatedUser,
@@ -64,6 +66,7 @@ export class ConsultationsController {
     return this.service.listMessages(id, user);
   }
 
+  @RateLimit('write', ...RATE_LIMITS.write)
   @Post(':id/messages')
   postMessage(
     @Param('id', ParseUUIDPipe) id: string,

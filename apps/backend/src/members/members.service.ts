@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { AdminAccessService } from '../auth/admin-access.service';
 import {
   BadRequestException,
   ConflictException,
@@ -109,7 +110,10 @@ const RENEWAL_REMINDER_DAYS = 30;
 export class MembersService {
   private readonly logger = new Logger(MembersService.name);
 
-  constructor(private readonly membersRepository: MembersRepository) {}
+  constructor(
+    private readonly membersRepository: MembersRepository,
+    private readonly adminAccess: AdminAccessService
+  ) {}
 
   async list(query: {
     q?: string;
@@ -178,12 +182,13 @@ export class MembersService {
   // Full profile shape for GET :slug and PATCH :id. Private proof (and client emails) only for the
   // owning member and admins.
   private async toDetailDto(row: MemberProfileDetailRow, user: AuthenticatedUser): Promise<MemberDto> {
-    const [profilesById, servicesByMember] = await Promise.all([
+    const [profilesById, servicesByMember, isMemberAdmin] = await Promise.all([
       this.membersRepository.findProfilesByIds([row.profile_id]),
       this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
+      row.profile_id === user.id ? Promise.resolve(false) : this.adminAccess.hasFreshPermission(user, 'manageMembers'),
     ]);
 
-    const includeProof = row.profile_id === user.id || user.role === 'admin';
+    const includeProof = row.profile_id === user.id || isMemberAdmin;
 
     return {
       ...this.toListDto(row, profilesById, servicesByMember),

@@ -1,8 +1,9 @@
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsUUID } from 'class-validator';
 
 export class SuggestTopicsDto {
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMaxSize(10)
+  @IsUUID('all', { each: true })
   serviceIds?: string[];
 }

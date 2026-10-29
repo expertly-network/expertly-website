@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -23,13 +24,19 @@ export class SupabaseAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = extractBearerToken(request.headers.authorization);
     if (!token) {
-      throw new UnauthorizedException('Missing bearer token.');
+      throw new UnauthorizedException({ code: 'SESSION_MISSING', message: 'Missing bearer token.' });
     }
 
     try {
       request.user = await verifySupabaseToken(token);
     } catch {
-      throw new UnauthorizedException('Invalid or expired session.');
+      throw new UnauthorizedException({ code: 'SESSION_INVALID', message: 'Invalid or expired session.' });
+    }
+
+    // Suspended/deleted accounts lose every authenticated route (claim-based, so it applies from
+    // the user's next token refresh; admin routes re-check profiles.status fresh anyway).
+    if (request.user.status !== 'active') {
+      throw new ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'This account is not active.' });
     }
 
     return true;

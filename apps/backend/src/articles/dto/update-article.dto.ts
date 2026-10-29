@@ -1,5 +1,6 @@
 import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID, MaxLength } from 'class-validator';
 import type { ArticleStatus } from '@shared/article';
+import { MAX_ARTICLE_BODY_LENGTH } from '../word-count';
 
 const ARTICLE_STATUSES: ArticleStatus[] = ['draft', 'published'];
 
@@ -13,10 +14,12 @@ export class UpdateArticleDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(MAX_ARTICLE_BODY_LENGTH)
   body?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @MaxLength(2048)
   coverImageUrl?: string;
 
   @IsOptional()

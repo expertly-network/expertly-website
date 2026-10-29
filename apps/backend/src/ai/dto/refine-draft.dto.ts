@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { MAX_ARTICLE_BODY_LENGTH } from '../../articles/word-count';
 
 export class RefineDraftDto {
   @IsString()
@@ -8,6 +9,7 @@ export class RefineDraftDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(MAX_ARTICLE_BODY_LENGTH)
   body!: string;
 
   @IsString()

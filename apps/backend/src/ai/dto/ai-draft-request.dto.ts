@@ -45,7 +45,8 @@ export class AiDraftRequestDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(5)
-  @IsUrl({}, { each: true })
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true }, { each: true })
+  @MaxLength(2048, { each: true })
   sourceLinks?: string[];
 
   @IsOptional()

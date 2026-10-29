@@ -8,6 +8,7 @@ import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
 
 function toArray(value?: string | string[]): string[] | undefined {
   if (value === undefined) return undefined;
@@ -60,6 +61,7 @@ export class MembersController {
   }
 
   @Roles('member')
+  @RateLimit('upload', ...RATE_LIMITS.upload)
   @Post(':id/uploads')
   requestUpload(
     @Param('id') id: string,
@@ -70,6 +72,7 @@ export class MembersController {
   }
 
   @Roles('member')
+  @RateLimit('write', ...RATE_LIMITS.write)
   @Post(':id/edits')
   createEdit(
     @Param('id') id: string,

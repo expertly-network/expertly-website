@@ -10,6 +10,7 @@ import { UpdateApplicationDto } from './dto/update-application.dto';
 import { LinkedInImportRequestDto, LinkedInPhotoImportRequestDto } from './dto/linkedin-import-request.dto';
 import { UploadApplicationFileDto } from './dto/upload-application-file.dto';
 import { CouponPreviewDto } from './dto/coupon-preview.dto';
+import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
 
 // 🔒 Auth — every route requires authentication; role is further restricted to 'client' in the service.
 @Controller('applications')
@@ -32,12 +33,14 @@ export class ApplicationsController {
   }
 
   // Fetches and normalizes LinkedIn profile data; does not save it.
+  @RateLimit('linkedin-import', ...RATE_LIMITS.linkedinImport)
   @Post('me/linkedin-import')
   importLinkedIn(@Body() dto: LinkedInImportRequestDto): Promise<LinkedInImportResponse> {
     return this.applicationsService.importFromLinkedIn(dto.linkedinUrl);
   }
 
   // Stateless price calculation — doesn't touch or require a draft application.
+  @RateLimit('coupon', ...RATE_LIMITS.coupon)
   @Post('me/coupon-preview')
   previewCoupon(@Body() dto: CouponPreviewDto): CouponPreviewResponse {
     return this.applicationsService.previewCoupon(dto);
@@ -45,6 +48,7 @@ export class ApplicationsController {
 
   // 🔒 any signed-in user — imports a LinkedIn profile photo into the caller's own draft:
   // `sourceUrl` (media.licdn.com only, from the LinkedIn import) or the linked identity's picture.
+  @RateLimit('upload', ...RATE_LIMITS.upload)
   @Post('me/photo/linkedin')
   importLinkedInPhoto(
     @CurrentUser() user: AuthenticatedUser,
@@ -54,6 +58,7 @@ export class ApplicationsController {
   }
 
   // Uploads a photo or document file for the caller's draft application.
+  @RateLimit('upload', ...RATE_LIMITS.upload)
   @Post('me/uploads')
   async uploadFile(@CurrentUser() user: AuthenticatedUser, @Req() request: FastifyRequest): Promise<ApplicationDto> {
     const part = await request.file();

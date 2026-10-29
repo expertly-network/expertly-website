@@ -26,6 +26,7 @@ import { SuggestTopicsDto } from '../ai/dto/suggest-topics.dto';
 import { prepareSourceFile, type PreparedSourceFile } from '../ai/prepare-source-file';
 import { UnsplashService } from '../ai/unsplash.service';
 import { CategoriesService } from '../categories/categories.service';
+import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
 
 const RANDOM_SERVICE_SAMPLE_SIZE = 3;
 
@@ -109,6 +110,7 @@ export class ArticlesController {
   }
 
   @Roles('member')
+  @RateLimit('cover-images', ...RATE_LIMITS.coverImages)
   @Get('cover-images')
   async coverImages(@Query('query') query?: string): Promise<CoverImageSuggestionsResponse> {
     const images = await this.unsplashService.search(query?.trim() || DEFAULT_COVER_IMAGE_QUERY);
@@ -117,6 +119,7 @@ export class ArticlesController {
 
   // 🔒 member — analyzes the wizard's step-1 brief and returns 0-10 follow-up questions.
   @Roles('member')
+  @RateLimit('ai', ...RATE_LIMITS.ai)
   @Post('ai-followup-questions')
   async aiFollowUpQuestions(@Body() dto: AiFollowUpQuestionsDto): Promise<AiFollowUpQuestionsResponse> {
     const questions = await this.aiService.generateFollowUpQuestions(dto);
@@ -124,6 +127,7 @@ export class ArticlesController {
   }
 
   @Roles('member')
+  @RateLimit('ai-draft', ...RATE_LIMITS.aiDraft)
   @Post('ai-draft')
   async aiDraft(
     @Req() request: FastifyRequest,
@@ -162,6 +166,7 @@ export class ArticlesController {
 
   // 🔒 member — revises the current draft based on requested changes.
   @Roles('member')
+  @RateLimit('ai', ...RATE_LIMITS.ai)
   @Post('ai-refine')
   aiRefine(@Body() dto: RefineDraftDto): Promise<AiDraftArticleResponse> {
     return this.aiService.refineDraft(dto);
@@ -169,6 +174,7 @@ export class ArticlesController {
 
   // 🔒 member — suggests article title ideas, sampling active services if none are selected.
   @Roles('member')
+  @RateLimit('ai', ...RATE_LIMITS.ai)
   @Post('suggest-topics')
   async suggestTopics(@Body() dto: SuggestTopicsDto): Promise<SuggestTopicsResponse> {
     const names = dto.serviceIds?.length
@@ -187,6 +193,7 @@ export class ArticlesController {
   }
 
   @Roles('member')
+  @RateLimit('write', ...RATE_LIMITS.write)
   @Post()
   create(
     @CurrentUser() user: AuthenticatedUser,

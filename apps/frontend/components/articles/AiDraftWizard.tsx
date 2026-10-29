@@ -14,6 +14,9 @@ import type { CategoryDto } from '@shared/category';
 
 type SubStep = 1 | 2 | 3;
 
+// Matches the API's per-request multipart file cap (apps/backend/src/common/upload-limits.ts).
+const MAX_SOURCE_FILES = 5;
+
 const TONES = ['Practical & accessible', 'Formal & technical', 'Concise briefing', 'Casual & conversational'];
 
 const AI_ICON = (
@@ -82,6 +85,10 @@ export function AiDraftWizard({
   const [tone, setTone] = useState(TONES[0]);
   const [extraInstructions, setExtraInstructions] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  // The API accepts at most MAX_SOURCE_FILES per draft request; extra picks are dropped.
+  function addFiles(picked: File[]) {
+    setFiles((prev) => [...prev, ...picked].slice(0, MAX_SOURCE_FILES));
+  }
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
@@ -447,7 +454,7 @@ export function AiDraftWizard({
                   <span className="text-sm font-medium text-ink-2">
                     Drag &amp; drop documents, or <span className="text-accent underline">browse</span>
                   </span>
-                  <span className="mt-1 text-[11.5px] text-ink-4">Circulars, notes, judgments, decks — PDF, DOCX, TXT</span>
+                  <span className="mt-1 text-[11.5px] text-ink-4">Circulars, notes, judgments, decks — PDF, DOCX, TXT · up to {MAX_SOURCE_FILES} files</span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -455,7 +462,7 @@ export function AiDraftWizard({
                   accept=".doc,.docx,.pdf,.txt"
                   multiple
                   hidden
-                  onChange={(e) => setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])}
+                  onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
                 />
                 {files.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-2">

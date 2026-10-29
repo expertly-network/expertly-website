@@ -10,7 +10,7 @@
 -- a production database.
 --
 -- Apply: paste into the Supabase SQL Editor (or `psql "$DATABASE_URL" -f
--- supabase/migrations/0005_dev_seed_members.sql`) against your dev project.
+-- supabase/seed/dev/01_members.sql`) against your dev project.
 --
 -- What this does:
 --   1. Inserts 50 rows into auth.users — minimal, non-loginable fakes (no
@@ -23,7 +23,7 @@
 --      profiles to role='client').
 --   4. Inserts the matching member_profiles row (headline, bio, location,
 --      rate, tier, and the 8 jsonb content sections) for each.
---   5. Links each member to 2 real practice_areas rows via member_services.
+--   5. Links each member to 2 real services rows via member_services.
 --
 -- Every seeded auth.users row carries raw_user_meta_data->>'seed' =
 -- 'expertly_dev_members' and a @expertlyseed.test email — both make the
@@ -85,8 +85,8 @@ locations as (
 practices as (
   select
     n,
-    (array['M&A Tax','Transfer Pricing','Indirect Tax','Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Capital Markets','Private Equity','Restructuring','Compliance','Antitrust'])[((n - 1) % 12) + 1] as primary_practice,
-    (array['M&A Tax','Transfer Pricing','Indirect Tax','Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Capital Markets','Private Equity','Restructuring','Compliance','Antitrust'])[((n + 5) % 12) + 1] as secondary_practice
+    (array['M&A / Transaction Tax','Transfer pricing','GST / VAT / Sales Tax advisory','Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Capital Markets','Private Equity','Restructuring/Insolvency','Regulatory Compliance Audit','Antitrust'])[((n - 1) % 12) + 1] as primary_practice,
+    (array['M&A / Transaction Tax','Transfer pricing','GST / VAT / Sales Tax advisory','Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Capital Markets','Private Equity','Restructuring/Insolvency','Regulatory Compliance Audit','Antitrust'])[((n + 5) % 12) + 1] as secondary_practice
   from numbers
 ),
 profile_bits as materialized (
@@ -203,8 +203,8 @@ locations as (
 practices as (
   select
     n,
-    (array['M&A Tax','Transfer Pricing','Indirect Tax','Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Capital Markets','Private Equity','Restructuring','Compliance','Antitrust'])[((n - 1) % 12) + 1] as primary_practice,
-    (array['M&A Tax','Transfer Pricing','Indirect Tax','Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Capital Markets','Private Equity','Restructuring','Compliance','Antitrust'])[((n + 5) % 12) + 1] as secondary_practice
+    (array['M&A / Transaction Tax','Transfer pricing','GST / VAT / Sales Tax advisory','Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Capital Markets','Private Equity','Restructuring/Insolvency','Regulatory Compliance Audit','Antitrust'])[((n - 1) % 12) + 1] as primary_practice,
+    (array['M&A / Transaction Tax','Transfer pricing','GST / VAT / Sales Tax advisory','Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Capital Markets','Private Equity','Restructuring/Insolvency','Regulatory Compliance Audit','Antitrust'])[((n + 5) % 12) + 1] as secondary_practice
   from numbers
 ),
 universities as (
@@ -322,7 +322,7 @@ select
   )),
   jsonb_build_array(jsonb_build_object(
     'id', gen_random_uuid()::text,
-    'degree', case when primary_practice in ('Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Antitrust') then 'LLB' else 'MBA, Finance' end,
+    'degree', case when primary_practice in ('Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Antitrust') then 'LLB' else 'MBA, Finance' end,
     'institution', university,
     'field', primary_practice,
     'endYear', 2024 - years_of_experience - 2
@@ -361,8 +361,8 @@ select
 from profile_bits;
 
 -- ============================================================================
--- member_services — 2 practice areas per member, by name (portable across environments;
--- practice_areas.id is gen_random_uuid()-generated, never hardcoded).
+-- member_services — 2 services per member, by name (portable across environments;
+-- services.id is gen_random_uuid()-generated, never hardcoded).
 -- ============================================================================
 
 with
@@ -372,8 +372,8 @@ numbers as (
 practices as (
   select
     n,
-    (array['M&A Tax','Transfer Pricing','Indirect Tax','Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Capital Markets','Private Equity','Restructuring','Compliance','Antitrust'])[((n - 1) % 12) + 1] as primary_practice,
-    (array['M&A Tax','Transfer Pricing','Indirect Tax','Corporate Law','IP & Technology','Banking & Finance','Dispute Resolution','Capital Markets','Private Equity','Restructuring','Compliance','Antitrust'])[((n + 5) % 12) + 1] as secondary_practice
+    (array['M&A / Transaction Tax','Transfer pricing','GST / VAT / Sales Tax advisory','Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Capital Markets','Private Equity','Restructuring/Insolvency','Regulatory Compliance Audit','Antitrust'])[((n - 1) % 12) + 1] as primary_practice,
+    (array['M&A / Transaction Tax','Transfer pricing','GST / VAT / Sales Tax advisory','Corporate Laws','Intellectual property (IP) Laws','Banking & Finance','Litigation: General Commercial','Capital Markets','Private Equity','Restructuring/Insolvency','Regulatory Compliance Audit','Antitrust'])[((n + 5) % 12) + 1] as secondary_practice
   from numbers
 ),
 member_ids as (
@@ -381,11 +381,11 @@ member_ids as (
   from numbers n
   join auth.users u on u.email = 'member' || n.n || '@expertlyseed.test'
 )
-insert into public.member_services (member_id, practice_area_id)
+insert into public.member_services (member_id, service_id)
 select m.profile_id, pa.id
 from member_ids m
 join practices p using (n)
-join public.practice_areas pa on pa.name in (p.primary_practice, p.secondary_practice)
+join public.services pa on pa.name in (p.primary_practice, p.secondary_practice) and not pa.is_custom
 on conflict do nothing;
 
 commit;

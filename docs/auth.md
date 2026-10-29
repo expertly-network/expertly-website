@@ -205,9 +205,14 @@ asking anyone else.
    signup, the OIDC standard `given_name`/`family_name` for LinkedIn).
 4. **The Custom Access Token Hook stamps your role onto the JWT.** Every time Supabase mints or
    refreshes a token for you, `custom_access_token_hook` (same file) runs *inside Postgres* and
-   copies `profiles.role` into the token as a custom `app_role` claim. This is what lets the
-   frontend/backend read your role without a DB query later — see "Known issue we hit" below for a
-   real bug in this exact step.
+   copies `profiles.role` into the token as a custom `app_role` claim — plus (2026-10-29)
+   `app_status` (`profiles.status`) and `app_member_status` (`member_profiles.status`, null for
+   non-members). This is what lets the frontend/backend read your role without a DB query later —
+   see "Known issue we hit" below for a real bug in this exact step. `SupabaseAuthGuard` rejects a
+   token whose `app_status` isn't `active` (`403 ACCOUNT_SUSPENDED`), and `RolesGuard` refuses
+   member-only routes to a deactivated member (`403 MEMBER_DEACTIVATED`). Like the role, these
+   apply from the user's next token refresh (≤ JWT expiry, 1h by default); admin routes and
+   admin-only service decisions (`AdminAccessService`) re-read `profiles` fresh every time.
 5. **`@supabase/ssr` writes the session into cookies**, via `apps/frontend/lib/supabase/{client,server,middleware}.ts`.
 6. **Consent handling for OAuth** (`app/auth/callback/route.ts`'s `isNewlyCreatedAccount()`): since
    Supabase creates the account as an unavoidable side effect of the LinkedIn handshake, there's no

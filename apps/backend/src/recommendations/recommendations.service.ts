@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { AdminAccessService } from '../auth/admin-access.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type { MemberRecommendationDto } from '@shared/member';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
@@ -7,7 +8,10 @@ import { RecommendationsRepository, type RecommendationRow } from './recommendat
 
 @Injectable()
 export class RecommendationsService {
-  constructor(private readonly repository: RecommendationsRepository) {}
+  constructor(
+    private readonly repository: RecommendationsRepository,
+    private readonly adminAccess: AdminAccessService
+  ) {}
 
   // Any active member may recommend another active member — never themselves.
   async create(recipientId: string, user: AuthenticatedUser, dto: CreateRecommendationDto): Promise<MemberRecommendationDto> {
@@ -39,7 +43,8 @@ export class RecommendationsService {
     if (!recipient || (recipient.status !== 'active' && recipientId !== user.id)) {
       throw new NotFoundException('Member not found.');
     }
-    const includeHidden = recipientId === user.id || user.role === 'admin';
+    const includeHidden =
+      recipientId === user.id || (await this.adminAccess.hasFreshPermission(user, 'manageMembers'));
     return this.toDtos(await this.repository.findByRecipient(recipientId, includeHidden));
   }
 

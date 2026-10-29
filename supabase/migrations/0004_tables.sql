@@ -916,19 +916,9 @@ create trigger set_member_profiles_updated_at
 
 alter table public.member_profiles enable row level security;
 
--- Contact details are for signed-in users only. Guests (anon) get column-level SELECT on
--- everything EXCEPT contact_email, contact_phone, linkedin_url (contact details) and
--- application_id, renewal_payment_status (internal) — 33 columns — and no write privileges at
--- all. (The NestJS backend uses the service-role client and is unaffected.) A column added to
--- member_profiles later is NOT visible to anon until it is added to this list on purpose.
-revoke all on table public.member_profiles from anon;
-grant select (
-  id, profile_id, slug, status, member_tier, is_verified, is_available, headline, bio,
-  firm_name, firm_website, website, city, state, country, region, years_of_experience,
-  rate_currency, rate_min_cents, rate_max_cents, availability_notes, photo_path,
-  work_experiences, educations, engagements, key_clients, qualifications, credentials, awards,
-  testimonials, membership_started_at, created_at, updated_at
-) on public.member_profiles to anon;
+-- No direct PostgREST access for anon/authenticated at all — see "Least privilege for the browser
+-- key" at the end of this file. (An earlier column-level grant hid the contact columns from anon,
+-- but the JSONB sections it left readable carry third-party client emails and private proof paths.)
 
 -- Defense-in-depth only (service-role backend bypasses this) — mirrors articles_select_published:
 -- an active member's directory-listed profile is meant to be public information regardless of the
@@ -941,6 +931,15 @@ create policy member_profiles_select_active
 create policy member_profiles_select_own
   on public.member_profiles for select
   using (auth.uid() = profile_id);
+
+-- custom_access_token_hook (0003_functions.sql) reads member_profiles.status as
+-- supabase_auth_admin — same grant + policy pattern as profiles_select_auth_admin above.
+grant select (profile_id, status) on table public.member_profiles to supabase_auth_admin;
+
+create policy member_profiles_select_auth_admin
+  on public.member_profiles for select
+  to supabase_auth_admin
+  using (true);
 
 -- ============================================================================
 -- member_services — services a member is approved/listed for. A real join table (not a
@@ -1521,3 +1520,27 @@ values ('template-files', 'template-files', false, 15728640,   -- 15 MB (TEMPLAT
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
               'application/vnd.openxmlformats-officedocument.presentationml.presentation'])
 on conflict (id) do nothing;
+
+-- ============================================================================
+-- Least privilege for the browser key. The frontend ships the public anon key, so anything granted
+-- to anon/authenticated is readable straight through Supabase's auto-generated REST API — bypassing
+-- the NestJS API's field filtering (contact details, client emails and private proof paths inside
+-- member_profiles JSONB, member-only article bodies, …). The frontend reads exactly one table
+-- directly — its own `profiles` row (RLS: profiles_select_own); every other read and every write
+-- goes through NestJS on the service-role key. So that one grant is all the browser key gets.
+-- Everything above still keeps RLS + policies as defense-in-depth.
+--
+-- Runs last so it covers every table created above; the default-privilege lines make a table
+-- created later start with no grants too (otherwise Supabase auto-grants it to anon/authenticated).
+-- Trigger functions are unaffected — Postgres doesn't check EXECUTE when a trigger fires.
+-- ============================================================================
+
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+revoke execute on all functions in schema public from public, anon, authenticated;
+
+grant select on table public.profiles to authenticated;
+
+alter default privileges in schema public revoke all on tables from anon, authenticated;
+alter default privileges in schema public revoke all on sequences from anon, authenticated;
+alter default privileges in schema public revoke execute on functions from public, anon, authenticated;

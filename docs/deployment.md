@@ -216,6 +216,27 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
 
 - `expertly.network` → `A` record → `91.108.104.17` (apex domain — must be `A`, not `ALIAS`)
 
+## Security hardening rollout (2026-10-29) — one-time steps
+
+1. **Database** — run `supabase/patches/2026-10-29_security_hardening.sql` once in the Supabase SQL
+   Editor (idempotent). It removes direct Storage write access, adds bucket size/type limits, creates
+   the private `application-documents` bucket, updates the token hook (new `app_status` /
+   `app_member_status` claims — the hook is replaced in place, no dashboard re-registration), and
+   revokes the browser roles' direct table access.
+2. **Move existing vetting documents** out of the public bucket (from `apps/backend`, with the
+   backend `.env`): `node --env-file=.env scripts/migrate-application-documents.mjs --dry-run`, then
+   the same without `--dry-run`.
+3. **Backend env** (Coolify → backend app → Environment):
+   - `CORS_ORIGINS` — comma-separated frontend origins, e.g.
+     `https://expertly.network,https://www.expertly.network,https://dev.expertly.network`. Unset means
+     "any origin" (logged as a warning in production).
+   - `SWAGGER_ENABLED=true` only if the interactive API docs at `/api` should stay reachable in
+     production (off by default when `NODE_ENV=production`).
+4. **Edge rate limit for public routes.** The API rate-limits signed-in users itself; anonymous
+   traffic arrives through the Next.js server and is not counted there (see `docs/rest-api.md`
+   "Rate limits"). Add a Traefik `rateLimit` middleware (or Cloudflare rule) on the **frontend**
+   domains, keyed by client IP — e.g. `average: 20`, `burst: 60` per second.
+
 ## Manual operations reference
 
 - **Force a redeploy without a code change**: Coolify UI → app → **Actions → Redeploy**, or

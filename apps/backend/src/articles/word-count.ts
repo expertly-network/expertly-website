@@ -7,6 +7,9 @@ import sanitizeHtml from 'sanitize-html';
 // it had drifted to 400, which let ~600-word AI drafts publish while manual ones were held to 800.
 export const MIN_ARTICLE_WORDS = 800;
 export const MAX_ARTICLE_WORDS = 2000;
+// Upper bound on a body's raw HTML length — far above 2,000 words of markup, but it stops a
+// megabyte-sized body (drafts skip the word check) from being stored or sent to the AI.
+export const MAX_ARTICLE_BODY_LENGTH = 100_000;
 
 // Strips HTML tags, leaving plain text.
 export function stripHtml(html: string): string {

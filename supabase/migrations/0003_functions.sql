@@ -80,10 +80,17 @@ begin
 end;
 $$;
 
--- Custom Access Token Hook: injects `app_role` into the JWT as a fast-path claim for the
--- NestJS backend. Created here but INERT until manually registered in the Supabase dashboard
--- under Authentication -> Hooks -> "Custom Access Token" — that registration step can't be
--- done via SQL/CLI.
+-- Custom Access Token Hook: injects the claims the NestJS backend and the frontend read without a
+-- per-request DB call:
+--   app_role          — profiles.role (client/member/admin)
+--   app_status        — profiles.status (active/suspended/deleted); SupabaseAuthGuard rejects any
+--                       token that isn't 'active'
+--   app_member_status — member_profiles.status (active/deactivated), null for non-members;
+--                       RolesGuard refuses member-only routes to a deactivated member
+-- A change takes effect on the user's next token refresh (≤ the JWT expiry, 1h by default); admin
+-- routes re-read profiles fresh regardless. Created here but INERT until manually registered in
+-- the Supabase dashboard under Authentication -> Hooks -> "Custom Access Token" — that
+-- registration step can't be done via SQL/CLI.
 create function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql
@@ -93,10 +100,18 @@ as $$
 declare
   claims jsonb;
   user_role text;
+  user_status text;
+  member_status text;
 begin
-  select role into user_role from public.profiles where id = (event ->> 'user_id')::uuid;
+  select p.role::text, p.status::text, mp.status::text
+    into user_role, user_status, member_status
+    from public.profiles p
+    left join public.member_profiles mp on mp.profile_id = p.id
+   where p.id = (event ->> 'user_id')::uuid;
   claims := coalesce(event -> 'claims', '{}'::jsonb);
   claims := jsonb_set(claims, '{app_role}', to_jsonb(coalesce(user_role, 'client')));
+  claims := jsonb_set(claims, '{app_status}', to_jsonb(coalesce(user_status, 'active')));
+  claims := jsonb_set(claims, '{app_member_status}', coalesce(to_jsonb(member_status), 'null'::jsonb));
   event := jsonb_set(event, '{claims}', claims);
   return event;
 end;

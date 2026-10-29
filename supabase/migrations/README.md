@@ -32,14 +32,19 @@ private `application-documents` bucket; then run
 
 **AI search lives in the same four files** (extensions in `0001`; functions in `0003` — wrapped in
 `set check_function_bodies = off` because the `LANGUAGE sql` ones read tables that `0004`
-creates later; tables, triggers, RLS and grants in `0004`). The `0004` column-level grant on
-`member_profiles` hides `contact_email`, `contact_phone`, `linkedin_url`, `application_id` and
-`renewal_payment_status` from `anon` (33 columns granted).
+creates later; tables, triggers, RLS and grants in `0004`). The browser roles (`anon`,
+`authenticated`) get no table, sequence or function privileges at all except `select` on
+`profiles` (own row via RLS) — see "Least privilege for the browser key" at the end of `0004`.
 
 **Rebuilding a dev database from scratch** (fresh Supabase project): run `0001`–`0004`, then the
-`0005`–`0007` dev seeds in order (the seed inserts fire the search triggers, so the outbox fills
-itself); start the worker so it builds the cards and then
-embeds them (`pnpm worker`).
+dev seeds in `../seed/dev/` in filename order (`01_members`, `02_events`, `03_articles` — the
+seed inserts fire the search triggers, so the outbox fills itself), then `0008`/`0009`; start the
+worker so it builds the cards and then embeds them (`pnpm worker`).
+
+**Dev seeds live outside this folder on purpose** (`supabase/seed/dev/`, moved 2026-10-29). Anything
+in `migrations/` is applied by `supabase db push` to whichever project is linked — production
+included — and the dev seeds create 50 fake, publicly listed members and 34 fake events. Never
+apply `seed/dev/` to production.
 Cards are derived data — nothing about search needs to be restored from a dump.
 
 **Content seeds** (real launch content, not dev fixtures): `0008_seed_resources.sql` (perks,

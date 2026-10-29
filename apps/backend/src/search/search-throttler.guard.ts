@@ -31,7 +31,7 @@ export class SearchThrottlerGuard extends ThrottlerGuard {
     throw new HttpException(
       {
         statusCode: HttpStatus.TOO_MANY_REQUESTS,
-        error: 'Too Many Requests',
+        code: 'RATE_LIMITED',
         // `message` is what the frontend's apiFetch/ApiError surfaces (like every other error).
         message: 'Too many searches. Please wait a moment and try again.',
         retryAfterSeconds: SEARCH_RATE_LIMIT.retryAfterSeconds,
