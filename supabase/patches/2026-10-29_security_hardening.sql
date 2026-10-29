@@ -12,6 +12,10 @@
 
 begin;
 
+-- Fail fast instead of queueing behind a long transaction (and stalling logins, which read
+-- profiles/member_profiles in the token hook) — just re-run it later.
+set local lock_timeout = '5s';
+
 -- ---- Storage: no direct client writes; size + type limits on every bucket ----------------
 
 drop policy if exists member_proofs_owner_rw on storage.objects;
@@ -38,7 +42,10 @@ update storage.buckets
        allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
  where id = 'application-assets';
 
-update storage.buckets set file_size_limit = 5242880 where id = 'resource-assets';
+update storage.buckets
+   set file_size_limit = 5242880,
+       allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+ where id = 'resource-assets';
 
 update storage.buckets
    set file_size_limit = 15728640,
@@ -118,6 +125,7 @@ as $$
     from member_profiles mp
     join profiles p on p.id = mp.profile_id, term
    where mp.status = 'active'
+     and p.status = 'active' and p.deleted_at is null   -- suspended/deleted accounts are never listed
      and (coalesce(cardinality(p_countries), 0) = 0 or mp.country = any(p_countries))
      and (p_rate_min_cents is null or mp.rate_max_cents >= p_rate_min_cents)
      and (p_rate_max_cents is null or mp.rate_min_cents <= p_rate_max_cents)
@@ -223,31 +231,56 @@ alter table public.member_profiles add constraint member_profiles_application_id
   foreign key (application_id) references public.membership_applications (id) on delete set null;
 
 -- NOT VALID: enforced for every new/updated row without failing on rows that already exist.
+-- Added only when missing, so a re-run never downgrades a constraint that's since been validated.
 -- Once existing data is checked, `alter table … validate constraint …` makes them full checks.
-alter table public.profiles drop constraint if exists profiles_admin_role_only_for_admins;
-alter table public.profiles add constraint profiles_admin_role_only_for_admins
-  check (admin_role is null or role = 'admin') not valid;
-alter table public.events drop constraint if exists events_end_after_start;
-alter table public.events add constraint events_end_after_start
-  check (end_date is null or end_date >= start_date) not valid;
-alter table public.consultation_requests drop constraint if exists consultation_requests_not_self;
-alter table public.consultation_requests add constraint consultation_requests_not_self
-  check (requester_id <> member_id) not valid;
-alter table public.peer_connect_matches drop constraint if exists peer_connect_matches_end_after_start;
-alter table public.peer_connect_matches add constraint peer_connect_matches_end_after_start
-  check (scheduled_end_at > scheduled_start_at) not valid;
+do $$
+declare c record;
+begin
+  for c in select * from (values
+    ('profiles', 'profiles_admin_role_only_for_admins', 'check (admin_role is null or role = ''admin'')'),
+    ('events', 'events_end_after_start', 'check (end_date is null or end_date >= start_date)'),
+    ('consultation_requests', 'consultation_requests_not_self', 'check (requester_id <> member_id)'),
+    ('peer_connect_matches', 'peer_connect_matches_end_after_start', 'check (scheduled_end_at > scheduled_start_at)')
+  ) as t(tbl, name, def)
+  loop
+    if not exists (select 1 from pg_constraint where conname = c.name) then
+      execute format('alter table public.%I add constraint %I %s not valid', c.tbl, c.name, c.def);
+    end if;
+  end loop;
+end $$;
 
 -- ---- Least privilege for the browser key (anon / authenticated) ---------------------------
 -- The frontend reads only its own profiles row directly; everything else goes through NestJS.
 
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
-revoke execute on all functions in schema public from public, anon, authenticated;
+-- App functions only: extension-owned functions (citext, pgvector operators) keep their grants —
+-- revoking those from PUBLIC would break the service role's own queries on citext/vector columns
+-- wherever it relies on PUBLIC rather than an explicit grant.
+do $$
+declare fn regprocedure;
+begin
+  for fn in
+    select p.oid::regprocedure
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and not exists (select 1 from pg_depend d
+                        where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+  loop
+    execute format('revoke execute on function %s from public, anon, authenticated', fn);
+  end loop;
+end $$;
+-- The backend's role keeps everything, explicitly (it bypasses RLS and is fully trusted anyway).
+grant execute on all functions in schema public to service_role;
 
 grant select on table public.profiles to authenticated;
 
-alter default privileges in schema public revoke all on tables from anon, authenticated;
-alter default privileges in schema public revoke all on sequences from anon, authenticated;
-alter default privileges in schema public revoke execute on functions from public, anon, authenticated;
+alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated;
+alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
+-- PUBLIC's EXECUTE default is global, so it can only be revoked globally (a per-schema REVOKE is
+-- a no-op for it); anon/authenticated get theirs from Supabase's per-schema defaults.
+alter default privileges for role postgres revoke execute on functions from public;
+alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated;
+alter default privileges for role postgres in schema public grant execute on functions to service_role;
 
 commit;

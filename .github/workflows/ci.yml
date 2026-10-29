@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege by default; the image-push job grants itself packages: write.
+permissions:
+  contents: read
+
 env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: ${{ github.repository_owner }}

@@ -426,6 +426,7 @@ as $$
     from member_profiles mp
     join profiles p on p.id = mp.profile_id, term
    where mp.status = 'active'
+     and p.status = 'active' and p.deleted_at is null   -- suspended/deleted accounts are never listed
      and (coalesce(cardinality(p_countries), 0) = 0 or mp.country = any(p_countries))
      and (p_rate_min_cents is null or mp.rate_max_cents >= p_rate_min_cents)
      and (p_rate_max_cents is null or mp.rate_min_cents <= p_rate_max_cents)

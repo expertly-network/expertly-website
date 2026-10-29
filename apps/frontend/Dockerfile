@@ -42,11 +42,14 @@ ENV HOSTNAME=0.0.0.0
 # With a single root pnpm-lock.yaml, Next's output-file-tracing auto-detects
 # the repo root as the workspace root and mirrors that path inside
 # .next/standalone, hence "apps/frontend/..." destinations below, not "./".
-COPY --from=build /app/apps/frontend/.next/standalone ./
-COPY --from=build /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=build --chown=node:node /app/apps/frontend/.next/standalone ./
+COPY --from=build --chown=node:node /app/apps/frontend/.next/static ./apps/frontend/.next/static
 # standalone output doesn't include public/ — without it /fonts/pdf/*.ttf 404s and the profile
 # PDF export fails on font load.
-COPY --from=build /app/apps/frontend/public ./apps/frontend/public
+COPY --from=build --chown=node:node /app/apps/frontend/public ./apps/frontend/public
 
+# Never run as root: the official image ships an unprivileged `node` user (it owns the app files,
+# so Next can still write its runtime cache under .next/).
+USER node
 EXPOSE 3000
 CMD ["node", "apps/frontend/server.js"]

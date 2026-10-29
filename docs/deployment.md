@@ -232,7 +232,19 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
      "any origin" (logged as a warning in production).
    - `SWAGGER_ENABLED=true` only if the interactive API docs at `/api` should stay reachable in
      production (off by default when `NODE_ENV=production`).
-4. **Edge rate limit for public routes.** The API rate-limits signed-in users itself; anonymous
+4. **Verify, then clean up** (SQL Editor):
+   - `select policyname from pg_policies where schemaname = 'storage';` → expect **zero rows** (a
+     policy added by hand in the dashboard isn't removed by the patch).
+   - `select count(*) from auth.users where email like '%@expertlyseed.test';` — until 2026-10-29
+     the dev seeds lived in `supabase/migrations/`, so a database built with `db push` may hold the
+     50 fake members / 34 fake events. If non-zero on a real environment, run the teardown blocks at
+     the end of `supabase/seed/dev/01_members.sql` and `02_events.sql`.
+   - Smoke-test AI search once (it exercises pgvector + the revoked function grants).
+5. **Close the plain-HTTP Coolify panel.** `http://…:8000` (above) still answers; anyone on the
+   network path can capture a dashboard login — and Coolify holds every production secret. Block
+   port 8000 in the VPS firewall (ufw / Hostinger firewall) so the panel is only reachable through
+   Traefik over TLS.
+6. **Edge rate limit for public routes.** The API rate-limits signed-in users itself; anonymous
    traffic arrives through the Next.js server and is not counted there (see `docs/rest-api.md`
    "Rate limits"). Add a Traefik `rateLimit` middleware (or Cloudflare rule) on the **frontend**
    domains, keyed by client IP — e.g. `average: 20`, `burst: 60` per second.

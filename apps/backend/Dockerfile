@@ -25,7 +25,9 @@ RUN pnpm --filter=growxq-backend deploy --prod /app/deploy
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/deploy ./
+COPY --from=build --chown=node:node /app/deploy ./
+# Never run as root: the official image ships an unprivileged `node` user.
+USER node
 
 EXPOSE 4000
 # One image, two Coolify apps: the API (default, `main`) and the search worker (APP_ENTRY=worker).
