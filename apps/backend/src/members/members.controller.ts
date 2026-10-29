@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -41,7 +41,7 @@ export class MembersController {
   @RateLimit('upload', ...RATE_LIMITS.upload)
   @Post(':id/uploads')
   requestUpload(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateUploadDto
   ): Promise<UploadResponse> {
@@ -52,7 +52,7 @@ export class MembersController {
   @RateLimit('write', ...RATE_LIMITS.write)
   @Post(':id/edits')
   createEdit(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateMemberEditDto
   ): Promise<MemberProfileEditDto> {
@@ -64,7 +64,7 @@ export class MembersController {
   @Roles('member')
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateMemberDto
   ): Promise<MemberDto> {
@@ -72,7 +72,7 @@ export class MembersController {
   }
 
   @Get(':id/edits')
-  listMyEdits(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
+  listMyEdits(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
     return this.membersService.listMyEdits(id, user);
   }
 }

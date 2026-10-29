@@ -43,7 +43,10 @@ export class SearchService {
   async search(userId: string, rawQuery: string | undefined, opts: RunSearchOptions): Promise<SearchResponse> {
     const question = (rawQuery ?? '').trim();
     if (question.length < 2 || question.length > 500) {
-      throw new BadRequestException('query must be 2-500 characters');
+      throw new BadRequestException({
+        code: 'SEARCH_QUERY_LENGTH',
+        message: 'query must be 2-500 characters',
+      });
     }
 
     const started = Date.now();
@@ -72,7 +75,10 @@ export class SearchService {
   /** Thumbs up/down on an earlier answer, scoped to the caller's own log row. */
   async feedback(userId: string, logId: string | undefined, rating: number | undefined, note: string | undefined): Promise<SearchFeedbackResponse> {
     if (!logId || (rating !== 1 && rating !== -1)) {
-      throw new BadRequestException('logId and rating (1 or -1) are required');
+      throw new BadRequestException({
+        code: 'SEARCH_FEEDBACK_INVALID',
+        message: 'logId and rating (1 or -1) are required',
+      });
     }
     const ok = await this.repo.setFeedback(logId, userId, rating, (note ?? '').slice(0, 500) || null);
     return { ok };

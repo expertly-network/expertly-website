@@ -23,20 +23,27 @@ export class AdminPermissionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user: AuthenticatedUser | undefined = request.user;
     if (!user) {
-      throw new ForbiddenException('No authenticated user resolved for this route.');
+      throw new ForbiddenException({
+        code: 'SESSION_MISSING',
+        message: 'No authenticated user resolved for this route.',
+      });
     }
 
     const profile = await this.profilesRepository.findById(user.id);
 
     if (!profile || profile.role !== 'admin') {
-      throw new ForbiddenException('Admin access could not be freshly confirmed.');
+      throw new ForbiddenException({
+        code: 'ADMIN_NOT_CONFIRMED',
+        message: 'Admin access could not be freshly confirmed.',
+      });
     }
 
     const adminRole = profile.admin_role;
     if (!adminRoleHasPermission(adminRole, requiredPermission)) {
-      throw new ForbiddenException(
-        `Requires permission: ${requiredPermission}. Your admin role (${adminRole ?? 'super_admin'}) does not have it.`
-      );
+      throw new ForbiddenException({
+        code: 'PERMISSION_REQUIRED',
+        message: `Requires permission: ${requiredPermission}. Your admin role (${adminRole ?? 'super_admin'}) does not have it.`,
+      });
     }
 
     return true;

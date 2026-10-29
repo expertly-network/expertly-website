@@ -1,22 +1,17 @@
 import { apiFetch } from '@/lib/api/client';
 import type {
+  ConsultationEligibilityResponse,
   ConsultationMessageDto,
   ConsultationRequestDto,
   CreateConsultationRequestRequest,
   UpdateConsultationRequest,
 } from '@shared/consultation-request';
 
-export interface ConsultationEligibility {
-  blocked: boolean;
-  reason: 'pending' | 'rate_limited' | null;
-  retryAfter: string | null;
-}
-
 // Called before the request form even opens — see consultations.service.ts#checkEligibility.
 // Covers both gates a new request can hit: an existing pending request to this member, or the
 // requester's daily rate limit.
-export function checkConsultationEligibility(memberId: string): Promise<ConsultationEligibility> {
-  return apiFetch<ConsultationEligibility>(`/consultations/can-request/${memberId}`);
+export function checkConsultationEligibility(memberId: string): Promise<ConsultationEligibilityResponse> {
+  return apiFetch<ConsultationEligibilityResponse>(`/consultations/can-request/${encodeURIComponent(memberId)}`);
 }
 
 export function createConsultation(body: CreateConsultationRequestRequest): Promise<ConsultationRequestDto> {

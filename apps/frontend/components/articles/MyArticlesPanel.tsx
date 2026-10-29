@@ -22,7 +22,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
 // Own articles regardless of status, each with a status badge overlaid on the cover image.
 const STATUS_BADGE: Record<ArticleStatus, { label: string; className: string }> = {
   draft: { label: 'Draft', className: 'bg-ink-3' },
-  pending_review: { label: 'Pending review', className: 'bg-[#B08A2E]' },
+  pending_review: { label: 'Pending review', className: 'bg-amber-600' },
   published: { label: 'Published', className: 'bg-accent' },
   rejected: { label: 'Rejected', className: 'bg-error' },
 };

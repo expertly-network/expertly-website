@@ -433,8 +433,5 @@ export const FIRM_SIZES: { value: NonNullable<WorkExperienceInput['firmSize']>; 
   { value: '200_plus', label: '200+' },
 ];
 
-// Shared between BackgroundStep (the date-select inputs) and ReviewSubmitStep (formatting the
-// same dates back out for display).
-export const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
+// Month labels live with the other application display helpers.
+export { MONTHS } from '@/lib/apply/format';

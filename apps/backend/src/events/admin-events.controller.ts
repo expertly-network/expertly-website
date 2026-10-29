@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
@@ -37,19 +37,22 @@ export class AdminEventsController {
   @HttpCode(HttpStatus.OK)
   async import(@Req() request: FastifyRequest): Promise<ImportEventsResponse> {
     const part = await request.file();
-    if (!part) throw new BadRequestException('No file provided.');
+    if (!part) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'No file provided.' });
     if (!part.filename?.toLowerCase().endsWith('.csv')) {
-      throw new BadRequestException('Only .csv files are accepted.');
+      throw new BadRequestException({ code: 'CSV_INVALID', message: 'Only .csv files are accepted.' });
     }
 
     const buffer = await part.toBuffer();
-    if (buffer.length === 0) throw new BadRequestException('Uploaded file is empty.');
+    if (buffer.length === 0) throw new BadRequestException({
+      code: 'FILE_EMPTY',
+      message: 'Uploaded file is empty.',
+    });
 
     return this.eventsService.importFromCsv(buffer);
   }
 
   @Get('events/:id')
-  findOne(@Param('id') id: string): Promise<EventDto> {
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<EventDto> {
     return this.eventsService.adminGetOne(id);
   }
 
@@ -59,13 +62,13 @@ export class AdminEventsController {
   }
 
   @Patch('events/:id')
-  update(@Param('id') id: string, @Body() dto: UpdateEventDto): Promise<EventDto> {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEventDto): Promise<EventDto> {
     return this.eventsService.update(id, dto);
   }
 
   @Delete('events/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string): Promise<void> {
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.eventsService.remove(id);
   }
 }

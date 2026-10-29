@@ -21,7 +21,7 @@ export class AdminMembersController {
   }
 
   @Patch('members/:id')
-  updateMember(@Param('id') id: string, @Body() dto: UpdateAdminMemberDto): Promise<AdminMemberListItemDto> {
+  updateMember(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAdminMemberDto): Promise<AdminMemberListItemDto> {
     return this.membersService.adminUpdateMember(id, dto);
   }
 
@@ -38,7 +38,7 @@ export class AdminMembersController {
 
   @Patch('member-edits/:id')
   reviewEdit(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() admin: AuthenticatedUser,
     @Body() dto: ReviewMemberEditDto
   ): Promise<MemberProfileEditDto> {

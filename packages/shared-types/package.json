@@ -5,5 +5,11 @@
   "types": "index.ts",
   "dependencies": {
     "@nestjs/swagger": "^11.4.7"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

@@ -7,7 +7,6 @@ import { StepActions } from '@/components/apply/StepActions';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import {
   FIRM_SIZES,
-  MONTHS,
   REGIONS,
   TERMS_VERSION,
   PRIVACY_VERSION,
@@ -19,27 +18,7 @@ import { ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview'
 import type { CouponPreviewResponse } from '@shared/membership-application';
 import type { CategoryDto } from '@shared/category';
 import { externalHref, externalLink } from '@/lib/members/format';
-
-function formatCents(cents: number): string {
-  const dollars = cents / 100;
-  return `$${Number.isInteger(dollars) ? dollars.toFixed(0) : dollars.toFixed(2)}`;
-}
-
-function monthLabel(month: number | undefined): string {
-  return month ? (MONTHS[month - 1] ?? '') : '';
-}
-
-function formatDateRange(
-  startMonth: number | undefined,
-  startYear: number,
-  isCurrent: boolean,
-  endMonth: number | undefined,
-  endYear: number | undefined
-): string {
-  const start = [monthLabel(startMonth), startYear].filter(Boolean).join(' ');
-  const end = isCurrent ? 'Present' : [monthLabel(endMonth), endYear].filter(Boolean).join(' ') || '—';
-  return `${start} – ${end}`;
-}
+import { formatCents, formatDateRange } from '@/lib/apply/format';
 
 const PRIORITY_LABEL: Record<1 | 2 | 3, string> = { 1: '1st preference', 2: '2nd preference', 3: '3rd preference' };
 

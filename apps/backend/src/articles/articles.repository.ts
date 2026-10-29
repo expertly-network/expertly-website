@@ -195,7 +195,7 @@ export class ArticlesRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load article.');
-    if (!data) throw new NotFoundException('Article not found.');
+    if (!data) throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
     return data as unknown as ArticleRow;
   }
 
@@ -208,7 +208,7 @@ export class ArticlesRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load article.');
-    if (!data) throw new NotFoundException('Article not found.');
+    if (!data) throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
     return data as unknown as ArticleRow;
   }
 

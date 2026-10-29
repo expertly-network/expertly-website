@@ -44,7 +44,7 @@ export class ServicesRepository {
   async updateById(id: string, patch: ServiceUpdate): Promise<ServiceRow> {
     const { data: updated, error } = await this.services().update(patch).eq('id', id).select(SERVICE_COLUMNS.join(', ')).maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to update service.');
-    if (!updated) throw new NotFoundException('Service not found.');
+    if (!updated) throw new NotFoundException({ code: 'SERVICE_NOT_FOUND', message: 'Service not found.' });
     return updated as unknown as ServiceRow;
   }
 
@@ -52,10 +52,13 @@ export class ServicesRepository {
     const { data, error } = await this.services().delete().eq('id', id).select('id').maybeSingle();
     if (error) {
       if ((error as { code?: string }).code === '23503') {
-        throw new ConflictException('Cannot delete a service that members have selected. Deactivate it instead.');
+        throw new ConflictException({
+          code: 'SERVICE_IN_USE',
+          message: 'Cannot delete a service that members have selected. Deactivate it instead.',
+        });
       }
       throw new InternalServerErrorException('Failed to delete service.');
     }
-    if (!data) throw new NotFoundException('Service not found.');
+    if (!data) throw new NotFoundException({ code: 'SERVICE_NOT_FOUND', message: 'Service not found.' });
   }
 }

@@ -6,3 +6,5 @@ export type * from './member';
 export type * from './event';
 export type * from './consultation-request';
 export type * from './search';
+export type * from './resource';
+export type * from './account';

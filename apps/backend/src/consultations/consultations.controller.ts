@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { ConsultationMessageDto, ConsultationRequestDto } from '@shared/consultation-request';
+import { ConsultationEligibilityResponse, ConsultationMessageDto, ConsultationRequestDto } from '@shared/consultation-request';
 import { ConsultationsService } from './consultations.service';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 import { CreateConsultationMessageDto } from './dto/create-consultation-message.dto';
@@ -32,7 +32,7 @@ export class ConsultationsController {
   checkEligibility(
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentUser() user: AuthenticatedUser
-  ): Promise<{ blocked: boolean; reason: 'pending' | 'rate_limited' | null; retryAfter: string | null }> {
+  ): Promise<ConsultationEligibilityResponse> {
     return this.service.checkEligibility(user, memberId);
   }
 

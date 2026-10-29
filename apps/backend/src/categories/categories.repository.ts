@@ -86,7 +86,7 @@ export class CategoriesRepository {
   async updateById(id: string, patch: CategoryUpdate): Promise<CategoryRow> {
     const { data: updated, error } = await this.categories().update(patch).eq('id', id).select(CATEGORY_COLUMNS.join(', ')).maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to update category.');
-    if (!updated) throw new NotFoundException('Category not found.');
+    if (!updated) throw new NotFoundException({ code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' });
     return updated as unknown as CategoryRow;
   }
 
@@ -94,10 +94,13 @@ export class CategoriesRepository {
     const { data, error } = await this.categories().delete().eq('id', id).select('id').maybeSingle();
     if (error) {
       if ((error as { code?: string }).code === '23503') {
-        throw new ConflictException('Cannot delete a category that still has services. Delete or move its services first.');
+        throw new ConflictException({
+          code: 'CATEGORY_NOT_EMPTY',
+          message: 'Cannot delete a category that still has services. Delete or move its services first.',
+        });
       }
       throw new InternalServerErrorException('Failed to delete category.');
     }
-    if (!data) throw new NotFoundException('Category not found.');
+    if (!data) throw new NotFoundException({ code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' });
   }
 }

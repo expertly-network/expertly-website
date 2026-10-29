@@ -111,3 +111,11 @@ export class UpdateConsultationRequest {
   /** Requester only, integer 1-5, `completed` requests only. */
   @ApiPropertyOptional() rating?: number;
 }
+
+/** Response shape for GET /v1/consultations/can-request/:memberId — the pre-flight check. */
+export class ConsultationEligibilityResponse {
+  @ApiProperty() blocked!: boolean;
+  @ApiProperty({ enum: ['pending', 'rate_limited'], nullable: true, type: String }) reason!: 'pending' | 'rate_limited' | null;
+  /** ISO timestamp the block ends (the pending cooldown, or the rate-limit window reset). */
+  @ApiProperty({ nullable: true, type: String }) retryAfter!: string | null;
+}

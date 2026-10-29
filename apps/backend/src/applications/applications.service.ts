@@ -127,13 +127,19 @@ export class ApplicationsService {
   async saveOrSubmit(user: AuthenticatedUser, dto: UpdateApplicationDto): Promise<ApplicationDto> {
     // This endpoint is for client accounts specifically, not client-or-higher.
     if (user.role !== 'client') {
-      throw new ForbiddenException('Only client accounts can manage a membership application.');
+      throw new ForbiddenException({
+        code: 'APPLICATION_CLIENTS_ONLY',
+        message: 'Only client accounts can manage a membership application.',
+      });
     }
 
     const latest = await this.applicationsRepository.findLatestByApplicant(user.id);
 
     if (latest && ['submitted', 'under_review', 'approved'].includes(latest.status)) {
-      throw new ConflictException('You already have an application in progress or decided.');
+      throw new ConflictException({
+        code: 'APPLICATION_LOCKED',
+        message: 'You already have an application in progress or decided.',
+      });
     }
 
     // A rejected application isn't reused — a new application starts a fresh row.
@@ -165,7 +171,10 @@ export class ApplicationsService {
       merged.rate_max_cents != null &&
       merged.rate_max_cents <= merged.rate_min_cents
     ) {
-      throw new BadRequestException('rateMaxCents must be greater than rateMinCents.');
+      throw new BadRequestException({
+        code: 'RATE_RANGE_INVALID',
+        message: 'rateMaxCents must be greater than rateMinCents.',
+      });
     }
 
     // Validates serviceIds only when this call touches service_preferences.
@@ -180,7 +189,10 @@ export class ApplicationsService {
       const selectedTier = computeTier(merged.years_of_experience);
       const listPriceCents = MEMBERSHIP_PRICE_CENTS[merged.billing_period as BillingPeriod];
       const couponResult = applyCoupon(merged.coupon_code, listPriceCents);
-      if (!couponResult.valid) throw new BadRequestException('Invalid or expired coupon code.');
+      if (!couponResult.valid) throw new BadRequestException({
+        code: 'COUPON_INVALID',
+        message: 'Invalid or expired coupon code.',
+      });
 
       const discountAmountCents = couponResult.discountAmountCents;
       const amountDueCents = Math.max(0, listPriceCents - discountAmountCents);
@@ -207,7 +219,10 @@ export class ApplicationsService {
 
   async findMine(userId: string): Promise<ApplicationDto> {
     const data = await this.applicationsRepository.findLatestByApplicant(userId);
-    if (!data) throw new NotFoundException('No application found for this account.');
+    if (!data) throw new NotFoundException({
+      code: 'APPLICATION_NOT_FOUND',
+      message: 'No application found for this account.',
+    });
 
     const serviceDetails = await this.resolveServiceDetails(data.service_preferences ?? []);
     return this.toDto(data, serviceDetails);
@@ -239,17 +254,26 @@ export class ApplicationsService {
     file: { buffer: Buffer; size: number; originalname: string }
   ): Promise<ApplicationDto> {
     if (file.size > MAX_BYTES[kind]) {
-      throw new BadRequestException(`File too large — max ${MAX_BYTES[kind] / 1024 / 1024}MB for ${kind}.`);
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: `File too large — max ${MAX_BYTES[kind] / 1024 / 1024}MB for ${kind}.`,
+      });
     }
 
     const sniffed = await sniffFileType(file.buffer);
     if (!sniffed || !ALLOWED_MIME[kind].includes(sniffed.mime)) {
-      throw new BadRequestException(`Unsupported file type for ${kind}.`);
+      throw new BadRequestException({
+        code: 'FILE_INVALID_TYPE',
+        message: `Unsupported file type for ${kind}.`,
+      });
     }
 
     let existing = await this.applicationsRepository.findLatestForUpload(user.id);
     if (existing && existing.status !== 'draft') {
-      throw new BadRequestException('No draft application to attach this file to.');
+      throw new BadRequestException({
+        code: 'APPLICATION_NOT_DRAFT',
+        message: 'No draft application to attach this file to.',
+      });
     }
     if (!existing) {
       // Root cause of the "LinkedIn photo silently never appears" bug: connecting LinkedIn (step
@@ -260,7 +284,10 @@ export class ApplicationsService {
       // saveOrSubmit() enforces, since this can now create a row — the page-level /apply gate
       // isn't a substitute for a service-layer check (see docs/auth.md).
       if (user.role !== 'client') {
-        throw new ForbiddenException('Only client accounts can manage a membership application.');
+        throw new ForbiddenException({
+          code: 'APPLICATION_CLIENTS_ONLY',
+          message: 'Only client accounts can manage a membership application.',
+        });
       }
       existing = await this.applicationsRepository.insert({ applicant_id: user.id });
     }
@@ -311,7 +338,10 @@ export class ApplicationsService {
   // identity. Callers decide whether replacing the current photo is appropriate.
   async importPhotoFromLinkedIn(user: AuthenticatedUser, sourceUrl?: string): Promise<ApplicationDto> {
     const pictureUrl = sourceUrl ?? (await this.applicationsRepository.findLinkedInPictureUrl(user.id));
-    if (!pictureUrl) throw new NotFoundException('No LinkedIn photo available to import.');
+    if (!pictureUrl) throw new NotFoundException({
+      code: 'LINKEDIN_PHOTO_UNAVAILABLE',
+      message: 'No LinkedIn photo available to import.',
+    });
 
     // A caller-supplied URL is already pinned to media.licdn.com by the DTO; refusing redirects
     // keeps the fetch from being bounced to another host.
@@ -328,7 +358,10 @@ export class ApplicationsService {
       buffer = await readCapped(response, MAX_BYTES.photo);
     } catch (error) {
       this.logger.warn(`LinkedIn photo fetch failed: ${error instanceof Error ? error.message : String(error)}`);
-      throw new BadGatewayException({ code: 'LINKEDIN_PHOTO_UNAVAILABLE', message: 'Failed to fetch LinkedIn photo.' });
+      throw new BadGatewayException({
+        code: 'LINKEDIN_PHOTO_UNAVAILABLE',
+        message: 'Failed to fetch LinkedIn photo.',
+      });
     }
 
     return this.uploadFile(user, 'photo', { buffer, size: buffer.length, originalname: 'linkedin-photo' });
@@ -366,10 +399,16 @@ export class ApplicationsService {
   ): Promise<{ status: 'approved' | 'rejected' }> {
     const application = await this.applicationsRepository.findByIdForReview(applicationId);
     if (!['submitted', 'under_review'].includes(application.status)) {
-      throw new ConflictException('Only a submitted or under-review application can be reviewed.');
+      throw new ConflictException({
+        code: 'APPLICATION_NOT_REVIEWABLE',
+        message: 'Only a submitted or under-review application can be reviewed.',
+      });
     }
     if (dto.status === 'rejected' && !dto.rejectionReason) {
-      throw new BadRequestException('rejectionReason is required when rejecting.');
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'rejectionReason is required when rejecting.',
+      });
     }
 
     const submittedPreferences = (application.service_preferences ?? []) as {
@@ -379,10 +418,16 @@ export class ApplicationsService {
 
     if (dto.status === 'approved') {
       if (!dto.approvedServiceId) {
-        throw new BadRequestException('approvedServiceId is required when approving.');
+        throw new BadRequestException({
+          code: 'APPROVED_SERVICE_REQUIRED',
+          message: 'approvedServiceId is required when approving.',
+        });
       }
       if (!submittedPreferences.some((p) => p.serviceId === dto.approvedServiceId)) {
-        throw new BadRequestException('approvedServiceId must be one of the applicant\'s submitted service preferences.');
+        throw new BadRequestException({
+          code: 'APPROVED_SERVICE_INVALID',
+          message: 'approvedServiceId must be one of the applicant\'s submitted service preferences.',
+        });
       }
     }
 
@@ -558,20 +603,29 @@ export class ApplicationsService {
     if (duplicateIds.length > 0) {
       // Most commonly hit via "Other" picked in more than one priority slot — two rows sharing a
       // service_id would collide on member_services' (member_id, service_id) primary key later.
-      throw new BadRequestException(`Duplicate service id(s) across preferences: ${[...new Set(duplicateIds)].join(', ')}`);
+      throw new BadRequestException({
+        code: 'SERVICE_PREFERENCES_DUPLICATE',
+        message: `Duplicate service id(s) across preferences: ${[...new Set(duplicateIds)].join(', ')}`,
+      });
     }
 
     const details = await this.applicationsRepository.findServiceDetails(ids);
 
     const invalidIds = ids.filter((id) => !details.get(id)?.isActive);
     if (invalidIds.length > 0) {
-      throw new BadRequestException(`Invalid or inactive service id(s): ${invalidIds.join(', ')}`);
+      throw new BadRequestException({
+        code: 'SERVICE_IDS_INVALID',
+        message: `Invalid or inactive service id(s): ${invalidIds.join(', ')}`,
+      });
     }
     const missingCustomLabels = servicePreferences
       .filter((p) => details.get(p.serviceId)?.isCustom && !p.customLabel?.trim())
       .map((p) => p.serviceId);
     if (missingCustomLabels.length > 0) {
-      throw new BadRequestException(`customLabel required for custom service id(s): ${missingCustomLabels.join(', ')}`);
+      throw new BadRequestException({
+        code: 'CUSTOM_SERVICE_LABEL_REQUIRED',
+        message: `customLabel required for custom service id(s): ${missingCustomLabels.join(', ')}`,
+      });
     }
     return details;
   }
@@ -621,7 +675,10 @@ export class ApplicationsService {
     if (!row.privacy_version_agreed) missing.push('privacyVersionAgreed');
 
     if (missing.length > 0) {
-      throw new BadRequestException(`Cannot submit — missing or invalid: ${missing.join(', ')}`);
+      throw new BadRequestException({
+        code: 'APPLICATION_INCOMPLETE',
+        message: `Cannot submit — missing or invalid: ${missing.join(', ')}`,
+      });
     }
   }
 

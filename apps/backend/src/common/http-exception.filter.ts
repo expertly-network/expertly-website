@@ -27,6 +27,12 @@ const DEFAULT_CODES: Record<number, string> = {
   504: 'GATEWAY_TIMEOUT',
 };
 
+// DTO validation (ValidationPipe → message array) and Nest's built-in Parse*Pipes
+// ("Validation failed (uuid is expected)") are both request-validation failures.
+function isValidationMessage(message: unknown): boolean {
+  return Array.isArray(message) || (typeof message === 'string' && message.startsWith('Validation failed'));
+}
+
 function defaultCode(status: number): string {
   return DEFAULT_CODES[status] ?? `HTTP_${status}`;
 }
@@ -80,7 +86,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const code =
         typeof r.code === 'string'
           ? r.code
-          : status === HttpStatus.BAD_REQUEST && Array.isArray(r.message)
+          : status === HttpStatus.BAD_REQUEST && isValidationMessage(r.message)
             ? 'VALIDATION_FAILED'
             : defaultCode(status);
       return { ...r, statusCode: status, code, message };

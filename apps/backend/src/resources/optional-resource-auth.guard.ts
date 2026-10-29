@@ -19,11 +19,11 @@ export class OptionalResourceAuthGuard implements CanActivate {
     if (!header) return true;
     const [scheme, token, extra] = header.split(' ');
     if (scheme !== 'Bearer' || !token || extra)
-      throw new UnauthorizedException('Invalid bearer token.');
+      throw new UnauthorizedException({ code: 'SESSION_INVALID', message: 'Invalid bearer token.' });
     try {
       request.user = await verifySupabaseToken(token);
     } catch {
-      throw new UnauthorizedException('Invalid or expired session.');
+      throw new UnauthorizedException({ code: 'SESSION_INVALID', message: 'Invalid or expired session.' });
     }
     return true;
   }

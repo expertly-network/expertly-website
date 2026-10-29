@@ -193,7 +193,10 @@ export class ApplicationsRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load application.');
-    if (!data) throw new NotFoundException('Application not found.');
+    if (!data) throw new NotFoundException({
+      code: 'APPLICATION_NOT_FOUND',
+      message: 'Application not found.',
+    });
     return data as unknown as ApplicationRow;
   }
 

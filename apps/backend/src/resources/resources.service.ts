@@ -216,7 +216,7 @@ export class ResourcesService {
   }
   async getPerk(slug: string, role?: Role): Promise<PerkDto> {
     const item = (await this.listPerks(role)).find((r) => r.slug === slug);
-    if (!item) throw new NotFoundException('Perk not found.');
+    if (!item) throw new NotFoundException({ code: 'PERK_NOT_FOUND', message: 'Perk not found.' });
     return item;
   }
   async listLearnings(
@@ -235,7 +235,7 @@ export class ResourcesService {
   }
   async getLearning(id: string, role?: Role): Promise<LearningDto> {
     const item = (await this.listLearnings(role)).find((r) => r.id === id);
-    if (!item) throw new NotFoundException('Learning not found.');
+    if (!item) throw new NotFoundException({ code: 'LEARNING_NOT_FOUND', message: 'Learning not found.' });
     return item;
   }
   async listCollections(
@@ -285,7 +285,10 @@ export class ResourcesService {
   }
   async getCollection(id: string, role?: Role): Promise<CollectionDto> {
     const item = (await this.listCollections(role)).find((c) => c.id === id);
-    if (!item) throw new NotFoundException('Collection not found.');
+    if (!item) throw new NotFoundException({
+      code: 'COLLECTION_NOT_FOUND',
+      message: 'Collection not found.',
+    });
     return item;
   }
   async adminPerks() {
@@ -299,17 +302,20 @@ export class ResourcesService {
   }
   async adminPerk(id: string) {
     const item = (await this.adminPerks()).find((i) => i.id === id);
-    if (!item) throw new NotFoundException('Perk not found.');
+    if (!item) throw new NotFoundException({ code: 'PERK_NOT_FOUND', message: 'Perk not found.' });
     return item;
   }
   async adminLearning(id: string) {
     const item = (await this.adminLearnings()).find((i) => i.id === id);
-    if (!item) throw new NotFoundException('Learning not found.');
+    if (!item) throw new NotFoundException({ code: 'LEARNING_NOT_FOUND', message: 'Learning not found.' });
     return item;
   }
   async adminCollection(id: string) {
     const item = (await this.adminCollections()).find((i) => i.id === id);
-    if (!item) throw new NotFoundException('Collection not found.');
+    if (!item) throw new NotFoundException({
+      code: 'COLLECTION_NOT_FOUND',
+      message: 'Collection not found.',
+    });
     return item;
   }
   private validatePerk(dto: CreatePerkRequest) {
@@ -318,18 +324,21 @@ export class ResourcesService {
       [dto.memberOffer, dto.memberCouponCode, dto.memberOfferUrl],
     ]) {
       if (offer != null && (!offer.trim() || !(code?.trim() || url)))
-        throw new BadRequestException(
-          'Offer text requires a non-empty coupon code or HTTPS redemption URL.',
-        );
+        throw new BadRequestException({
+          code: 'PERK_OFFER_INVALID',
+          message: 'Offer text requires a non-empty coupon code or HTTPS redemption URL.',
+        });
       if (!offer && (code || url))
-        throw new BadRequestException(
-          'A redemption code or URL requires offer text.',
-        );
+        throw new BadRequestException({
+          code: 'PERK_OFFER_INVALID',
+          message: 'A redemption code or URL requires offer text.',
+        });
     }
     if (dto.offerStatus === 'live' && !(dto.userOffer || dto.memberOffer))
-      throw new BadRequestException(
-        'A live perk requires a redeemable offer for at least one tier.',
-      );
+      throw new BadRequestException({
+        code: 'PERK_OFFER_REQUIRED',
+        message: 'A live perk requires a redeemable offer for at least one tier.',
+      });
   }
   private validateLearning(dto: CreateLearningRequest) {
     const url = new URL(dto.videoUrl);
@@ -342,7 +351,10 @@ export class ResourcesService {
         'www.youtube-nocookie.com',
       ].includes(url.hostname)
     )
-      throw new BadRequestException('YouTube videos require a YouTube URL.');
+      throw new BadRequestException({
+        code: 'LEARNING_YOUTUBE_URL_REQUIRED',
+        message: 'YouTube videos require a YouTube URL.',
+      });
     if ((dto.videoProvider ?? 'youtube') === 'youtube') {
       const id =
         url.hostname === 'youtu.be'
@@ -351,15 +363,19 @@ export class ResourcesService {
             ? url.searchParams.get('v')
             : url.pathname.match(/^\/(?:embed|shorts)\/([^/]+)$/)?.[1];
       if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id))
-        throw new BadRequestException('A valid YouTube video ID is required.');
+        throw new BadRequestException({
+          code: 'LEARNING_YOUTUBE_URL_REQUIRED',
+          message: 'A valid YouTube video ID is required.',
+        });
     }
     // Thumbnails must be our own copies; third-party thumbnail URLs can disclose locked video IDs.
     if (dto.thumbnailUrl?.startsWith('https://')) {
       const root = `${process.env.SUPABASE_URL}/storage/v1/object/public/resource-assets/`;
       if (!dto.thumbnailUrl.startsWith(root))
-        throw new BadRequestException(
-          'Thumbnails must use the resource-assets bucket.',
-        );
+        throw new BadRequestException({
+          code: 'LEARNING_THUMBNAIL_INVALID',
+          message: 'Thumbnails must use the resource-assets bucket.',
+        });
     }
   }
   private async validateCollection(dto: CreateCollectionRequest) {
@@ -372,9 +388,10 @@ export class ResourcesService {
           : await this.repository.listLearnings();
     const valid = new Set(source.map((r) => r.id));
     if (ids.some((id) => !valid.has(id)))
-      throw new BadRequestException(
-        'Collection contains an unknown item or an item of the wrong resource kind.',
-      );
+      throw new BadRequestException({
+        code: 'COLLECTION_ITEMS_INVALID',
+        message: 'Collection contains an unknown item or an item of the wrong resource kind.',
+      });
   }
   async createPerk(dto: CreatePerkRequest) {
     this.validatePerk(dto);
@@ -386,7 +403,10 @@ export class ResourcesService {
   }
   async updatePerk(id: string, dto: UpdatePerkRequest) {
     if (!Object.keys(dto).length)
-      throw new BadRequestException('At least one field is required.');
+      throw new BadRequestException({
+        code: 'NOTHING_TO_UPDATE',
+        message: 'At least one field is required.',
+      });
     const current = await this.adminPerk(id);
     this.validatePerk({ ...current, ...dto });
     const row = await this.repository.updatePerk(id, perkUpdate(dto));
@@ -405,7 +425,10 @@ export class ResourcesService {
   }
   async updateLearning(id: string, dto: UpdateLearningRequest) {
     if (!Object.keys(dto).length)
-      throw new BadRequestException('At least one field is required.');
+      throw new BadRequestException({
+        code: 'NOTHING_TO_UPDATE',
+        message: 'At least one field is required.',
+      });
     const current = await this.adminLearning(id);
     this.validateLearning({ ...current, ...dto });
     const row = await this.repository.updateLearning(id, learningUpdate(dto));
@@ -426,10 +449,16 @@ export class ResourcesService {
   }
   async updateCollection(id: string, dto: UpdateCollectionRequest) {
     if (!Object.keys(dto).length)
-      throw new BadRequestException('At least one field is required.');
+      throw new BadRequestException({
+        code: 'NOTHING_TO_UPDATE',
+        message: 'At least one field is required.',
+      });
     const current = await this.adminCollection(id);
     if (dto.kind && dto.kind !== current.kind)
-      throw new BadRequestException('Collection kind cannot be changed.');
+      throw new BadRequestException({
+        code: 'COLLECTION_KIND_IMMUTABLE',
+        message: 'Collection kind cannot be changed.',
+      });
     await this.validateCollection({ ...current, ...dto });
     const row = await this.repository.updateCollection(
       id,
@@ -452,7 +481,7 @@ export class ResourcesService {
   }
   async getTemplate(id: string, role?: Role): Promise<TemplateDto> {
     const item = (await this.listTemplates(role)).find((t) => t.id === id);
-    if (!item) throw new NotFoundException('Template not found.');
+    if (!item) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
     return item;
   }
   // The controller's @Roles('member') reads the role from the JWT, which can lag a membership
@@ -465,9 +494,12 @@ export class ResourcesService {
       profile.status !== 'active' ||
       (profile.role !== 'member' && profile.role !== 'admin')
     )
-      throw new ForbiddenException('Template downloads are available to members only.');
+      throw new ForbiddenException({
+        code: 'TEMPLATE_MEMBERS_ONLY',
+        message: 'Template downloads are available to members only.',
+      });
     const file = await this.repository.findActiveTemplateFile(id);
-    if (!file) throw new NotFoundException('Template not found.');
+    if (!file) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
     const url = await this.repository.signTemplateFile(
       file.file_path,
       file.file_name,
@@ -484,7 +516,7 @@ export class ResourcesService {
   }
   async adminTemplate(id: string) {
     const item = (await this.adminTemplates()).find((i) => i.id === id);
-    if (!item) throw new NotFoundException('Template not found.');
+    if (!item) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
     return item;
   }
   async uploadTemplate(file: {
@@ -492,13 +524,19 @@ export class ResourcesService {
     size: number;
     originalname: string;
   }): Promise<TemplateUploadDto> {
-    if (file.size === 0) throw new BadRequestException('Uploaded file is empty.');
+    if (file.size === 0) throw new BadRequestException({
+      code: 'FILE_EMPTY',
+      message: 'Uploaded file is empty.',
+    });
     if (file.size > TEMPLATE_MAX_BYTES)
-      throw new BadRequestException('File too large — max 15MB.');
+      throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'File too large — max 15MB.' });
     const sniffed = await sniffFileType(file.buffer);
     const fileType = sniffed ? TEMPLATE_MIME[sniffed.mime] : undefined;
     if (!sniffed || !fileType)
-      throw new BadRequestException('Only Word, Excel, PowerPoint or PDF files are accepted.');
+      throw new BadRequestException({
+        code: 'FILE_INVALID_TYPE',
+        message: 'Only Word, Excel, PowerPoint or PDF files are accepted.',
+      });
     const filePath = `uploads/${randomUUID()}.${fileType}`;
     await this.repository.uploadTemplateFile(filePath, file.buffer, sniffed.mime);
     // Keep the admin's file name for the download, minus any path and with the true extension.
@@ -516,9 +554,15 @@ export class ResourcesService {
   }
   private async assertTemplateFile(dto: Pick<CreateTemplateRequest, 'filePath' | 'fileType'>) {
     if (!dto.filePath.endsWith(`.${dto.fileType}`))
-      throw new BadRequestException('fileType does not match the uploaded file.');
+      throw new BadRequestException({
+        code: 'TEMPLATE_FILE_TYPE_MISMATCH',
+        message: 'fileType does not match the uploaded file.',
+      });
     if (!(await this.repository.templateFileExists(dto.filePath)))
-      throw new BadRequestException('Upload the file first (POST /v1/admin/templates/upload).');
+      throw new BadRequestException({
+        code: 'TEMPLATE_FILE_REQUIRED',
+        message: 'Upload the file first (POST /v1/admin/templates/upload).',
+      });
   }
   // Best-effort: an admin-uploaded file no template points at any more. Seed files (starter/)
   // are left alone so a database rebuild never needs them re-uploaded.
@@ -542,7 +586,10 @@ export class ResourcesService {
   }
   async updateTemplate(id: string, dto: UpdateTemplateRequest) {
     if (!Object.keys(dto).length)
-      throw new BadRequestException('At least one field is required.');
+      throw new BadRequestException({
+        code: 'NOTHING_TO_UPDATE',
+        message: 'At least one field is required.',
+      });
     const current = await this.adminTemplate(id);
     if (dto.filePath !== undefined || dto.fileType !== undefined)
       await this.assertTemplateFile({ ...current, ...dto });

@@ -18,9 +18,9 @@ export type TemplatePublicRow = Omit<TemplateRow, 'file_path'>;
 function check(error: { code?: string } | null) {
   if (!error) return;
   if (error.code === '23505')
-    throw new ConflictException('Resource slug already exists.');
+    throw new ConflictException({ code: 'RESOURCE_SLUG_TAKEN', message: 'Resource slug already exists.' });
   if (['23514', '23502', '22P02', '23503'].includes(error.code || ''))
-    throw new BadRequestException('Invalid resource data.');
+    throw new BadRequestException({ code: 'RESOURCE_INVALID', message: 'Invalid resource data.' });
   throw new InternalServerErrorException('Resource operation failed.');
 }
 const PERK_COLUMNS = [

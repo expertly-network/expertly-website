@@ -63,7 +63,7 @@ export function parseEventsCsv(buffer: Buffer): ParsedEventCsv {
   try {
     records = parse(buffer, { columns: true, skip_empty_lines: true, trim: true, bom: true });
   } catch {
-    throw new BadRequestException('Could not parse this file as CSV.');
+    throw new BadRequestException({ code: 'CSV_INVALID', message: 'Could not parse this file as CSV.' });
   }
 
   // With zero data rows, csv-parse's `columns: true` can't tell us what the header row

@@ -46,11 +46,11 @@ by the global `HttpExceptionFilter` (`apps/backend/src/common/http-exception.fil
 Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_INVALID`;
 `403 ACCOUNT_SUSPENDED` (the token's `app_status` claim isn't `active`); `403 ROLE_REQUIRED`;
 `403 MEMBER_DEACTIVATED` (member-only route, the caller's member profile is deactivated);
-`403 ADMIN_NOT_CONFIRMED` (admin route, fresh `profiles` check failed).
+`403 ADMIN_NOT_CONFIRMED` (admin route, fresh `profiles` check failed); `403 PERMISSION_REQUIRED` (admin route, the admin's sub-role lacks the permission).
 
 ## List sizes
 
-Paginated lists cap their page size (`GET /v1/articles` 50, `GET /v1/members` 50, AI search 10).
+Paginated lists cap their page size (`GET /v1/articles` 50, `GET /v1/members` 50, AI search 20).
 Every other list endpoint — admin queues, a user's own lists, resource catalogs, events — returns at
 most **500 rows** (`MAX_LIST_ROWS`, `apps/backend/src/common/list-limits.ts`), newest first where the
 list is a queue or history; the admin AI-generations log keeps its own 200.
@@ -195,7 +195,7 @@ permanent public URL built from the Storage path at read time — see the upload
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
 already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
 invalid coupon, `rateMax <= rateMin`, or — only when `status: 'submitted'` — incomplete required
-fields, named in the message).
+fields, named in the message). Codes: `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_LOCKED` / `APPLICATION_ALREADY_OPEN` · `400 RATE_RANGE_INVALID`, `COUPON_INVALID`, `SERVICE_PREFERENCES_DUPLICATE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `APPLICATION_INCOMPLETE`.
 
 ### 🔒 `GET /v1/applications/me`
 
@@ -252,7 +252,7 @@ blurred on profiles). Must be an `https://media.licdn.com/...` URL — anything 
 
 **Response `200`:** `ApplicationDto`, same shape as the manual upload endpoint. **Errors:** `404`
 no LinkedIn identity linked or it has no `picture` claim · `502` the picture URL couldn't be
-fetched.
+fetched. Codes: `404`/`502 LINKEDIN_PHOTO_UNAVAILABLE` · `403 APPLICATION_CLIENTS_ONLY` · `400 FILE_TOO_LARGE`, `FILE_INVALID_TYPE`, `APPLICATION_NOT_DRAFT`.
 
 ### 🔒 `POST /v1/applications/me/coupon-preview`
 
@@ -287,7 +287,7 @@ while the caller has a `draft` application.
 from the stored path; each `documents[].url` is a signed URL valid for 15 minutes, minted fresh on
 every read (a document whose object is missing from Storage is omitted). **Errors:** `400` no draft to attach to,
 oversized file, or a MIME mismatch (including a renamed file whose magic bytes don't match its
-extension/declared content-type).
+extension/declared content-type). Codes: `400 FILE_REQUIRED`, `VALIDATION_FAILED` (bad `kind`), `FILE_TOO_LARGE`, `FILE_INVALID_TYPE`, `APPLICATION_NOT_DRAFT` · `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_ALREADY_OPEN`.
 
 ## Membership applications — admin
 
@@ -298,7 +298,7 @@ exact same `ApplicationDto` shape the applicant sees on their own `GET /v1/appli
 including `servicePreferences[]` so the admin can pick which one to approve.
 
 **Response `200`:** `ApplicationDto`. **Errors:** `401`/`403` per the 🛡️ badge · `404` no such
-application.
+application. Codes: `404 APPLICATION_NOT_FOUND`.
 
 ### 🛡️ `manageApplications` `PATCH /v1/admin/applications/:id`
 
@@ -379,7 +379,7 @@ returns — the queue is small and already fully loaded per request either way. 
 
 **Errors:** `401`/`403` per the 🛡️ badge · `404` no such application · `409` application isn't
 `submitted`/`under_review` · `400` rejecting without a `rejectionReason`, approving without a
-valid `approvedServiceId`.
+valid `approvedServiceId`. Codes: `404 APPLICATION_NOT_FOUND` · `409 APPLICATION_NOT_REVIEWABLE` / `APPLICATION_ALREADY_REVIEWED` · `400 REJECTION_REASON_REQUIRED`, `APPROVED_SERVICE_REQUIRED`, `APPROVED_SERVICE_INVALID`.
 
 ## Membership applications — not built yet (explicitly deferred)
 
@@ -442,14 +442,14 @@ The browse grid — published articles only, list shape (no `body`).
 **Response `200`:** `ArticleListItemDto[]`, newest first — always a plain array (no envelope).
 **Header `X-Total-Count`:** the total number of matches across all pages (exposed via CORS
 `Access-Control-Expose-Headers`, so browser callers can read it). **Errors:** `400` a non-UUID
-`authorId`/`serviceId`/`excludeId`, or a `page`/`pageSize` that isn't a positive integer.
+`authorId`/`serviceId`/`excludeId`, or a `page`/`pageSize` that isn't a positive integer. Codes: `400 VALIDATION_FAILED`.
 
 ### 🌐 `GET /v1/articles/:idOrSlug/preview`
 
 Added 2026-10-24. The public teaser of one **published** article — `ArticleListItemDto` (title,
 excerpt, cover, author, services…, no `body`), by UUID or slug. Backs the signed-out article page,
 which used to fetch the whole list just to find one entry. **Errors:** `404` no published article
-with that id/slug (drafts, pending and rejected articles are indistinguishable from missing).
+with that id/slug (drafts, pending and rejected articles are indistinguishable from missing). Codes: `404 ARTICLE_NOT_FOUND`.
 
 ### 🔒 `GET /v1/articles/me`
 
@@ -472,7 +472,7 @@ gets **`404`, not `403`**, so a non-owner can't distinguish "doesn't exist" from
 published yet."
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` no/invalid token · `404` not found, or a draft
-the caller can't see.
+the caller can't see. Codes: `404 ARTICLE_NOT_FOUND`.
 
 ### `member` `POST /v1/articles/ai-followup-questions`
 
@@ -560,7 +560,7 @@ write flow). **Errors:** `401` · `403` client account · `400` validation (miss
 article writing is unaffected either way. Every attempt (success or failure) is also recorded,
 fire-and-forget, into `ai_draft_generations` (logging the **inferred** `serviceIds`/`countries`/
 `state`, not client input — there is no client input for these anymore) — see
-`docs/database-erd.md`.
+`docs/database-erd.md`. Codes: `400 AI_DRAFT_PAYLOAD_MISSING`, `AI_DRAFT_PAYLOAD_INVALID`, `SOURCE_FILE_TOO_LARGE`, `SOURCE_FILE_INVALID_TYPE` · `413 PAYLOAD_TOO_LARGE`.
 
 ### `member` `POST /v1/articles/ai-refine`
 
@@ -641,7 +641,7 @@ check — "member or admin" fits the ranked model directly.
 
 **Response `201`:** `ArticleDto`. **Errors:** `401` no/invalid token · `403` client account · `400`
 validation failure (malformed body, word count out of range, invalid/inactive service id, empty
-`countries`).
+`countries`). Codes: `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `AI_GENERATION_NOT_OWNER`.
 
 ### 🔒 `PATCH /v1/articles/:id`
 
@@ -657,13 +657,13 @@ reject only happens via `GET`/`PATCH /v1/admin/articles` below, in `editorial` r
 `readTimeMinutes` re-derived if `body` changes.
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not the owner and not admin · `404` not
-found · `400` validation failure.
+found · `400` validation failure. Codes: `404 ARTICLE_NOT_FOUND` · `403 ARTICLE_NOT_OWNER` · `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`.
 
 ### 🔒 `DELETE /v1/articles/:id`
 
 Same owner-or-admin check as `PATCH`.
 
-**Response `204`.** **Errors:** `401` · `403` not the owner and not admin · `404` not found.
+**Response `204`.** **Errors:** `401` · `403` not the owner and not admin · `404` not found. Codes: `404 ARTICLE_NOT_FOUND` · `403 ARTICLE_NOT_OWNER`.
 
 ### 🛡️ `manageArticles` `GET /v1/admin/articles`
 
@@ -689,7 +689,7 @@ Approve (→ `published`) or reject (→ `rejected` + `rejectionReason`) an arti
 required when rejecting.
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not admin or lacks `manageArticles` ·
-`400` article isn't `pending_review`, or rejecting without a reason.
+`400` article isn't `pending_review`, or rejecting without a reason. Codes: `404 ARTICLE_NOT_FOUND` · `400 ARTICLE_NOT_PENDING_REVIEW`, `REJECTION_REASON_REQUIRED`.
 
 ### 🛡️ `manageArticles` `GET /v1/admin/ai-generations`
 
@@ -724,7 +724,7 @@ Same guard chain as above.
 before saving aren't logged — compare against the linked `article` for the saved version.
 
 **Errors:** `401` · `403` not admin or lacks `manageArticles` · `400` `id` isn't a UUID · `404`
-not found.
+not found. Codes: `404 AI_GENERATION_NOT_FOUND`.
 
 ## Articles — not built yet (explicitly deferred)
 
@@ -779,7 +779,7 @@ ordering as the public browse list, just not status-filtered. Backs the admin li
 Single event, any status. Backs the admin edit page's prefill — no public by-id endpoint exists
 to reuse (the public route only ever needed list shapes).
 
-**Response `200`:** `EventDto`. **Errors:** `404` not found.
+**Response `200`:** `EventDto`. **Errors:** `404` not found. Codes: `404 EVENT_NOT_FOUND`.
 
 ### 🛡️ `manageEvents` `POST /v1/admin/events`
 
@@ -800,7 +800,7 @@ below for what else is enforced when `status: 'published'`.
 Partial update — only provided fields change, including `status` (draft ⇄ published).
 
 **Request:** `UpdateEventRequest`. **Response `200`:** `EventDto`. **Errors:** `401` · `403` ·
-`404` not found · `400` validation failure (including publish requirements, see below).
+`404` not found · `400` validation failure (including publish requirements, see below). Codes: `404 EVENT_NOT_FOUND`.
 
 **Clearing an optional field:** every optional field accepts `null` in addition to its normal
 type. An **omitted** key leaves that column unchanged (standard partial-update semantics); an
@@ -825,7 +825,7 @@ event."`), same array-of-strings shape as class-validator's own errors.
 
 ### 🛡️ `manageEvents` `DELETE /v1/admin/events/:id`
 
-**Response `204`.** **Errors:** `401` · `403` · `404` not found.
+**Response `204`.** **Errors:** `401` · `403` · `404` not found. Codes: `404 EVENT_NOT_FOUND`.
 
 ### 🛡️ `manageEvents` `GET /v1/admin/events/export`
 
@@ -880,7 +880,7 @@ not by any specific row in it.
 
 **Errors:** `401` · `403` · `404`/`403`/`401` not applicable beyond the controller-level guard ·
 `400` no file / wrong extension / empty file / unparseable CSV / missing required column / zero
-data rows / any row validation failure (see above).
+data rows / any row validation failure (see above). Codes: `400 FILE_REQUIRED`, `FILE_EMPTY`, `CSV_INVALID`, `CSV_NO_ROWS`.
 
 **Known limitation — not a single DB transaction:** rows are fully validated before any write, so a
 write-phase failure only happens on a rare infra error (not a data problem), and at this table's
@@ -974,7 +974,7 @@ resolves service (and category) names the same way `ArticleService` does.
 
 **Response `200`:** `MemberDto`. **Errors:** `401` no/invalid token · `404` no member with that slug, not
 `status='active'`, or the caller isn't its owner (same "don't leak existence" posture as a draft
-article — a deactivated profile that isn't the caller's own returns `404`, not `403`).
+article — a deactivated profile that isn't the caller's own returns `404`, not `403`). Codes: `404 MEMBER_NOT_FOUND`.
 
 ### 🔒 `POST /v1/members/:id/uploads`
 
@@ -1052,7 +1052,7 @@ the public bucket as a "logo".
 
 **Response `201`:** `MemberProfileEditDto`. **Errors:** `401` · `403` not this member · `400`
 validation failure (payload shape doesn't match `section`, a malformed `proofAttachments` entry, or
-a file path that isn't the member's own).
+a file path that isn't the member's own). Codes: `403 MEMBER_NOT_OWNER` · `400 UPLOAD_NOT_OWNED`.
 
 ### 🔒 `GET /v1/members/:id/edits`
 
@@ -1084,7 +1084,7 @@ consolidated here the same day, before any external consumer — not a `/v2`-wor
 All validation runs before anything is written — a rejected photo leaves availability unchanged.
 
 **Response `200`:** the updated `MemberDto` (same shape as `GET /v1/members/:slug` for the owner).
-**Errors:** `400` validation · `403` not your profile · `404` no member profile.
+**Errors:** `400` validation · `403` not your profile · `404` no member profile. Codes: `403 MEMBER_NOT_OWNER` · `404 MEMBER_NOT_FOUND` · `400 UPLOAD_NOT_OWNED`.
 
 ### 🛡️ `manageMembers` `GET /v1/admin/members`
 
@@ -1173,7 +1173,7 @@ the client — reject the edit with a reason instead.
 
 **Response `200`:** `MemberProfileEditDto`. **Errors:** `400` (codes above), or
 an invalid key-client logo · `409` if the edit is no longer `pending` (already reviewed, or
-replaced by a newer submission).
+replaced by a newer submission). Codes: `404 MEMBER_EDIT_NOT_FOUND`, `MEMBER_NOT_FOUND` · `409 MEMBER_EDIT_ALREADY_REVIEWED` · `400 LOGO_INVALID_TYPE`, `LOGO_TOO_LARGE`, `MEMBER_EDIT_SECTION_INVALID`.
 
 ### 🔒 `GET /v1/members/:id/recommendations`
 
@@ -1181,7 +1181,7 @@ Added 2026-10-10. `:id` = recommended member's UUID (`MemberDto.id`). Any signed
 non-hidden recommendations newest first; the recipient and admins also receive hidden ones
 (`isHidden: true`). **Response `200`:** `MemberRecommendationDto[]` — `{ id, recipientId, author:
 { id, slug, name, initials, photoUrl }, body, isHidden, createdAt }`. **Errors:** `404` unknown or
-non-active member (the owner can still read their own).
+non-active member (the owner can still read their own). Codes: `404 RECOMMENDATION_RECIPIENT_NOT_FOUND`.
 
 ### 🔑 `POST /v1/members/:id/recommendations`
 
@@ -1196,7 +1196,7 @@ non-active member (the owner can still read their own).
 
 `@Roles('member')`, only the **recommended member** (`:id` must equal the caller). **Request:**
 `{ isHidden: boolean }` — hide/unhide. **Response `200`:** `MemberRecommendationDto`. **Errors:**
-`403` caller isn't the recipient · `404` recommendation not found under this member.
+`403` caller isn't the recipient · `404` recommendation not found under this member. Codes: `404 RECOMMENDATION_NOT_FOUND` · `403 RECOMMENDATION_NOT_RECIPIENT`.
 
 ## Member directory & profiles — not built yet (explicitly deferred)
 
@@ -1228,7 +1228,7 @@ out which one, if either, applies. `memberId` isn't validated as a real member h
 can't have a pending request, so `blocked` comes back `false` from that check) — this endpoint is
 a cheap read scoped to the caller's own `requester_id`, not a gate.
 
-**Response `200`:** `{ blocked: boolean; reason: 'pending' | 'rate_limited' | null; retryAfter:
+**Response `200`:** `ConsultationEligibilityResponse` — `{ blocked: boolean; reason: 'pending' | 'rate_limited' | null; retryAfter:
 string | null }` — `reason`/`retryAfter` are set whenever `blocked` is `true`; `retryAfter` is the
 pending request's cooldown end for `'pending'`, or the rate-limit window's reset time for
 `'rate_limited'`. **Errors:** `401` no/invalid token.
@@ -1303,7 +1303,7 @@ member); this is deliberately not reproduced. Each row is enriched with `request
 (computed from `profiles.role`, never client input), `requesterFirmName`, `requesterAvatarUrl`, and
 `serviceName` (same resolution as `/mine`, above).
 
-**Response `200`:** `ConsultationRequestDto[]`. **Errors:** `403` caller's role isn't `member`.
+**Response `200`:** `ConsultationRequestDto[]`. **Errors:** `403` caller's role isn't `member`. Codes: `403 CONSULTATION_MEMBERS_ONLY`.
 
 ### 🔒 `PATCH /v1/consultations/:id`
 
@@ -1324,7 +1324,7 @@ only caller). A request carries one of two shapes, never both:
 **Errors:** `401` · `403` wrong participant for the fields sent (decision by a non-member, rating by a
 non-requester) · `404` not found · `409` already decided / not `completed` for a rating · `400`
 validation, or `NOTHING_TO_UPDATE` (empty body), `MIXED_UPDATE` (decision and rating together),
-`DECISION_INCOMPLETE` (`status` without `responseMessage` or vice versa).
+`DECISION_INCOMPLETE` (`status` without `responseMessage` or vice versa). Codes: `404 CONSULTATION_NOT_FOUND` · `403 CONSULTATION_NOT_PARTICIPANT` · `409 CONSULTATION_ALREADY_DECIDED`, `CONSULTATION_NOT_COMPLETED`.
 
 ### 🔒 `GET /v1/consultations/:id/messages`
 
@@ -1333,7 +1333,7 @@ regardless of `status` — history stays visible after a decision, only posting 
 Newest-last (chat order).
 
 **Response `200`:** `ConsultationMessageDto[]`. **Errors:** `401` · `403` caller is neither the
-request's `requesterId` nor `memberId` · `404` request not found.
+request's `requesterId` nor `memberId` · `404` request not found. Codes: `404 CONSULTATION_NOT_FOUND` · `403 CONSULTATION_NOT_PARTICIPANT`.
 
 ### 🔒 `POST /v1/consultations/:id/messages`
 
@@ -1343,7 +1343,7 @@ rates it instead (`rating` on `PATCH /v1/consultations/:id` above).
 
 **Request:** `CreateConsultationMessageRequest` (`body`, 1–2000 chars). **Response `201`:**
 `ConsultationMessageDto`. **Errors:** `401` · `403` · `404` · `409` request already decided ·
-`400` `body` missing or over 2000 characters.
+`400` `body` missing or over 2000 characters. Codes: `404 CONSULTATION_NOT_FOUND` · `403 CONSULTATION_NOT_PARTICIPANT` · `409 CONSULTATION_ALREADY_DECIDED`.
 
 ### 🛡️ `manageConsultations` `GET /v1/admin/consultations`
 
@@ -1359,7 +1359,7 @@ validation as the owner-member route above.
 
 **Request:** `UpdateConsultationStatusRequest`. **Response `200`:** `ConsultationRequestDto`.
 **Errors:** `401` · `403` · `404` not found · `409` already decided · `400` `responseMessage`
-missing or under 10 characters.
+missing or under 10 characters. Codes: `404 CONSULTATION_NOT_FOUND` · `409 CONSULTATION_ALREADY_DECIDED`.
 
 ### Not built yet (explicitly deferred)
 
@@ -1437,7 +1437,7 @@ the way out.
 `search_query_log` row; rating someone else's `logId` is accepted but changes nothing.
 
 **Errors:** `400` (validation, query length, missing `logId`/`rating` for feedback), `401` (not
-signed in), `429`.
+signed in), `429`. Codes: `400 SEARCH_QUERY_LENGTH`, `SEARCH_FEEDBACK_INVALID`.
 
 **Rate limits** — `429` with body `{ statusCode: 429, code: 'RATE_LIMITED', message, retryAfterSeconds: 30 }`:
 
@@ -1474,6 +1474,13 @@ Operational command (in `apps/backend`): `pnpm worker` (the background worker, l
 
 ## Account
 
+### 🔑 `GET /v1/me`
+
+The caller's identity as the API sees it — read from the verified JWT, no database call.
+**Response `200`:** `MeResponse` (`packages/shared-types/account.ts`) — `{ id, email, role, status,
+memberStatus, firstName, lastName }`; `status`/`memberStatus` (added 2026-10-29) come from the
+`app_status`/`app_member_status` claims (see `docs/auth.md`).
+
 ### 🔑 `GET /v1/me/contact`
 
 The caller's own `phoneCountryCode`/`phone` (`profiles.phone_country_code`/`profiles.phone`).
@@ -1483,7 +1490,7 @@ don't carry phone, so this is the one real database read needed to get it. Both 
 when the caller never set a phone number (the common case for OAuth signups) — this is not a 404,
 a signed-in caller always gets a `200` with possibly-null fields.
 
-**Response `200`:** `{ phoneCountryCode: string | null; phone: string | null }`.
+**Response `200`:** `MyContactResponse` — `{ phoneCountryCode: string | null; phone: string | null }`.
 
 ## Perks & Learnings (US-14, backend implemented 2026-10-29)
 
@@ -1509,7 +1516,7 @@ User progress/saves/notes/completion tracking are out of scope. Templates were a
 Metadata is public. Send `Authorization: Bearer <access_token>` to get authorized content.
 An absent token means guest; a supplied malformed/expired/forged token returns **401**, never
 an unverified role. Responses send `Cache-Control: private, no-store` and `Vary: Authorization`.
-Inactive resources/collections are omitted; inactive or unknown detail returns **404**.
+Inactive resources/collections are omitted; inactive or unknown detail returns **404** (`PERK_NOT_FOUND` / `LEARNING_NOT_FOUND` / `COLLECTION_NOT_FOUND` / `TEMPLATE_NOT_FOUND`).
 UUID parameters are validated (**400**). Lists return complete ordered arrays (sortOrder then ID),
 without pagination. Optional list filters: `q` (case-insensitive name/title + description/summary),
 `category`, `audience=tax|legal|audit`, `level=beginner|intermediate|advanced`,
@@ -1560,7 +1567,7 @@ No token: **401**. Clients/members or admins without `manageResources`: **403**.
 RolesGuard and AdminPermissionGuard re-check the active admin profile and permission in the DB.
 Admin DTOs expose both perk tiers and playback URLs for content management. Slugs are generated
 server-side from perk name / collection title; edits preserve them. Supplying `slug`, IDs,
-timestamps, or unknown fields is rejected. Slug uniqueness conflicts return **409**.
+timestamps, or unknown fields is rejected. Slug uniqueness conflicts return **409** (`RESOURCE_SLUG_TAKEN`); other rejected data **400** `RESOURCE_INVALID`.
 
 Required create fields:
 
@@ -1573,16 +1580,16 @@ Required create fields:
 All resources support `isActive` (default true), non-negative `sortOrder` (default 0). Perks and
 learnings also support `isFeatured` (default false). Optional strings/arrays and nullable fields
 are listed in the shared contract. PATCH omission preserves a field; null clears only nullable
-fields. Required/non-nullable fields reject null; empty patches reject with **400**.
+fields. Required/non-nullable fields reject null; empty patches reject with **400** (`NOTHING_TO_UPDATE`).
 
 For a live perk at least one tier must have offer text and a nonblank code or HTTPS redemption
-URL. Offer text without redemption details, or redemption details without offer text, is **400**.
+URL. Offer text without redemption details, or redemption details without offer text, is **400** (`PERK_OFFER_INVALID`; a live perk with no redeemable offer: `PERK_OFFER_REQUIRED`).
 `coming_soon` may retain staged offers internally but none are disclosed publicly. To remove a
 tier, clear its offer, code and link together. Dates are ISO `YYYY-MM-DD`.
 
 **Playlist/stack membership and reorder:** PATCH `itemIds` with the complete desired ordered UUID
 array. Add by including another ID; remove by omitting it; reorder by permuting it. Duplicate,
-unknown, or wrong-kind IDs reject the entire write (**400**). Up to 100 IDs; every reference is
+unknown, or wrong-kind IDs reject the entire write (**400** `COLLECTION_ITEMS_INVALID`). Up to 100 IDs; every reference is
 validated against the appropriate table. Inactive items may be staged but remain absent in
 public collections. Concurrent full-array edits are last-write-wins. Deleting a perk/video prunes
 its ID from all collections via the existing database trigger in the same deletion transaction.
@@ -1614,7 +1621,7 @@ fileSizeBytes, previewImageUrl, audiences, isFeatured, sortOrder, canDownload, l
 
 **Download** — guest **401**, client **403** (JWT role). Because a JWT role can lag a membership
 change by up to the token lifetime, the service then re-reads `profiles` and requires an active
-`member`/`admin` (**403** otherwise). Unknown or inactive id **404**. The signed URL is valid for
+`member`/`admin` (**403** `TEMPLATE_MEMBERS_ONLY` otherwise). Unknown or inactive id **404** `TEMPLATE_NOT_FOUND`. The signed URL is valid for
 60 seconds, for that one object only, and carries `Content-Disposition: attachment` with the
 template's `fileName`.
 
@@ -1623,8 +1630,8 @@ template's `fileName`.
 | Method | Route | Notes |
 |---|---|---|
 | GET | `/v1/admin/templates` / `/:id` | `AdminTemplateDto` incl. `filePath` and `isActive` |
-| POST | `/v1/admin/templates/upload` | Multipart field `file`, ≤15MB. Type sniffed from the bytes (`file-type`): docx/xlsx/pptx/pdf only, else **400**. Stored at `uploads/<uuid>.<ext>`; returns `TemplateUploadDto` `{ filePath, fileName, fileSizeBytes, fileType }` — the file name is the uploader's, stripped of any path and given the true extension |
-| POST | `/v1/admin/templates` | `CreateTemplateRequest` = metadata + the upload response. `filePath` must match `^(starter\|uploads)/[a-z0-9-]+\.(docx\|xlsx\|pptx\|pdf)$`, end in `fileType`, and exist in the bucket, else **400**. Slug generated server-side |
+| POST | `/v1/admin/templates/upload` | Multipart field `file`, ≤15MB. Type sniffed from the bytes (`file-type`): docx/xlsx/pptx/pdf only, else **400** (`FILE_REQUIRED` / `FILE_EMPTY` / `FILE_TOO_LARGE` / `FILE_INVALID_TYPE`). Stored at `uploads/<uuid>.<ext>`; returns `TemplateUploadDto` `{ filePath, fileName, fileSizeBytes, fileType }` — the file name is the uploader's, stripped of any path and given the true extension |
+| POST | `/v1/admin/templates` | `CreateTemplateRequest` = metadata + the upload response. `filePath` must match `^(starter\|uploads)/[a-z0-9-]+\.(docx\|xlsx\|pptx\|pdf)$`, end in `fileType`, and exist in the bucket, else **400** (`TEMPLATE_FILE_TYPE_MISMATCH` / `TEMPLATE_FILE_REQUIRED`). Slug generated server-side |
 | PATCH | `/v1/admin/templates/:id` | Partial. Swapping `filePath` deletes the old `uploads/` object once nothing references it |
 | DELETE | `/v1/admin/templates/:id` | **204**. Pruned from every kit (DB trigger); its `uploads/` file is deleted. Seed `starter/` files are kept |
 

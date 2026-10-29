@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -38,14 +38,17 @@ function toArray(value?: string | string[]): string[] | undefined {
 // Rejects a non-UUID up front — Postgres would otherwise fail the uuid cast with a 500.
 function assertUuids(name: string, values: (string | undefined)[]): void {
   if (values.some((v) => v !== undefined && !isUUID(v))) {
-    throw new BadRequestException(`${name} must be a UUID.`);
+    throw new BadRequestException({ code: 'VALIDATION_FAILED', message: `${name} must be a UUID.` });
   }
 }
 
 function toPositiveInt(name: string, value?: string): number | undefined {
   if (value === undefined) return undefined;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 1) throw new BadRequestException(`${name} must be a positive integer.`);
+  if (!Number.isInteger(n) || n < 1) throw new BadRequestException({
+    code: 'VALIDATION_FAILED',
+    message: `${name} must be a positive integer.`,
+  });
   return n;
 }
 const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
@@ -113,7 +116,7 @@ export class ArticlesController {
   @RateLimit('cover-images', ...RATE_LIMITS.coverImages)
   @Get('cover-images')
   async coverImages(@Query('query') query?: string): Promise<CoverImageSuggestionsResponse> {
-    const images = await this.unsplashService.search(query?.trim() || DEFAULT_COVER_IMAGE_QUERY);
+    const images = await this.unsplashService.search(query?.trim().slice(0, 100) || DEFAULT_COVER_IMAGE_QUERY);
     return { images };
   }
 
@@ -145,17 +148,26 @@ export class ArticlesController {
       }
     }
 
-    if (!payload) throw new BadRequestException('Missing `payload` field.');
+    if (!payload) throw new BadRequestException({
+      code: 'AI_DRAFT_PAYLOAD_MISSING',
+      message: 'Missing `payload` field.',
+    });
     let parsed: unknown;
     try {
       parsed = JSON.parse(payload);
     } catch {
-      throw new BadRequestException('`payload` must be valid JSON.');
+      throw new BadRequestException({
+        code: 'AI_DRAFT_PAYLOAD_INVALID',
+        message: '`payload` must be valid JSON.',
+      });
     }
 
     const dto = plainToInstance(AiDraftRequestDto, parsed);
     const errors = await validate(dto);
-    if (errors.length > 0) throw new BadRequestException('Invalid AI draft request.');
+    if (errors.length > 0) throw new BadRequestException({
+      code: 'AI_DRAFT_PAYLOAD_INVALID',
+      message: 'Invalid AI draft request.',
+    });
 
     // No serviceIds come from the client anymore — the model infers them, picking only from
     // this full active-services candidate list (never trusted beyond what's actually offered).
@@ -205,7 +217,7 @@ export class ArticlesController {
   @Roles('member')
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateArticleDto
   ): Promise<ArticleDto> {
@@ -215,7 +227,7 @@ export class ArticlesController {
   @Roles('member')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser): Promise<void> {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser): Promise<void> {
     return this.articlesService.remove(id, user);
   }
 }

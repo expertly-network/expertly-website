@@ -64,7 +64,7 @@ export class ArticlesService {
       row.author_id !== user.id &&
       !(await this.adminAccess.hasFreshPermission(user, 'manageArticles'))
     ) {
-      throw new NotFoundException('Article not found.');
+      throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
     }
 
     const [serviceDetails, authors] = await Promise.all([
@@ -90,7 +90,7 @@ export class ArticlesService {
   // Public teaser (no body) of one published article, for signed-out visitors and link previews.
   async findPublishedPreview(idOrSlug: string): Promise<ArticleListItemDto> {
     const row = await this.articlesRepository.findPublishedPreview(idOrSlug);
-    if (!row) throw new NotFoundException('Article not found.');
+    if (!row) throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
     const [item] = await this.toListDtos([row]);
     return item;
   }
@@ -223,10 +223,16 @@ export class ArticlesService {
   async review(id: string, dto: AdminArticleReviewDto): Promise<ArticleDto> {
     const existing = await this.articlesRepository.findByIdOrThrow(id);
     if (existing.status !== 'pending_review') {
-      throw new BadRequestException('Only an article pending review can be approved or rejected.');
+      throw new BadRequestException({
+        code: 'ARTICLE_NOT_PENDING_REVIEW',
+        message: 'Only an article pending review can be approved or rejected.',
+      });
     }
     if (dto.status === 'rejected' && !dto.rejectionReason?.trim()) {
-      throw new BadRequestException('A rejection reason is required.');
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'A rejection reason is required.',
+      });
     }
 
     const row = await this.articlesRepository.applyReview(id, {
@@ -282,7 +288,10 @@ export class ArticlesService {
       return null;
     }
     if (generationAuthorId !== authorId) {
-      throw new BadRequestException('aiGenerationId does not belong to you.');
+      throw new BadRequestException({
+        code: 'AI_GENERATION_NOT_OWNER',
+        message: 'aiGenerationId does not belong to you.',
+      });
     }
     return generationId;
   }
@@ -291,18 +300,27 @@ export class ArticlesService {
   private async assertCanModify(row: ArticleRow, user: AuthenticatedUser): Promise<void> {
     if (row.author_id === user.id) return;
     if (await this.adminAccess.hasFreshPermission(user, 'manageArticles')) return;
-    throw new ForbiddenException({ code: 'ARTICLE_NOT_OWNER', message: 'You can only modify your own articles.' });
+    throw new ForbiddenException({
+      code: 'ARTICLE_NOT_OWNER',
+      message: 'You can only modify your own articles.',
+    });
   }
 
   private async assertActiveServiceIds(ids: string[], customLabels?: Record<string, string>): Promise<void> {
     const details = await this.articlesRepository.findServiceDetails(ids);
     const invalidIds = ids.filter((id) => !details.get(id)?.isActive);
     if (invalidIds.length > 0) {
-      throw new BadRequestException(`Invalid or inactive service id(s): ${invalidIds.join(', ')}`);
+      throw new BadRequestException({
+        code: 'SERVICE_IDS_INVALID',
+        message: `Invalid or inactive service id(s): ${invalidIds.join(', ')}`,
+      });
     }
     const missingCustomLabels = ids.filter((id) => details.get(id)?.isCustom && !customLabels?.[id]?.trim());
     if (missingCustomLabels.length > 0) {
-      throw new BadRequestException(`customServiceLabels required for custom service id(s): ${missingCustomLabels.join(', ')}`);
+      throw new BadRequestException({
+        code: 'CUSTOM_SERVICE_LABEL_REQUIRED',
+        message: `customServiceLabels required for custom service id(s): ${missingCustomLabels.join(', ')}`,
+      });
     }
   }
 
@@ -324,9 +342,10 @@ export class ArticlesService {
 function assertWordCount(body: string): void {
   const wordCount = countArticleWords(body);
   if (wordCount < MIN_ARTICLE_WORDS || wordCount > MAX_ARTICLE_WORDS) {
-    throw new BadRequestException(
-      `Article body must be between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words (got ${wordCount}).`
-    );
+    throw new BadRequestException({
+      code: 'ARTICLE_WORD_COUNT_OUT_OF_RANGE',
+      message: `Article body must be between ${MIN_ARTICLE_WORDS} and ${MAX_ARTICLE_WORDS} words (got ${wordCount}).`,
+    });
   }
 }
 

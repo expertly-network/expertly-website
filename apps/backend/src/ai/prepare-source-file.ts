@@ -17,7 +17,10 @@ export type PreparedSourceFile =
 // extraction could never preserve.
 export async function prepareSourceFile(buffer: Buffer, filename: string): Promise<PreparedSourceFile> {
   if (buffer.length > MAX_SOURCE_FILE_BYTES) {
-    throw new BadRequestException(`${filename} is too large — max 15MB per source file.`);
+    throw new BadRequestException({
+      code: 'SOURCE_FILE_TOO_LARGE',
+      message: `${filename} is too large — max 15MB per source file.`,
+    });
   }
 
   const sniffed = await sniffFileType(buffer);
@@ -35,7 +38,8 @@ export async function prepareSourceFile(buffer: Buffer, filename: string): Promi
     return { kind: 'text', text: buffer.toString('utf-8'), filename };
   }
 
-  throw new BadRequestException(
-    `Unsupported source file type for ${filename} (expected PDF, JPEG, PNG, WebP, or plain text).`
-  );
+  throw new BadRequestException({
+    code: 'SOURCE_FILE_INVALID_TYPE',
+    message: `Unsupported source file type for ${filename} (expected PDF, JPEG, PNG, WebP, or plain text).`,
+  });
 }

@@ -156,7 +156,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-[3px] font-mono text-[11px] font-semibold ${
                 isSeasoned
-                  ? 'border-[#fde68a] bg-[#fef3c7] text-[#d97706]'
+                  ? 'border-amber-200 bg-amber-100 text-amber-600'
                   : 'border-line bg-line text-ink-3'
               }`}
             >

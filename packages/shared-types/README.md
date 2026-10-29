@@ -6,19 +6,28 @@ request/response interfaces here. The frontend session building against that con
 from here instead of redefining its own copy — so a shape mismatch is a type error, not something
 that has to be caught by carefully re-reading a markdown doc.
 
-## Hard rule: type-only, always `import type`
+## How it's consumed — the two sides differ on purpose
 
-Every file in here exports **interfaces/types only** — no runtime values, no enums-as-objects, no
-functions, no classes. That's not a style preference, it's load-bearing: both apps reference this
-folder via a `@shared/*` path alias, and Next.js's bundler and NestJS's `tsc` build resolve that
-alias differently. `import type { Foo } from '@shared/...'` is guaranteed to be erased completely
-at compile time by TypeScript itself — no runtime `require`/`import` is ever emitted for it — so it
-works identically on both sides regardless of their different bundlers. A regular `import` (not
-`import type`) of something from here would silently break the backend build (NestJS's `tsc` step
-does not rewrite path aliases in emitted JS — confirmed the hard way earlier in this project; see
-git history around `apps/frontend/tsconfig.json`'s own `@/*` alias for the same issue). If you need a
-runtime value shared between apps (a constant, an enum with real values), it does not belong here —
-duplicate it deliberately on each side, or raise it as a separate discussion.
+The DTOs here are **classes decorated with `@nestjs/swagger`'s `@ApiProperty()`**, not plain
+interfaces, so the backend's generated Swagger docs (`/api`) describe the real response shapes:
+
+- **Backend** imports them as **values** where Swagger needs the class (`@ApiOkResponse({ type })`,
+  controller return types) and with `import type` everywhere else. `nest build` resolves the
+  `@shared/*` alias and `tsc-alias` (`apps/backend/scripts/postbuild.mjs`) rewrites it in the emitted
+  JS — so a value import is safe there.
+- **Frontend** must only ever use **`import type`** from `@shared/*` (enforced by convention and
+  checked in review): that is fully erased at compile time, so neither the decorators nor
+  `@nestjs/swagger` ever reach the browser bundle. A value import would pull Nest's Swagger runtime
+  into Next.js.
+
+Keep files to DTO classes, request/response types and string-literal unions — no functions, no
+runtime constants. A runtime value shared by both apps (a limit, an allowlist) is duplicated
+deliberately on each side with a comment pointing at its twin (e.g. `MEMBER_UPLOAD_CONTENT_TYPES`
+in `apps/backend/src/members/dto/create-upload.dto.ts` ↔ `apps/frontend/lib/api/members.ts`).
+
+Backend **request** DTOs (`apps/backend/src/**/dto/*.dto.ts`, the class-validator classes) are
+separate classes from the request types here; keep their fields identical — when adding one, write
+it here first, then the validated backend class with the same fields.
 
 ## Convention
 

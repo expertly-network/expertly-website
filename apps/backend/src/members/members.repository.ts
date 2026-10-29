@@ -328,7 +328,10 @@ export class MembersRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to update member.');
-    if (!updated) throw new NotFoundException('Member profile not found.');
+    if (!updated) throw new NotFoundException({
+      code: 'MEMBER_NOT_FOUND',
+      message: 'Member profile not found.',
+    });
     return updated as unknown as MemberProfileRow;
   }
 
@@ -349,7 +352,10 @@ export class MembersRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load profile edit.');
-    if (!data) throw new NotFoundException('Profile edit not found.');
+    if (!data) throw new NotFoundException({
+      code: 'MEMBER_EDIT_NOT_FOUND',
+      message: 'Profile edit not found.',
+    });
     return data as unknown as MemberProfileEditRow;
   }
 
@@ -416,7 +422,10 @@ export class MembersRepository {
       .select('profile_id')
       .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to update member profile.');
-    if (!data) throw new NotFoundException('Member profile not found.');
+    if (!data) throw new NotFoundException({
+      code: 'MEMBER_NOT_FOUND',
+      message: 'Member profile not found.',
+    });
   }
 
   async applyHeadlineBioEdit(memberId: string, headline: string, bio: string): Promise<void> {

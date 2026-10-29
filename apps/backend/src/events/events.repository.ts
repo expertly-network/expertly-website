@@ -80,7 +80,7 @@ export class EventsRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load event.');
-    if (!data) throw new NotFoundException('Event not found.');
+    if (!data) throw new NotFoundException({ code: 'EVENT_NOT_FOUND', message: 'Event not found.' });
     return data as unknown as EventDto;
   }
 
@@ -124,7 +124,7 @@ export class EventsRepository {
     const { data, error } = await this.events().delete().eq('id', id).select('id').maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to delete event.');
-    if (!data) throw new NotFoundException('Event not found.');
+    if (!data) throw new NotFoundException({ code: 'EVENT_NOT_FOUND', message: 'Event not found.' });
   }
 
   // Single multi-row delete, used by the bulk import's full-sync pass. Caller already knows

@@ -7,7 +7,11 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type { ConsultationMessageDto, ConsultationRequestDto } from '@shared/consultation-request';
+import type {
+  ConsultationEligibilityResponse,
+  ConsultationMessageDto,
+  ConsultationRequestDto,
+} from '@shared/consultation-request';
 import { ConsultationsRepository, type ConsultationMessageRow } from './consultations.repository';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 import { UpdateConsultationStatusDto } from './dto/update-consultation-status.dto';
@@ -75,7 +79,7 @@ export class ConsultationsService {
   private async eligibility(
     requesterId: string,
     memberId: string
-  ): Promise<{ blocked: boolean; reason: 'pending' | 'rate_limited' | null; retryAfter: string | null }> {
+  ): Promise<ConsultationEligibilityResponse> {
     const cooldown = await this.pendingCooldownStatus(requesterId, memberId);
     if (cooldown.blocked) {
       return { blocked: true, reason: 'pending', retryAfter: cooldown.retryAfter };
@@ -96,13 +100,16 @@ export class ConsultationsService {
   async checkEligibility(
     requester: AuthenticatedUser,
     memberId: string
-  ): Promise<{ blocked: boolean; reason: 'pending' | 'rate_limited' | null; retryAfter: string | null }> {
+  ): Promise<ConsultationEligibilityResponse> {
     return this.eligibility(requester.id, memberId);
   }
 
   async create(requester: AuthenticatedUser, dto: CreateConsultationRequestDto): Promise<ConsultationRequestDto> {
     if (dto.memberId === requester.id) {
-      throw new BadRequestException({ code: 'CONSULTATION_SELF', message: 'You cannot request a consultation with yourself.' });
+      throw new BadRequestException({
+        code: 'CONSULTATION_SELF',
+        message: 'You cannot request a consultation with yourself.',
+      });
     }
 
     if (!dto.serviceId && !dto.customServiceLabel?.trim()) {
@@ -173,7 +180,10 @@ export class ConsultationsService {
 
   async findReceived(member: AuthenticatedUser): Promise<ConsultationRequestDto[]> {
     if (member.role !== 'member') {
-      throw new ForbiddenException('Only members receive consultation requests.');
+      throw new ForbiddenException({
+        code: 'CONSULTATION_MEMBERS_ONLY',
+        message: 'Only members receive consultation requests.',
+      });
     }
     const requests = await this.repository.findByMemberId(member.id);
     const withRequester = await this.enrichWithRequesterInfo(requests);
@@ -187,10 +197,16 @@ export class ConsultationsService {
     const deciding = dto.status !== undefined || dto.responseMessage !== undefined;
     const rating = dto.rating !== undefined;
     if (!deciding && !rating) {
-      throw new BadRequestException({ code: 'NOTHING_TO_UPDATE', message: 'Send a decision (status + responseMessage) or a rating.' });
+      throw new BadRequestException({
+        code: 'NOTHING_TO_UPDATE',
+        message: 'Send a decision (status + responseMessage) or a rating.',
+      });
     }
     if (deciding && rating) {
-      throw new BadRequestException({ code: 'MIXED_UPDATE', message: 'A decision and a rating come from different participants — send them separately.' });
+      throw new BadRequestException({
+        code: 'MIXED_UPDATE',
+        message: 'A decision and a rating come from different participants — send them separately.',
+      });
     }
     return deciding ? this.decide(id, user, dto) : this.rate(id, user, dto.rating as number);
   }
@@ -198,15 +214,24 @@ export class ConsultationsService {
   // Member-only — the member the request was sent to.
   private async decide(id: string, member: AuthenticatedUser, dto: UpdateConsultationDto): Promise<ConsultationRequestDto> {
     if (dto.status === undefined || dto.responseMessage === undefined) {
-      throw new BadRequestException({ code: 'DECISION_INCOMPLETE', message: 'status and responseMessage must be sent together.' });
+      throw new BadRequestException({
+        code: 'DECISION_INCOMPLETE',
+        message: 'status and responseMessage must be sent together.',
+      });
     }
     const existing = await this.repository.findById(id);
     if (existing.memberId !== member.id) {
-      throw new ForbiddenException('You can only update your own consultation requests.');
+      throw new ForbiddenException({
+        code: 'CONSULTATION_NOT_PARTICIPANT',
+        message: 'You can only update your own consultation requests.',
+      });
     }
     const updated = await this.repository.updateStatus(id, dto.status, dto.responseMessage);
     if (!updated) {
-      throw new ConflictException('This consultation request has already been decided.');
+      throw new ConflictException({
+        code: 'CONSULTATION_ALREADY_DECIDED',
+        message: 'This consultation request has already been decided.',
+      });
     }
     return updated;
   }
@@ -216,15 +241,24 @@ export class ConsultationsService {
   private async rate(id: string, requester: AuthenticatedUser, rating: number): Promise<ConsultationRequestDto> {
     const existing = await this.repository.findById(id);
     if (existing.requesterId !== requester.id) {
-      throw new ForbiddenException('You can only rate your own consultation requests.');
+      throw new ForbiddenException({
+        code: 'CONSULTATION_NOT_PARTICIPANT',
+        message: 'You can only rate your own consultation requests.',
+      });
     }
     // Only a completed consultation is a conversation worth rating — a declined one never happened.
     if (existing.status !== 'completed') {
-      throw new ConflictException('Only completed consultations can be rated.');
+      throw new ConflictException({
+        code: 'CONSULTATION_NOT_COMPLETED',
+        message: 'Only completed consultations can be rated.',
+      });
     }
     const updated = await this.repository.updateRating(id, requester.id, rating);
     if (!updated) {
-      throw new ConflictException('Only completed consultations can be rated.');
+      throw new ConflictException({
+        code: 'CONSULTATION_NOT_COMPLETED',
+        message: 'Only completed consultations can be rated.',
+      });
     }
     return updated;
   }
@@ -240,7 +274,10 @@ export class ConsultationsService {
     await this.repository.findById(id);
     const updated = await this.repository.updateStatus(id, dto.status, dto.responseMessage);
     if (!updated) {
-      throw new ConflictException('This consultation request has already been decided.');
+      throw new ConflictException({
+        code: 'CONSULTATION_ALREADY_DECIDED',
+        message: 'This consultation request has already been decided.',
+      });
     }
     return updated;
   }
@@ -250,7 +287,10 @@ export class ConsultationsService {
   private async assertParticipant(requestId: string, user: AuthenticatedUser): Promise<ConsultationRequestDto> {
     const request = await this.repository.findById(requestId);
     if (request.requesterId !== user.id && request.memberId !== user.id) {
-      throw new ForbiddenException('You do not have access to this consultation request.');
+      throw new ForbiddenException({
+        code: 'CONSULTATION_NOT_PARTICIPANT',
+        message: 'You do not have access to this consultation request.',
+      });
     }
     return request;
   }
@@ -268,7 +308,10 @@ export class ConsultationsService {
   ): Promise<ConsultationMessageDto> {
     const request = await this.assertParticipant(requestId, user);
     if (request.status !== 'pending') {
-      throw new ConflictException('This conversation has ended — the request has already been decided.');
+      throw new ConflictException({
+        code: 'CONSULTATION_ALREADY_DECIDED',
+        message: 'This conversation has ended — the request has already been decided.',
+      });
     }
     const inserted = await this.repository.insertMessage(requestId, user.id, dto.body);
     const [enriched] = await this.enrichMessages([inserted]);

@@ -22,7 +22,10 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user: AuthenticatedUser | undefined = request.user;
     if (!user) {
-      throw new ForbiddenException('No authenticated user resolved for this route.');
+      throw new ForbiddenException({
+        code: 'SESSION_MISSING',
+        message: 'No authenticated user resolved for this route.',
+      });
     }
 
     const hasSufficientRole = requiredRoles.some(
@@ -38,7 +41,10 @@ export class RolesGuard implements CanActivate {
     // A deactivated member keeps role 'member' (their profile and history stay), but loses every
     // member-only action — writing articles, AI drafting, editing the profile, recommending.
     if (user.role === 'member' && user.memberStatus === 'deactivated') {
-      throw new ForbiddenException({ code: 'MEMBER_DEACTIVATED', message: 'Your member profile is deactivated.' });
+      throw new ForbiddenException({
+        code: 'MEMBER_DEACTIVATED',
+        message: 'Your member profile is deactivated.',
+      });
     }
 
     if (requiredRoles.includes('admin')) {
@@ -52,7 +58,10 @@ export class RolesGuard implements CanActivate {
     const profile = await this.profilesRepository.findById(user.id);
 
     if (!profile || profile.status !== 'active' || profile.role !== 'admin') {
-      throw new ForbiddenException({ code: 'ADMIN_NOT_CONFIRMED', message: 'Admin access could not be freshly confirmed.' });
+      throw new ForbiddenException({
+        code: 'ADMIN_NOT_CONFIRMED',
+        message: 'Admin access could not be freshly confirmed.',
+      });
     }
   }
 }

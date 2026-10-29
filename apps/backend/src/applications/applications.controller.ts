@@ -62,7 +62,7 @@ export class ApplicationsController {
   @Post('me/uploads')
   async uploadFile(@CurrentUser() user: AuthenticatedUser, @Req() request: FastifyRequest): Promise<ApplicationDto> {
     const part = await request.file();
-    if (!part) throw new BadRequestException('No file provided.');
+    if (!part) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'No file provided.' });
 
     // Repeated multipart fields are normalized to arrays.
     const kindField = Array.isArray(part.fields.kind) ? part.fields.kind[0] : part.fields.kind;
@@ -70,7 +70,10 @@ export class ApplicationsController {
 
     const dto = plainToInstance(UploadApplicationFileDto, { kind: kindValue });
     const errors = await validate(dto);
-    if (errors.length > 0) throw new BadRequestException('Invalid or missing `kind` field.');
+    if (errors.length > 0) throw new BadRequestException({
+      code: 'VALIDATION_FAILED',
+      message: 'Invalid or missing `kind` field.',
+    });
 
     const buffer = await part.toBuffer();
     const file = { buffer, size: buffer.length, originalname: part.filename };

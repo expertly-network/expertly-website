@@ -118,7 +118,7 @@ export class AdminResourcesController {
   @HttpCode(200)
   async uploadTemplate(@Req() request: FastifyRequest) {
     const part = await request.file();
-    if (!part) throw new BadRequestException('No file provided.');
+    if (!part) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'No file provided.' });
     const buffer = await part.toBuffer();
     return this.service.uploadTemplate({
       buffer,

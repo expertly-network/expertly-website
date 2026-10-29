@@ -10,6 +10,7 @@ import { reviewApplication } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 import type { ApplicationDto } from '@shared/membership-application';
 import { externalHref, externalLink } from '@/lib/members/format';
+import { formatCents, formatDateRange } from '@/lib/apply/format';
 
 const PRIORITY_LABEL: Record<1 | 2 | 3, string> = { 1: '1st preference', 2: '2nd preference', 3: '3rd preference' };
 
@@ -17,28 +18,6 @@ const TIER_OPTIONS: { value: 'budding_entrepreneur' | 'seasoned_professional'; l
   { value: 'budding_entrepreneur', label: 'Budding Entrepreneur' },
   { value: 'seasoned_professional', label: 'Seasoned Professional' },
 ];
-
-function formatCents(cents: number | null): string {
-  if (cents === null) return '—';
-  return `$${(cents / 100).toLocaleString()}`;
-}
-
-function monthLabel(month: number | undefined): string {
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return month ? (MONTHS[month - 1] ?? '') : '';
-}
-
-function formatDateRange(
-  startMonth: number | undefined,
-  startYear: number,
-  isCurrent: boolean,
-  endMonth: number | undefined,
-  endYear: number | undefined
-): string {
-  const start = [monthLabel(startMonth), startYear].filter(Boolean).join(' ');
-  const end = isCurrent ? 'Present' : [monthLabel(endMonth), endYear].filter(Boolean).join(' ') || '—';
-  return `${start} – ${end}`;
-}
 
 function todayIsoDate(): string {
   const d = new Date();

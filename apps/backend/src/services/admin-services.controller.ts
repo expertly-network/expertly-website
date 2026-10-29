@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { ServiceDto } from '@shared/service';
@@ -14,18 +14,18 @@ export class AdminServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
   @Post('categories/:categoryId/services')
-  create(@Param('categoryId') categoryId: string, @Body() dto: CreateServiceDto): Promise<ServiceDto> {
+  create(@Param('categoryId', ParseUUIDPipe) categoryId: string, @Body() dto: CreateServiceDto): Promise<ServiceDto> {
     return this.servicesService.create(categoryId, dto);
   }
 
   @Patch('services/:id')
-  update(@Param('id') id: string, @Body() dto: UpdateServiceDto): Promise<ServiceDto> {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateServiceDto): Promise<ServiceDto> {
     return this.servicesService.update(id, dto);
   }
 
   @Delete('services/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string): Promise<void> {
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.servicesService.remove(id);
   }
 }

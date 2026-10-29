@@ -115,3 +115,22 @@ export class SearchRateLimitError {
   @ApiProperty() message!: string;
   @ApiProperty() retryAfterSeconds!: number;
 }
+
+/** Request body for POST /v1/search asking a question. */
+export interface SearchQuestionRequest {
+  action?: 'search';
+  /** 2–500 characters. */
+  query: string;
+  scope?: SearchScope;
+  /** 1–20. */
+  limit?: number;
+}
+
+/** Request body for POST /v1/search rating an earlier answer. */
+export interface SearchFeedbackRequest {
+  action: 'feedback';
+  logId: string;
+  rating: 1 | -1;
+  /** Up to 500 characters. */
+  note?: string;
+}

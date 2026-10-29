@@ -147,7 +147,10 @@ export class MembersService {
 
   async findMine(user: AuthenticatedUser): Promise<MyMemberProfileDto> {
     const found = (await this.membersRepository.findSlugAndPhotoByProfileIds([user.id])).get(user.id);
-    if (!found) throw new NotFoundException('You have no member profile yet.');
+    if (!found) throw new NotFoundException({
+      code: 'MEMBER_NOT_FOUND',
+      message: 'You have no member profile yet.',
+    });
     return { id: user.id, slug: found.slug };
   }
 
@@ -155,7 +158,7 @@ export class MembersService {
     const row = await this.membersRepository.findDetailBySlug(slug);
 
     if (!row || (row.status !== 'active' && row.profile_id !== user.id)) {
-      throw new NotFoundException('Member profile not found.');
+      throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
     }
 
     return this.toDetailDto(row, user);
@@ -227,7 +230,10 @@ export class MembersService {
   async updateOwnProfile(memberId: string, user: AuthenticatedUser, dto: UpdateMemberDto): Promise<MemberDto> {
     this.assertOwner(memberId, user);
     if (dto.isAvailable === undefined && dto.availabilityNotes === undefined && dto.photoUploadPath === undefined) {
-      throw new BadRequestException({ code: 'NOTHING_TO_UPDATE', message: 'Send at least one field to update.' });
+      throw new BadRequestException({
+        code: 'NOTHING_TO_UPDATE',
+        message: 'Send at least one field to update.',
+      });
     }
 
     const patch: MemberSelfUpdate = {};
@@ -237,7 +243,7 @@ export class MembersService {
 
     await this.membersRepository.updateOwnFields(memberId, patch);
     const row = await this.membersRepository.findDetailByProfileId(memberId);
-    if (!row) throw new NotFoundException('Member profile not found.');
+    if (!row) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
     return this.toDetailDto(row, user);
   }
 
@@ -247,10 +253,16 @@ export class MembersService {
     const sniffed = await sniffFileType(buffer);
     const ext = sniffed ? PHOTO_MIME_TO_EXT[sniffed.mime] : undefined;
     if (!sniffed || !ext) {
-      throw new BadRequestException({ code: 'PHOTO_INVALID_TYPE', message: 'Profile photos must be a JPEG, PNG, or WebP image.' });
+      throw new BadRequestException({
+        code: 'PHOTO_INVALID_TYPE',
+        message: 'Profile photos must be a JPEG, PNG, or WebP image.',
+      });
     }
     if (buffer.length > MAX_PHOTO_BYTES) {
-      throw new BadRequestException({ code: 'PHOTO_TOO_LARGE', message: 'Profile photos must be under 5MB.' });
+      throw new BadRequestException({
+        code: 'PHOTO_TOO_LARGE',
+        message: 'Profile photos must be under 5MB.',
+      });
     }
     const publicPath = `members/${memberId}/profile-photo-${randomUUID()}.${ext}`;
     await this.membersRepository.uploadPublicAsset(publicPath, buffer, sniffed.mime);
@@ -313,7 +325,10 @@ export class MembersService {
   async adminListEdits(status?: string): Promise<MemberProfileEditDto[]> {
     const filter = (status ?? 'pending') as MemberEditStatusFilter;
     if (!EDIT_STATUS_FILTERS.includes(filter)) {
-      throw new BadRequestException(`status must be one of: ${EDIT_STATUS_FILTERS.join(', ')}.`);
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: `status must be one of: ${EDIT_STATUS_FILTERS.join(', ')}.`,
+      });
     }
     const rows = await this.membersRepository.findAllEditsByStatus(filter);
     return this.toEditDtos(rows);
@@ -323,7 +338,7 @@ export class MembersService {
   // the current-vs-proposed diff), all edits, and signed links for their private proof files.
   async adminGetMemberEdits(memberId: string): Promise<AdminMemberEditsDetailDto> {
     const row = await this.membersRepository.findDetailByProfileId(memberId);
-    if (!row) throw new NotFoundException('Member profile not found.');
+    if (!row) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
 
     const [profilesById, editRows] = await Promise.all([
       this.membersRepository.findProfilesByIds([memberId]),
@@ -361,7 +376,10 @@ export class MembersService {
 
     const edit = await this.membersRepository.findEditById(id);
     if (edit.status !== 'pending') {
-      throw new ConflictException('This edit has already been reviewed.');
+      throw new ConflictException({
+        code: 'MEMBER_EDIT_ALREADY_REVIEWED',
+        message: 'This edit has already been reviewed.',
+      });
     }
 
     let status: 'verified' | 'rejected';
@@ -408,7 +426,10 @@ export class MembersService {
 
   private assertOwner(memberId: string, user: AuthenticatedUser): void {
     if (user.id !== memberId) {
-      throw new ForbiddenException('You can only edit your own member profile.');
+      throw new ForbiddenException({
+        code: 'MEMBER_NOT_OWNER',
+        message: 'You can only edit your own member profile.',
+      });
     }
   }
 
@@ -491,10 +512,16 @@ export class MembersService {
     }
 
     const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
-    if (!column || !ARRAY_SECTIONS.includes(section)) throw new BadRequestException(`Unknown edit section: ${section}`);
+    if (!column || !ARRAY_SECTIONS.includes(section)) throw new BadRequestException({
+      code: 'MEMBER_EDIT_SECTION_INVALID',
+      message: `Unknown edit section: ${section}`,
+    });
 
     const live = await this.membersRepository.findDetailByProfileId(memberId);
-    if (!live) throw new NotFoundException('Member profile not found.');
+    if (!live) throw new NotFoundException({
+      code: 'MEMBER_NOT_FOUND',
+      message: 'Member profile not found.',
+    });
     const liveItems = normalizeLiveSection(section, live[column as keyof MemberProfileDetailRow], true);
     const liveById = new Map(liveItems.map((item) => [item.id as string, item]));
 
@@ -551,10 +578,16 @@ export class MembersService {
     const ext = sniffed ? LOGO_MIME_TO_EXT[sniffed.mime] : undefined;
     const clientName = typeof rest.name === 'string' ? rest.name : 'a client';
     if (!sniffed || !ext) {
-      throw new BadRequestException(`The logo for ${clientName} isn't a PNG, JPEG, WebP, or GIF image — reject this edit instead.`);
+      throw new BadRequestException({
+        code: 'LOGO_INVALID_TYPE',
+        message: `The logo for ${clientName} isn't a PNG, JPEG, WebP, or GIF image — reject this edit instead.`,
+      });
     }
     if (buffer.length > MAX_LOGO_BYTES) {
-      throw new BadRequestException(`The logo for ${clientName} is larger than 2MB — reject this edit instead.`);
+      throw new BadRequestException({
+        code: 'LOGO_TOO_LARGE',
+        message: `The logo for ${clientName} is larger than 2MB — reject this edit instead.`,
+      });
     }
 
     const publicPath = `members/${memberId}/client-logos/${randomUUID()}.${ext}`;
@@ -612,7 +645,10 @@ export class MembersService {
           });
         }
         if (buffer.length > MAX_PROOF_BYTES) {
-          throw new BadRequestException({ code: 'UPLOAD_TOO_LARGE', message: 'Attached files must be under 10MB.' });
+          throw new BadRequestException({
+            code: 'UPLOAD_TOO_LARGE',
+            message: 'Attached files must be under 10MB.',
+          });
         }
       })
     );
@@ -620,7 +656,10 @@ export class MembersService {
 
   private assertOwnedPath(memberId: string, path: string): void {
     if (!path.startsWith(`${memberId}/`) || path.includes('..')) {
-      throw new BadRequestException('Uploaded files must be your own uploads.');
+      throw new BadRequestException({
+        code: 'UPLOAD_NOT_OWNED',
+        message: 'Uploaded files must be your own uploads.',
+      });
     }
   }
 

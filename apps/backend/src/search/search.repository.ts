@@ -62,6 +62,7 @@ export class SearchRepository {
     return this.client().from('search_documents');
   }
 
+  // Raw Errors on purpose: DB detail feeds search_outbox.last_error; HttpExceptionFilter makes them a 500.
   private async rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
     const { data, error } = await this.client().rpc(fn, args);
     if (error) throw new Error(`${fn} failed: ${error.message}`);

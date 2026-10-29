@@ -119,10 +119,11 @@ export class EventsService {
     const { rows, headerErrors } = parseEventsCsv(buffer);
     if (headerErrors.length > 0) throw new BadRequestException(headerErrors);
     if (rows.length === 0) {
-      throw new BadRequestException(
-        'CSV has no event rows. Refusing to run — a full sync would delete every existing event. ' +
-          'If that is really the goal, delete events individually instead.'
-      );
+      throw new BadRequestException({
+        code: 'CSV_NO_ROWS',
+        message: 'CSV has no event rows. Refusing to run — a full sync would delete every existing event. ' +
+          'If that is really the goal, delete events individually instead.',
+      });
     }
 
     const existing = await this.eventsRepository.findAllForAdmin();
