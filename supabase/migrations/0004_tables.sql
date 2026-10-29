@@ -1593,4 +1593,6 @@ alter default privileges for role postgres in schema public revoke all on sequen
 -- a no-op for it); anon/authenticated get theirs from Supabase's per-schema defaults.
 alter default privileges for role postgres revoke execute on functions from public;
 alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated;
-alter default privileges for role postgres in schema public grant execute on functions to service_role;
+-- Also global: the PUBLIC revoke above is global too, so without this a function or extension
+-- added later in ANY schema (e.g. an extension into `extensions`) would be unusable by the backend.
+alter default privileges for role postgres grant execute on functions to service_role;

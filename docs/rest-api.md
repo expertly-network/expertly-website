@@ -50,7 +50,11 @@ a client; a deactivated member can't decide consultation requests or post in the
 
 Storage paths a client sends back (`photoUploadPath`, `logoUploadPath`, proof `url`s,
 `proofFileUrl`) must be exactly a path `POST /v1/members/:id/uploads` minted for the caller —
-`<memberId>/<timestamp>-<name>` — or `400 UPLOAD_NOT_OWNED`.
+`<memberId>/<timestamp>-<name>` — or `400 UPLOAD_NOT_OWNED`. Member edits are bounded: ≤ 50 items per array
+section (`400 PAYLOAD_TOO_MANY_ITEMS`), ≤ 10 proof attachments per item, and ≤ 20 newly attached
+files per edit (`400 UPLOAD_LIMIT_EXCEEDED`); only newly attached files are type/size-checked
+(files already on the live profile were accepted earlier). An application holds at most 10
+documents (`400 APPLICATION_DOCUMENT_LIMIT`).
 
 Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_INVALID`;
 `403 ACCOUNT_SUSPENDED` (the token's `app_status` claim isn't `active`); `403 ROLE_REQUIRED`;

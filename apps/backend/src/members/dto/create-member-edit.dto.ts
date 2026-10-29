@@ -1,4 +1,4 @@
-import { IsDefined, IsIn, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { IsDefined, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { MemberEditSection } from '@shared/member';
 
 const SECTIONS: MemberEditSection[] = [
@@ -29,9 +29,10 @@ export class CreateMemberEditDto {
   @MaxLength(500)
   proofFileUrl?: string;
 
-  // Rendered as a link on the admin review screen — http(s) only (no javascript:/data: URLs).
+  // Rendered as a link on the admin review screen — http(s) only (no javascript:/data: URLs);
+  // checked with the same rule as every other member link (members/member-sections.ts).
   @IsOptional()
-  @IsUrl({ protocols: ['http', 'https'], require_protocol: true }, { message: 'proofLink must be an http(s) URL.' })
+  @IsString()
   @MaxLength(2048)
   proofLink?: string;
 }

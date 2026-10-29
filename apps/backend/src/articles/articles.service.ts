@@ -317,6 +317,15 @@ export class ArticlesService {
   }
 
   private async assertActiveServiceIds(ids: string[], customLabels?: Record<string, string>): Promise<void> {
+    // @IsObject() can't type the values: every label must be short text (a non-string reached
+    // `.trim()` below as a 500).
+    const labels = Object.values(customLabels ?? {});
+    if (labels.length > 20 || labels.some((label) => typeof label !== 'string' || label.length > 100)) {
+      throw new BadRequestException({
+        code: 'CUSTOM_SERVICE_LABEL_INVALID',
+        message: 'customServiceLabels values must be text of at most 100 characters.',
+      });
+    }
     const details = await this.articlesRepository.findServiceDetails(ids);
     const invalidIds = ids.filter((id) => !details.get(id)?.isActive);
     if (invalidIds.length > 0) {

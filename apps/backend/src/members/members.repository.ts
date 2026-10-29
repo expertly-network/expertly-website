@@ -392,6 +392,36 @@ export class MembersRepository {
     return urls;
   }
 
+  // The first `bytes` of a member-proofs object plus its total size, without buffering the whole
+  // file: a short-lived signed URL fetched with a Range header. Enough for magic-byte sniffing.
+  async readProofFileHead(path: string, bytes: number): Promise<{ head: Buffer; size: number }> {
+    const { data, error } = await this.supabase.db.storage.from('member-proofs').createSignedUrl(path, 60);
+    if (error || !data) throw new InternalServerErrorException('Failed to read uploaded file.');
+    try {
+      const res = await fetch(data.signedUrl, {
+        headers: { Range: `bytes=0-${bytes - 1}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      // 206: "bytes 0-4099/123456" carries the total; a server ignoring Range answers 200 with
+      // Content-Length — either way, stop reading after `bytes`.
+      const total = Number(res.headers.get('content-range')?.split('/')[1] ?? res.headers.get('content-length'));
+      const reader = res.body?.getReader();
+      const chunks: Uint8Array[] = [];
+      let read = 0;
+      while (reader && read < bytes) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        read += value.byteLength;
+      }
+      await reader?.cancel();
+      return { head: Buffer.concat(chunks).subarray(0, bytes), size: Number.isFinite(total) ? total : read };
+    } catch {
+      throw new InternalServerErrorException('Failed to read uploaded file.');
+    }
+  }
+
   async downloadProofFile(path: string): Promise<Buffer> {
     const { data, error } = await this.supabase.db.storage.from('member-proofs').download(path);
     if (error || !data) throw new InternalServerErrorException('Failed to read uploaded file.');

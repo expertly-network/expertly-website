@@ -19,6 +19,9 @@ export const ARRAY_SECTIONS: readonly MemberEditSection[] = [
 ];
 
 export const MAX_KEY_CLIENTS = 20;
+// Bounds for every array section, so one edit's payload (and the files it references) stays small.
+const MAX_SECTION_ITEMS = 50;
+const MAX_PROOF_ATTACHMENTS_PER_ITEM = 10;
 const MAX_VERIFICATION_OTHER_LENGTH = 300;
 
 const VERIFICATION_METHODS: readonly EngagementVerificationMethod[] = [
@@ -86,6 +89,12 @@ function validateProofAttachments(section: string, value: unknown): void {
   if (value === undefined) return;
   if (!Array.isArray(value)) {
     throw badRequest('PROOF_ATTACHMENTS_INVALID', `${section} item proofAttachments must be an array.`);
+  }
+  if (value.length > MAX_PROOF_ATTACHMENTS_PER_ITEM) {
+    throw badRequest(
+      'PROOF_ATTACHMENTS_INVALID',
+      `${section} items can have at most ${MAX_PROOF_ATTACHMENTS_PER_ITEM} proof attachments.`
+    );
   }
   for (const attachment of value as { type?: unknown; url?: unknown; label?: unknown }[]) {
     const validType = attachment.type === 'file' || attachment.type === 'link';
@@ -191,6 +200,9 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
     throw badRequest('PAYLOAD_NOT_ARRAY', `${section} payload must be an array.`);
   }
   const items = payload as SectionItem[];
+  if (items.length > MAX_SECTION_ITEMS) {
+    throw badRequest('PAYLOAD_TOO_MANY_ITEMS', `${section} can have at most ${MAX_SECTION_ITEMS} items.`);
+  }
   for (const item of items) {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) {
       throw badRequest('PAYLOAD_ITEM_INVALID', `${section} payload items must be objects.`);

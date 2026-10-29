@@ -63,11 +63,12 @@ export class EventsRepository {
     return data as unknown as EventDto[];
   }
 
+  // Uncapped on purpose: feeds the admin list AND the CSV export/import round trip, which must
+  // see every event (events are admin-created, so the table grows only with admin work).
   async findAllForAdmin(): Promise<EventDto[]> {
     const { data, error } = await this.events()
       .select(EVENT_COLUMNS.join(', '))
-      .order('start_date', { ascending: true })
-      .limit(MAX_LIST_ROWS);
+      .order('start_date', { ascending: true });
 
     if (error) throw new InternalServerErrorException('Failed to load events.');
     return data as unknown as EventDto[];

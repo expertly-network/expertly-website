@@ -19,12 +19,21 @@ export interface MemberFilters {
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
+// URL values are user-editable, so anything the API would reject (GET /v1/members validates its
+// query) is dropped here — a hand-edited link shows unfiltered results instead of an error page.
+// Mirrors apps/backend/src/members/dto/list-members-query.dto.ts.
+const MAX_FILTER_VALUES = 20;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function parseMemberFilters(searchParams: RawSearchParams): MemberFilters {
+  const categoryId = toSingleTrimmed(searchParams.categoryId);
   return {
-    q: toSingleTrimmed(searchParams.q),
-    categoryId: toSingleTrimmed(searchParams.categoryId),
-    serviceId: toArray(searchParams.serviceId),
-    country: toArray(searchParams.country),
+    q: toSingleTrimmed(searchParams.q)?.slice(0, 100),
+    categoryId: categoryId && UUID.test(categoryId) ? categoryId : undefined,
+    serviceId: toArray(searchParams.serviceId).filter((id) => UUID.test(id)).slice(0, MAX_FILTER_VALUES),
+    country: toArray(searchParams.country)
+      .filter((c) => c.length <= 100)
+      .slice(0, MAX_FILTER_VALUES),
     rateMinCents: toNumber(searchParams.rateMinCents),
     rateMaxCents: toNumber(searchParams.rateMaxCents),
     sort: toSort(searchParams.sort),
@@ -58,7 +67,8 @@ function toNumber(value: string | string[] | undefined): number | undefined {
   const raw = Array.isArray(value) ? value[0] : value;
   if (!raw) return undefined;
   const n = Number(raw);
-  return Number.isFinite(n) ? n : undefined;
+  // The API takes whole, non-negative cents.
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined;
 }
 
 function toSort(value: string | string[] | undefined): MemberSort {

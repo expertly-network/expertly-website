@@ -52,6 +52,7 @@ import {
   type MemberProfileUpdate,
   type ProfileIdentityRow,
 } from './members.repository';
+import { isHttpUrl } from '../common/http-url';
 
 // Maps a self-edit section to its jsonb column on member_profiles.
 const SECTION_TO_COLUMN = {
@@ -94,6 +95,9 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 // Proof documents/images attached to a profile edit (matches the member-proofs bucket limit).
 const MAX_PROOF_BYTES = 10 * 1024 * 1024;
+// New (not yet live) files one edit may reference, and how much of each is read to sniff it.
+const MAX_NEW_PROOF_FILES_PER_EDIT = 20;
+const SNIFF_BYTES = 4100;
 
 type EditPayloadItem = SectionItem;
 
@@ -216,8 +220,11 @@ export class MembersService {
   async createEdit(memberId: string, user: AuthenticatedUser, dto: CreateMemberEditDto): Promise<MemberProfileEditDto> {
     this.assertOwner(memberId, user);
     const payload = validateAndPrepareEditPayload(dto.section, dto.payload);
+    if (dto.proofLink && !isHttpUrl(dto.proofLink)) {
+      throw new BadRequestException({ code: 'URL_INVALID', message: 'proofLink must be an http(s) web address.' });
+    }
     this.assertOwnedFilePaths(memberId, dto.section, payload, dto.proofFileUrl);
-    await this.assertProofFileTypes(dto.section, payload, dto.proofFileUrl);
+    await this.assertProofFileTypes(memberId, dto.section, payload, dto.proofFileUrl);
 
     const inserted = await this.membersRepository.insertEdit({
       member_id: memberId,
@@ -652,30 +659,42 @@ export class MembersService {
   // Signed uploads go straight from the browser to Storage, so the declared Content-Type is the
   // client's word. Before an edit can reference a file (and an admin is handed a link to it),
   // sniff its real type from magic bytes — CLAUDE.md: never trust the declared MIME type.
-  private async assertProofFileTypes(section: string, payload: unknown, proofFileUrl?: string): Promise<void> {
+  private async assertProofFileTypes(
+    memberId: string,
+    section: string,
+    payload: unknown,
+    proofFileUrl?: string
+  ): Promise<void> {
+    // Only files this edit newly references: the modal re-sends every existing row with its
+    // proof, and files already on the live profile were accepted earlier (some before this check
+    // existed) — re-checking them would block every future save of the section on one old file.
+    const live = await this.membersRepository.findDetailByProfileId(memberId);
+    const alreadyLive = new Set(live ? this.currentProofPaths(live) : []);
     const paths = [
       ...new Set(
         this.proofPathsOf({ section, payload, proof_file_url: proofFileUrl ?? null } as MemberProfileEditRow)
       ),
-    ];
-    await Promise.all(
-      paths.map(async (path) => {
-        const buffer = await this.membersRepository.downloadProofFile(path);
-        const sniffed = await sniffFileType(buffer);
-        if (!sniffed || !(MEMBER_UPLOAD_CONTENT_TYPES as readonly string[]).includes(sniffed.mime)) {
-          throw new BadRequestException({
-            code: 'UPLOAD_INVALID_TYPE',
-            message: 'Attached files must be a PDF or a JPEG, PNG, WebP or GIF image.',
-          });
-        }
-        if (buffer.length > MAX_PROOF_BYTES) {
-          throw new BadRequestException({
-            code: 'UPLOAD_TOO_LARGE',
-            message: 'Attached files must be under 10MB.',
-          });
-        }
-      })
-    );
+    ].filter((path) => !alreadyLive.has(path));
+    if (paths.length > MAX_NEW_PROOF_FILES_PER_EDIT) {
+      throw new BadRequestException({
+        code: 'UPLOAD_LIMIT_EXCEEDED',
+        message: `An edit can attach at most ${MAX_NEW_PROOF_FILES_PER_EDIT} new files.`,
+      });
+    }
+    // One file at a time, reading only the header bytes file-type needs — never whole files.
+    for (const path of paths) {
+      const { head, size } = await this.membersRepository.readProofFileHead(path, SNIFF_BYTES);
+      const sniffed = await sniffFileType(head);
+      if (!sniffed || !(MEMBER_UPLOAD_CONTENT_TYPES as readonly string[]).includes(sniffed.mime)) {
+        throw new BadRequestException({
+          code: 'UPLOAD_INVALID_TYPE',
+          message: 'Attached files must be a PDF or a JPEG, PNG, WebP or GIF image.',
+        });
+      }
+      if (size > MAX_PROOF_BYTES) {
+        throw new BadRequestException({ code: 'UPLOAD_TOO_LARGE', message: 'Attached files must be under 10MB.' });
+      }
+    }
   }
 
   // Only the exact shape requestUpload() mints is accepted: `<memberId>/<timestamp>-<safe name>`.

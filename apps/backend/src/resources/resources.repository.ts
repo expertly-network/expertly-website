@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
-import { MAX_LIST_ROWS } from '../common/list-limits';
 export type PerkRow = Database['public']['Tables']['perks']['Row'];
 export type LearningRow = Database['public']['Tables']['learnings']['Row'];
 export type CollectionRow = Database['public']['Tables']['collections']['Row'];
@@ -128,8 +127,7 @@ export class ResourcesRepository {
     const { data, error } = await this.perks()
       .select(PERK_COLUMNS)
       .order('sort_order')
-      .order('id')
-      .limit(MAX_LIST_ROWS);
+      .order('id');
     check(error);
     return (data ?? []) as unknown as PerkRow[];
   }
@@ -166,8 +164,7 @@ export class ResourcesRepository {
     const { data, error } = await this.learnings()
       .select(LEARNING_COLUMNS)
       .order('sort_order')
-      .order('id')
-      .limit(MAX_LIST_ROWS);
+      .order('id');
     check(error);
     return (data ?? []) as unknown as LearningRow[];
   }
@@ -204,8 +201,7 @@ export class ResourcesRepository {
     const { data, error } = await this.collections()
       .select(COLLECTION_COLUMNS)
       .order('sort_order')
-      .order('id')
-      .limit(MAX_LIST_ROWS);
+      .order('id');
     check(error);
     return (data ?? []) as unknown as CollectionRow[];
   }
@@ -254,8 +250,7 @@ export class ResourcesRepository {
       .select(TEMPLATE_PUBLIC_COLUMNS)
       .eq('is_active', true)
       .order('sort_order')
-      .order('id')
-      .limit(MAX_LIST_ROWS);
+      .order('id');
     check(error);
     return (data ?? []) as unknown as TemplatePublicRow[];
   }
@@ -263,8 +258,7 @@ export class ResourcesRepository {
     const { data, error } = await this.templates()
       .select(TEMPLATE_ADMIN_COLUMNS)
       .order('sort_order')
-      .order('id')
-      .limit(MAX_LIST_ROWS);
+      .order('id');
     check(error);
     return (data ?? []) as unknown as TemplateRow[];
   }

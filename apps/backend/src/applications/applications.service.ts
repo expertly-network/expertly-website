@@ -44,6 +44,8 @@ const ALLOWED_MIME: Record<UploadKind, string[]> = {
   document: ['image/jpeg', 'image/png', 'application/pdf'],
 };
 const LINKEDIN_PHOTO_TIMEOUT_MS = 10_000;
+// Vetting documents one application may hold (each up to MAX_BYTES.document).
+const MAX_APPLICATION_DOCUMENTS = 10;
 
 // Reads a response body, aborting once it exceeds `maxBytes` (the server may not declare a size).
 async function readCapped(response: Response, maxBytes: number): Promise<Buffer> {
@@ -313,6 +315,12 @@ export class ApplicationsService {
     }
 
     const existingDocuments = existing.documents ?? [];
+    if (kind === 'document' && existingDocuments.length >= MAX_APPLICATION_DOCUMENTS) {
+      throw new BadRequestException({
+        code: 'APPLICATION_DOCUMENT_LIMIT',
+        message: `An application can have at most ${MAX_APPLICATION_DOCUMENTS} documents.`,
+      });
+    }
     // The photo path deliberately has no extension: it must stay stable across re-uploads (the
     // upload is `upsert: true`), and baking the sniffed extension in here meant re-uploading in a
     // different format (e.g. jpg -> png) produced a second, orphaned object instead of replacing

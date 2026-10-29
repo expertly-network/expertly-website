@@ -218,6 +218,11 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
 
 ## Security hardening rollout (2026-10-29) — one-time steps
 
+**Order matters: step 1 (the SQL patch) before deploying the new backend.** The new API calls the
+`member_directory_ids` function and the private `application-documents` bucket that the patch
+creates — deployed first, `GET /v1/members` returns 500 and document uploads fail until the patch
+runs. Node ≥ 22.12 is required (the Docker images use `node:22-alpine`, which is current).
+
 1. **Database** — run `supabase/patches/2026-10-29_security_hardening.sql` once in the Supabase SQL
    Editor (idempotent). It removes direct Storage write access, adds bucket size/type limits, creates
    the private `application-documents` bucket, updates the token hook (new `app_status` /
