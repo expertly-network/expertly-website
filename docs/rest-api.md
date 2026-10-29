@@ -43,6 +43,15 @@ by the global `HttpExceptionFilter` (`apps/backend/src/common/http-exception.fil
 - `429` responses also carry `retryAfterSeconds`.
 - A `5xx` never includes a database or provider message (it's logged server-side instead).
 
+Status rules also apply where there's no `@Roles` gate: on the optional-auth resource routes
+(perks, learnings, templates) a suspended account is served as a guest and a deactivated member as
+a client; a deactivated member can't decide consultation requests or post in their threads
+(`403 MEMBER_DEACTIVATED`).
+
+Storage paths a client sends back (`photoUploadPath`, `logoUploadPath`, proof `url`s,
+`proofFileUrl`) must be exactly a path `POST /v1/members/:id/uploads` minted for the caller —
+`<memberId>/<timestamp>-<name>` — or `400 UPLOAD_NOT_OWNED`.
+
 Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_INVALID`;
 `403 ACCOUNT_SUSPENDED` (the token's `app_status` claim isn't `active`); `403 ROLE_REQUIRED`;
 `403 MEMBER_DEACTIVATED` (member-only route, the caller's member profile is deactivated);

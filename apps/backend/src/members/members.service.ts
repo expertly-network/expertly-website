@@ -199,6 +199,7 @@ export class MembersService {
   async requestUpload(memberId: string, user: AuthenticatedUser, dto: CreateUploadDto): Promise<UploadResponse> {
     this.assertOwner(memberId, user);
 
+    // The exact shape assertOwnedPath() later accepts — keep the two in step.
     const path = `${memberId}/${Date.now()}-${dto.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const data = await this.membersRepository.createSignedUploadUrl(path);
     return { uploadUrl: data.signedUrl, path: data.path };
@@ -384,10 +385,11 @@ export class MembersService {
 
     let status: 'verified' | 'rejected';
     let itemReviews: MemberEditItemReview[] | null = null;
+    let decisions: ItemDecision[] | undefined;
 
     if (dto.items) {
       // Per-item review of an array section: accepted items go live, rejected ones are dropped.
-      const decisions = this.resolveItemDecisions(edit, dto.items);
+      decisions = this.resolveItemDecisions(edit, dto.items);
       itemReviews = decisions.map((d, index) => ({ index, decision: d.decision, reason: d.reason }));
       status = decisions.some((d) => d.decision !== 'rejected') ? 'verified' : 'rejected';
       if (dto.status && dto.status !== status) {
@@ -396,7 +398,6 @@ export class MembersService {
           `status '${dto.status}' contradicts the item decisions (they result in '${status}'). Omit status when sending items.`
         );
       }
-      if (status === 'verified') await this.applyEdit(edit, decisions);
     } else {
       if (!dto.status) {
         throw badRequest('REVIEW_DECISION_REQUIRED', 'Send either status or per-item decisions (items).');
@@ -405,16 +406,31 @@ export class MembersService {
       if (status === 'rejected' && !reviewNote) {
         throw badRequest('REVIEW_REASON_REQUIRED', 'A reason is required when rejecting an edit — it is shown to the member.');
       }
-      if (status === 'verified') await this.applyEdit(edit);
     }
 
-    const updated = await this.membersRepository.updateEditDecision(id, {
+    // Claim the decision first (conditional on the edit still being pending), then apply it — so
+    // two reviewers, or a member superseding the edit mid-review, can't apply a stale edit twice.
+    const updated = await this.membersRepository.claimEditDecision(id, {
       status,
       review_note: reviewNote,
       item_reviews: itemReviews as unknown as MemberProfileEditUpdate['item_reviews'],
       reviewed_by: admin.id,
       reviewed_at: new Date().toISOString(),
     });
+    if (!updated) {
+      throw new ConflictException({
+        code: 'MEMBER_EDIT_ALREADY_REVIEWED',
+        message: 'This edit has already been reviewed.',
+      });
+    }
+    if (status === 'verified') {
+      try {
+        await this.applyEdit(edit, decisions);
+      } catch (error) {
+        await this.membersRepository.revertEditDecision(id);
+        throw error;
+      }
+    }
 
     const [updatedDto] = await this.toEditDtos([updated]);
     return updatedDto;
@@ -654,8 +670,13 @@ export class MembersService {
     );
   }
 
+  // Only the exact shape requestUpload() mints is accepted: `<memberId>/<timestamp>-<safe name>`.
+  // Paths reach Storage inside a URL, where encoded dot segments (`%2e%2e/`) or backslashes would be
+  // resolved — a prefix check alone let a member point the service-role client at another
+  // member's (or another bucket's) private object.
   private assertOwnedPath(memberId: string, path: string): void {
-    if (!path.startsWith(`${memberId}/`) || path.includes('..')) {
+    const ownUpload = new RegExp(`^${memberId}/\\d+-[A-Za-z0-9._-]+$`);
+    if (!ownUpload.test(path)) {
       throw new BadRequestException({
         code: 'UPLOAD_NOT_OWNED',
         message: 'Uploaded files must be your own uploads.',

@@ -283,4 +283,9 @@ alter default privileges for role postgres revoke execute on functions from publ
 alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated;
 alter default privileges for role postgres in schema public grant execute on functions to service_role;
 
+-- ---- Re-index member search cards --------------------------------------------------------
+-- Card text no longer includes private proof data (apps/backend/src/search/card-text.ts);
+-- queue every member so the worker rebuilds (and re-embeds) their card without it.
+select public.search_enqueue('member', profile_id) from public.member_profiles;
+
 commit;

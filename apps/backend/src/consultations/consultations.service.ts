@@ -226,6 +226,8 @@ export class ConsultationsService {
         message: 'You can only update your own consultation requests.',
       });
     }
+    // Claim-based like RolesGuard: a deactivated member keeps their history but can't act on it.
+    if (member.memberStatus === 'deactivated') throw this.memberDeactivated();
     const updated = await this.repository.updateStatus(id, dto.status, dto.responseMessage);
     if (!updated) {
       throw new ConflictException({
@@ -282,6 +284,10 @@ export class ConsultationsService {
     return updated;
   }
 
+  private memberDeactivated(): ForbiddenException {
+    return new ForbiddenException({ code: 'MEMBER_DEACTIVATED', message: 'Your member profile is deactivated.' });
+  }
+
   // Either participant can read/post — not gated by the request's current status, so the thread
   // stays open for follow-up after a decision.
   private async assertParticipant(requestId: string, user: AuthenticatedUser): Promise<ConsultationRequestDto> {
@@ -307,6 +313,7 @@ export class ConsultationsService {
     dto: CreateConsultationMessageDto
   ): Promise<ConsultationMessageDto> {
     const request = await this.assertParticipant(requestId, user);
+    if (request.memberId === user.id && user.memberStatus === 'deactivated') throw this.memberDeactivated();
     if (request.status !== 'pending') {
       throw new ConflictException({
         code: 'CONSULTATION_ALREADY_DECIDED',

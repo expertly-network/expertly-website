@@ -62,7 +62,14 @@ export function jsonbEachText(obj: { [key: string]: JsonValue }): { key: string;
   });
 }
 
-const SKIPPED_KEYS = new Set(['id', 'url', 'logoUrl', 'logo_url', 'isCurrent', 'startYear', 'endYear', 'year', 'proofUrl']);
+// Never in a card: layout/noise keys, and every field the API keeps owner/admin-only
+// (members/member-sections.ts normalizeLiveItem) — proof attachments (private storage paths and
+// links), third-party client emails, verification details. Card text is embedded, sent to the
+// search judge, and can surface in its answer to any signed-in user.
+const SKIPPED_KEYS = new Set([
+  'id', 'url', 'logoUrl', 'logo_url', 'isCurrent', 'startYear', 'endYear', 'year', 'proofUrl',
+  'proofAttachments', 'clientEmail', 'verificationMethods', 'verificationMethodOther', 'logoUploadPath', 'isVerified',
+]);
 
 /** search_jsonb_text(): flattens a jsonb array of strings / objects into "a - b; c - d". */
 export function jsonbText(arr: JsonValue | undefined): string | null {

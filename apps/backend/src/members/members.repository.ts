@@ -403,16 +403,28 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to store client logo.');
   }
 
-  async updateEditDecision(id: string, patch: MemberProfileEditUpdate): Promise<MemberProfileEditRow> {
+  // Records a review decision only while the edit is still pending; null when it no longer is
+  // (already reviewed, or superseded by a newer submission).
+  async claimEditDecision(id: string, patch: MemberProfileEditUpdate): Promise<MemberProfileEditRow | null> {
     const { data: updated, error } = await this.memberProfileEdits()
       .update(patch)
       .eq('id', id)
+      .eq('status', 'pending')
       .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .single();
+      .maybeSingle();
 
-    if (error || !updated) throw new InternalServerErrorException('Failed to record review decision.');
-    return updated as unknown as MemberProfileEditRow;
+    if (error) throw new InternalServerErrorException('Failed to record review decision.');
+    return (updated as unknown as MemberProfileEditRow | null) ?? null;
   }
+
+  // Undoes claimEditDecision when applying the approved edit fails.
+  async revertEditDecision(id: string): Promise<void> {
+    const { error } = await this.memberProfileEdits()
+      .update({ status: 'pending', review_note: null, item_reviews: null, reviewed_by: null, reviewed_at: null })
+      .eq('id', id);
+    if (error) throw new InternalServerErrorException('Failed to revert review decision.');
+  }
+
 
   // PATCH /members/:id — the owner's directly-editable columns.
   async updateOwnFields(memberId: string, patch: MemberSelfUpdate): Promise<void> {
