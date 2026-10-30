@@ -163,6 +163,11 @@ set check_function_bodies = off;
 -- module and worker (apps/backend/src/search/) are the only callers.
 -- ============================================================================
 
+-- Loads pgvector's library in this session so hnsw.* are real (user-settable) parameters: on
+-- Supabase a non-superuser can't attach a still-unknown custom parameter to a function's SET clause
+-- ("permission denied to set parameter hnsw.ef_search").
+select '[1]'::public.vector;
+
 -- The three-way search: meaning (halfvec cosine) + words (tsvector) + names (trigram),
 -- merged with Reciprocal Rank Fusion (k = 60, name channel weight 0.7).
 --
