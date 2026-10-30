@@ -1,4 +1,15 @@
-import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID, MaxLength } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import type { ArticleStatus } from '@shared/article';
 import { MAX_ARTICLE_BODY_LENGTH } from '../word-count';
 

@@ -11,7 +11,16 @@ import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS, countArticleWords } from '@/lib/articles/word-count';
 
 const DOCUMENT_ICON = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
     <polyline points="14,2 14,8 20,8" />
   </svg>
@@ -97,8 +106,7 @@ export function ManualArticleForm({
     try {
       const { images: suggested } = await getCoverImageSuggestions(query || undefined);
       const current = value.coverImageUrl;
-      const images =
-        keepCurrent && current ? [current, ...suggested.filter((url) => url !== current)] : suggested;
+      const images = keepCurrent && current ? [current, ...suggested.filter((url) => url !== current)] : suggested;
       setCoverImageOptions(images);
       setCoverImageIndex(0);
       if (images.length > 0 && !(keepCurrent && current)) onChange({ coverImageUrl: images[0] });
@@ -160,9 +168,7 @@ export function ManualArticleForm({
           markRequired
         />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-ink-3">
-            {topicsLoading ? 'Generating ideas…' : 'Stuck? Try a topic:'}
-          </span>
+          <span className="text-xs text-ink-3">{topicsLoading ? 'Generating ideas…' : 'Stuck? Try a topic:'}</span>
           {!topicsLoading &&
             topics.map((topic, i) => (
               <button
@@ -264,7 +270,11 @@ export function ManualArticleForm({
           <div className="h-16 w-[84px] flex-none animate-pulse rounded-[9px] bg-line-2" />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value.coverImageUrl} alt="" className="h-16 w-[84px] flex-none rounded-[9px] bg-line-2 object-cover" />
+          <img
+            src={value.coverImageUrl}
+            alt=""
+            className="h-16 w-[84px] flex-none rounded-[9px] bg-line-2 object-cover"
+          />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold text-ink">Auto-selected cover image</div>
@@ -286,7 +296,10 @@ export function ManualArticleForm({
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-ink-2">Suggested tags</span>
           <div className="flex flex-wrap gap-2">
-            {suggestTags(selectedServices.map((s) => s.name), value.countries).map((tag) => (
+            {suggestTags(
+              selectedServices.map((s) => s.name),
+              value.countries
+            ).map((tag) => (
               <span
                 key={tag}
                 className="rounded-full border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-1.5 text-[11.5px] font-semibold text-accent"
@@ -304,10 +317,7 @@ export function ManualArticleForm({
             type="button"
             onClick={onSaveDraft}
             disabled={
-              savingDraft ||
-              !value.title.trim() ||
-              value.serviceIds.length === 0 ||
-              value.countries.length === 0
+              savingDraft || !value.title.trim() || value.serviceIds.length === 0 || value.countries.length === 0
             }
             className="rounded-[9px] border-[1.5px] border-line-2 bg-bg-card px-[18px] py-2.5 text-[13.5px] font-semibold text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -317,13 +327,20 @@ export function ManualArticleForm({
         <div className="text-right">
           <WriteSubmitButton onClick={handlePreview}>
             Preview article
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </WriteSubmitButton>
-          <p className="mt-1.5 text-xs text-ink-3">
-            See exactly how it&apos;ll look on GrowXQ before you submit it.
-          </p>
+          <p className="mt-1.5 text-xs text-ink-3">See exactly how it&apos;ll look on GrowXQ before you submit it.</p>
         </div>
       </div>
     </WriteCard>

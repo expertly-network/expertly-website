@@ -67,7 +67,12 @@ function loadPhotoAsPng(url: string, size = 320): Promise<string | null> {
 }
 
 function fileNameFor(member: MemberDto): string {
-  const base = member.slug || member.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const base =
+    member.slug ||
+    member.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   return `${base}-growxq-profile.pdf`;
 }
 

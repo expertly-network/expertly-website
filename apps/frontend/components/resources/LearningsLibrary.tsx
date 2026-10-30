@@ -9,8 +9,7 @@ import { ResourceDialog } from './ResourceDialog';
 import { ExternalLink } from '@/components/shared/ExternalLink';
 
 function embedUrl(video: LearningDto): string | null {
-  if (!video.canWatch || !video.videoUrl || video.videoProvider !== 'youtube')
-    return null;
+  if (!video.canWatch || !video.videoUrl || video.videoProvider !== 'youtube') return null;
   try {
     const url = new URL(video.videoUrl);
     const id =
@@ -19,20 +18,12 @@ function embedUrl(video: LearningDto): string | null {
         : url.pathname === '/watch'
           ? url.searchParams.get('v')
           : url.pathname.split('/').pop();
-    return id && /^[A-Za-z0-9_-]{11}$/.test(id)
-      ? `https://www.youtube-nocookie.com/embed/${id}?rel=0`
-      : null;
+    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null;
   } catch {
     return null;
   }
 }
-export function LearningsLibrary({
-  videos,
-  playlists,
-}: {
-  videos: LearningDto[];
-  playlists: CollectionDto[];
-}) {
+export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[]; playlists: CollectionDto[] }) {
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('All topics');
   const [audience, setAudience] = useState('all');
@@ -41,16 +32,11 @@ export function LearningsLibrary({
   const [current, setCurrent] = useState<LearningDto | null>(null);
   const [queue, setQueue] = useState<LearningDto[]>([]);
   const [pathName, setPathName] = useState('Video library');
-  const featured =
-    videos.find((v) => v.isFeatured && v.canWatch) ||
-    videos.find((v) => v.isFeatured) ||
-    videos[0];
+  const featured = videos.find((v) => v.isFeatured && v.canWatch) || videos.find((v) => v.isFeatured) || videos[0];
   const filtered = videos.filter(
     (v) =>
       (category === 'All topics' || v.category === category) &&
-      (audience === 'all' ||
-        !v.audiences.length ||
-        v.audiences.includes(audience as 'tax' | 'legal' | 'audit')) &&
+      (audience === 'all' || !v.audiences.length || v.audiences.includes(audience as 'tax' | 'legal' | 'audit')) &&
       (level === 'all' || v.level === level) &&
       (length === 'all' ||
         (length === 'short'
@@ -58,15 +44,9 @@ export function LearningsLibrary({
           : length === 'medium'
             ? v.durationMinutes >= 10 && v.durationMinutes <= 20
             : v.durationMinutes > 20)) &&
-      `${v.title} ${v.summary} ${v.channel || ''}`
-        .toLowerCase()
-        .includes(q.toLowerCase()),
+      `${v.title} ${v.summary} ${v.channel || ''}`.toLowerCase().includes(q.toLowerCase())
   );
-  function play(
-    v: LearningDto,
-    list: LearningDto[] = filtered,
-    name = 'Video library',
-  ) {
+  function play(v: LearningDto, list: LearningDto[] = filtered, name = 'Video library') {
     setQueue(list);
     setPathName(name);
     setCurrent(v);
@@ -90,16 +70,12 @@ export function LearningsLibrary({
           />
         }
       >
-        Hand-picked videos on AI, automation and data, chosen for tax, legal and
-        audit practitioners. Less searching. More putting what you learn into
-        practice.
+        Hand-picked videos on AI, automation and data, chosen for tax, legal and audit practitioners. Less searching.
+        More putting what you learn into practice.
       </ResourceHero>
       <PageContainer className="py-8 sm:py-10">
         {featured && (
-          <section
-            aria-label="Start here"
-            className="mb-10 grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
-          >
+          <section aria-label="Start here" className="mb-10 grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <button
               onClick={() => play(featured, videos)}
               className="group relative min-h-72 overflow-hidden rounded-card bg-ink text-left"
@@ -111,12 +87,8 @@ export function LearningsLibrary({
               <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/50 to-transparent" />
               <div className="relative p-6 sm:p-8">
                 <Badge variant="surface">Start here · GrowXQ pick</Badge>
-                <h2 className="mb-3 mt-8 max-w-xl text-heading text-white">
-                  {featured.title}
-                </h2>
-                <p className="max-w-xl text-sm text-white/75">
-                  {featured.summary}
-                </p>
+                <h2 className="mb-3 mt-8 max-w-xl text-heading text-white">{featured.title}</h2>
+                <p className="max-w-xl text-sm text-white/75">{featured.summary}</p>
                 <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-white/75">
                   <span className="rounded-full bg-white px-4 py-3 text-sm font-medium text-ink">
                     {featured.canWatch ? '▶ Watch now' : 'Explore video →'}
@@ -129,15 +101,11 @@ export function LearningsLibrary({
             </button>
             <Card padding="md" className="flex flex-col justify-between">
               <div>
-                <p className="text-eyebrow text-accent">
-                  A little learning, often.
-                </p>
-                <h2 className="mb-3 mt-3 text-heading">
-                  Make room for your next skill.
-                </h2>
+                <p className="text-eyebrow text-accent">A little learning, often.</p>
+                <h2 className="mb-3 mt-3 text-heading">Make room for your next skill.</h2>
                 <p className="text-sm text-ink-3">
-                  Follow a learning path or pick a short video. Every session is
-                  chosen with your day-to-day practice in mind.
+                  Follow a learning path or pick a short video. Every session is chosen with your day-to-day practice in
+                  mind.
                 </p>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-4 border-t border-line pt-5">
@@ -151,8 +119,7 @@ export function LearningsLibrary({
                 </div>
               </div>
               <p className="mt-5 text-xs text-ink-3">
-                Signed-in clients can try the first video in each path.
-                Membership unlocks the full library.
+                Signed-in clients can try the first video in each path. Membership unlocks the full library.
               </p>
             </Card>
           </section>
@@ -163,14 +130,11 @@ export function LearningsLibrary({
               Learning paths
             </h2>
             <p className="mb-5 mt-2 text-sm text-ink-3">
-              Short playlists in a sensible order. Build a skill, one useful
-              session at a time.
+              Short playlists in a sensible order. Build a skill, one useful session at a time.
             </p>
             <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 xl:grid-cols-5">
               {playlists.map((p) => {
-                const items = p.items.filter(
-                  (v): v is LearningDto => 'canWatch' in v,
-                );
+                const items = p.items.filter((v): v is LearningDto => 'canWatch' in v);
                 return (
                   <button
                     key={p.id}
@@ -187,23 +151,15 @@ export function LearningsLibrary({
                             key={v.id}
                             className={`absolute top-0 h-20 w-3/4 overflow-hidden rounded-lg border-2 border-bg ${i === 0 ? 'right-0 rotate-6' : i === 1 ? 'left-3 rotate-3' : 'left-0'}`}
                           >
-                            <ResourceImage
-                              src={v.thumbnailUrl}
-                              className="h-full w-full object-cover"
-                            />
+                            <ResourceImage src={v.thumbnailUrl} className="h-full w-full object-cover" />
                           </div>
                         ))}
                     </div>
-                    <h3 className="text-sm font-semibold group-hover:text-accent">
-                      {p.title}
-                    </h3>
-                    <p className="mb-4 mt-2 line-clamp-2 text-xs text-ink-3">
-                      {p.description}
-                    </p>
+                    <h3 className="text-sm font-semibold group-hover:text-accent">{p.title}</h3>
+                    <p className="mb-4 mt-2 line-clamp-2 text-xs text-ink-3">{p.description}</p>
                     <p className="mt-auto flex w-full justify-between gap-2 border-t border-line pt-3 text-xs text-ink-3">
                       <span>
-                        {items.length} videos ·{' '}
-                        {items.reduce((n, v) => n + v.durationMinutes, 0)} min
+                        {items.length} videos · {items.reduce((n, v) => n + v.durationMinutes, 0)} min
                       </span>
                       <span className="text-accent">Start →</span>
                     </p>
@@ -225,12 +181,7 @@ export function LearningsLibrary({
             <option value="legal">Law</option>
             <option value="audit">Audit</option>
           </Select>
-          <Select
-            id="learning-level"
-            label="Level"
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-          >
+          <Select id="learning-level" label="Level" value={level} onChange={(e) => setLevel(e.target.value)}>
             <option value="all">All levels</option>
             {['beginner', 'intermediate', 'advanced'].map((l) => (
               <option key={l} value={l}>
@@ -238,27 +189,15 @@ export function LearningsLibrary({
               </option>
             ))}
           </Select>
-          <Select
-            id="learning-length"
-            label="Length"
-            value={length}
-            onChange={(e) => setLength(e.target.value)}
-          >
+          <Select id="learning-length" label="Length" value={length} onChange={(e) => setLength(e.target.value)}>
             <option value="all">Any length</option>
             <option value="short">Under 10 minutes</option>
             <option value="medium">10–20 minutes</option>
             <option value="long">Over 20 minutes</option>
           </Select>
         </div>
-        <div
-          role="group"
-          aria-label="Learning topics"
-          className="mb-6 flex gap-2 overflow-x-auto pb-2"
-        >
-          {[
-            'All topics',
-            ...Array.from(new Set(videos.map((v) => v.category))),
-          ].map((c) => (
+        <div role="group" aria-label="Learning topics" className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          {['All topics', ...Array.from(new Set(videos.map((v) => v.category)))].map((c) => (
             <button
               key={c}
               aria-pressed={category === c}
@@ -270,9 +209,7 @@ export function LearningsLibrary({
           ))}
         </div>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-title">
-            {category === 'All topics' ? 'All videos' : category}
-          </h2>
+          <h2 className="text-title">{category === 'All topics' ? 'All videos' : category}</h2>
           <p aria-live="polite" className="text-xs text-ink-3">
             {filtered.length} {filtered.length === 1 ? 'video' : 'videos'}
           </p>
@@ -302,10 +239,7 @@ export function LearningsLibrary({
                 className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-accent"
               >
                 <div className="relative w-full">
-                  <ResourceImage
-                    src={v.thumbnailUrl}
-                    className="aspect-video w-full object-cover"
-                  />
+                  <ResourceImage src={v.thumbnailUrl} className="aspect-video w-full object-cover" />
                   <span className="absolute bottom-3 right-3 rounded-lg bg-ink/90 px-2 py-1 text-xs text-white">
                     {v.durationMinutes} min
                   </span>
@@ -320,20 +254,12 @@ export function LearningsLibrary({
                   <p className="mb-2 text-xs text-accent">
                     {v.category} <span className="text-ink-3">· {v.level}</span>
                   </p>
-                  <h3 className="text-title group-hover:text-accent">
-                    {v.title}
-                  </h3>
-                  <p className="mb-4 mt-2 line-clamp-2 text-sm text-ink-3">
-                    {v.summary}
-                  </p>
+                  <h3 className="text-title group-hover:text-accent">{v.title}</h3>
+                  <p className="mb-4 mt-2 line-clamp-2 text-sm text-ink-3">{v.summary}</p>
                   <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-ink-3">
                     <span>{v.channel}</span>
                     <span className="font-medium text-accent">
-                      {v.canWatch
-                        ? 'Watch now ↗'
-                        : v.lockReason === 'sign_in'
-                          ? 'Sign in to watch'
-                          : 'Members only'}
+                      {v.canWatch ? 'Watch now ↗' : v.lockReason === 'sign_in' ? 'Sign in to watch' : 'Members only'}
                     </span>
                   </div>
                 </div>
@@ -345,14 +271,12 @@ export function LearningsLibrary({
           <Badge variant="brand">GrowXQ Originals · Coming soon</Badge>
           <h2 className="mb-2 mt-4 text-heading">Soon, our own sessions.</h2>
           <p className="max-w-2xl text-sm text-ink-3">
-            Practitioner-led sessions will join the curated library as they
-            become available. For now, find your next useful idea in the videos
-            above.
+            Practitioner-led sessions will join the curated library as they become available. For now, find your next
+            useful idea in the videos above.
           </p>
         </div>
         <p className="text-xs text-ink-3">
-          Curated videos belong to their creators. YouTube videos play through
-          YouTube’s privacy-enhanced player.
+          Curated videos belong to their creators. YouTube videos play through YouTube’s privacy-enhanced player.
         </p>
       </PageContainer>
       {current && (
@@ -385,9 +309,7 @@ export function LearningsLibrary({
                   <track kind="captions" />
                 </video>
               ) : (
-                <p className="text-sm text-ink-3">
-                  This video cannot be embedded.
-                </p>
+                <p className="text-sm text-ink-3">This video cannot be embedded.</p>
               )}
               <p className="mt-3 text-xs text-ink-3">
                 If the player is unavailable,{' '}
@@ -400,30 +322,18 @@ export function LearningsLibrary({
           ) : (
             <Card padding="md">
               <Badge variant="brand">
-                {current.lockReason === 'sign_in'
-                  ? 'Your next skill starts here'
-                  : 'Continue with membership'}
+                {current.lockReason === 'sign_in' ? 'Your next skill starts here' : 'Continue with membership'}
               </Badge>
               <h3 className="mb-2 mt-4 text-title">
-                {current.lockReason === 'sign_in'
-                  ? 'Sign in to start watching.'
-                  : 'This session is for members.'}
+                {current.lockReason === 'sign_in' ? 'Sign in to start watching.' : 'This session is for members.'}
               </h3>
               <p className="mb-5 text-sm text-ink-3">
                 {current.lockReason === 'sign_in'
                   ? 'Create your free account or sign in to try the first video in every learning path.'
                   : 'Members can watch every video. You can also explore the opening session in each learning path.'}
               </p>
-              <Button
-                href={
-                  current.lockReason === 'sign_in'
-                    ? '/login?returnTo=/learnings'
-                    : '/membership'
-                }
-              >
-                {current.lockReason === 'sign_in'
-                  ? 'Sign in'
-                  : 'Explore membership'}
+              <Button href={current.lockReason === 'sign_in' ? '/login?returnTo=/learnings' : '/membership'}>
+                {current.lockReason === 'sign_in' ? 'Sign in' : 'Explore membership'}
               </Button>
             </Card>
           )}
@@ -432,12 +342,8 @@ export function LearningsLibrary({
             <Badge>{current.level}</Badge>
             <Badge>{current.durationMinutes} min</Badge>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-ink-3">
-            {current.summary}
-          </p>
-          <p className="mt-2 text-xs text-ink-3">
-            By {current.channel || 'the video creator'}
-          </p>
+          <p className="mt-4 text-sm leading-relaxed text-ink-3">{current.summary}</p>
+          <p className="mt-2 text-xs text-ink-3">By {current.channel || 'the video creator'}</p>
           {queue.length > 1 && (
             <>
               <div className="my-5 flex justify-between gap-3">
@@ -459,8 +365,7 @@ export function LearningsLibrary({
                 </Button>
               </div>
               <h3 className="mb-3 text-sm font-semibold">
-                In this{' '}
-                {pathName === 'Video library' ? 'selection' : 'learning path'}
+                In this {pathName === 'Video library' ? 'selection' : 'learning path'}
               </h3>
               <div className="max-h-60 space-y-2 overflow-y-auto">
                 {queue.map((v, i) => (
@@ -470,13 +375,9 @@ export function LearningsLibrary({
                     aria-current={v.id === current.id ? 'true' : undefined}
                     className={`flex w-full items-center gap-3 rounded-xl p-3 text-left text-sm ${v.id === current.id ? 'bg-bg-alt text-accent' : 'hover:bg-bg-alt text-ink'}`}
                   >
-                    <span className="text-xs text-ink-3">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
+                    <span className="text-xs text-ink-3">{String(i + 1).padStart(2, '0')}</span>
                     <span className="flex-1">{v.title}</span>
-                    <span className="text-xs text-ink-3">
-                      {v.canWatch ? `${v.durationMinutes} min` : 'Locked'}
-                    </span>
+                    <span className="text-xs text-ink-3">{v.canWatch ? `${v.durationMinutes} min` : 'Locked'}</span>
                   </button>
                 ))}
               </div>

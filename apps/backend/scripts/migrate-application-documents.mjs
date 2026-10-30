@@ -112,7 +112,9 @@ async function main() {
   if (!dryRun) {
     for (const applicantId of applicantIds) swept += await removeOrphanedPublicDocuments(applicantId);
   }
-  log(`${dryRun ? 'Dry run complete.' : `Moved ${moved} document(s) to ${PRIVATE_BUCKET}; removed ${swept} orphaned public copies.`}`);
+  log(
+    `${dryRun ? 'Dry run complete.' : `Moved ${moved} document(s) to ${PRIVATE_BUCKET}; removed ${swept} orphaned public copies.`}`
+  );
 }
 
 main().catch((err) => {

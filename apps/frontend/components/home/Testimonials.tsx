@@ -15,7 +15,8 @@ const TESTIMONIALS = {
       photo: 'https://randomuser.me/api/portraits/women/68.jpg',
     },
     {
-      quote: 'My inbound consultation requests tripled within 60 days of going live. The right clients finally found me.',
+      quote:
+        'My inbound consultation requests tripled within 60 days of going live. The right clients finally found me.',
       name: 'Marcus Chen',
       role: 'Senior Tax Advisor · Singapore',
       photo: 'https://randomuser.me/api/portraits/men/52.jpg',
@@ -42,7 +43,8 @@ const TESTIMONIALS = {
       photo: 'https://randomuser.me/api/portraits/men/41.jpg',
     },
     {
-      quote: 'The rate transparency alone makes it worth using. No surprises, no hourly creep, no mystery partners billing us.',
+      quote:
+        'The rate transparency alone makes it worth using. No surprises, no hourly creep, no mystery partners billing us.',
       name: 'Elena Volkova',
       role: 'IP & Technology Counsel · London',
       photo: 'https://randomuser.me/api/portraits/women/12.jpg',
@@ -97,13 +99,13 @@ export function Testimonials() {
         <div className="grid gap-5 sm:grid-cols-2">
           {items.map((t) => (
             <Card key={t.name} padding="lg" className="flex flex-col gap-7">
-              <blockquote className="text-lede text-ink-2">
-                &ldquo;{t.quote}&rdquo;
-              </blockquote>
+              <blockquote className="text-lede text-ink-2">&ldquo;{t.quote}&rdquo;</blockquote>
               {/* Anchors attribution to the bottom so every card's photo/name row lines up. */}
               <figcaption className="mt-auto flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img loading="lazy" decoding="async"
+                <img
+                  loading="lazy"
+                  decoding="async"
                   src={t.photo}
                   alt=""
                   className="h-10 w-10 flex-none rounded-full object-cover"

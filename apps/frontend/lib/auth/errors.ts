@@ -2,13 +2,10 @@ import { isAuthApiError, type AuthError } from '@supabase/supabase-js';
 
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'Incorrect email or password.',
-  email_not_confirmed:
-    "Please confirm your email address — check your inbox for a link from GrowXQ.",
+  email_not_confirmed: 'Please confirm your email address — check your inbox for a link from GrowXQ.',
   user_banned: 'This account has been suspended. Contact contact@growxq.com.',
-  user_already_exists:
-    "An account already exists for this email. Try signing in, or use 'Forgot password'.",
-  weak_password:
-    'Choose a stronger password (at least 8 characters, with a mix of letters and numbers).',
+  user_already_exists: "An account already exists for this email. Try signing in, or use 'Forgot password'.",
+  weak_password: 'Choose a stronger password (at least 8 characters, with a mix of letters and numbers).',
   over_email_send_rate_limit: 'Too many attempts — please wait a few minutes and try again.',
   over_request_rate_limit: 'Too many attempts — please wait a few minutes and try again.',
   bad_code_verifier: 'Your sign-in link expired or was already used. Please try again.',

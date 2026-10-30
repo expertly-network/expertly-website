@@ -55,7 +55,14 @@ export function ConsultationRating({
               displayed >= n ? 'text-amber-400' : 'text-ink-4 hover:text-amber-400'
             }`}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={displayed >= n ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill={displayed >= n ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <path d={STAR_PATH} strokeLinejoin="round" />
             </svg>
           </button>

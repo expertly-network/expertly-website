@@ -28,8 +28,8 @@ export default async function AdminArticlesPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Article review queue</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Review articles submitted for editorial review. Approving one publishes it
-            immediately; rejecting one requires a reason, visible to the author.
+            Review articles submitted for editorial review. Approving one publishes it immediately; rejecting one
+            requires a reason, visible to the author.
           </p>
         </PageContainer>
       </section>
@@ -38,9 +38,7 @@ export default async function AdminArticlesPage() {
           {articles.length > 0 ? (
             <AdminArticlesTable initialArticles={articles} />
           ) : (
-            <p className="py-16 text-center text-sm text-ink-3">
-              No articles waiting for review.
-            </p>
+            <p className="py-16 text-center text-sm text-ink-3">No articles waiting for review.</p>
           )}
         </PageContainer>
       </section>

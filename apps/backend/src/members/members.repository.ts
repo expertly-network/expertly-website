@@ -80,7 +80,16 @@ const MEMBER_PROFILE_EDIT_COLUMNS = [
   'submitted_at',
 ] as const;
 
-const PROFILE_IDENTITY_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'avatar_url', 'initials', 'status', 'deleted_at'] as const;
+const PROFILE_IDENTITY_COLUMNS = [
+  'id',
+  'first_name',
+  'last_name',
+  'email',
+  'avatar_url',
+  'initials',
+  'status',
+  'deleted_at',
+] as const;
 
 // The columns PATCH /members/:id may write (owner, applied immediately).
 export interface MemberSelfUpdate {
@@ -331,10 +340,11 @@ export class MembersRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to update member.');
-    if (!updated) throw new NotFoundException({
-      code: 'MEMBER_NOT_FOUND',
-      message: 'Member profile not found.',
-    });
+    if (!updated)
+      throw new NotFoundException({
+        code: 'MEMBER_NOT_FOUND',
+        message: 'Member profile not found.',
+      });
     return updated as unknown as MemberProfileRow;
   }
 
@@ -355,10 +365,11 @@ export class MembersRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load profile edit.');
-    if (!data) throw new NotFoundException({
-      code: 'MEMBER_EDIT_NOT_FOUND',
-      message: 'Profile edit not found.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'MEMBER_EDIT_NOT_FOUND',
+        message: 'Profile edit not found.',
+      });
     return data as unknown as MemberProfileEditRow;
   }
 
@@ -383,7 +394,9 @@ export class MembersRepository {
   async createSignedProofUrls(paths: string[], expiresInSeconds: number): Promise<Record<string, string>> {
     const unique = [...new Set(paths)];
     if (unique.length === 0) return {};
-    const { data, error } = await this.supabase.db.storage.from('member-proofs').createSignedUrls(unique, expiresInSeconds);
+    const { data, error } = await this.supabase.db.storage
+      .from('member-proofs')
+      .createSignedUrls(unique, expiresInSeconds);
     if (error) throw new InternalServerErrorException('Failed to sign proof file URLs.');
     const urls: Record<string, string> = {};
     for (const entry of data ?? []) {
@@ -458,7 +471,6 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to revert review decision.');
   }
 
-
   // PATCH /members/:id — the owner's directly-editable columns.
   async updateOwnFields(memberId: string, patch: MemberSelfUpdate): Promise<void> {
     const { data, error } = await this.memberProfiles()
@@ -467,10 +479,11 @@ export class MembersRepository {
       .select('profile_id')
       .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to update member profile.');
-    if (!data) throw new NotFoundException({
-      code: 'MEMBER_NOT_FOUND',
-      message: 'Member profile not found.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'MEMBER_NOT_FOUND',
+        message: 'Member profile not found.',
+      });
   }
 
   async applyHeadlineBioEdit(memberId: string, headline: string, bio: string): Promise<void> {
@@ -500,7 +513,12 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to apply contact edit.');
   }
 
-  async applySectionEdit(memberId: string, column: string, section: string, items: Record<string, unknown>[]): Promise<void> {
+  async applySectionEdit(
+    memberId: string,
+    column: string,
+    section: string,
+    items: Record<string, unknown>[]
+  ): Promise<void> {
     const { error } = await this.memberProfiles()
       .update({ [column]: items } as MemberProfileUpdate)
       .eq('profile_id', memberId);
@@ -524,14 +542,17 @@ export class MembersRepository {
     const map = new Map<string, { id: string; name: string; categoryId: string; categoryName: string }[]>();
     if (memberIds.length === 0) return map;
 
-    const { data: links, error } = await this.memberServices().select('member_id, service_id').in('member_id', memberIds);
+    const { data: links, error } = await this.memberServices()
+      .select('member_id, service_id')
+      .in('member_id', memberIds);
     if (error) throw new InternalServerErrorException('Failed to load member services.');
 
     const serviceIds = [...new Set((links ?? []).map((l) => l.service_id as string))];
     const serviceById = new Map<string, { name: string; categoryId: string }>();
     if (serviceIds.length > 0) {
       const { data: services } = await this.services().select('id, name, category_id').in('id', serviceIds);
-      for (const s of services ?? []) serviceById.set(s.id as string, { name: s.name as string, categoryId: s.category_id as string });
+      for (const s of services ?? [])
+        serviceById.set(s.id as string, { name: s.name as string, categoryId: s.category_id as string });
     }
 
     const categoryIds = [...new Set([...serviceById.values()].map((s) => s.categoryId))];
@@ -550,7 +571,7 @@ export class MembersRepository {
         id: serviceId,
         name: service?.name ?? 'Unknown',
         categoryId: service?.categoryId ?? '',
-        categoryName: service ? categoryNameById.get(service.categoryId) ?? 'Unknown' : 'Unknown',
+        categoryName: service ? (categoryNameById.get(service.categoryId) ?? 'Unknown') : 'Unknown',
       });
       map.set(memberId, list);
     }

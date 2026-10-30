@@ -56,12 +56,7 @@ export class OpenAiClient {
   }
 
   /** Chat completion constrained by a strict json_schema; returns the parsed JSON message. */
-  async chatJson<T>(
-    system: string,
-    user: string,
-    schema: OpenAiJsonSchema,
-    timeoutMs: number
-  ): Promise<T> {
+  async chatJson<T>(system: string, user: string, schema: OpenAiJsonSchema, timeoutMs: number): Promise<T> {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.apiKey()}`, 'Content-Type': 'application/json' },

@@ -59,19 +59,23 @@ export function ChangePhotoButton({ memberId }: { memberId: string }) {
         aria-label="Change profile photo"
         className="absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1.5 rounded-b-xl bg-black/55 py-1.5 text-[11.5px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-wait"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
           <circle cx="12" cy="13" r="4" />
         </svg>
         {saving ? 'Saving…' : 'Change photo'}
       </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        hidden
-        onChange={(e) => onPick(e.target.files?.[0])}
-      />
+      <input ref={inputRef} type="file" accept={ACCEPT} hidden onChange={(e) => onPick(e.target.files?.[0])} />
       {error && (
         <p
           role="alert"

@@ -58,8 +58,12 @@ export function WriteOptionCard({
         <p className={`mb-[22px] text-[13.5px] leading-[1.55] ${dark ? 'text-white/55' : 'text-ink-3'}`}>
           {description}
         </p>
-        <div className={`flex items-center justify-between gap-2.5 border-t pt-4 ${dark ? 'border-white/15' : 'border-line'}`}>
-          <span className={`inline-flex items-center gap-[5px] text-[11px] font-medium ${dark ? 'text-white/40' : 'text-ink-4'}`}>
+        <div
+          className={`flex items-center justify-between gap-2.5 border-t pt-4 ${dark ? 'border-white/15' : 'border-line'}`}
+        >
+          <span
+            className={`inline-flex items-center gap-[5px] text-[11px] font-medium ${dark ? 'text-white/40' : 'text-ink-4'}`}
+          >
             ~{minutes} min
           </span>
           <span

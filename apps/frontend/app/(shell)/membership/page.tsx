@@ -79,17 +79,37 @@ const PILLARS: { n: string; title: string; body: string; stats: [string, string]
 ];
 
 const STEPS: [string, string, string][] = [
-  ['Apply', 'Connect LinkedIn, then submit your practice details, services and two peer references. About 10 minutes.', '10 min'],
+  [
+    'Apply',
+    'Connect LinkedIn, then submit your practice details, services and two peer references. About 10 minutes.',
+    '10 min',
+  ],
   ['Verify', 'Our team reviews your credentials and contacts your references.', '~5 business days'],
-  ['Onboard', 'Your profile goes live. Set your rates and availability, and publish your first article.', 'On approval'],
+  [
+    'Onboard',
+    'Your profile goes live. Set your rates and availability, and publish your first article.',
+    'On approval',
+  ],
   ['Grow', 'Clients find you through AI search, the member directory and your articles.', 'From day one'],
 ];
 
 const CHECKS: [string, string][] = [
-  ['Identity & credentials', 'Every applicant connects a real LinkedIn account, and the details submitted at onboarding are checked by the GrowXQ team before a profile goes live.'],
-  ['Peer references', 'Two professional references are contacted as part of every application — regardless of seniority.'],
-  ['Proof-backed details', 'Key engagements, clients, testimonials and awards added later carry a Verified badge only when backed by proof the team has reviewed.'],
-  ['Ongoing review', 'Verification is not a one-time exercise — facts and conduct are reviewed on an ongoing basis to keep the badge meaningful.'],
+  [
+    'Identity & credentials',
+    'Every applicant connects a real LinkedIn account, and the details submitted at onboarding are checked by the GrowXQ team before a profile goes live.',
+  ],
+  [
+    'Peer references',
+    'Two professional references are contacted as part of every application — regardless of seniority.',
+  ],
+  [
+    'Proof-backed details',
+    'Key engagements, clients, testimonials and awards added later carry a Verified badge only when backed by proof the team has reviewed.',
+  ],
+  [
+    'Ongoing review',
+    'Verification is not a one-time exercise — facts and conduct are reviewed on an ongoing basis to keep the badge meaningful.',
+  ],
 ];
 
 function Check() {
@@ -116,12 +136,12 @@ export default async function MembershipPage() {
           <div>
             <Eyebrow dark>GrowXQ Membership</Eyebrow>
             <h1 className="mt-5 text-headline text-bg-card">
-              Everything you need to grow your practice, without giving up a{' '}
-              <span className="text-accent">cut</span> of what you earn.
+              Everything you need to grow your practice, without giving up a <span className="text-accent">cut</span> of
+              what you earn.
             </h1>
             <p className="mt-5 max-w-2xl text-lede text-white/60">
-              A single flat annual fee unlocks client discovery, unlimited publishing and member
-              events — with zero commission taken on any work you win.
+              A single flat annual fee unlocks client discovery, unlimited publishing and member events — with zero
+              commission taken on any work you win.
             </p>
             {showApply && (
               <Button href="/apply" variant="accent" className="mt-8">
@@ -221,7 +241,10 @@ export default async function MembershipPage() {
       {showApply && (
         <section className="py-20 max-[640px]:py-14">
           <PageContainer>
-            <Card padding="xl" className="flex flex-col items-start gap-6 bg-ink lg:flex-row lg:items-center lg:justify-between">
+            <Card
+              padding="xl"
+              className="flex flex-col items-start gap-6 bg-ink lg:flex-row lg:items-center lg:justify-between"
+            >
               <div>
                 <h2 className="text-heading text-bg-card">Ready to join?</h2>
                 <p className="mt-2 max-w-xl text-sm text-white/60">

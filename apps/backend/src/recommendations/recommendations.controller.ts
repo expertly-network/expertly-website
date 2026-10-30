@@ -15,7 +15,10 @@ export class RecommendationsController {
 
   // 🔒 signed in — visible recommendations (recipient/admin also get hidden ones).
   @Get()
-  list(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberRecommendationDto[]> {
+  list(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ): Promise<MemberRecommendationDto[]> {
     return this.recommendationsService.list(id, user);
   }
 

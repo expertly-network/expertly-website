@@ -1,11 +1,5 @@
 import type { ResourceQueryDto } from './dto/resource-query.dto';
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ProfilesRepository } from '../auth/profiles.repository';
 import { randomUUID } from 'node:crypto';
 import { sniffFileType } from '../common/sniff-file-type';
@@ -66,7 +60,7 @@ export class ResourcesService {
   private readonly logger = new Logger(ResourcesService.name);
   constructor(
     private readonly repository: ResourcesRepository,
-    private readonly profiles: ProfilesRepository,
+    private readonly profiles: ProfilesRepository
   ) {}
 
   private filter<
@@ -85,17 +79,12 @@ export class ResourcesService {
     return items.filter(
       (i) =>
         (!query.q ||
-          `${i.title ?? i.name} ${i.summary ?? i.description ?? ''}`
-            .toLowerCase()
-            .includes(query.q.toLowerCase())) &&
+          `${i.title ?? i.name} ${i.summary ?? i.description ?? ''}`.toLowerCase().includes(query.q.toLowerCase())) &&
         (!query.category || i.category === query.category) &&
-        (!query.audience ||
-          !i.audiences?.length ||
-          i.audiences.includes(query.audience)) &&
+        (!query.audience || !i.audiences?.length || i.audiences.includes(query.audience)) &&
         (!query.level || i.level === query.level) &&
         (!query.kind || i.kind === query.kind) &&
-        (query.featured === undefined ||
-          i.isFeatured === (query.featured === 'true')),
+        (query.featured === undefined || i.isFeatured === (query.featured === 'true'))
     );
   }
   private asset(value: string | null): string | null {
@@ -104,17 +93,8 @@ export class ResourcesService {
   }
   private perk(row: PerkRow, role?: Role): PerkDto {
     const member = role === 'member' || role === 'admin';
-    const expired =
-      !!row.offer_expires_at &&
-      row.offer_expires_at < new Date().toISOString().slice(0, 10);
-    const lockReason =
-      row.offer_status !== 'live'
-        ? 'coming_soon'
-        : expired
-          ? 'expired'
-          : !role
-            ? 'sign_in'
-            : null;
+    const expired = !!row.offer_expires_at && row.offer_expires_at < new Date().toISOString().slice(0, 10);
+    const lockReason = row.offer_status !== 'live' ? 'coming_soon' : expired ? 'expired' : !role ? 'sign_in' : null;
     // Members get the member tier, falling back to the client tier when a perk has no member
     // offer, so a member never sees less than a client. Clients only ever get the client tier.
     const useMemberTier = member && !!row.member_offer;
@@ -145,14 +125,9 @@ export class ResourcesService {
       lockReason: lockReason || (available ? null : 'unavailable'),
     };
   }
-  private learning(
-    row: LearningRow,
-    role: Role | undefined,
-    freeIds: Set<string>,
-  ): LearningDto {
+  private learning(row: LearningRow, role: Role | undefined, freeIds: Set<string>): LearningDto {
     const member = role === 'member' || role === 'admin';
-    const open =
-      row.access === 'open' || (row.access === 'auto' && freeIds.has(row.id));
+    const open = row.access === 'open' || (row.access === 'auto' && freeIds.has(row.id));
     const canWatch = !!role && (member || open);
     return {
       id: row.id,
@@ -196,22 +171,14 @@ export class ResourcesService {
   private freeIds(collections: CollectionRow[]): Set<string> {
     return new Set(
       collections
-        .filter(
-          (c) =>
-            c.is_active && c.kind === 'learning_playlist' && c.item_ids.length,
-        )
-        .map((c) => c.item_ids[0]),
+        .filter((c) => c.is_active && c.kind === 'learning_playlist' && c.item_ids.length)
+        .map((c) => c.item_ids[0])
     );
   }
-  async listPerks(
-    role?: Role,
-    query: ResourceQueryDto = {},
-  ): Promise<PerkDto[]> {
+  async listPerks(role?: Role, query: ResourceQueryDto = {}): Promise<PerkDto[]> {
     return this.filter(
-      (await this.repository.listPerks())
-        .filter((r) => r.is_active)
-        .map((r) => this.perk(r, role)),
-      query,
+      (await this.repository.listPerks()).filter((r) => r.is_active).map((r) => this.perk(r, role)),
+      query
     );
   }
   async getPerk(slug: string, role?: Role): Promise<PerkDto> {
@@ -219,18 +186,12 @@ export class ResourcesService {
     if (!item) throw new NotFoundException({ code: 'PERK_NOT_FOUND', message: 'Perk not found.' });
     return item;
   }
-  async listLearnings(
-    role?: Role,
-    query: ResourceQueryDto = {},
-  ): Promise<LearningDto[]> {
-    const [rows, collections] = await Promise.all([
-      this.repository.listLearnings(),
-      this.repository.listCollections(),
-    ]);
+  async listLearnings(role?: Role, query: ResourceQueryDto = {}): Promise<LearningDto[]> {
+    const [rows, collections] = await Promise.all([this.repository.listLearnings(), this.repository.listCollections()]);
     const free = this.freeIds(collections);
     return this.filter(
       rows.filter((r) => r.is_active).map((r) => this.learning(r, role, free)),
-      query,
+      query
     );
   }
   async getLearning(id: string, role?: Role): Promise<LearningDto> {
@@ -238,10 +199,7 @@ export class ResourcesService {
     if (!item) throw new NotFoundException({ code: 'LEARNING_NOT_FOUND', message: 'Learning not found.' });
     return item;
   }
-  async listCollections(
-    role?: Role,
-    query: ResourceQueryDto = {},
-  ): Promise<CollectionDto[]> {
+  async listCollections(role?: Role, query: ResourceQueryDto = {}): Promise<CollectionDto[]> {
     const [collections, perks, learnings, templates] = await Promise.all([
       this.repository.listCollections(),
       this.repository.listPerks(),
@@ -258,15 +216,9 @@ export class ResourcesService {
               ? perks.filter((p) => p.is_active).map((p) => this.perk(p, role))
               : c.kind === 'template_kit'
                 ? templates.map((t) => this.template(t, role))
-                : learnings
-                    .filter((l) => l.is_active)
-                    .map((l) => this.learning(l, role, free));
-          const byId = new Map<string, PerkDto | LearningDto | TemplateDto>(
-            source.map((item) => [item.id, item]),
-          );
-          const items = c.item_ids.flatMap((id) =>
-            byId.has(id) ? [byId.get(id)!] : [],
-          );
+                : learnings.filter((l) => l.is_active).map((l) => this.learning(l, role, free));
+          const byId = new Map<string, PerkDto | LearningDto | TemplateDto>(source.map((item) => [item.id, item]));
+          const items = c.item_ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
           return {
             id: c.id,
             kind: c.kind as CollectionDto['kind'],
@@ -280,15 +232,16 @@ export class ResourcesService {
             items,
           };
         }),
-      query,
+      query
     );
   }
   async getCollection(id: string, role?: Role): Promise<CollectionDto> {
     const item = (await this.listCollections(role)).find((c) => c.id === id);
-    if (!item) throw new NotFoundException({
-      code: 'COLLECTION_NOT_FOUND',
-      message: 'Collection not found.',
-    });
+    if (!item)
+      throw new NotFoundException({
+        code: 'COLLECTION_NOT_FOUND',
+        message: 'Collection not found.',
+      });
     return item;
   }
   async adminPerks() {
@@ -312,10 +265,11 @@ export class ResourcesService {
   }
   async adminCollection(id: string) {
     const item = (await this.adminCollections()).find((i) => i.id === id);
-    if (!item) throw new NotFoundException({
-      code: 'COLLECTION_NOT_FOUND',
-      message: 'Collection not found.',
-    });
+    if (!item)
+      throw new NotFoundException({
+        code: 'COLLECTION_NOT_FOUND',
+        message: 'Collection not found.',
+      });
     return item;
   }
   private validatePerk(dto: CreatePerkRequest) {
@@ -344,12 +298,7 @@ export class ResourcesService {
     const url = new URL(dto.videoUrl);
     if (
       (dto.videoProvider ?? 'youtube') === 'youtube' &&
-      ![
-        'www.youtube.com',
-        'youtube.com',
-        'youtu.be',
-        'www.youtube-nocookie.com',
-      ].includes(url.hostname)
+      !['www.youtube.com', 'youtube.com', 'youtu.be', 'www.youtube-nocookie.com'].includes(url.hostname)
     )
       throw new BadRequestException({
         code: 'LEARNING_YOUTUBE_URL_REQUIRED',
@@ -395,9 +344,7 @@ export class ResourcesService {
   }
   async createPerk(dto: CreatePerkRequest) {
     this.validatePerk(dto);
-    const row = await this.repository.createPerk(
-      perkInsert(dto, await this.repository.perkSlug(dto.name)),
-    );
+    const row = await this.repository.createPerk(perkInsert(dto, await this.repository.perkSlug(dto.name)));
     if (!row) throw new NotFoundException();
     return mapPerk(row);
   }
@@ -442,7 +389,7 @@ export class ResourcesService {
   async createCollection(dto: CreateCollectionRequest) {
     await this.validateCollection(dto);
     const row = await this.repository.createCollection(
-      collectionInsert(dto, await this.repository.collectionSlug(dto.title)),
+      collectionInsert(dto, await this.repository.collectionSlug(dto.title))
     );
     if (!row) throw new NotFoundException();
     return mapCollection(row);
@@ -460,10 +407,7 @@ export class ResourcesService {
         message: 'Collection kind cannot be changed.',
       });
     await this.validateCollection({ ...current, ...dto });
-    const row = await this.repository.updateCollection(
-      id,
-      collectionUpdate(dto),
-    );
+    const row = await this.repository.updateCollection(id, collectionUpdate(dto));
     if (!row) throw new NotFoundException();
     return mapCollection(row);
   }
@@ -476,7 +420,7 @@ export class ResourcesService {
   async listTemplates(role?: Role, query: ResourceQueryDto = {}): Promise<TemplateDto[]> {
     return this.filter(
       (await this.repository.listTemplates()).map((t) => this.template(t, role)),
-      query,
+      query
     );
   }
   async getTemplate(id: string, role?: Role): Promise<TemplateDto> {
@@ -505,11 +449,7 @@ export class ResourcesService {
       });
     const file = await this.repository.findActiveTemplateFile(id);
     if (!file) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
-    const url = await this.repository.signTemplateFile(
-      file.file_path,
-      file.file_name,
-      TEMPLATE_LINK_SECONDS,
-    );
+    const url = await this.repository.signTemplateFile(file.file_path, file.file_name, TEMPLATE_LINK_SECONDS);
     return {
       url,
       fileName: file.file_name,
@@ -524,15 +464,12 @@ export class ResourcesService {
     if (!item) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
     return item;
   }
-  async uploadTemplate(file: {
-    buffer: Buffer;
-    size: number;
-    originalname: string;
-  }): Promise<TemplateUploadDto> {
-    if (file.size === 0) throw new BadRequestException({
-      code: 'FILE_EMPTY',
-      message: 'Uploaded file is empty.',
-    });
+  async uploadTemplate(file: { buffer: Buffer; size: number; originalname: string }): Promise<TemplateUploadDto> {
+    if (file.size === 0)
+      throw new BadRequestException({
+        code: 'FILE_EMPTY',
+        message: 'Uploaded file is empty.',
+      });
     if (file.size > TEMPLATE_MAX_BYTES)
       throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'File too large — max 15MB.' });
     const sniffed = await sniffFileType(file.buffer);
@@ -584,7 +521,7 @@ export class ResourcesService {
   async createTemplate(dto: CreateTemplateRequest) {
     await this.assertTemplateFile(dto);
     const row = await this.repository.createTemplate(
-      templateInsert(dto, await this.repository.templateSlug(dto.title)),
+      templateInsert(dto, await this.repository.templateSlug(dto.title))
     );
     if (!row) throw new NotFoundException();
     return mapTemplate(row);
@@ -596,8 +533,7 @@ export class ResourcesService {
         message: 'At least one field is required.',
       });
     const current = await this.adminTemplate(id);
-    if (dto.filePath !== undefined || dto.fileType !== undefined)
-      await this.assertTemplateFile({ ...current, ...dto });
+    if (dto.filePath !== undefined || dto.fileType !== undefined) await this.assertTemplateFile({ ...current, ...dto });
     const row = await this.repository.updateTemplate(id, templateUpdate(dto));
     if (!row) throw new NotFoundException();
     if (dto.filePath !== undefined && dto.filePath !== current.filePath)

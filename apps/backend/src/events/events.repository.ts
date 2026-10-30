@@ -75,10 +75,7 @@ export class EventsRepository {
   }
 
   async findByIdForAdmin(id: string): Promise<EventDto> {
-    const { data, error } = await this.events()
-      .select(EVENT_COLUMNS.join(', '))
-      .eq('id', id)
-      .maybeSingle();
+    const { data, error } = await this.events().select(EVENT_COLUMNS.join(', ')).eq('id', id).maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load event.');
     if (!data) throw new NotFoundException({ code: 'EVENT_NOT_FOUND', message: 'Event not found.' });
@@ -90,10 +87,7 @@ export class EventsRepository {
   }
 
   async insert(row: EventInsert): Promise<EventDto> {
-    const { data: inserted, error } = await this.events()
-      .insert(row)
-      .select(EVENT_COLUMNS.join(', '))
-      .single();
+    const { data: inserted, error } = await this.events().insert(row).select(EVENT_COLUMNS.join(', ')).single();
 
     if (error || !inserted) throw new InternalServerErrorException('Failed to create event.');
     return inserted as unknown as EventDto;

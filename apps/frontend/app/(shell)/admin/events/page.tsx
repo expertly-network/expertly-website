@@ -31,8 +31,8 @@ export default async function AdminEventsPage() {
               <Eyebrow dark>Admin</Eyebrow>
               <h1 className="mt-2 text-headline text-bg-card">Events</h1>
               <p className="mt-3 max-w-xl text-lede text-white/65">
-                Add, edit, and remove events on the community calendar. Drafts are only visible
-                here — the public calendar only shows published events.
+                Add, edit, and remove events on the community calendar. Drafts are only visible here — the public
+                calendar only shows published events.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">

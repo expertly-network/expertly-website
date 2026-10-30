@@ -7,9 +7,12 @@
     "dev:kill": "bash scripts/kill-dev.sh",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "format": "prettier --write \"apps/backend/{src,scripts}/**/*.{ts,mjs}\" \"apps/frontend/{app,components,lib}/**/*.{ts,tsx}\" \"apps/frontend/*.{ts,js}\" \"packages/shared-types/*.ts\"",
+    "format:check": "prettier --check \"apps/backend/{src,scripts}/**/*.{ts,mjs}\" \"apps/frontend/{app,components,lib}/**/*.{ts,tsx}\" \"apps/frontend/*.{ts,js}\" \"packages/shared-types/*.ts\""
   },
   "devDependencies": {
+    "prettier": "3.6.2",
     "turbo": "^2.10.9"
   },
   "engines": {

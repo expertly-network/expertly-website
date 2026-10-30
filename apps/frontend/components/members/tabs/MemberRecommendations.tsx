@@ -5,11 +5,7 @@ import { Button, Textarea } from '@/components/ui';
 import { ApiError, apiFetch } from '@/lib/api/client';
 import { createClient } from '@/lib/supabase/client';
 import { formatMonthYear } from '@/lib/members/format';
-import type {
-  CreateRecommendationRequest,
-  MemberRecommendationDto,
-  UpdateRecommendationRequest,
-} from '@shared/member';
+import type { CreateRecommendationRequest, MemberRecommendationDto, UpdateRecommendationRequest } from '@shared/member';
 
 const MIN_LEN = 10;
 const MAX_LEN = 2000;
@@ -114,10 +110,10 @@ export function MemberRecommendations({
     setActionError(null);
     try {
       const payload: UpdateRecommendationRequest = { isHidden: !rec.isHidden };
-      const updated = await apiFetch<MemberRecommendationDto>(
-        `/members/${memberId}/recommendations/${rec.id}`,
-        { method: 'PATCH', body: JSON.stringify(payload) }
-      );
+      const updated = await apiFetch<MemberRecommendationDto>(`/members/${memberId}/recommendations/${rec.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
       setItems((prev) => (prev ?? []).map((r) => (r.id === updated.id ? updated : r)));
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not update this recommendation.');
@@ -145,7 +141,10 @@ export function MemberRecommendations({
       )}
 
       {loadError && (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-bg-alt px-4 py-3 text-profile-item text-ink-2">
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-bg-alt px-4 py-3 text-profile-item text-ink-2"
+        >
           <span>{loadError}</span>
           <Button variant="secondary" size="sm" onClick={() => void load()}>
             Retry
@@ -177,14 +176,23 @@ export function MemberRecommendations({
               <div className="mb-2 flex flex-wrap items-center gap-2.5">
                 {rec.author.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async" src={rec.author.photoUrl} alt="" className="h-9 w-9 flex-none rounded-full object-cover" />
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={rec.author.photoUrl}
+                    alt=""
+                    className="h-9 w-9 flex-none rounded-full object-cover"
+                  />
                 ) : (
                   <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] font-mono text-xs font-bold text-accent">
                     {rec.author.initials}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <a href={`/members/${rec.author.slug}`} className="block truncate text-[13.5px] font-semibold text-ink hover:underline">
+                  <a
+                    href={`/members/${rec.author.slug}`}
+                    className="block truncate text-[13.5px] font-semibold text-ink hover:underline"
+                  >
                     {rec.author.name}
                   </a>
                   <span className="font-mono text-[10.5px] text-ink-4">{formatMonthYear(rec.createdAt)}</span>

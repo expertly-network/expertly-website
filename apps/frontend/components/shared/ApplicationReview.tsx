@@ -48,10 +48,16 @@ export function ReviewRow({
 }) {
   const changed = previous !== undefined && previous !== null && previous.trim() !== value.trim();
   return (
-    <div className={`grid grid-cols-[140px_1fr] gap-4 px-6 py-3.5 text-sm ${multiline ? 'items-start' : 'items-center'}`}>
+    <div
+      className={`grid grid-cols-[140px_1fr] gap-4 px-6 py-3.5 text-sm ${multiline ? 'items-start' : 'items-center'}`}
+    >
       <span className="text-mono-label text-ink-3">{label}</span>
       {changed ? (
-        <ChangedValue before={previous === '—' ? '' : previous} after={value === '—' ? '' : value} className={multiline ? 'whitespace-pre-wrap' : ''} />
+        <ChangedValue
+          before={previous === '—' ? '' : previous}
+          after={value === '—' ? '' : value}
+          className={multiline ? 'whitespace-pre-wrap' : ''}
+        />
       ) : href ? (
         <a
           href={href}
@@ -61,12 +67,10 @@ export function ReviewRow({
         >
           {value}
         </a>
+      ) : multiline && value ? (
+        <FormattedText text={value} className="text-ink" />
       ) : (
-        multiline && value ? (
-          <FormattedText text={value} className="text-ink" />
-        ) : (
-          <span className="text-ink">{value || '—'}</span>
-        )
+        <span className="text-ink">{value || '—'}</span>
       )}
     </div>
   );
@@ -99,30 +103,28 @@ export function ReviewListRow({
             const old = prev ? prevByTitle.get(item.title) : undefined;
             const isNew = prev !== null && !old;
             return (
-            <div key={i}>
-              <div className="text-ink">
-                {isNew ? <ChangedValue before="" after={item.title} /> : item.title}
+              <div key={i}>
+                <div className="text-ink">{isNew ? <ChangedValue before="" after={item.title} /> : item.title}</div>
+                {item.detail && (
+                  <div className="mt-0.5 text-xs text-ink-3">
+                    {old && (old.detail ?? '') !== item.detail ? (
+                      <ChangedValue before={old.detail} after={item.detail} />
+                    ) : (
+                      item.detail
+                    )}
+                  </div>
+                )}
+                {item.link && (
+                  <a
+                    href={item.link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-block text-xs text-accent underline hover:text-ink"
+                  >
+                    {item.link.label}
+                  </a>
+                )}
               </div>
-              {item.detail && (
-                <div className="mt-0.5 text-xs text-ink-3">
-                  {old && (old.detail ?? '') !== item.detail ? (
-                    <ChangedValue before={old.detail} after={item.detail} />
-                  ) : (
-                    item.detail
-                  )}
-                </div>
-              )}
-              {item.link && (
-                <a
-                  href={item.link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-0.5 inline-block text-xs text-accent underline hover:text-ink"
-                >
-                  {item.link.label}
-                </a>
-              )}
-            </div>
             );
           })}
           {removed.map((r, i) => (

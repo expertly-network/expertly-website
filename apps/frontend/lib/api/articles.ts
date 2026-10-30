@@ -18,13 +18,8 @@ import type {
 } from '@shared/article';
 
 // Published articles matching `query`, plus the total match count across all pages.
-export function getArticles(
-  query: ListArticlesQuery = {}
-): Promise<{ items: ArticleListItemDto[]; total: number }> {
-  return apiFetchPage<ArticleListItemDto>(
-    `/articles${buildArticlesQueryString(query)}`,
-    ARTICLES_TOTAL_COUNT_HEADER
-  );
+export function getArticles(query: ListArticlesQuery = {}): Promise<{ items: ArticleListItemDto[]; total: number }> {
+  return apiFetchPage<ArticleListItemDto>(`/articles${buildArticlesQueryString(query)}`, ARTICLES_TOTAL_COUNT_HEADER);
 }
 
 // Generates an AI draft; multipart so source files can ride along as sibling file parts.
@@ -39,9 +34,7 @@ export function generateArticleDraft(
 }
 
 /** Analyzes the wizard's step-1 brief and returns 0-10 follow-up questions. */
-export function getFollowUpQuestions(
-  payload: AiFollowUpQuestionsRequest
-): Promise<AiFollowUpQuestionsResponse> {
+export function getFollowUpQuestions(payload: AiFollowUpQuestionsRequest): Promise<AiFollowUpQuestionsResponse> {
   return apiFetch<AiFollowUpQuestionsResponse>('/articles/ai-followup-questions', {
     method: 'POST',
     body: JSON.stringify(payload),

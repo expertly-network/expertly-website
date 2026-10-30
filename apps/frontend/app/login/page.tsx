@@ -5,11 +5,7 @@ import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import type { AuthMode } from '@/components/auth/AuthTabs';
 
-export default async function LoginPage(
-  props: {
-    searchParams: Promise<{ mode?: string; returnTo?: string }>;
-  }
-) {
+export default async function LoginPage(props: { searchParams: Promise<{ mode?: string; returnTo?: string }> }) {
   const searchParams = await props.searchParams;
   const returnTo = safeReturnTo(searchParams.returnTo);
   const profile = await getSessionUser();

@@ -8,8 +8,8 @@ export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
         <div className="mb-1 text-mono-label text-ink-3">Curated calendar</div>
         <h3 className="mt-2 text-title text-ink">Events worth your time.</h3>
         <p className="mt-2 text-sm text-ink-3">
-          Only conferences and summits relevant to finance and legal professionals make the
-          list, personally reviewed by the GrowXQ team.
+          Only conferences and summits relevant to finance and legal professionals make the list, personally reviewed by
+          the GrowXQ team.
         </p>
       </Card>
 
@@ -17,14 +17,9 @@ export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
         <div className="mb-1 text-mono-label text-ink-3">Know of one we&apos;re missing?</div>
         <h3 className="mt-2 text-title text-ink">Suggest an event.</h3>
         <p className="mt-2 text-sm text-ink-3">
-          Running or attending something relevant? Send us the details and our team will review
-          it for the calendar.
+          Running or attending something relevant? Send us the details and our team will review it for the calendar.
         </p>
-        <Button
-          href="mailto:contact@growxq.com?subject=Event%20suggestion"
-          variant="secondary"
-          className="mt-4"
-        >
+        <Button href="mailto:contact@growxq.com?subject=Event%20suggestion" variant="secondary" className="mt-4">
           Suggest an event →
         </Button>
       </Card>
@@ -42,8 +37,7 @@ export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
             <div className="mb-1 text-mono-label text-white/50">For members</div>
             <h3 className="mt-2 text-title text-bg-card">Get early access to events.</h3>
             <p className="mt-2 text-sm text-white/60">
-              GrowXQ members receive early-bird notifications and introductions to event
-              organisers.
+              GrowXQ members receive early-bird notifications and introductions to event organisers.
             </p>
             <Button href="/apply" variant="secondary-dark" className="mt-4">
               Apply for membership →

@@ -3,7 +3,16 @@ import type { MemberKeyClient } from '@shared/member';
 // Cycled by index, same palette design/static_html/member-profile.html uses for a Key Client's
 // fallback initial-letter icon when it has no logoUrl.
 const CLIENT_ICON_COLORS = [
-  '#0A66C2', '#F97316', '#00A682', '#7C3AED', '#DC2626', '#0891B2', '#B45309', '#1D4ED8', '#9333EA', '#DB2777',
+  '#0A66C2',
+  '#F97316',
+  '#00A682',
+  '#7C3AED',
+  '#DC2626',
+  '#0891B2',
+  '#B45309',
+  '#1D4ED8',
+  '#9333EA',
+  '#DB2777',
 ];
 
 // A row only scrolls once it holds at least this many logos; fewer sit still, each shown once.
@@ -17,7 +26,13 @@ function ClientCard({ client, colorIndex, hidden }: { client: MemberKeyClient; c
     >
       {client.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img loading="lazy" decoding="async" src={client.logoUrl} alt="" className="h-11 w-11 flex-none rounded-[11px] object-cover" />
+        <img
+          loading="lazy"
+          decoding="async"
+          src={client.logoUrl}
+          alt=""
+          className="h-11 w-11 flex-none rounded-[11px] object-cover"
+        />
       ) : (
         <span
           className="flex h-11 w-11 flex-none items-center justify-center rounded-[11px] font-mono text-lg font-extrabold text-bg-card"

@@ -23,10 +23,7 @@ export function Card({
           : 'p-5';
 
   return (
-    <div
-      style={style}
-      className={`rounded-card border border-line bg-bg-card ${paddingClasses} ${className}`.trim()}
-    >
+    <div style={style} className={`rounded-card border border-line bg-bg-card ${paddingClasses} ${className}`.trim()}>
       {children}
     </div>
   );

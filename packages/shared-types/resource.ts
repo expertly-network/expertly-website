@@ -15,20 +15,13 @@ export const LEARNING_CATEGORIES = [
   'Automation',
   'Data & privacy',
 ] as const;
-export const TEMPLATE_CATEGORIES = [
-  'Audit',
-  'Tax',
-  'Legal',
-  'Corporate & compliance',
-  'Practice management',
-] as const;
+export const TEMPLATE_CATEGORIES = ['Audit', 'Tax', 'Legal', 'Corporate & compliance', 'Practice management'] as const;
 export type PerkCategory = (typeof PERK_CATEGORIES)[number];
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
 export type TemplateFileType = 'docx' | 'xlsx' | 'pptx' | 'pdf';
 export type LearningCategory = (typeof LEARNING_CATEGORIES)[number];
 export type ResourceAudience = 'tax' | 'legal' | 'audit';
-export type ResourceLockReason =
-  'sign_in' | 'membership' | 'coming_soon' | 'expired' | 'unavailable';
+export type ResourceLockReason = 'sign_in' | 'membership' | 'coming_soon' | 'expired' | 'unavailable';
 
 export interface CreatePerkRequest {
   name: string;
@@ -101,22 +94,23 @@ export interface AdminCollectionDto extends Required<CreateCollectionRequest> {
   updatedAt: string;
 }
 
-export interface PerkDto extends Pick<
-  AdminPerkDto,
-  | 'id'
-  | 'slug'
-  | 'name'
-  | 'category'
-  | 'tagline'
-  | 'description'
-  | 'products'
-  | 'websiteUrl'
-  | 'logoUrl'
-  | 'coverImageUrl'
-  | 'offerStatus'
-  | 'isFeatured'
-  | 'sortOrder'
-> {
+export interface PerkDto
+  extends Pick<
+    AdminPerkDto,
+    | 'id'
+    | 'slug'
+    | 'name'
+    | 'category'
+    | 'tagline'
+    | 'description'
+    | 'products'
+    | 'websiteUrl'
+    | 'logoUrl'
+    | 'coverImageUrl'
+    | 'offerStatus'
+    | 'isFeatured'
+    | 'sortOrder'
+  > {
   offer: string | null;
   couponCode: string | null;
   offerUrl: string | null;
@@ -125,36 +119,31 @@ export interface PerkDto extends Pick<
   canRedeem: boolean;
   lockReason: ResourceLockReason | null;
 }
-export interface LearningDto extends Pick<
-  AdminLearningDto,
-  | 'id'
-  | 'title'
-  | 'summary'
-  | 'thumbnailUrl'
-  | 'channel'
-  | 'durationMinutes'
-  | 'category'
-  | 'level'
-  | 'audiences'
-  | 'isFeatured'
-  | 'sortOrder'
-> {
+export interface LearningDto
+  extends Pick<
+    AdminLearningDto,
+    | 'id'
+    | 'title'
+    | 'summary'
+    | 'thumbnailUrl'
+    | 'channel'
+    | 'durationMinutes'
+    | 'category'
+    | 'level'
+    | 'audiences'
+    | 'isFeatured'
+    | 'sortOrder'
+  > {
   videoProvider: 'youtube' | 'file';
   videoUrl: string | null;
   canWatch: boolean;
   lockReason: 'sign_in' | 'membership' | null;
 }
-export interface CollectionDto extends Pick<
-  AdminCollectionDto,
-  | 'id'
-  | 'kind'
-  | 'slug'
-  | 'title'
-  | 'description'
-  | 'audiences'
-  | 'coverImageUrl'
-  | 'sortOrder'
-> {
+export interface CollectionDto
+  extends Pick<
+    AdminCollectionDto,
+    'id' | 'kind' | 'slug' | 'title' | 'description' | 'audiences' | 'coverImageUrl' | 'sortOrder'
+  > {
   itemIds: string[];
   items: Array<PerkDto | LearningDto | TemplateDto>;
 }
@@ -185,22 +174,23 @@ export interface AdminTemplateDto extends Required<CreateTemplateRequest> {
   createdAt: string;
   updatedAt: string;
 }
-export interface TemplateDto extends Pick<
-  AdminTemplateDto,
-  | 'id'
-  | 'slug'
-  | 'title'
-  | 'description'
-  | 'category'
-  | 'highlights'
-  | 'fileType'
-  | 'fileName'
-  | 'fileSizeBytes'
-  | 'previewImageUrl'
-  | 'audiences'
-  | 'isFeatured'
-  | 'sortOrder'
-> {
+export interface TemplateDto
+  extends Pick<
+    AdminTemplateDto,
+    | 'id'
+    | 'slug'
+    | 'title'
+    | 'description'
+    | 'category'
+    | 'highlights'
+    | 'fileType'
+    | 'fileName'
+    | 'fileSizeBytes'
+    | 'previewImageUrl'
+    | 'audiences'
+    | 'isFeatured'
+    | 'sortOrder'
+  > {
   canDownload: boolean;
   lockReason: 'sign_in' | 'membership' | null;
 }

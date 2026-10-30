@@ -6,7 +6,8 @@ export const MEMBER_LIST_MAX_PAGE_SIZE = 50;
 const SORTS = ['featured', 'newest', 'tenure', 'rate_asc', 'rate_desc'] as const;
 
 // A repeated query param (?serviceId=a&serviceId=b) arrives as an array, a single one as a string.
-const toArray = ({ value }: { value: unknown }) => (value === undefined ? undefined : Array.isArray(value) ? value : [value]);
+const toArray = ({ value }: { value: unknown }) =>
+  value === undefined ? undefined : Array.isArray(value) ? value : [value];
 
 // GET /v1/members — the public directory. Every param is bounded: page size is capped (so one
 // call can't dump the whole directory) and free text is length-limited.

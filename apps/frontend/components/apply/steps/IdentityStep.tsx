@@ -88,9 +88,7 @@ export function IdentityStep({
       update({ photoUrl: updated.photoUrl ?? undefined });
       clearError('photo');
     } catch (err) {
-      setUploadError(
-        err instanceof ApiError ? err.message : 'Failed to upload photo — please try again.'
-      );
+      setUploadError(err instanceof ApiError ? err.message : 'Failed to upload photo — please try again.');
     } finally {
       setUploading(false);
     }
@@ -99,9 +97,7 @@ export function IdentityStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Your identity.</h2>
-      <p className="mt-2 text-lede text-ink-3">
-        Personal details, contact info, and your professional presence.
-      </p>
+      <p className="mt-2 text-lede text-ink-3">Personal details, contact info, and your professional presence.</p>
 
       <div className="mt-7 flex flex-col gap-5">
         <div id="photo" tabIndex={-1} className="flex items-center gap-5">

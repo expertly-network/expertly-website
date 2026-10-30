@@ -72,7 +72,10 @@ export class MembersController {
   }
 
   @Get(':id/edits')
-  listMyEdits(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
+  listMyEdits(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ): Promise<MemberProfileEditDto[]> {
     return this.membersService.listMyEdits(id, user);
   }
 }

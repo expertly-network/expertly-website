@@ -121,9 +121,7 @@ export function ConsultationMessageThread({
           {error && <ErrorBanner message={error} />}
 
           {locked ? (
-            <p className="text-caption text-ink-3">
-              This conversation has ended — the request has been decided.
-            </p>
+            <p className="text-caption text-ink-3">This conversation has ended — the request has been decided.</p>
           ) : (
             <div className="flex flex-col gap-2">
               <Textarea
@@ -134,7 +132,12 @@ export function ConsultationMessageThread({
                 onChange={(e) => setDraft(e.target.value)}
                 rows={2}
               />
-              <Button size="sm" className="self-end" disabled={sending || draft.trim().length === 0} onClick={handleSend}>
+              <Button
+                size="sm"
+                className="self-end"
+                disabled={sending || draft.trim().length === 0}
+                onClick={handleSend}
+              >
                 {sending ? 'Sending…' : 'Send'}
               </Button>
             </div>

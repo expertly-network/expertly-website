@@ -13,7 +13,9 @@ export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
       <div className="mt-3 flex items-center gap-3">
         {author.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img loading="lazy" decoding="async"
+          <img
+            loading="lazy"
+            decoding="async"
             src={author.photoUrl}
             alt={author.name}
             className="h-12 w-12 flex-none rounded-full border border-line object-cover"

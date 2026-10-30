@@ -110,7 +110,7 @@ export interface AuthorInfo {
 // Kebab-cases a title for use as the base of a slug.
 @Injectable()
 export class ArticlesRepository {
-  constructor(private readonly supabase: SupabaseService) { }
+  constructor(private readonly supabase: SupabaseService) {}
 
   private articles() {
     return this.supabase.db.from('articles');
@@ -133,10 +133,7 @@ export class ArticlesRepository {
   }
 
   async insert(row: ArticleInsert): Promise<ArticleRow> {
-    const { data: inserted, error } = await this.articles()
-      .insert(row)
-      .select(ARTICLE_COLUMNS.join(', '))
-      .single();
+    const { data: inserted, error } = await this.articles().insert(row).select(ARTICLE_COLUMNS.join(', ')).single();
 
     if (error || !inserted) throw new InternalServerErrorException('Failed to create article.');
     return inserted as unknown as ArticleRow;
@@ -181,10 +178,7 @@ export class ArticlesRepository {
   }
 
   async findByIdOrThrow(id: string): Promise<ArticleRow> {
-    const { data, error } = await this.articles()
-      .select(ARTICLE_COLUMNS.join(', '))
-      .eq('id', id)
-      .maybeSingle();
+    const { data, error } = await this.articles().select(ARTICLE_COLUMNS.join(', ')).eq('id', id).maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load article.');
     if (!data) throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
@@ -194,10 +188,7 @@ export class ArticlesRepository {
   // Accepts either the UUID or the slug — public article URLs use the slug.
   async findByIdOrSlugOrThrow(idOrSlug: string): Promise<ArticleRow> {
     const column = UUID_PATTERN.test(idOrSlug) ? 'id' : 'slug';
-    const { data, error } = await this.articles()
-      .select(ARTICLE_COLUMNS.join(', '))
-      .eq(column, idOrSlug)
-      .maybeSingle();
+    const { data, error } = await this.articles().select(ARTICLE_COLUMNS.join(', ')).eq(column, idOrSlug).maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load article.');
     if (!data) throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
@@ -280,7 +271,9 @@ export class ArticlesRepository {
     const categoryIds = [...new Set((services ?? []).map((s) => s.category_id as string))];
     const categoryNameById = new Map<string, string>();
     if (categoryIds.length > 0) {
-      const { data: categories, error: categoriesError } = await this.categories().select('id, name').in('id', categoryIds);
+      const { data: categories, error: categoriesError } = await this.categories()
+        .select('id, name')
+        .in('id', categoryIds);
       if (categoriesError) throw new InternalServerErrorException('Failed to resolve categories.');
       for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
     }
@@ -304,11 +297,10 @@ export class ArticlesRepository {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
 
-    const [{ data: profiles, error: profilesError }, { data: memberProfiles, error: memberError }] =
-      await Promise.all([
-        this.profiles().select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
-        this.memberProfiles().select(AUTHOR_MEMBER_COLUMNS).in('profile_id', uniqueIds),
-      ]);
+    const [{ data: profiles, error: profilesError }, { data: memberProfiles, error: memberError }] = await Promise.all([
+      this.profiles().select('id, first_name, last_name, avatar_url').in('id', uniqueIds),
+      this.memberProfiles().select(AUTHOR_MEMBER_COLUMNS).in('profile_id', uniqueIds),
+    ]);
 
     if (profilesError || memberError) {
       throw new InternalServerErrorException('Failed to resolve article authors.');

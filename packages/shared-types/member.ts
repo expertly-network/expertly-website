@@ -63,7 +63,8 @@ export class MemberEngagement {
   @ApiProperty({ nullable: true, type: String }) clientName!: string | null;
   /** Owner/admin only (omitted for other viewers) — used by the GrowXQ team for random verification. */
   @ApiPropertyOptional({ nullable: true, type: String }) clientEmail?: string | null;
-  @ApiProperty({ enum: ENGAGEMENT_VERIFICATION_METHODS, isArray: true }) verificationMethods!: EngagementVerificationMethod[];
+  @ApiProperty({ enum: ENGAGEMENT_VERIFICATION_METHODS, isArray: true })
+  verificationMethods!: EngagementVerificationMethod[];
   /** Free-text description of the method; only meaningful when verificationMethods includes 'other'. */
   @ApiProperty({ nullable: true, type: String }) verificationMethodOther!: string | null;
   @ApiProperty({ nullable: true, type: Number }) year!: number | null;
@@ -175,14 +176,16 @@ export class AdminMemberListItemDto extends MemberListItemDto {
   @ApiProperty({ enum: ['active', 'deactivated'] }) status!: MemberProfileStatus;
   @ApiProperty({ nullable: true, type: String }) applicationId!: string | null;
   @ApiProperty() membershipStartedAt!: string;
-  @ApiProperty({ nullable: true, enum: ['paid', 'pending', 'overdue'] }) renewalPaymentStatus!: RenewalPaymentStatus | null;
+  @ApiProperty({ nullable: true, enum: ['paid', 'pending', 'overdue'] })
+  renewalPaymentStatus!: RenewalPaymentStatus | null;
   @ApiProperty({ enum: ['active', 'due-soon', 'overdue'] }) renewalDueState!: RenewalDueState;
 }
 
 export class UpdateAdminMemberRequest {
   @ApiPropertyOptional({ enum: ['active', 'deactivated'] }) status?: MemberProfileStatus;
   @ApiPropertyOptional() membershipStartedAt?: string;
-  @ApiPropertyOptional({ nullable: true, enum: ['paid', 'pending', 'overdue'] }) renewalPaymentStatus?: RenewalPaymentStatus | null;
+  @ApiPropertyOptional({ nullable: true, enum: ['paid', 'pending', 'overdue'] })
+  renewalPaymentStatus?: RenewalPaymentStatus | null;
 }
 
 /** Every type POST /v1/members/:id/uploads accepts (mirrors the member-proofs bucket). */
@@ -262,7 +265,10 @@ export type EditItem<T> = Omit<T, 'id' | 'isVerified' | 'proofAttachments'> & {
   id?: string;
   proofAttachments?: ProofAttachment[];
 };
-export type EngagementsEditPayload = (Omit<EditItem<MemberEngagement>, 'clientName' | 'clientEmail' | 'verificationMethods' | 'verificationMethodOther'> & {
+export type EngagementsEditPayload = (Omit<
+  EditItem<MemberEngagement>,
+  'clientName' | 'clientEmail' | 'verificationMethods' | 'verificationMethodOther'
+> & {
   clientName: string;
   clientEmail?: string | null;
   verificationMethods?: EngagementVerificationMethod[];
@@ -276,7 +282,10 @@ export type KeyClientsEditPayload = (EditItem<MemberKeyClient> & { logoUploadPat
 // education / work_experiences: one shared proof for the whole batch (edit-level proofFileUrl /
 // proofLink), not per item. Work history may overlap (concurrent roles) and is stored newest-first.
 export type EducationEditPayload = (Omit<MemberEducation, 'id' | 'isVerified'> & { id?: string })[];
-export type WorkExperiencesEditPayload = (Omit<MemberWorkExperience, 'id' | 'isVerified' | 'startMonth' | 'endMonth'> & {
+export type WorkExperiencesEditPayload = (Omit<
+  MemberWorkExperience,
+  'id' | 'isVerified' | 'startMonth' | 'endMonth'
+> & {
   id?: string;
   startMonth?: number | null;
   endMonth?: number | null;
@@ -325,7 +334,9 @@ export class MemberProfileEditDto {
   @ApiProperty({ enum: ['pending', 'verified', 'rejected'] }) status!: MemberEditStatus;
   @ApiProperty({ nullable: true, type: String }) reviewNote!: string | null;
   /** Per-item decisions (array sections only); null if the edit was reviewed whole or is pending. */
-  @ApiProperty({ nullable: true, type: () => MemberEditItemReview, isArray: true }) itemReviews!: MemberEditItemReview[] | null;
+  @ApiProperty({ nullable: true, type: () => MemberEditItemReview, isArray: true }) itemReviews!:
+    | MemberEditItemReview[]
+    | null;
   @ApiProperty({ nullable: true, type: String }) reviewedBy!: string | null;
   @ApiProperty({ nullable: true, type: String }) reviewedAt!: string | null;
   @ApiProperty() submittedAt!: string;
@@ -364,7 +375,8 @@ export class ReviewMemberEditItemRequest {
 export class ReviewMemberEditRequest {
   @ApiPropertyOptional({ enum: ['verified', 'rejected'] }) status?: 'verified' | 'rejected';
   @ApiPropertyOptional() reviewNote?: string;
-  @ApiPropertyOptional({ type: () => ReviewMemberEditItemRequest, isArray: true }) items?: ReviewMemberEditItemRequest[];
+  @ApiPropertyOptional({ type: () => ReviewMemberEditItemRequest, isArray: true })
+  items?: ReviewMemberEditItemRequest[];
 }
 
 // ---- Member recommendations (Reviews & Recognition tab) ----

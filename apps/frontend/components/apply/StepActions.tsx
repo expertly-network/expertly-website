@@ -24,7 +24,7 @@ export function StepActions({
           ← Back
         </Button>
       ) : (
-        leftSlot ?? <span />
+        (leftSlot ?? <span />)
       )}
       {onNext && (
         <Button onClick={onNext} disabled={nextDisabled}>

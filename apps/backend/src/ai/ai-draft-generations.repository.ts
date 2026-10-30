@@ -85,15 +85,15 @@ export class AiDraftGenerationsRepository {
         this.logger.error(`Failed to write ai_draft_generations audit row: ${error.message}`);
       }
     } catch (error) {
-      this.logger.error(
-        'Failed to write ai_draft_generations audit row',
-        error instanceof Error ? error.stack : error
-      );
+      this.logger.error('Failed to write ai_draft_generations audit row', error instanceof Error ? error.stack : error);
     }
   }
 
   // 🛡️ Admin log list, newest first, optionally narrowed by status and/or author.
-  async findForAdmin(filters: { status?: 'success' | 'failed'; authorId?: string }): Promise<AiDraftGenerationListRow[]> {
+  async findForAdmin(filters: {
+    status?: 'success' | 'failed';
+    authorId?: string;
+  }): Promise<AiDraftGenerationListRow[]> {
     let query = this.generations()
       .select(LIST_COLUMNS.join(', '))
       .order('created_at', { ascending: false })
@@ -107,15 +107,13 @@ export class AiDraftGenerationsRepository {
   }
 
   async findByIdOrThrow(id: string): Promise<AiDraftGenerationDetailRow> {
-    const { data, error } = await this.generations()
-      .select(DETAIL_COLUMNS.join(', '))
-      .eq('id', id)
-      .maybeSingle();
+    const { data, error } = await this.generations().select(DETAIL_COLUMNS.join(', ')).eq('id', id).maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to load AI generation.');
-    if (!data) throw new NotFoundException({
-      code: 'AI_GENERATION_NOT_FOUND',
-      message: 'AI generation not found.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'AI_GENERATION_NOT_FOUND',
+        message: 'AI generation not found.',
+      });
     return data as unknown as AiDraftGenerationDetailRow;
   }
 

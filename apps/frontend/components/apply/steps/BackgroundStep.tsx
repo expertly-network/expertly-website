@@ -50,7 +50,10 @@ export function BackgroundStep({
   // Live date problems per card. End-before-start blocks Next; an overlap with another role is
   // only a warning — concurrent roles (e.g. sub-roles at one firm) are legitimate.
   const dateErrors = useMemo(
-    () => form.workExperiences.map((w): string | undefined => (isEndBeforeStart(w) ? 'End date is before the start date.' : undefined)),
+    () =>
+      form.workExperiences.map((w): string | undefined =>
+        isEndBeforeStart(w) ? 'End date is before the start date.' : undefined
+      ),
     [form.workExperiences]
   );
   const dateWarnings = useMemo(() => {
@@ -77,15 +80,17 @@ export function BackgroundStep({
         e[`workExperiences.${i}.companyUrl`] = 'Add a website for your current position.';
     });
     dateErrors.forEach((msg, i) => {
-      if (msg && !e[`workExperiences.${i}.title`] && !e[`workExperiences.${i}.company`] && !e[`workExperiences.${i}.startYear`])
+      if (
+        msg &&
+        !e[`workExperiences.${i}.title`] &&
+        !e[`workExperiences.${i}.company`] &&
+        !e[`workExperiences.${i}.startYear`]
+      )
         e[`workExperiences.${i}.dates`] = msg;
     });
     // One entry must be marked as the applicant's current position — it becomes the approved
     // member's firm name, so it can't be silently absent (backend enforces this too, at submit).
-    if (
-      Object.keys(e).length === 0 &&
-      !form.workExperiences.some((w) => w.isCurrent && w.company.trim())
-    ) {
+    if (Object.keys(e).length === 0 && !form.workExperiences.some((w) => w.isCurrent && w.company.trim())) {
       e.workExperiencesCurrent = 'Mark your current position — this becomes your firm name once approved.';
     }
     form.educations.forEach((edu, i) => {
@@ -367,9 +372,7 @@ export function BackgroundStep({
       {form.workExperiences.length < WORK_EXPERIENCES_MAX && (
         <button
           type="button"
-          onClick={() =>
-            update({ workExperiences: [...form.workExperiences, { ...EMPTY_WORK_EXPERIENCE }] })
-          }
+          onClick={() => update({ workExperiences: [...form.workExperiences, { ...EMPTY_WORK_EXPERIENCE }] })}
           className="mt-3 rounded-input border border-line-2 px-5 py-2.5 text-sm font-medium text-ink hover:border-ink"
         >
           + Add another role
@@ -466,9 +469,7 @@ export function BackgroundStep({
         <span className="text-mono-label text-ink-3">PEER REFERENCES</span>
         <span className="text-xs text-ink-3">2 required, as part of verification</span>
       </div>
-      <p className="mt-1.5 text-sm text-ink-3">
-        Two professional peers we can contact to verify your background.
-      </p>
+      <p className="mt-1.5 text-sm text-ink-3">Two professional peers we can contact to verify your background.</p>
 
       <div className="mt-4 flex flex-col gap-4">
         {form.peerReferences.map((reference, i) => (

@@ -5,10 +5,7 @@ import type {
   AiGenerationLinkedArticle,
   ArticleService,
 } from '@shared/article';
-import {
-  AiDraftGenerationsRepository,
-  type AiDraftGenerationListRow,
-} from '../ai/ai-draft-generations.repository';
+import { AiDraftGenerationsRepository, type AiDraftGenerationListRow } from '../ai/ai-draft-generations.repository';
 import { ArticlesRepository, type AuthorInfo, type LinkedArticleRow } from './articles.repository';
 import { sanitizeArticleBody } from './sanitize-article-body';
 import type { AdminAiGenerationsQueryDto } from './dto/admin-ai-generations-query.dto';

@@ -63,9 +63,7 @@ export function FilterPopover({
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  const filtered = query
-    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
-    : options;
+  const filtered = query ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase())) : options;
 
   const triggerLabel =
     selected.length === 0
@@ -161,9 +159,7 @@ export function FilterPopover({
 
   function toggle(value: string) {
     if (multi) {
-      onChange(
-        selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]
-      );
+      onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
     } else {
       onChange([value]);
       close();
@@ -256,9 +252,7 @@ export function FilterPopover({
             aria-label={label}
             className="max-h-64 overflow-y-auto p-1.5"
           >
-            {filtered.length === 0 && (
-              <div className="px-2.5 py-2 text-sm text-ink-3">No matches</div>
-            )}
+            {filtered.length === 0 && <div className="px-2.5 py-2 text-sm text-ink-3">No matches</div>}
             {filtered.map((option, i) => (
               <label
                 key={option.value}

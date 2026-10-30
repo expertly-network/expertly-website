@@ -63,9 +63,7 @@ export function ProfileSidebar({
                 member.isAvailable ? 'text-accent' : 'text-ink-3'
               }`}
             >
-              <span
-                className={`h-2 w-2 flex-none rounded-full ${member.isAvailable ? 'bg-accent' : 'bg-ink-4'}`}
-              />
+              <span className={`h-2 w-2 flex-none rounded-full ${member.isAvailable ? 'bg-accent' : 'bg-ink-4'}`} />
               {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
             </div>
             {member.availabilityNotes && (
@@ -85,8 +83,19 @@ export function ProfileSidebar({
             className="mt-3 flex w-full items-center gap-1.5 border-t border-line pt-3 text-caption text-ink-2 hover:underline"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="flex-none">
-              <path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M9 2h5v5M14 2L8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M9 2h5v5M14 2L8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
             <span className="flex-none">Company website</span>
             <span className="min-w-0 truncate text-ink-4">· {displayHost(member.firmWebsite)}</span>
@@ -106,13 +115,10 @@ export function ProfileSidebar({
               <path d="M12 2l2.4 5H20l-4.5 3.5 1.7 5.5L12 13l-5.2 3 1.7-5.5L4 7h5.6L12 2z" fill="var(--accent)" />
               <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="font-mono text-[10.5px] font-bold text-white/90">
-              GrowXQ Verified
-            </span>
+            <span className="font-mono text-[10.5px] font-bold text-white/90">GrowXQ Verified</span>
           </div>
           <p className="relative text-sm leading-[1.55] text-white/60">
-            {member.name}&apos;s identity and credentials have been verified by the GrowXQ
-            team.
+            {member.name}&apos;s identity and credentials have been verified by the GrowXQ team.
           </p>
         </Card>
       )}

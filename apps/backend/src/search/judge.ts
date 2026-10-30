@@ -46,25 +46,58 @@ export function trimCard(type: string, content: string): string {
   return clip(lines.join(' | '), 500);
 }
 
-export const STOP = new Set(['who', 'has', 'have', 'with', 'the', 'and', 'for', 'from', 'that', 'this', 'members', 'member', 'events', 'event', 'articles', 'article', 'give', 'show', 'find', 'about', 'worked', 'work', 'which', 'are', 'any', 'all', 'can', 'you', 'please']);
+export const STOP = new Set([
+  'who',
+  'has',
+  'have',
+  'with',
+  'the',
+  'and',
+  'for',
+  'from',
+  'that',
+  'this',
+  'members',
+  'member',
+  'events',
+  'event',
+  'articles',
+  'article',
+  'give',
+  'show',
+  'find',
+  'about',
+  'worked',
+  'work',
+  'which',
+  'are',
+  'any',
+  'all',
+  'can',
+  'you',
+  'please',
+]);
 
 export function matchLines(content: string, tokens: string[]): string {
   if (!tokens.length) return '';
-  return content.split('\n')
-    .filter((l) => { const low = l.toLowerCase(); return tokens.some((t) => low.includes(t)); })
+  return content
+    .split('\n')
+    .filter((l) => {
+      const low = l.toLowerCase();
+      return tokens.some((t) => low.includes(t));
+    })
     .map((l) => (l.length > 220 ? l.slice(0, 220) + '...' : l))
     .slice(0, 4)
     .join(' | ');
 }
 
 export function questionTokens(topicOrQuestion: string): string[] {
-  return topicOrQuestion.toLowerCase().split(/[^a-z0-9&]+/).filter((t) => t.length >= 3 && !STOP.has(t));
+  return topicOrQuestion
+    .toLowerCase()
+    .split(/[^a-z0-9&]+/)
+    .filter((t) => t.length >= 3 && !STOP.has(t));
 }
 
-export function judge(
-  openai: OpenAiClient,
-  system: string,
-  user: string
-): Promise<JudgeOutput> {
+export function judge(openai: OpenAiClient, system: string, user: string): Promise<JudgeOutput> {
   return openai.chatJson<JudgeOutput>(system, user, JUDGE_SCHEMA, SEARCH_OPENAI_TIMEOUT_MS);
 }

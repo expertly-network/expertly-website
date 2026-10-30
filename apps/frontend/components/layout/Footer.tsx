@@ -51,10 +51,7 @@ export function Footer() {
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_70%_at_12%_110%,color-mix(in_oklab,var(--accent)_45%,transparent),transparent_70%),radial-gradient(50%_60%_at_92%_115%,color-mix(in_oklab,var(--accent)_30%,transparent),transparent_70%)]"
         />
         <div className="relative mx-auto w-[min(94%,1760px)] pt-14 sm:pt-16">
-          <nav
-            aria-label="Footer"
-            className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4"
-          >
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
             {COLUMNS.map((col) => (
               <div key={col.title} className="min-w-0">
                 <h2 className="font-sans text-sm font-semibold text-white">{col.title}</h2>
@@ -64,18 +61,13 @@ export function Footer() {
                       {link.external ? (
                         <a
                           href={link.href}
-                          {...(link.href.startsWith('http')
-                            ? { target: '_blank', rel: 'noopener noreferrer' }
-                            : {})}
+                          {...(link.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                           className="break-words text-[15px] text-white/55 transition-colors hover:text-white"
                         >
                           {link.label}
                         </a>
                       ) : (
-                        <Link
-                          href={link.href}
-                          className="text-[15px] text-white/55 transition-colors hover:text-white"
-                        >
+                        <Link href={link.href} className="text-[15px] text-white/55 transition-colors hover:text-white">
                           {link.label}
                         </Link>
                       )}

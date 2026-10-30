@@ -11,7 +11,10 @@ export type TextBlock = { kind: 'p'; text: string } | { kind: 'ul'; items: strin
 export function toTextBlocks(text: string): TextBlock[] {
   const blocks: TextBlock[] = [];
   for (const chunk of text.replace(/\r\n?/g, '\n').split(/\n\s*\n/)) {
-    const lines = chunk.split('\n').map((l) => l.trim()).filter(Boolean);
+    const lines = chunk
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
     // Each chunk starts fresh, so a list never continues across a blank line.
     let current: TextBlock | null = null;
     for (const line of lines) {

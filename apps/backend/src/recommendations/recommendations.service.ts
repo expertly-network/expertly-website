@@ -14,7 +14,11 @@ export class RecommendationsService {
   ) {}
 
   // Any active member may recommend another active member — never themselves.
-  async create(recipientId: string, user: AuthenticatedUser, dto: CreateRecommendationDto): Promise<MemberRecommendationDto> {
+  async create(
+    recipientId: string,
+    user: AuthenticatedUser,
+    dto: CreateRecommendationDto
+  ): Promise<MemberRecommendationDto> {
     if (recipientId === user.id) {
       throw new ForbiddenException({
         code: 'RECOMMENDATION_SELF',
@@ -52,8 +56,7 @@ export class RecommendationsService {
         message: 'Member not found.',
       });
     }
-    const includeHidden =
-      recipientId === user.id || (await this.adminAccess.hasFreshPermission(user, 'manageMembers'));
+    const includeHidden = recipientId === user.id || (await this.adminAccess.hasFreshPermission(user, 'manageMembers'));
     return this.toDtos(await this.repository.findByRecipient(recipientId, includeHidden));
   }
 
@@ -65,10 +68,11 @@ export class RecommendationsService {
     dto: UpdateRecommendationDto
   ): Promise<MemberRecommendationDto> {
     const existing = await this.repository.findById(recommendationId);
-    if (existing.recipient_id !== recipientId) throw new NotFoundException({
-      code: 'RECOMMENDATION_NOT_FOUND',
-      message: 'Recommendation not found.',
-    });
+    if (existing.recipient_id !== recipientId)
+      throw new NotFoundException({
+        code: 'RECOMMENDATION_NOT_FOUND',
+        message: 'Recommendation not found.',
+      });
     if (existing.recipient_id !== user.id) {
       throw new ForbiddenException({
         code: 'RECOMMENDATION_NOT_RECIPIENT',

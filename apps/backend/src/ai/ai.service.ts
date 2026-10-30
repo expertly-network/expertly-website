@@ -169,9 +169,7 @@ export class AiService {
     const modelId = process.env.AI_MODEL;
 
     if (!provider || !modelId) {
-      throw new ServiceUnavailableException(
-        'AI drafting is not configured (set AI_PROVIDER and AI_MODEL).'
-      );
+      throw new ServiceUnavailableException('AI drafting is not configured (set AI_PROVIDER and AI_MODEL).');
     }
     if (!SUPPORTED_PROVIDERS.includes(provider)) {
       throw new ServiceUnavailableException(
@@ -204,9 +202,7 @@ export class AiService {
     const modelId = process.env.AI_MODEL;
 
     if (!provider || !modelId) {
-      throw new ServiceUnavailableException(
-        'AI drafting is not configured (set AI_PROVIDER and AI_MODEL).'
-      );
+      throw new ServiceUnavailableException('AI drafting is not configured (set AI_PROVIDER and AI_MODEL).');
     }
     if (!SUPPORTED_PROVIDERS.includes(provider)) {
       throw new ServiceUnavailableException(
@@ -366,9 +362,7 @@ export class AiService {
         : null,
       input.extraInstructions ? `Additional instructions: ${input.extraInstructions}` : null,
       textFiles.length > 0
-        ? textFiles
-            .map((f, i) => `--- Uploaded source document ${i + 1} ---\n${f.text.slice(0, 8000)}`)
-            .join('\n\n')
+        ? textFiles.map((f, i) => `--- Uploaded source document ${i + 1} ---\n${f.text.slice(0, 8000)}`).join('\n\n')
         : null,
       input.sourceLinks && input.sourceLinks.length > 0
         ? `Source links the author wants referenced (fetch/search these if useful to ground the article):\n${input.sourceLinks.map((url) => `- ${url}`).join('\n')}`

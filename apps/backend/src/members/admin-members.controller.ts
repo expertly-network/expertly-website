@@ -21,7 +21,10 @@ export class AdminMembersController {
   }
 
   @Patch('members/:id')
-  updateMember(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAdminMemberDto): Promise<AdminMemberListItemDto> {
+  updateMember(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAdminMemberDto
+  ): Promise<AdminMemberListItemDto> {
     return this.membersService.adminUpdateMember(id, dto);
   }
 

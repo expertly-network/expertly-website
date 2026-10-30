@@ -10,7 +10,9 @@ function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36
   if (article.authorPhotoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img loading="lazy" decoding="async"
+      <img
+        loading="lazy"
+        decoding="async"
         src={article.authorPhotoUrl}
         alt=""
         className={`${dimension} flex-none rounded-full object-cover`}
@@ -38,7 +40,9 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
         <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[360px]">
           {featured.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img loading="lazy" decoding="async"
+            <img
+              loading="lazy"
+              decoding="async"
               src={featured.coverImageUrl}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
@@ -85,9 +89,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
                   <AuthorAvatar article={a} size={36} />
                   <div className="leading-tight">
                     <div className="text-caption text-ink-2">{a.authorName}</div>
-                    {designation && (
-                      <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>
-                    )}
+                    {designation && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>}
                   </div>
                 </div>
               </div>

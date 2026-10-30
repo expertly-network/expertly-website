@@ -82,7 +82,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       // Extra keys an endpoint documents (e.g. `retryAfter` on a consultation 409) pass through.
       const r = response as Record<string, unknown>;
       const message =
-        typeof r.message === 'string' || Array.isArray(r.message) ? (r.message as string | string[]) : exception.message;
+        typeof r.message === 'string' || Array.isArray(r.message)
+          ? (r.message as string | string[])
+          : exception.message;
       const code =
         typeof r.code === 'string'
           ? r.code

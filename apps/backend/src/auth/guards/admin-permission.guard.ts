@@ -14,10 +14,10 @@ export class AdminPermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermission = this.reflector.getAllAndOverride<AdminPermission | undefined>(
-      REQUIRED_PERMISSION_KEY,
-      [context.getHandler(), context.getClass()]
-    );
+    const requiredPermission = this.reflector.getAllAndOverride<AdminPermission | undefined>(REQUIRED_PERMISSION_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!requiredPermission) return true;
 
     const request = context.switchToHttp().getRequest();

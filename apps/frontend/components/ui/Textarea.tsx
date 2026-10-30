@@ -48,7 +48,12 @@ export function Textarea({
         <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
           <span>
             {label}
-            {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+            {markRequired && (
+              <span aria-hidden="true" className="text-error">
+                {' '}
+                *
+              </span>
+            )}
           </span>
           {labelRight}
         </label>
@@ -67,7 +72,11 @@ export function Textarea({
         } ${className}`}
         {...textareaProps}
       />
-      {error ? <span className="text-xs text-error">{error}</span> : hint && <span className="text-xs text-ink-3">{hint}</span>}
+      {error ? (
+        <span className="text-xs text-error">{error}</span>
+      ) : (
+        hint && <span className="text-xs text-ink-3">{hint}</span>
+      )}
     </div>
   );
 }

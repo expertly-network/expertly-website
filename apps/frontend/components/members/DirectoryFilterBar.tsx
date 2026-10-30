@@ -21,13 +21,7 @@ function rateBucketValue(filters: MemberFilters): string[] {
   return match ? [match.label] : [];
 }
 
-export function DirectoryFilterBar({
-  categories,
-  filters,
-}: {
-  categories: CategoryDto[];
-  filters: MemberFilters;
-}) {
+export function DirectoryFilterBar({ categories, filters }: { categories: CategoryDto[]; filters: MemberFilters }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -39,7 +33,7 @@ export function DirectoryFilterBar({
   // Narrows the service list to the selected category; falls back to every service when no
   // category is picked, matching the two-level pill+dropdown UI from the taxonomy design.
   const visibleServices = filters.categoryId
-    ? categories.find((c) => c.id === filters.categoryId)?.services ?? []
+    ? (categories.find((c) => c.id === filters.categoryId)?.services ?? [])
     : categories.flatMap((c) => c.services);
 
   return (

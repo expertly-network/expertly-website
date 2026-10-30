@@ -2,7 +2,15 @@ import { Injectable } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService } from '../auth/supabase.service';
 import type { ArticleSource, DocType, EventSource, MemberSource, SearchCard } from './card.types';
-import type { Applied, ArticleSearchResult, EventSearchResult, Hit, MemberSearchResult, Plan, SearchResult } from './search.types';
+import type {
+  Applied,
+  ArticleSearchResult,
+  EventSearchResult,
+  Hit,
+  MemberSearchResult,
+  Plan,
+  SearchResult,
+} from './search.types';
 
 export interface PendingEmbeddingRow {
   id: number;
@@ -21,26 +29,69 @@ export interface OutboxJob {
 }
 
 const MEMBER_COLUMNS = [
-  'profile_id', 'status', 'slug', 'headline', 'firm_name', 'city', 'state', 'country', 'years_of_experience',
-  'bio', 'work_experiences', 'educations', 'engagements', 'key_clients', 'qualifications', 'credentials',
-  'awards', 'availability_notes', 'rate_min_cents', 'rate_max_cents', 'is_available', 'membership_started_at',
+  'profile_id',
+  'status',
+  'slug',
+  'headline',
+  'firm_name',
+  'city',
+  'state',
+  'country',
+  'years_of_experience',
+  'bio',
+  'work_experiences',
+  'educations',
+  'engagements',
+  'key_clients',
+  'qualifications',
+  'credentials',
+  'awards',
+  'availability_notes',
+  'rate_min_cents',
+  'rate_max_cents',
+  'is_available',
+  'membership_started_at',
   'created_at',
 ] as const;
 
 const ARTICLE_COLUMNS = [
-  'id', 'status', 'title', 'author_id', 'service_ids', 'custom_service_labels', 'countries', 'state',
-  'ai_summary', 'excerpt', 'body', 'created_at',
+  'id',
+  'status',
+  'title',
+  'author_id',
+  'service_ids',
+  'custom_service_labels',
+  'countries',
+  'state',
+  'ai_summary',
+  'excerpt',
+  'body',
+  'created_at',
 ] as const;
 
 const EVENT_COLUMNS = [
-  'id', 'status', 'title', 'event_type', 'event_format', 'organiser_name', 'venue_name', 'city', 'country',
-  'start_date', 'end_date', 'is_free', 'short_description', 'description',
+  'id',
+  'status',
+  'title',
+  'event_type',
+  'event_format',
+  'organiser_name',
+  'venue_name',
+  'city',
+  'country',
+  'start_date',
+  'end_date',
+  'is_free',
+  'short_description',
+  'description',
 ] as const;
 
 interface MemberServiceRow {
   service_id: string;
   custom_label: string | null;
-  services: { name: string; categories: { name: string } | { name: string }[] } | { name: string; categories: { name: string } | { name: string }[] }[];
+  services:
+    | { name: string; categories: { name: string } | { name: string }[] }
+    | { name: string; categories: { name: string } | { name: string }[] }[];
 }
 
 /**
@@ -97,7 +148,11 @@ export class SearchRepository {
     // All three reads key on the profile id — run them together rather than one after another.
     const [profileRes, personRes, linksRes] = await Promise.all([
       this.client().from('member_profiles').select(MEMBER_COLUMNS.join(', ')).eq('profile_id', profileId).maybeSingle(),
-      this.client().from('profiles').select('first_name, last_name, status, deleted_at').eq('id', profileId).maybeSingle(),
+      this.client()
+        .from('profiles')
+        .select('first_name, last_name, status, deleted_at')
+        .eq('id', profileId)
+        .maybeSingle(),
       this.client()
         .from('member_services')
         .select('service_id, custom_label, services!inner(name, categories!inner(name))')
@@ -251,7 +306,9 @@ export class SearchRepository {
     const eventIds = ids('event');
 
     const [members, memberServices, articles, events] = await Promise.all([
-      memberIds.length ? this.readRows<MemberRow>('member_profiles', HYDRATE_MEMBER_COLUMNS, 'profile_id', memberIds) : [],
+      memberIds.length
+        ? this.readRows<MemberRow>('member_profiles', HYDRATE_MEMBER_COLUMNS, 'profile_id', memberIds)
+        : [],
       memberIds.length
         ? this.readRows<MemberServiceNameRow>('member_services', 'member_id, services(name)', 'member_id', memberIds)
         : [],
@@ -278,28 +335,50 @@ export class SearchRepository {
         const r = memberMap.get(h.source_id);
         if (!r || r.status !== 'active') continue;
         const member: MemberSearchResult = {
-          type: 'member', id: h.source_id, name: h.title, slug: r.slug, headline: r.headline, firm: r.firm_name,
-          location: [r.city, r.country].filter(Boolean).join(', '), services: services.get(h.source_id) ?? [],
+          type: 'member',
+          id: h.source_id,
+          name: h.title,
+          slug: r.slug,
+          headline: r.headline,
+          firm: r.firm_name,
+          location: [r.city, r.country].filter(Boolean).join(', '),
+          services: services.get(h.source_id) ?? [],
           available: r.is_available,
-          rate: r.rate_min_cents != null || r.rate_max_cents != null
-            ? { minCents: r.rate_min_cents, maxCents: r.rate_max_cents, currency: r.rate_currency } : null,
+          rate:
+            r.rate_min_cents != null || r.rate_max_cents != null
+              ? { minCents: r.rate_min_cents, maxCents: r.rate_max_cents, currency: r.rate_currency }
+              : null,
         };
         out.push(member);
       } else if (h.doc_type === 'article') {
         const r = articleMap.get(h.source_id);
         if (!r || r.status !== 'published') continue;
         const article: ArticleSearchResult = {
-          type: 'article', id: h.source_id, title: r.title, slug: r.slug, excerpt: (r.excerpt ?? '').slice(0, 300),
-          countries: r.countries, publishedAt: r.created_at, readTimeMinutes: r.read_time_minutes,
+          type: 'article',
+          id: h.source_id,
+          title: r.title,
+          slug: r.slug,
+          excerpt: (r.excerpt ?? '').slice(0, 300),
+          countries: r.countries,
+          publishedAt: r.created_at,
+          readTimeMinutes: r.read_time_minutes,
         };
         out.push(article);
       } else {
         const r = eventMap.get(h.source_id);
         if (!r || r.status !== 'published') continue;
         const event: EventSearchResult = {
-          type: 'event', id: h.source_id, title: r.title, slug: r.slug, summary: r.short_description,
-          startsAt: r.start_date, endsAt: r.end_date, location: [r.city, r.country].filter(Boolean).join(', '),
-          format: r.event_format, isFree: r.is_free, registrationUrl: r.registration_url,
+          type: 'event',
+          id: h.source_id,
+          title: r.title,
+          slug: r.slug,
+          summary: r.short_description,
+          startsAt: r.start_date,
+          endsAt: r.end_date,
+          location: [r.city, r.country].filter(Boolean).join(', '),
+          format: r.event_format,
+          isFree: r.is_free,
+          registrationUrl: r.registration_url,
         };
         out.push(event);
       }
@@ -391,22 +470,50 @@ export class SearchRepository {
   }
 }
 
-const HYDRATE_MEMBER_COLUMNS = 'profile_id,status,slug,headline,firm_name,city,country,is_available,rate_min_cents,rate_max_cents,rate_currency';
+const HYDRATE_MEMBER_COLUMNS =
+  'profile_id,status,slug,headline,firm_name,city,country,is_available,rate_min_cents,rate_max_cents,rate_currency';
 const HYDRATE_ARTICLE_COLUMNS = 'id,status,slug,title,excerpt,countries,created_at,read_time_minutes';
-const HYDRATE_EVENT_COLUMNS = 'id,status,slug,title,short_description,start_date,end_date,city,country,event_format,is_free,registration_url';
+const HYDRATE_EVENT_COLUMNS =
+  'id,status,slug,title,short_description,start_date,end_date,city,country,event_format,is_free,registration_url';
 
 interface MemberRow {
-  profile_id: string; status: string; slug: string; headline: string | null; firm_name: string | null; city: string | null;
-  country: string; is_available: boolean; rate_min_cents: number | null; rate_max_cents: number | null; rate_currency: string;
+  profile_id: string;
+  status: string;
+  slug: string;
+  headline: string | null;
+  firm_name: string | null;
+  city: string | null;
+  country: string;
+  is_available: boolean;
+  rate_min_cents: number | null;
+  rate_max_cents: number | null;
+  rate_currency: string;
 }
 interface MemberServiceNameRow {
   member_id: string;
   services: { name: string } | { name: string }[] | null;
 }
 interface ArticleRow {
-  id: string; status: string; slug: string; title: string; excerpt: string | null; countries: string[]; created_at: string; read_time_minutes: number;
+  id: string;
+  status: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  countries: string[];
+  created_at: string;
+  read_time_minutes: number;
 }
 interface EventRow {
-  id: string; status: string; slug: string; title: string; short_description: string | null; start_date: string; end_date: string | null;
-  city: string | null; country: string | null; event_format: string | null; is_free: boolean; registration_url: string | null;
+  id: string;
+  status: string;
+  slug: string;
+  title: string;
+  short_description: string | null;
+  start_date: string;
+  end_date: string | null;
+  city: string | null;
+  country: string | null;
+  event_format: string | null;
+  is_free: boolean;
+  registration_url: string | null;
 }

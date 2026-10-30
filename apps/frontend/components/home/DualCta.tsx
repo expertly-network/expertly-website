@@ -10,8 +10,7 @@ export function DualCta() {
           One <span className="text-accent">platform</span>. Two powerful paths.
         </h2>
         <p className="mt-5 max-w-2xl text-lede text-ink-3">
-          Whether you need the expertise or you are the expertise - GrowXQ is built to deliver
-          real value, both ways.
+          Whether you need the expertise or you are the expertise - GrowXQ is built to deliver real value, both ways.
         </p>
         <div className="mt-14 grid gap-4 lg:grid-cols-2">
           {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}

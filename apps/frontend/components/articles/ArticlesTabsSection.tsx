@@ -45,9 +45,7 @@ export function ArticlesTabsSection({
           articles.length > 0 ? (
             <ArticlesGrid initialArticles={articles} initialTotal={totalArticles} categories={categories} />
           ) : (
-            <p className="py-16 text-center text-sm text-ink-3">
-              No articles published yet — check back soon.
-            </p>
+            <p className="py-16 text-center text-sm text-ink-3">No articles published yet — check back soon.</p>
           )
         ) : (
           <MyArticlesPanel articles={myArticles} />

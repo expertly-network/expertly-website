@@ -1,13 +1,5 @@
-import type {
-  PerkRow,
-  LearningRow,
-  CollectionRow,
-} from './resources.repository';
-import type {
-  AdminPerkDto,
-  AdminLearningDto,
-  AdminCollectionDto,
-} from '@shared/resource';
+import type { PerkRow, LearningRow, CollectionRow } from './resources.repository';
+import type { AdminPerkDto, AdminLearningDto, AdminCollectionDto } from '@shared/resource';
 export function mapPerk(row: PerkRow): AdminPerkDto {
   return {
     id: row.id,
@@ -38,7 +30,7 @@ export function mapPerk(row: PerkRow): AdminPerkDto {
 }
 export function perkInsert(
   dto: import('@shared/resource').CreatePerkRequest,
-  slug: string,
+  slug: string
 ): import('../supabase/database.types').Database['public']['Tables']['perks']['Insert'] {
   return {
     slug,
@@ -65,7 +57,7 @@ export function perkInsert(
   };
 }
 export function perkUpdate(
-  dto: import('@shared/resource').UpdatePerkRequest,
+  dto: import('@shared/resource').UpdatePerkRequest
 ): import('../supabase/database.types').Database['public']['Tables']['perks']['Update'] {
   return {
     ...(dto.name !== undefined ? { name: dto.name } : {}),
@@ -75,28 +67,16 @@ export function perkUpdate(
     ...(dto.products !== undefined ? { products: dto.products } : {}),
     ...(dto.websiteUrl !== undefined ? { website_url: dto.websiteUrl } : {}),
     ...(dto.logoUrl !== undefined ? { logo_url: dto.logoUrl } : {}),
-    ...(dto.coverImageUrl !== undefined
-      ? { cover_image_url: dto.coverImageUrl }
-      : {}),
+    ...(dto.coverImageUrl !== undefined ? { cover_image_url: dto.coverImageUrl } : {}),
     ...(dto.offerStatus !== undefined ? { offer_status: dto.offerStatus } : {}),
     ...(dto.userOffer !== undefined ? { user_offer: dto.userOffer } : {}),
-    ...(dto.userCouponCode !== undefined
-      ? { user_coupon_code: dto.userCouponCode }
-      : {}),
-    ...(dto.userOfferUrl !== undefined
-      ? { user_offer_url: dto.userOfferUrl }
-      : {}),
+    ...(dto.userCouponCode !== undefined ? { user_coupon_code: dto.userCouponCode } : {}),
+    ...(dto.userOfferUrl !== undefined ? { user_offer_url: dto.userOfferUrl } : {}),
     ...(dto.memberOffer !== undefined ? { member_offer: dto.memberOffer } : {}),
-    ...(dto.memberCouponCode !== undefined
-      ? { member_coupon_code: dto.memberCouponCode }
-      : {}),
-    ...(dto.memberOfferUrl !== undefined
-      ? { member_offer_url: dto.memberOfferUrl }
-      : {}),
+    ...(dto.memberCouponCode !== undefined ? { member_coupon_code: dto.memberCouponCode } : {}),
+    ...(dto.memberOfferUrl !== undefined ? { member_offer_url: dto.memberOfferUrl } : {}),
     ...(dto.offerTerms !== undefined ? { offer_terms: dto.offerTerms } : {}),
-    ...(dto.offerExpiresAt !== undefined
-      ? { offer_expires_at: dto.offerExpiresAt }
-      : {}),
+    ...(dto.offerExpiresAt !== undefined ? { offer_expires_at: dto.offerExpiresAt } : {}),
     ...(dto.isFeatured !== undefined ? { is_featured: dto.isFeatured } : {}),
     ...(dto.sortOrder !== undefined ? { sort_order: dto.sortOrder } : {}),
     ...(dto.isActive !== undefined ? { is_active: dto.isActive } : {}),
@@ -124,7 +104,7 @@ export function mapLearning(row: LearningRow): AdminLearningDto {
   };
 }
 export function learningInsert(
-  dto: import('@shared/resource').CreateLearningRequest,
+  dto: import('@shared/resource').CreateLearningRequest
 ): import('../supabase/database.types').Database['public']['Tables']['learnings']['Insert'] {
   return {
     title: dto.title,
@@ -144,22 +124,16 @@ export function learningInsert(
   };
 }
 export function learningUpdate(
-  dto: import('@shared/resource').UpdateLearningRequest,
+  dto: import('@shared/resource').UpdateLearningRequest
 ): import('../supabase/database.types').Database['public']['Tables']['learnings']['Update'] {
   return {
     ...(dto.title !== undefined ? { title: dto.title } : {}),
     ...(dto.summary !== undefined ? { summary: dto.summary } : {}),
-    ...(dto.videoProvider !== undefined
-      ? { video_provider: dto.videoProvider }
-      : {}),
+    ...(dto.videoProvider !== undefined ? { video_provider: dto.videoProvider } : {}),
     ...(dto.videoUrl !== undefined ? { video_url: dto.videoUrl } : {}),
-    ...(dto.thumbnailUrl !== undefined
-      ? { thumbnail_url: dto.thumbnailUrl }
-      : {}),
+    ...(dto.thumbnailUrl !== undefined ? { thumbnail_url: dto.thumbnailUrl } : {}),
     ...(dto.channel !== undefined ? { channel: dto.channel } : {}),
-    ...(dto.durationMinutes !== undefined
-      ? { duration_minutes: dto.durationMinutes }
-      : {}),
+    ...(dto.durationMinutes !== undefined ? { duration_minutes: dto.durationMinutes } : {}),
     ...(dto.category !== undefined ? { category: dto.category } : {}),
     ...(dto.level !== undefined ? { level: dto.level } : {}),
     ...(dto.audiences !== undefined ? { audiences: dto.audiences } : {}),
@@ -187,7 +161,7 @@ export function mapCollection(row: CollectionRow): AdminCollectionDto {
 }
 export function collectionInsert(
   dto: import('@shared/resource').CreateCollectionRequest,
-  slug: string,
+  slug: string
 ): import('../supabase/database.types').Database['public']['Tables']['collections']['Insert'] {
   return {
     kind: dto.kind,
@@ -202,7 +176,7 @@ export function collectionInsert(
   };
 }
 export function collectionUpdate(
-  dto: import('@shared/resource').UpdateCollectionRequest,
+  dto: import('@shared/resource').UpdateCollectionRequest
 ): import('../supabase/database.types').Database['public']['Tables']['collections']['Update'] {
   return {
     ...(dto.kind !== undefined ? { kind: dto.kind } : {}),
@@ -210,15 +184,13 @@ export function collectionUpdate(
     ...(dto.description !== undefined ? { description: dto.description } : {}),
     ...(dto.audiences !== undefined ? { audiences: dto.audiences } : {}),
     ...(dto.itemIds !== undefined ? { item_ids: dto.itemIds } : {}),
-    ...(dto.coverImageUrl !== undefined
-      ? { cover_image_url: dto.coverImageUrl }
-      : {}),
+    ...(dto.coverImageUrl !== undefined ? { cover_image_url: dto.coverImageUrl } : {}),
     ...(dto.sortOrder !== undefined ? { sort_order: dto.sortOrder } : {}),
     ...(dto.isActive !== undefined ? { is_active: dto.isActive } : {}),
   };
 }
 export function mapTemplate(
-  row: import('./resources.repository').TemplateRow,
+  row: import('./resources.repository').TemplateRow
 ): import('@shared/resource').AdminTemplateDto {
   return {
     id: row.id,
@@ -242,7 +214,7 @@ export function mapTemplate(
 }
 export function templateInsert(
   dto: import('@shared/resource').CreateTemplateRequest,
-  slug: string,
+  slug: string
 ): import('../supabase/database.types').Database['public']['Tables']['templates']['Insert'] {
   return {
     slug,
@@ -262,7 +234,7 @@ export function templateInsert(
   };
 }
 export function templateUpdate(
-  dto: import('@shared/resource').UpdateTemplateRequest,
+  dto: import('@shared/resource').UpdateTemplateRequest
 ): import('../supabase/database.types').Database['public']['Tables']['templates']['Update'] {
   return {
     ...(dto.title !== undefined ? { title: dto.title } : {}),

@@ -53,7 +53,14 @@ const s = StyleSheet.create({
   },
   // Text wordmark, same as the site's <Wordmark>: white "grow" + raised green "XQ".
   brand: { fontFamily: PDF_HEADING_FONT_FAMILY, fontWeight: 400, fontSize: 16, color: C.white, letterSpacing: -0.1 },
-  brandSup: { fontFamily: PDF_FONT_FAMILY, fontSize: 6.6, fontWeight: 600, color: C.accent, verticalAlign: 'super', letterSpacing: -0.2 },
+  brandSup: {
+    fontFamily: PDF_FONT_FAMILY,
+    fontSize: 6.6,
+    fontWeight: 600,
+    color: C.accent,
+    verticalAlign: 'super',
+    letterSpacing: -0.2,
+  },
   bandNote: { color: 'rgba(255,255,255,0.7)', fontSize: 8.5 },
 
   body: { paddingHorizontal: 40 },
@@ -75,7 +82,14 @@ const s = StyleSheet.create({
   identityText: { flex: 1 },
   // Explicit lineHeight: the page's 1.45 isn't applied to this line box, so the badge row below
   // started inside the name's descenders.
-  name: { fontFamily: PDF_HEADING_FONT_FAMILY, fontSize: 20, fontWeight: 400, color: C.ink, letterSpacing: -0.3, lineHeight: 1.25 },
+  name: {
+    fontFamily: PDF_HEADING_FONT_FAMILY,
+    fontSize: 20,
+    fontWeight: 400,
+    color: C.ink,
+    letterSpacing: -0.3,
+    lineHeight: 1.25,
+  },
   // Badges sit on their own row under the name: next to a 20pt name they wrapped unpredictably
   // and floated off its baseline. Each is a fixed-height View with the label centred inside —
   // react-pdf paints a styled <Text>'s background around its line box, which put the label
@@ -303,7 +317,14 @@ function PdfTextBlocks({ text, style }: { text: string; style: PdfTextStyle }) {
 function Check({ size, color = C.accent }: { size: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16">
-      <Path d="M3 8l4 4 6-7" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path
+        d="M3 8l4 4 6-7"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </Svg>
   );
 }
@@ -345,8 +366,7 @@ export function MemberProfilePdf({
 }: MemberProfilePdfProps) {
   const location = [member.city, member.country].filter(Boolean).join(', ');
   const firm = member.firmName && member.firmName !== 'Independent' ? member.firmName : null;
-  const designation =
-    member.headline && firm ? `${member.headline} at ${firm}` : member.headline || firm || '';
+  const designation = member.headline && firm ? `${member.headline} at ${firm}` : member.headline || firm || '';
   const stats = [location, `${member.yearsOfExperience}+ years experience`, member.services[0]?.name]
     .filter(Boolean)
     .join('   ·   ');
@@ -435,10 +455,18 @@ export function MemberProfilePdf({
                 />
               )}
               {member.linkedinUrl && (
-                <ContactLine label="LinkedIn" value={displayHost(member.linkedinUrl)} href={externalHref(member.linkedinUrl) ?? undefined} />
+                <ContactLine
+                  label="LinkedIn"
+                  value={displayHost(member.linkedinUrl)}
+                  href={externalHref(member.linkedinUrl) ?? undefined}
+                />
               )}
               {member.website && (
-                <ContactLine label="Website" value={displayHost(member.website)} href={externalHref(member.website) ?? undefined} />
+                <ContactLine
+                  label="Website"
+                  value={displayHost(member.website)}
+                  href={externalHref(member.website) ?? undefined}
+                />
               )}
               {member.firmWebsite && (
                 <ContactLine

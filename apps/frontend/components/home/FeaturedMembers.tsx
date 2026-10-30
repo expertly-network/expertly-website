@@ -21,7 +21,13 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
         >
           {m.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img loading="lazy" decoding="async" src={m.photoUrl} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />
+            <img
+              loading="lazy"
+              decoding="async"
+              src={m.photoUrl}
+              alt=""
+              className="h-12 w-12 flex-none rounded-full object-cover"
+            />
           ) : (
             <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-neon text-xs font-semibold text-ink-2">
               {m.initials}
@@ -54,10 +60,7 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
             {/* Three fixed single lines — name, service · category, city, country — so a long
                 service name truncates instead of wrapping the tile to an uneven height. */}
             {m.services[0] && (
-              <div
-                className="mt-1.5 flex max-w-full"
-                title={`${m.services[0].name} · ${m.services[0].categoryName}`}
-              >
+              <div className="mt-1.5 flex max-w-full" title={`${m.services[0].name} · ${m.services[0].categoryName}`}>
                 <span className="truncate rounded-full bg-bg-alt px-2 py-0.5 text-[11px] text-ink-3">
                   <span className="font-medium text-ink-2">{m.services[0].name}</span>
                   {' · '}

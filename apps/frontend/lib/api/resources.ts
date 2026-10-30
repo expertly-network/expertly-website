@@ -66,7 +66,5 @@ export const updateTemplate = (id: string, body: UpdateTemplateRequest) =>
     method: 'PATCH',
     body: JSON.stringify(body),
   });
-export const deleteResource = (
-  kind: 'perks' | 'learnings' | 'collections' | 'templates',
-  id: string,
-) => apiFetch<void>(`/admin/${kind}/${id}`, { method: 'DELETE' });
+export const deleteResource = (kind: 'perks' | 'learnings' | 'collections' | 'templates', id: string) =>
+  apiFetch<void>(`/admin/${kind}/${id}`, { method: 'DELETE' });

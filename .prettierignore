@@ -1,0 +1,12 @@
+# Generated / vendored / not ours to format
+node_modules
+dist
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+design
+apps/backend/src/supabase/database.types.ts
+postman
+supabase
+*.md

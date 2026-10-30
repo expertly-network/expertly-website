@@ -30,7 +30,10 @@ export default async function AdminAiGenerationDetailPage(props: { params: Promi
     <div>
       <section className="bg-ink py-16">
         <PageContainer>
-          <Link href="/admin/ai-generations" className="text-caption text-white/65 transition-colors hover:text-bg-card">
+          <Link
+            href="/admin/ai-generations"
+            className="text-caption text-white/65 transition-colors hover:text-bg-card"
+          >
             ← All AI generations
           </Link>
           <div className="mt-4">

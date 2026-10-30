@@ -4,9 +4,7 @@ const BENEFITS = [
   {
     title: 'Verified Credentials',
     body: 'LinkedIn login confirms your professional history to maintain network integrity.',
-    icon: (
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    ),
+    icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
   },
   {
     title: 'Seamless Data Sync',

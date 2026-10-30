@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import type { MemberEditItemDecision } from '@shared/member';
 
 const ITEM_DECISIONS: MemberEditItemDecision[] = ['approved_verified', 'approved_hygiene', 'rejected'];

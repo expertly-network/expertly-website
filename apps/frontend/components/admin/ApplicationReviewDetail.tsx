@@ -157,7 +157,13 @@ export function ApplicationReviewDetail({
             <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
               {application.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img loading="lazy" decoding="async" src={application.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+                <img
+                  loading="lazy"
+                  decoding="async"
+                  src={application.photoUrl}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="text-xs">No photo</span>
               )}
@@ -177,7 +183,12 @@ export function ApplicationReviewDetail({
             href={externalHref(application.linkedinUrl) ?? undefined}
             previous={prev ? (prev.linkedinUrl ?? '—') : undefined}
           />
-          <ReviewRow label="Bio" value={application.bio ?? '—'} multiline previous={prev ? (prev.bio ?? '—') : undefined} />
+          <ReviewRow
+            label="Bio"
+            value={application.bio ?? '—'}
+            multiline
+            previous={prev ? (prev.bio ?? '—') : undefined}
+          />
           <ReviewRow
             label="Experience"
             value={application.yearsOfExperience != null ? `${application.yearsOfExperience} years` : '—'}
@@ -244,7 +255,11 @@ export function ApplicationReviewDetail({
                       </option>
                     ))}
                   </Select>
-                  <Select label="Member tier" value={memberTier} onChange={(e) => setMemberTier(e.target.value as typeof memberTier)}>
+                  <Select
+                    label="Member tier"
+                    value={memberTier}
+                    onChange={(e) => setMemberTier(e.target.value as typeof memberTier)}
+                  >
                     {TIER_OPTIONS.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
@@ -260,7 +275,12 @@ export function ApplicationReviewDetail({
 
                   {rejecting ? (
                     <>
-                      <Textarea label="Rejection reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+                      <Textarea
+                        label="Rejection reason"
+                        rows={3}
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                      />
                       <Button variant="secondary" fullWidth onClick={reject} disabled={busy !== null}>
                         {busy === 'reject' ? 'Rejecting…' : 'Confirm reject'}
                       </Button>
@@ -297,8 +317,8 @@ export function ApplicationReviewDetail({
                 )}
                 {application.status === 'approved' && (
                   <p className="mt-3 text-sm text-ink-3">
-                    This application was approved — a member profile has been provisioned and the
-                    applicant&apos;s account promoted to <code>member</code>.
+                    This application was approved — a member profile has been provisioned and the applicant&apos;s
+                    account promoted to <code>member</code>.
                   </p>
                 )}
               </>

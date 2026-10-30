@@ -49,9 +49,7 @@ export default function ResetPasswordPage() {
     <AuthLayout>
       <Card>
         <h1 className="text-heading text-ink">Choose a new password.</h1>
-        <p className="mb-7 mt-2.5 text-[15px] text-ink-3">
-          Enter a new password for your GrowXQ account.
-        </p>
+        <p className="mb-7 mt-2.5 text-[15px] text-ink-3">Enter a new password for your GrowXQ account.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <ErrorBanner message={error} />

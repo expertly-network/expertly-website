@@ -144,11 +144,7 @@ export function SignUpForm({
 
       <p className="text-center text-[13px] text-ink-3">
         Already have an account?{' '}
-        <button
-          type="button"
-          onClick={onSwitchToSignIn}
-          className="font-medium text-accent hover:underline"
-        >
+        <button type="button" onClick={onSwitchToSignIn} className="font-medium text-accent hover:underline">
           Sign in
         </button>
       </p>

@@ -151,10 +151,11 @@ export class MembersService {
 
   async findMine(user: AuthenticatedUser): Promise<MyMemberProfileDto> {
     const found = (await this.membersRepository.findSlugAndPhotoByProfileIds([user.id])).get(user.id);
-    if (!found) throw new NotFoundException({
-      code: 'MEMBER_NOT_FOUND',
-      message: 'You have no member profile yet.',
-    });
+    if (!found)
+      throw new NotFoundException({
+        code: 'MEMBER_NOT_FOUND',
+        message: 'You have no member profile yet.',
+      });
     return { id: user.id, slug: found.slug };
   }
 
@@ -197,14 +198,30 @@ export class MembersService {
       contactPhone: row.contact_phone,
       linkedinUrl: row.linkedin_url,
       website: row.website,
-      workExperiences: normalizeLiveSection('work_experiences', row.work_experiences, includeProof) as unknown as MemberDto['workExperiences'],
+      workExperiences: normalizeLiveSection(
+        'work_experiences',
+        row.work_experiences,
+        includeProof
+      ) as unknown as MemberDto['workExperiences'],
       educations: normalizeLiveSection('education', row.educations, includeProof) as unknown as MemberDto['educations'],
-      engagements: normalizeLiveSection('engagements', row.engagements, includeProof) as unknown as MemberDto['engagements'],
+      engagements: normalizeLiveSection(
+        'engagements',
+        row.engagements,
+        includeProof
+      ) as unknown as MemberDto['engagements'],
       qualifications: row.qualifications ?? [],
       credentials: row.credentials ?? [],
-      testimonials: normalizeLiveSection('testimonials', row.testimonials, includeProof) as unknown as MemberDto['testimonials'],
+      testimonials: normalizeLiveSection(
+        'testimonials',
+        row.testimonials,
+        includeProof
+      ) as unknown as MemberDto['testimonials'],
       awards: normalizeLiveSection('awards', row.awards, includeProof) as unknown as MemberDto['awards'],
-      keyClients: normalizeLiveSection('key_clients', row.key_clients, includeProof) as unknown as MemberDto['keyClients'],
+      keyClients: normalizeLiveSection(
+        'key_clients',
+        row.key_clients,
+        includeProof
+      ) as unknown as MemberDto['keyClients'],
     };
   }
 
@@ -255,7 +272,8 @@ export class MembersService {
     const patch: MemberSelfUpdate = {};
     if (dto.isAvailable !== undefined) patch.is_available = dto.isAvailable;
     if (dto.availabilityNotes !== undefined) patch.availability_notes = dto.availabilityNotes?.trim() || null;
-    if (dto.photoUploadPath !== undefined) patch.photo_path = await this.publishProfilePhoto(memberId, dto.photoUploadPath);
+    if (dto.photoUploadPath !== undefined)
+      patch.photo_path = await this.publishProfilePhoto(memberId, dto.photoUploadPath);
 
     await this.membersRepository.updateOwnFields(memberId, patch);
     const row = await this.membersRepository.findDetailByProfileId(memberId);
@@ -419,7 +437,10 @@ export class MembersService {
       }
       status = dto.status;
       if (status === 'rejected' && !reviewNote) {
-        throw badRequest('REVIEW_REASON_REQUIRED', 'A reason is required when rejecting an edit — it is shown to the member.');
+        throw badRequest(
+          'REVIEW_REASON_REQUIRED',
+          'A reason is required when rejecting an edit — it is shown to the member.'
+        );
       }
     }
 
@@ -468,14 +489,20 @@ export class MembersService {
   // index exactly once, a reason where one is required, and proof for approved_verified.
   private resolveItemDecisions(edit: MemberProfileEditRow, items: ReviewMemberEditDto['items']): ItemDecision[] {
     if (!isArraySection(edit.section) || !Array.isArray(edit.payload)) {
-      throw badRequest('ITEM_REVIEW_NOT_SUPPORTED', `Per-item review isn't available for ${edit.section} edits — send status instead.`);
+      throw badRequest(
+        'ITEM_REVIEW_NOT_SUPPORTED',
+        `Per-item review isn't available for ${edit.section} edits — send status instead.`
+      );
     }
     const payload = edit.payload as EditPayloadItem[];
     const decisions = new Array<ItemDecision | undefined>(payload.length).fill(undefined);
 
     for (const entry of items ?? []) {
       if (entry.index >= payload.length) {
-        throw badRequest('ITEM_REVIEW_INDEX_INVALID', `items[].index ${entry.index} is out of range (payload has ${payload.length} items).`);
+        throw badRequest(
+          'ITEM_REVIEW_INDEX_INVALID',
+          `items[].index ${entry.index} is out of range (payload has ${payload.length} items).`
+        );
       }
       if (decisions[entry.index]) {
         throw badRequest('ITEM_REVIEW_INDEX_INVALID', `items[].index ${entry.index} appears more than once.`);
@@ -493,7 +520,10 @@ export class MembersService {
           `Item ${entry.index} has no proof attached, so it can't be approved as verified. Use approved_hygiene instead.`
         );
       }
-      decisions[entry.index] = { decision: entry.decision, reason: entry.decision === 'approved_verified' ? null : reason };
+      decisions[entry.index] = {
+        decision: entry.decision,
+        reason: entry.decision === 'approved_verified' ? null : reason,
+      };
     }
 
     const missing = decisions.flatMap((d, i) => (d ? [] : [i]));
@@ -543,16 +573,18 @@ export class MembersService {
     }
 
     const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
-    if (!column || !ARRAY_SECTIONS.includes(section)) throw new BadRequestException({
-      code: 'MEMBER_EDIT_SECTION_INVALID',
-      message: `Unknown edit section: ${section}`,
-    });
+    if (!column || !ARRAY_SECTIONS.includes(section))
+      throw new BadRequestException({
+        code: 'MEMBER_EDIT_SECTION_INVALID',
+        message: `Unknown edit section: ${section}`,
+      });
 
     const live = await this.membersRepository.findDetailByProfileId(memberId);
-    if (!live) throw new NotFoundException({
-      code: 'MEMBER_NOT_FOUND',
-      message: 'Member profile not found.',
-    });
+    if (!live)
+      throw new NotFoundException({
+        code: 'MEMBER_NOT_FOUND',
+        message: 'Member profile not found.',
+      });
     const liveItems = normalizeLiveSection(section, live[column as keyof MemberProfileDetailRow], true);
     const liveById = new Map(liveItems.map((item) => [item.id as string, item]));
 
@@ -671,9 +703,7 @@ export class MembersService {
     const live = await this.membersRepository.findDetailByProfileId(memberId);
     const alreadyLive = new Set(live ? this.currentProofPaths(live) : []);
     const paths = [
-      ...new Set(
-        this.proofPathsOf({ section, payload, proof_file_url: proofFileUrl ?? null } as MemberProfileEditRow)
-      ),
+      ...new Set(this.proofPathsOf({ section, payload, proof_file_url: proofFileUrl ?? null } as MemberProfileEditRow)),
     ].filter((path) => !alreadyLive.has(path));
     if (paths.length > MAX_NEW_PROOF_FILES_PER_EDIT) {
       throw new BadRequestException({
@@ -722,12 +752,36 @@ export class MembersService {
         linkedinUrl: row.linkedin_url,
         website: row.website,
       },
-      engagements: normalizeLiveSection('engagements', row.engagements, true) as unknown as AdminMemberEditsDetailDto['current']['engagements'],
-      education: normalizeLiveSection('education', row.educations, true) as unknown as AdminMemberEditsDetailDto['current']['education'],
-      work_experiences: normalizeLiveSection('work_experiences', row.work_experiences, true) as unknown as AdminMemberEditsDetailDto['current']['work_experiences'],
-      key_clients: normalizeLiveSection('key_clients', row.key_clients, true) as unknown as AdminMemberEditsDetailDto['current']['key_clients'],
-      testimonials: normalizeLiveSection('testimonials', row.testimonials, true) as unknown as AdminMemberEditsDetailDto['current']['testimonials'],
-      awards: normalizeLiveSection('awards', row.awards, true) as unknown as AdminMemberEditsDetailDto['current']['awards'],
+      engagements: normalizeLiveSection(
+        'engagements',
+        row.engagements,
+        true
+      ) as unknown as AdminMemberEditsDetailDto['current']['engagements'],
+      education: normalizeLiveSection(
+        'education',
+        row.educations,
+        true
+      ) as unknown as AdminMemberEditsDetailDto['current']['education'],
+      work_experiences: normalizeLiveSection(
+        'work_experiences',
+        row.work_experiences,
+        true
+      ) as unknown as AdminMemberEditsDetailDto['current']['work_experiences'],
+      key_clients: normalizeLiveSection(
+        'key_clients',
+        row.key_clients,
+        true
+      ) as unknown as AdminMemberEditsDetailDto['current']['key_clients'],
+      testimonials: normalizeLiveSection(
+        'testimonials',
+        row.testimonials,
+        true
+      ) as unknown as AdminMemberEditsDetailDto['current']['testimonials'],
+      awards: normalizeLiveSection(
+        'awards',
+        row.awards,
+        true
+      ) as unknown as AdminMemberEditsDetailDto['current']['awards'],
     };
   }
 

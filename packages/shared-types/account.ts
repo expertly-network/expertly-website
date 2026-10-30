@@ -11,7 +11,8 @@ export class MeResponse {
   @ApiProperty({ enum: ['client', 'member', 'admin'] }) role!: AccountRole;
   @ApiProperty({ enum: ['active', 'suspended', 'deleted'] }) status!: AccountStatus;
   /** member_profiles.status; null for non-members. */
-  @ApiProperty({ enum: ['active', 'deactivated'], nullable: true, type: String }) memberStatus!: AccountMemberStatus | null;
+  @ApiProperty({ enum: ['active', 'deactivated'], nullable: true, type: String })
+  memberStatus!: AccountMemberStatus | null;
   @ApiProperty() firstName!: string;
   @ApiProperty() lastName!: string;
 }

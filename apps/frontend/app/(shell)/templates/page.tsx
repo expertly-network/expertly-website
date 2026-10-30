@@ -1,7 +1,4 @@
-import {
-  getResourceCollectionsServer,
-  getTemplatesServer,
-} from '@/lib/api/resources.server';
+import { getResourceCollectionsServer, getTemplatesServer } from '@/lib/api/resources.server';
 import { TemplatesLibrary } from '@/components/resources/TemplatesLibrary';
 import { getSessionUser } from '@/lib/auth/session-claims';
 export const metadata = { title: 'Templates — GrowXQ' };

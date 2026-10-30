@@ -6,7 +6,14 @@ export type CategoryInsert = Database['public']['Tables']['categories']['Insert'
 export type CategoryUpdate = Database['public']['Tables']['categories']['Update'];
 
 const CATEGORY_COLUMNS = ['id', 'name', 'sortOrder:sort_order', 'imageUrl:image_url', 'isActive:is_active'] as const;
-const SERVICE_COLUMNS = ['id', 'categoryId:category_id', 'name', 'sortOrder:sort_order', 'isCustom:is_custom', 'isActive:is_active'] as const;
+const SERVICE_COLUMNS = [
+  'id',
+  'categoryId:category_id',
+  'name',
+  'sortOrder:sort_order',
+  'isCustom:is_custom',
+  'isActive:is_active',
+] as const;
 
 export interface CategoryRow {
   id: string;
@@ -56,12 +63,18 @@ export class CategoriesRepository {
   }
 
   async findServicesByCategoryId(categoryId: string): Promise<ServiceRow[]> {
-    const { data, error } = await this.services().select(SERVICE_COLUMNS.join(', ')).eq('category_id', categoryId).order('sort_order');
+    const { data, error } = await this.services()
+      .select(SERVICE_COLUMNS.join(', '))
+      .eq('category_id', categoryId)
+      .order('sort_order');
     if (error) throw new InternalServerErrorException('Failed to load services.');
     return (data ?? []) as unknown as ServiceRow[];
   }
 
-  private attachServices(categories: CategoryRow[], services: ServiceRow[]): (CategoryRow & { services: ServiceRow[] })[] {
+  private attachServices(
+    categories: CategoryRow[],
+    services: ServiceRow[]
+  ): (CategoryRow & { services: ServiceRow[] })[] {
     const byCategory = new Map<string, ServiceRow[]>();
     for (const s of services) {
       const list = byCategory.get(s.categoryId) ?? [];
@@ -72,7 +85,11 @@ export class CategoriesRepository {
   }
 
   async findMaxSortOrder(): Promise<number> {
-    const { data, error } = await this.categories().select('sort_order').order('sort_order', { ascending: false }).limit(1).maybeSingle();
+    const { data, error } = await this.categories()
+      .select('sort_order')
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to load categories.');
     return (data?.sort_order as number | undefined) ?? 0;
   }
@@ -84,7 +101,11 @@ export class CategoriesRepository {
   }
 
   async updateById(id: string, patch: CategoryUpdate): Promise<CategoryRow> {
-    const { data: updated, error } = await this.categories().update(patch).eq('id', id).select(CATEGORY_COLUMNS.join(', ')).maybeSingle();
+    const { data: updated, error } = await this.categories()
+      .update(patch)
+      .eq('id', id)
+      .select(CATEGORY_COLUMNS.join(', '))
+      .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to update category.');
     if (!updated) throw new NotFoundException({ code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' });
     return updated as unknown as CategoryRow;

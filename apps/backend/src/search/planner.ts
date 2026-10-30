@@ -9,7 +9,17 @@ export const PLAN_SCHEMA: OpenAiJsonSchema = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['doc_types', 'semantic_query', 'countries', 'city', 'service_terms', 'date_from', 'date_to', 'max_hourly_rate_usd', 'requested_count'],
+    required: [
+      'doc_types',
+      'semantic_query',
+      'countries',
+      'city',
+      'service_terms',
+      'date_from',
+      'date_to',
+      'max_hourly_rate_usd',
+      'requested_count',
+    ],
     properties: {
       doc_types: { type: 'array', items: { type: 'string', enum: ['member', 'article', 'event'] } },
       semantic_query: { type: ['string', 'null'] },
@@ -48,7 +58,14 @@ export function makePlan(openai: OpenAiClient, question: string): Promise<Plan> 
 /** Fallback plan when the planner is unavailable: plain keyword search of the question. */
 export function fallbackPlan(question: string): Plan {
   return {
-    doc_types: [], semantic_query: question, countries: [], city: null, service_terms: [],
-    date_from: null, date_to: null, max_hourly_rate_usd: null, requested_count: null,
+    doc_types: [],
+    semantic_query: question,
+    countries: [],
+    city: null,
+    service_terms: [],
+    date_from: null,
+    date_to: null,
+    max_hourly_rate_usd: null,
+    requested_count: null,
   };
 }

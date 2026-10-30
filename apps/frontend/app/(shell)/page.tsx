@@ -1,9 +1,4 @@
-import {
-  getMembersServer,
-  getCategoriesServer,
-  getArticlesServer,
-  getEventsServer,
-} from '@/lib/api/server';
+import { getMembersServer, getCategoriesServer, getArticlesServer, getEventsServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { StellarOrbitHero } from '@/components/home/StellarOrbitHero';
 import { AiSearchTeaser } from '@/components/home/AiSearchTeaser';
@@ -95,29 +90,25 @@ const FAQ_CLIENTS = [
 
 // Each section loads independently, so one failing service doesn't blank the whole page.
 async function loadHomeData() {
-  const [membersResult, categoriesResult, articlesResult, eventsResult] =
-    await Promise.allSettled([
-      getMembersServer(
-        buildMembersQueryString({
-          sort: 'featured',
-          serviceId: [],
-          country: [],
-          page: 1,
-          // Covers the hero orbit's 17 avatar slots.
-          pageSize: 20,
-        })
-      ),
-      getCategoriesServer(),
-      getArticlesServer({ pageSize: 5 }),
-      getEventsServer(),
-    ]);
+  const [membersResult, categoriesResult, articlesResult, eventsResult] = await Promise.allSettled([
+    getMembersServer(
+      buildMembersQueryString({
+        sort: 'featured',
+        serviceId: [],
+        country: [],
+        page: 1,
+        // Covers the hero orbit's 17 avatar slots.
+        pageSize: 20,
+      })
+    ),
+    getCategoriesServer(),
+    getArticlesServer({ pageSize: 5 }),
+    getEventsServer(),
+  ]);
 
-  const members: MemberListItemDto[] =
-    membersResult.status === 'fulfilled' ? membersResult.value : [];
-  const categories: CategoryDto[] =
-    categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
-  const articles: ArticleListItemDto[] =
-    articlesResult.status === 'fulfilled' ? articlesResult.value.items : [];
+  const members: MemberListItemDto[] = membersResult.status === 'fulfilled' ? membersResult.value : [];
+  const categories: CategoryDto[] = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
+  const articles: ArticleListItemDto[] = articlesResult.status === 'fulfilled' ? articlesResult.value.items : [];
   const events: EventDto[] = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
 
   return { members, categories, articles, events };
@@ -147,13 +138,12 @@ export default async function HomePage() {
             <div className="order-1 lg:order-2">
               <Eyebrow>Our network</Eyebrow>
               <h2 className="mt-4 text-section-title text-ink">
-                A specialist network of <span className="text-accent">verified</span>{' '}
-                practitioners.
+                A specialist network of <span className="text-accent">verified</span> practitioners.
               </h2>
               <p className="mt-5 text-lede text-ink-3">
-                Every member is credential-verified and peer-reviewed before they join. No junior
-                associates, no middlemen, just serious practitioners you can reach directly across
-                every jurisdiction and practice areas.
+                Every member is credential-verified and peer-reviewed before they join. No junior associates, no
+                middlemen, just serious practitioners you can reach directly across every jurisdiction and practice
+                areas.
               </p>
               <Button href="/members" className="mt-7">
                 {/* Not "{n}+ members": `members` is a capped featured page, not the directory size. */}
@@ -171,13 +161,12 @@ export default async function HomePage() {
             <div>
               <Eyebrow>Coverage</Eyebrow>
               <h2 className="mt-4 text-section-title text-ink">
-                <span className="text-accent">Specialists</span> across every corner of finance
-                &amp; law.
+                <span className="text-accent">Specialists</span> across every corner of finance &amp; law.
               </h2>
               <p className="mt-5 text-lede text-ink-3">
-                From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find
-                a verified expert for the exact matter in front of you, in the jurisdiction that
-                counts, not a generalist who&apos;s close enough.
+                From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find a verified expert for
+                the exact matter in front of you, in the jurisdiction that counts, not a generalist who&apos;s close
+                enough.
               </p>
               <Button href="/members" className="mt-7">
                 Explore all categories
@@ -196,12 +185,11 @@ export default async function HomePage() {
           <PageContainer>
             <Eyebrow dark>Where Our Members Practice</Eyebrow>
             <h2 className="mt-3.5 max-w-[760px] text-section-title text-bg-card">
-              Senior Professionals from firms that{' '}
-              <span className="text-accent">set the standard.</span>
+              Senior Professionals from firms that <span className="text-accent">set the standard.</span>
             </h2>
             <p className="mt-4 max-w-xl text-lede text-white/60">
-              From the Big Consulting firms to elite independent firms, our members are partners,
-              founders, and senior professional at respected firms across 20+ jurisdictions.
+              From the Big Consulting firms to elite independent firms, our members are partners, founders, and senior
+              professional at respected firms across 20+ jurisdictions.
             </p>
           </PageContainer>
           <div className="mt-10">
@@ -221,8 +209,8 @@ export default async function HomePage() {
                   Latest <span className="text-accent">articles</span>
                 </h2>
                 <p className="mt-4 max-w-xl text-lede text-ink-3">
-                  Thoughtful perspectives from people working through the same challenges,
-                  regulations, transactions, and decisions you face every day.
+                  Thoughtful perspectives from people working through the same challenges, regulations, transactions,
+                  and decisions you face every day.
                 </p>
               </div>
               <Button href="/articles" variant="secondary">

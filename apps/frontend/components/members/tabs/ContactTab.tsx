@@ -21,7 +21,11 @@ const ICONS = {
   ),
   phone: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" stroke="var(--accent)" strokeWidth="1.6" />
+      <path
+        d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"
+        stroke="var(--accent)"
+        strokeWidth="1.6"
+      />
     </svg>
   ),
   linkedin: (
@@ -32,12 +36,22 @@ const ICONS = {
   website: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="var(--accent)" strokeWidth="1.6" />
-      <path d="M2 12h20M12 2c-3 2-5 5.4-5 10s2 8 5 10M12 2c3 2 5 5.4 5 10s-2 8-5 10" stroke="var(--accent)" strokeWidth="1.4" />
+      <path
+        d="M2 12h20M12 2c-3 2-5 5.4-5 10s2 8 5 10M12 2c3 2 5 5.4 5 10s-2 8-5 10"
+        stroke="var(--accent)"
+        strokeWidth="1.4"
+      />
     </svg>
   ),
   company: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01"
+        stroke="var(--accent)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   ),
 };
@@ -55,13 +69,31 @@ export function ContactTab({
 }) {
   const items: ContactItem[] = [];
   if (member.contactEmail) {
-    items.push({ label: 'Email', value: member.contactEmail, href: `mailto:${member.contactEmail}`, external: false, icon: ICONS.email });
+    items.push({
+      label: 'Email',
+      value: member.contactEmail,
+      href: `mailto:${member.contactEmail}`,
+      external: false,
+      icon: ICONS.email,
+    });
   }
   if (member.workEmail) {
-    items.push({ label: 'Work email', value: member.workEmail, href: `mailto:${member.workEmail}`, external: false, icon: ICONS.email });
+    items.push({
+      label: 'Work email',
+      value: member.workEmail,
+      href: `mailto:${member.workEmail}`,
+      external: false,
+      icon: ICONS.email,
+    });
   }
   if (member.contactPhone) {
-    items.push({ label: 'Phone', value: member.contactPhone, href: `tel:${member.contactPhone.replace(/\s/g, '')}`, external: false, icon: ICONS.phone });
+    items.push({
+      label: 'Phone',
+      value: member.contactPhone,
+      href: `tel:${member.contactPhone.replace(/\s/g, '')}`,
+      external: false,
+      icon: ICONS.phone,
+    });
   }
   // Links render only when they're a safe http(s) address (see externalHref).
   const linkedinHref = externalHref(member.linkedinUrl);
@@ -70,7 +102,13 @@ export function ContactTab({
   }
   const websiteHref = externalHref(member.website);
   if (member.website && websiteHref) {
-    items.push({ label: 'Website', value: displayHost(member.website), href: websiteHref, external: true, icon: ICONS.website });
+    items.push({
+      label: 'Website',
+      value: displayHost(member.website),
+      href: websiteHref,
+      external: true,
+      icon: ICONS.website,
+    });
   }
   // Firm website comes from the member's firm record, not the contact section — so it's shown
   // here read-only, labelled with the firm's name when there is one.
@@ -118,9 +156,7 @@ export function ContactTab({
                 {item.icon}
               </span>
               <span className="min-w-0">
-                <span className="block truncate font-mono text-[10px] font-semibold text-ink-3">
-                  {item.label}
-                </span>
+                <span className="block truncate font-mono text-[10px] font-semibold text-ink-3">{item.label}</span>
                 <span className="block truncate text-profile-item font-semibold text-ink" title={item.value}>
                   {item.value}
                 </span>

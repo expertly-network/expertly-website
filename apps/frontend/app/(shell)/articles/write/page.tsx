@@ -11,11 +11,7 @@ export const metadata = {
 
 // Redirects clients (not yet vetted) away. `?edit=<id>` is the owner/admin edit entry point,
 // reusing this same flow rather than a separate page.
-export default async function WriteArticlePage(
-  props: {
-    searchParams: Promise<{ edit?: string }>;
-  }
-) {
+export default async function WriteArticlePage(props: { searchParams: Promise<{ edit?: string }> }) {
   const searchParams = await props.searchParams;
   const profile = await getSessionUser();
   if (!profile) {

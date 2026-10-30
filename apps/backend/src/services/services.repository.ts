@@ -5,7 +5,14 @@ import type { Database } from '../supabase/database.types';
 export type ServiceInsert = Database['public']['Tables']['services']['Insert'];
 export type ServiceUpdate = Database['public']['Tables']['services']['Update'];
 
-const SERVICE_COLUMNS = ['id', 'categoryId:category_id', 'name', 'sortOrder:sort_order', 'isCustom:is_custom', 'isActive:is_active'] as const;
+const SERVICE_COLUMNS = [
+  'id',
+  'categoryId:category_id',
+  'name',
+  'sortOrder:sort_order',
+  'isCustom:is_custom',
+  'isActive:is_active',
+] as const;
 
 export interface ServiceRow {
   id: string;
@@ -42,7 +49,11 @@ export class ServicesRepository {
   }
 
   async updateById(id: string, patch: ServiceUpdate): Promise<ServiceRow> {
-    const { data: updated, error } = await this.services().update(patch).eq('id', id).select(SERVICE_COLUMNS.join(', ')).maybeSingle();
+    const { data: updated, error } = await this.services()
+      .update(patch)
+      .eq('id', id)
+      .select(SERVICE_COLUMNS.join(', '))
+      .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to update service.');
     if (!updated) throw new NotFoundException({ code: 'SERVICE_NOT_FOUND', message: 'Service not found.' });
     return updated as unknown as ServiceRow;

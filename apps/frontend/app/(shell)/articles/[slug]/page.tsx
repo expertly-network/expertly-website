@@ -27,7 +27,7 @@ const STATUS_NOTICE: Record<Exclude<ArticleDto['status'], 'published'>, { label:
 };
 
 const LEGAL_DISCLAIMER =
-  "The views expressed in this article are those of the author and do not constitute legal, tax, or financial advice. This content is published for informational purposes only. Readers should seek independent professional advice before acting on any information contained herein.";
+  'The views expressed in this article are those of the author and do not constitute legal, tax, or financial advice. This content is published for informational purposes only. Readers should seek independent professional advice before acting on any information contained herein.';
 
 const META_ICON_PROPS = {
   width: 12,
@@ -128,9 +128,7 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
           <Link href="/articles" className="text-sm font-medium text-white/80 hover:text-white">
             ← Articles
           </Link>
-          {article.services[0] && (
-            <Badge variant="emphasis">{article.services[0].name}</Badge>
-          )}
+          {article.services[0] && <Badge variant="emphasis">{article.services[0].name}</Badge>}
         </PageContainer>
       </div>
 

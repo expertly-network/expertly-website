@@ -5,13 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
-import {
-  FIRM_SIZES,
-  REGIONS,
-  TERMS_VERSION,
-  PRIVACY_VERSION,
-  type WizardFormState,
-} from '@/components/apply/types';
+import { FIRM_SIZES, REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
 import { TERMS_OF_SERVICE_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { previewCoupon } from '@/lib/api/applications';
 import { ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
@@ -212,7 +206,13 @@ export function ReviewSubmitStep({
           <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
             {form.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img loading="lazy" decoding="async" src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+              <img
+                loading="lazy"
+                decoding="async"
+                src={form.photoUrl}
+                alt="Profile"
+                className="h-full w-full object-cover"
+              />
             ) : (
               <span className="text-xs">No photo</span>
             )}
@@ -252,7 +252,10 @@ export function ReviewSubmitStep({
             .filter((e) => e.institution.trim() || e.degree.trim())
             .map((e) => ({
               title: e.fieldOfStudy ? `${e.degree} in ${e.fieldOfStudy}` : e.degree,
-              detail: [e.institution, e.startYear || e.endYear ? `${e.startYear ?? '—'} – ${e.endYear ?? '—'}` : undefined]
+              detail: [
+                e.institution,
+                e.startYear || e.endYear ? `${e.startYear ?? '—'} – ${e.endYear ?? '—'}` : undefined,
+              ]
                 .filter(Boolean)
                 .join(' · '),
             }))}
@@ -276,10 +279,7 @@ export function ReviewSubmitStep({
               detail: PRIORITY_LABEL[p.priority],
             }))}
         />
-        <ReviewRow
-          label="Rate"
-          value={`$${form.rateMinDollars} – $${form.rateMaxDollars} / hour`}
-        />
+        <ReviewRow label="Rate" value={`$${form.rateMinDollars} – $${form.rateMaxDollars} / hour`} />
       </div>
 
       <div className="mt-8 border-t border-line pt-6">
@@ -444,8 +444,8 @@ export function ReviewSubmitStep({
                 }}
               />
               <span className="text-ink-2">
-                I consent to GrowXQ verifying my professional credentials and background as part of
-                the membership review process.
+                I consent to GrowXQ verifying my professional credentials and background as part of the membership
+                review process.
               </span>
             </label>
             {errors.backgroundCheckConsent && (

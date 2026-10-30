@@ -40,9 +40,7 @@ export function AdminConsultationsTable({ initialRequests }: { initialRequests: 
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       pool = pool.filter(
-        (r) =>
-          r.requesterName.toLowerCase().includes(q) ||
-          (r.memberName ?? '').toLowerCase().includes(q)
+        (r) => r.requesterName.toLowerCase().includes(q) || (r.memberName ?? '').toLowerCase().includes(q)
       );
     }
     return pool;
@@ -98,13 +96,9 @@ export function AdminConsultationsTable({ initialRequests }: { initialRequests: 
                 <tr key={r.id} className="border-b border-line align-top last:border-b-0">
                   <td className="px-6 py-4">
                     <span className="font-medium text-ink">{r.requesterName}</span>
-                    {r.requesterIsVerifiedMember && (
-                      <span className="ml-1.5 text-xs text-ink-3">(member)</span>
-                    )}
+                    {r.requesterIsVerifiedMember && <span className="ml-1.5 text-xs text-ink-3">(member)</span>}
                   </td>
-                  <td className="px-6 py-4 text-sm text-ink-2">
-                    {r.serviceName ?? r.customServiceLabel ?? '—'}
-                  </td>
+                  <td className="px-6 py-4 text-sm text-ink-2">{r.serviceName ?? r.customServiceLabel ?? '—'}</td>
                   <td className="px-6 py-4 text-sm">
                     {r.memberSlug ? (
                       <Link href={`/members/${r.memberSlug}`} className="font-medium text-ink hover:text-accent">

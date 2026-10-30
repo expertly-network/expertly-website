@@ -19,10 +19,7 @@ export class ApplicationsController {
 
   // Creates or updates the caller's own application; may transition draft to submitted.
   @Post('me')
-  saveOrSubmit(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: UpdateApplicationDto
-  ): Promise<ApplicationDto> {
+  saveOrSubmit(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateApplicationDto): Promise<ApplicationDto> {
     return this.applicationsService.saveOrSubmit(user, dto);
   }
 
@@ -73,10 +70,11 @@ export class ApplicationsController {
 
     const dto = plainToInstance(UploadApplicationFileDto, { kind: kindValue });
     const errors = await validate(dto);
-    if (errors.length > 0) throw new BadRequestException({
-      code: 'VALIDATION_FAILED',
-      message: 'Invalid or missing `kind` field.',
-    });
+    if (errors.length > 0)
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Invalid or missing `kind` field.',
+      });
 
     const buffer = await part.toBuffer();
     const file = { buffer, size: buffer.length, originalname: part.filename };

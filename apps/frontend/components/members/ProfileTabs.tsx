@@ -55,16 +55,15 @@ export function ProfileTabs({
       </div>
 
       {/* `.mp-tab-content` */}
-      <div role="tabpanel" className="rounded-panel border border-line bg-bg-card p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] max-[640px]:p-5">
-        {active === 'about' && (
-          <AboutTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
-        )}
+      <div
+        role="tabpanel"
+        className="rounded-panel border border-line bg-bg-card p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] max-[640px]:p-5"
+      >
+        {active === 'about' && <AboutTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />}
         {active === 'credentials' && (
           <CredentialsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
-        {active === 'articles' && (
-          <ArticlesTab authorId={member.id} isOwnProfile={isOwnProfile} />
-        )}
+        {active === 'articles' && <ArticlesTab authorId={member.id} isOwnProfile={isOwnProfile} />}
         {active === 'reviews' && (
           <ReviewsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}

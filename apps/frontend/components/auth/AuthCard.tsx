@@ -40,13 +40,7 @@ const COPY: Record<AuthMode, Record<AuthView, { title: string; sub: string }> & 
   },
 };
 
-export function AuthCard({
-  initialMode,
-  returnTo,
-}: {
-  initialMode: AuthMode;
-  returnTo: string;
-}) {
+export function AuthCard({ initialMode, returnTo }: { initialMode: AuthMode; returnTo: string }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [authView, setAuthView] = useState<AuthView>('signin');
   const [linkedinPending, setLinkedinPending] = useState(false);

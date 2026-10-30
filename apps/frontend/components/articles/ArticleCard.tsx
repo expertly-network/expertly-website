@@ -20,7 +20,13 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
       className="flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img loading="lazy" decoding="async" src={article.coverImageUrl} alt="" className="h-[180px] w-full object-cover" />
+      <img
+        loading="lazy"
+        decoding="async"
+        src={article.coverImageUrl}
+        alt=""
+        className="h-[180px] w-full object-cover"
+      />
 
       <div className="flex flex-1 flex-col p-5">
         {/* Service on its own line so a long name never wraps the badge onto two lines;
@@ -59,7 +65,9 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
         <div className="mt-auto flex items-center gap-2.5 pt-5">
           {article.authorPhotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img loading="lazy" decoding="async"
+            <img
+              loading="lazy"
+              decoding="async"
               src={article.authorPhotoUrl}
               alt=""
               className="h-8 w-8 flex-none rounded-full object-cover"
@@ -75,9 +83,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
           )}
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-medium text-ink-2">{article.authorName}</div>
-            {designation && (
-              <div className="truncate text-[10px] text-ink-4">{designation}</div>
-            )}
+            {designation && <div className="truncate text-[10px] text-ink-4">{designation}</div>}
           </div>
           <span className="ml-auto flex-none pl-2 text-right text-xs leading-tight text-ink-3">
             {DATE_FORMAT.format(new Date(article.createdAt))}

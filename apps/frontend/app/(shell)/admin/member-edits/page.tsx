@@ -29,8 +29,8 @@ export default async function AdminMemberEditsPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Profile edits</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Changes members submitted from the Edit buttons on their profile, with the proof they
-            attached. Nothing goes live until it&apos;s approved here.
+            Changes members submitted from the Edit buttons on their profile, with the proof they attached. Nothing goes
+            live until it&apos;s approved here.
           </p>
         </PageContainer>
       </section>

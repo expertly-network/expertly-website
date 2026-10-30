@@ -26,13 +26,9 @@ async function read<T>(path: string): Promise<T> {
 }
 export const getPerksServer = () => read<PerkDto[]>('/perks');
 export const getLearningsServer = () => read<LearningDto[]>('/learnings');
-export const getResourceCollectionsServer = () =>
-  read<CollectionDto[]>('/collections');
+export const getResourceCollectionsServer = () => read<CollectionDto[]>('/collections');
 export const getTemplatesServer = () => read<TemplateDto[]>('/templates');
-export const getAdminTemplatesServer = () =>
-  read<AdminTemplateDto[]>('/admin/templates');
+export const getAdminTemplatesServer = () => read<AdminTemplateDto[]>('/admin/templates');
 export const getAdminPerksServer = () => read<AdminPerkDto[]>('/admin/perks');
-export const getAdminLearningsServer = () =>
-  read<AdminLearningDto[]>('/admin/learnings');
-export const getAdminResourceCollectionsServer = () =>
-  read<AdminCollectionDto[]>('/admin/collections');
+export const getAdminLearningsServer = () => read<AdminLearningDto[]>('/admin/learnings');
+export const getAdminResourceCollectionsServer = () => read<AdminCollectionDto[]>('/admin/collections');

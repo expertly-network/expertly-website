@@ -29,9 +29,7 @@ export default async function AdminResourcesPage() {
         <PageContainer className="py-16">
           <Card>
             <h1 className="mb-3 text-heading">Resources access required</h1>
-            <p className="mb-5 text-sm text-ink-3">
-              Your admin account does not have permission to manage resources.
-            </p>
+            <p className="mb-5 text-sm text-ink-3">Your admin account does not have permission to manage resources.</p>
             <Button href="/admin">Back to admin</Button>
           </Card>
         </PageContainer>
@@ -43,12 +41,9 @@ export default async function AdminResourcesPage() {
       <section className="bg-ink py-12">
         <PageContainer>
           <Eyebrow dark>Admin / Resources</Eyebrow>
-          <h1 className="mb-3 mt-3 text-headline text-white">
-            A better-equipped community.
-          </h1>
+          <h1 className="mb-3 mt-3 text-headline text-white">A better-equipped community.</h1>
           <p className="max-w-2xl text-lede text-white/65">
-            Manage perks, useful videos, member templates, and the collections that
-            bring them together.
+            Manage perks, useful videos, member templates, and the collections that bring them together.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Button href="/perks" variant="ghost-dark">

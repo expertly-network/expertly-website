@@ -10,7 +10,14 @@ import type { MemberDto, MemberProfileEditDto, MemberTestimonial } from '@shared
 
 function VerifiedTick() {
   return (
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-label="Verified" className="ml-1 inline flex-none align-[-1px]">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-label="Verified"
+      className="ml-1 inline flex-none align-[-1px]"
+    >
       <path d="M3 8l4 4 6-7" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -35,13 +42,13 @@ function TestimonialAuthor({ t, compact }: { t: MemberTestimonial; compact: bool
           {t.isVerified && <VerifiedTick />}
         </strong>
         {meta && (
-          <span className={`mt-px block truncate text-ink-3 ${compact ? 'text-[10.5px]' : 'text-[11.5px]'}`}>{meta}</span>
+          <span className={`mt-px block truncate text-ink-3 ${compact ? 'text-[10.5px]' : 'text-[11.5px]'}`}>
+            {meta}
+          </span>
         )}
       </div>
       {date && (
-        <span className={`flex-none font-mono text-ink-4 ${compact ? 'text-[9.5px]' : 'text-[10.5px]'}`}>
-          {date}
-        </span>
+        <span className={`flex-none font-mono text-ink-4 ${compact ? 'text-[9.5px]' : 'text-[10.5px]'}`}>{date}</span>
       )}
     </div>
   );
@@ -139,8 +146,21 @@ export function ReviewsTab({
                   aria-label={atBottom ? 'Scroll testimonials to top' : 'Show more testimonials'}
                   className="mx-auto mt-3.5 flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-bg-card text-accent transition-colors hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:bg-[color-mix(in_oklab,var(--accent)_8%,var(--bg-card))]"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`transition-transform ${atBottom ? 'rotate-180' : ''}`}>
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`transition-transform ${atBottom ? 'rotate-180' : ''}`}
+                  >
+                    <path
+                      d="M6 9l6 6 6-6"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
               )}
@@ -170,8 +190,20 @@ export function ReviewsTab({
                 >
                   <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[13px] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--accent)_22%,transparent),color-mix(in_oklab,var(--accent)_7%,transparent))]">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z" stroke="var(--accent)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M7 6H4a1 1 0 00-1 1v1a3 3 0 003 3M17 6h3a1 1 0 011 1v1a3 3 0 01-3 3" stroke="var(--accent)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                      <path
+                        d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"
+                        stroke="var(--accent)"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M7 6H4a1 1 0 00-1 1v1a3 3 0 003 3M17 6h3a1 1 0 011 1v1a3 3 0 01-3 3"
+                        stroke="var(--accent)"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </span>
                   <div className="min-w-0">

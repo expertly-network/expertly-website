@@ -50,15 +50,7 @@ export function AdminEventsImportExport() {
   );
 }
 
-function ImportModal({
-  open,
-  onClose,
-  onImported,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onImported: () => void;
-}) {
+function ImportModal({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -105,18 +97,16 @@ function ImportModal({
       ) : (
         <div className="flex flex-col gap-4">
           <div className="rounded-input border border-line-2 bg-bg-alt px-4 py-3 text-xs text-ink-2">
-            This is a <strong>full sync</strong>, not an additive import. A blank <code>id</code>{' '}
-            column creates a new event; a filled <code>id</code> matching an existing event
-            replaces it; any existing event whose <code>id</code> isn&apos;t in the file gets{' '}
-            <strong>deleted</strong>. Nothing is written if any row fails validation — start from{' '}
-            <strong>Export CSV</strong> and edit that file to be safe.
+            This is a <strong>full sync</strong>, not an additive import. A blank <code>id</code> column creates a new
+            event; a filled <code>id</code> matching an existing event replaces it; any existing event whose{' '}
+            <code>id</code> isn&apos;t in the file gets <strong>deleted</strong>. Nothing is written if any row fails
+            validation — start from <strong>Export CSV</strong> and edit that file to be safe.
             <br />
             <br />
-            <code>eventFormat</code> must be one of <code>in_person</code>, <code>virtual</code>,{' '}
-            <code>hybrid</code> (or blank). <code>eventType</code> is free text, not a fixed
-            list — reuse an existing category (e.g. &quot;Tax&quot;, &quot;M&amp;A&quot;,
-            &quot;Legal&quot;) for consistency rather than inventing a new one. <code>status</code>{' '}
-            must be <code>draft</code> or <code>published</code> (blank defaults to draft).
+            <code>eventFormat</code> must be one of <code>in_person</code>, <code>virtual</code>, <code>hybrid</code>{' '}
+            (or blank). <code>eventType</code> is free text, not a fixed list — reuse an existing category (e.g.
+            &quot;Tax&quot;, &quot;M&amp;A&quot;, &quot;Legal&quot;) for consistency rather than inventing a new one.{' '}
+            <code>status</code> must be <code>draft</code> or <code>published</code> (blank defaults to draft).
           </div>
 
           <div className="flex flex-col gap-1.5">

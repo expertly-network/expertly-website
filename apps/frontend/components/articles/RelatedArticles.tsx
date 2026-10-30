@@ -29,15 +29,15 @@ export function RelatedArticles({
 
   return (
     <Card padding="md">
-      <div className="mb-3 text-mono-label text-ink-3">
-        {label ? `More in ${label}` : 'More articles'}
-      </div>
+      <div className="mb-3 text-mono-label text-ink-3">{label ? `More in ${label}` : 'More articles'}</div>
       <ul className="flex flex-col gap-3">
         {related.map((article) => (
           <li key={article.id}>
             <Link href={`/articles/${article.slug}`} className="flex gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img loading="lazy" decoding="async"
+              <img
+                loading="lazy"
+                decoding="async"
                 src={article.coverImageUrl}
                 alt=""
                 className="h-14 w-14 flex-none rounded-lg object-cover"
@@ -45,8 +45,7 @@ export function RelatedArticles({
               <div className="min-w-0">
                 <p className="line-clamp-2 text-sm font-medium text-ink">{article.title}</p>
                 <p className="mt-1 text-xs text-ink-3">
-                  {DATE_FORMAT.format(new Date(article.createdAt))} ·{' '}
-                  {article.readTimeMinutes} min
+                  {DATE_FORMAT.format(new Date(article.createdAt))} · {article.readTimeMinutes} min
                 </p>
               </div>
             </Link>

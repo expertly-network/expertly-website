@@ -19,9 +19,7 @@ export class UnsplashService {
   async search(query: string): Promise<string[]> {
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!accessKey) {
-      throw new ServiceUnavailableException(
-        'Cover image suggestions are not configured (set UNSPLASH_ACCESS_KEY).'
-      );
+      throw new ServiceUnavailableException('Cover image suggestions are not configured (set UNSPLASH_ACCESS_KEY).');
     }
 
     const url = new URL(SEARCH_URL);
@@ -43,10 +41,7 @@ export class UnsplashService {
       const body = (await res.json()) as UnsplashSearchResult;
       return body.results.map((r) => r.urls.regular);
     } catch (error) {
-      this.logger.error(
-        `Unsplash search failed for query "${query}"`,
-        error instanceof Error ? error.stack : error
-      );
+      this.logger.error(`Unsplash search failed for query "${query}"`, error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException('Could not fetch cover image suggestions — try again.');
     } finally {
       clearTimeout(timeout);

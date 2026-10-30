@@ -12,18 +12,17 @@ export function ArticleNewsletterCard() {
       <div
         className="pointer-events-none absolute -right-11 -top-11 h-[220px] w-[220px] rounded-full"
         style={{
-          background: 'radial-gradient(circle, color-mix(in oklab, var(--accent) 24%, transparent) 0%, transparent 70%)',
+          background:
+            'radial-gradient(circle, color-mix(in oklab, var(--accent) 24%, transparent) 0%, transparent 70%)',
         }}
         aria-hidden="true"
       />
       <div className="relative">
         <div className="mb-1 text-mono-label text-white/50">Weekly briefing</div>
-        <h3 className="mt-2 text-title text-bg-card">
-          Get the next one before your clients do.
-        </h3>
+        <h3 className="mt-2 text-title text-bg-card">Get the next one before your clients do.</h3>
         <p className="mt-2 text-xs text-white/60">
-          One email a week — the regulatory changes, rulings, and deal structures GrowXQ&apos;s
-          verified practitioners are actually discussing.
+          One email a week — the regulatory changes, rulings, and deal structures GrowXQ&apos;s verified practitioners
+          are actually discussing.
         </p>
         <form
           className="mt-4 flex flex-col gap-2"

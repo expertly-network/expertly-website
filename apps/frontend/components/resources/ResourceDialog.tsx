@@ -40,12 +40,7 @@ export function ResourceDialog({
         <h2 id={titleId} className="text-title">
           {title}
         </h2>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onClose}
-          aria-label="Close dialog"
-        >
+        <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close dialog">
           Close ×
         </Button>
       </div>

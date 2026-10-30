@@ -35,15 +35,20 @@ export default async function AdminMemberEditsDetailPage(props: { params: Promis
             className="mb-6 flex w-fit items-center gap-1.5 text-sm text-white/60 transition-colors hover:text-white"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M10 12L6 8l4-4"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
             All profile edits
           </Link>
           <Eyebrow dark>Admin · Profile edits</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">{detail.member.name}</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Compare each proposed section with what&apos;s live now, check the proof, then approve or
-            reject it.
+            Compare each proposed section with what&apos;s live now, check the proof, then approve or reject it.
           </p>
         </PageContainer>
       </section>

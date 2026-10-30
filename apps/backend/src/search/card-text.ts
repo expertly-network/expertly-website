@@ -49,7 +49,13 @@ export function jsonbToText(v: JsonValue): string {
   if (v === null) return 'null';
   if (Array.isArray(v)) return '[' + v.map(jsonbToText).join(', ') + ']';
   if (typeof v === 'object') {
-    return '{' + jsonbKeys(v).map((k) => JSON.stringify(k) + ': ' + jsonbToText(v[k])).join(', ') + '}';
+    return (
+      '{' +
+      jsonbKeys(v)
+        .map((k) => JSON.stringify(k) + ': ' + jsonbToText(v[k]))
+        .join(', ') +
+      '}'
+    );
   }
   return typeof v === 'string' ? JSON.stringify(v) : String(v);
 }
@@ -67,8 +73,21 @@ export function jsonbEachText(obj: { [key: string]: JsonValue }): { key: string;
 // links), third-party client emails, verification details. Card text is embedded, sent to the
 // search judge, and can surface in its answer to any signed-in user.
 const SKIPPED_KEYS = new Set([
-  'id', 'url', 'logoUrl', 'logo_url', 'isCurrent', 'startYear', 'endYear', 'year', 'proofUrl',
-  'proofAttachments', 'clientEmail', 'verificationMethods', 'verificationMethodOther', 'logoUploadPath', 'isVerified',
+  'id',
+  'url',
+  'logoUrl',
+  'logo_url',
+  'isCurrent',
+  'startYear',
+  'endYear',
+  'year',
+  'proofUrl',
+  'proofAttachments',
+  'clientEmail',
+  'verificationMethods',
+  'verificationMethodOther',
+  'logoUploadPath',
+  'isVerified',
 ]);
 
 /** search_jsonb_text(): flattens a jsonb array of strings / objects into "a - b; c - d". */
@@ -82,7 +101,9 @@ export function jsonbText(arr: JsonValue | undefined): string | null {
     } else if (el !== null && typeof el === 'object' && !Array.isArray(el)) {
       const parts = jsonbEachText(el)
         .filter((kv): kv is { key: string; value: string } => kv.value !== null)
-        .filter((kv) => !SKIPPED_KEYS.has(kv.key) && /[A-Za-z]/.test(kv.value) && kv.value !== 'true' && kv.value !== 'false')
+        .filter(
+          (kv) => !SKIPPED_KEYS.has(kv.key) && /[A-Za-z]/.test(kv.value) && kv.value !== 'true' && kv.value !== 'false'
+        )
         // order by length(key), key
         .sort((a, b) => (a.key.length !== b.key.length ? a.key.length - b.key.length : pgCompare(a.key, b.key)))
         .map((kv) => kv.value);
@@ -95,7 +116,20 @@ export function jsonbText(arr: JsonValue | undefined): string | null {
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 /** to_char(ts at time zone 'UTC', 'FMDay, FMDD FMMonth YYYY') */
 export function formatEventDate(iso: string): string {

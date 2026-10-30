@@ -34,7 +34,9 @@ export const EXPORT_COLUMNS = [
 export const REQUIRED_IMPORT_COLUMNS = ['title', 'description', 'startDate'] as const;
 
 export function eventsToCsv(events: EventDto[]): string {
-  const rows = events.map((event) => EXPORT_COLUMNS.map((col) => stringifyCell((event as unknown as Record<string, unknown>)[col])));
+  const rows = events.map((event) =>
+    EXPORT_COLUMNS.map((col) => stringifyCell((event as unknown as Record<string, unknown>)[col]))
+  );
   return stringify([EXPORT_COLUMNS as unknown as string[], ...rows]);
 }
 

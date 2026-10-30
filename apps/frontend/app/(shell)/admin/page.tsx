@@ -20,9 +20,7 @@ const ICON_PROPS = {
   className: 'shrink-0',
 };
 
-const APPLICATIONS_ICON = (
-  <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />
-);
+const APPLICATIONS_ICON = <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />;
 const EVENTS_ICON = <path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zM16 2v4M8 2v4M3 10h18" />;
 const ARTICLES_ICON = (
   <>
@@ -40,9 +38,7 @@ const MEMBER_EDITS_ICON = (
   </>
 );
 // Same speech-bubble glyph as the sidebar's own Consultations entry.
-const CONSULTATIONS_ICON = (
-  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
-);
+const CONSULTATIONS_ICON = <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />;
 
 // Same star glyph as the write flow's "Write with AI" option.
 const AI_GENERATIONS_ICON = (
@@ -61,7 +57,7 @@ const ADMIN_SECTIONS = [
     href: '/admin/member-edits',
     icon: MEMBER_EDITS_ICON,
     title: 'Profile edits',
-    description: 'Compare members\' proposed profile changes with what\'s live, check proof, and approve or reject.',
+    description: "Compare members' proposed profile changes with what's live, check proof, and approve or reject.",
   },
   {
     href: '/admin/articles',
@@ -77,7 +73,12 @@ const ADMIN_SECTIONS = [
   },
   {
     href: '/admin/resources',
-    icon: <><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8H8a3 3 0 113-3l1 3zm0 0h4a3 3 0 10-3-3l-1 3z"/></>,
+    icon: (
+      <>
+        <rect x="3" y="8" width="18" height="4" rx="1" />
+        <path d="M5 12v9h14v-9M12 8v13M12 8H8a3 3 0 113-3l1 3zm0 0h4a3 3 0 10-3-3l-1 3z" />
+      </>
+    ),
     title: 'Perks & Learnings',
     description: 'Manage partner offers, videos, playlists and starter stacks.',
   },
@@ -112,8 +113,8 @@ export default async function AdminPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Admin</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Manage membership applications, member profile edits, the events calendar, article
-            submissions and AI drafts, and consultation requests.
+            Manage membership applications, member profile edits, the events calendar, article submissions and AI
+            drafts, and consultation requests.
           </p>
         </PageContainer>
       </section>

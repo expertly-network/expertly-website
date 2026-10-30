@@ -157,13 +157,7 @@ export function RequestConsultationModal({
   const customServiceValid = !isOther || Boolean(customService.trim());
   const messageValid = message.trim().length >= MIN_MESSAGE_LENGTH;
   const canSubmit =
-    nameValid &&
-    emailValid &&
-    phoneValid &&
-    serviceSelectValid &&
-    customServiceValid &&
-    messageValid &&
-    !submitting;
+    nameValid && emailValid && phoneValid && serviceSelectValid && customServiceValid && messageValid && !submitting;
 
   // Only rendered once attemptedSubmit is true (see the Button below) — each one is `undefined`
   // when the field is already valid, so a field's red border/message clears the moment it's fixed.
@@ -201,9 +195,7 @@ export function RequestConsultationModal({
         // column, matching ApplicationsService's `${phoneCountryCode} ${phone}`.trim() convention.
         phone: `${dialCode} ${phoneNumber.trim()}`.trim(),
         message: message.trim(),
-        ...(isOther
-          ? { customServiceLabel: customService.trim() }
-          : { serviceId: serviceChoice }),
+        ...(isOther ? { customServiceLabel: customService.trim() } : { serviceId: serviceChoice }),
       });
       setSent(true);
     } catch (err) {
@@ -228,7 +220,17 @@ export function RequestConsultationModal({
       ) : blockedReason ? (
         <div className="flex flex-col items-center gap-3 py-4 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3 3" />
             </svg>
@@ -237,18 +239,17 @@ export function RequestConsultationModal({
             <>
               <p className="text-title text-ink">Request Already Pending</p>
               <p className="text-sm text-ink-3">
-                You already have a pending request with {memberName}. They haven&apos;t responded yet
-                — you can send a new one once they do, or after{' '}
-                {blockedRetryAfter && RETRY_DATE_FORMAT.format(new Date(blockedRetryAfter))} if they
-                haven&apos;t by then.
+                You already have a pending request with {memberName}. They haven&apos;t responded yet — you can send a
+                new one once they do, or after{' '}
+                {blockedRetryAfter && RETRY_DATE_FORMAT.format(new Date(blockedRetryAfter))} if they haven&apos;t by
+                then.
               </p>
             </>
           ) : (
             <>
               <p className="text-title text-ink">Too Many Requests Today</p>
               <p className="text-sm text-ink-3">
-                You&apos;ve reached the limit on consultation requests for now. You can send another
-                after{' '}
+                You&apos;ve reached the limit on consultation requests for now. You can send another after{' '}
                 {blockedRetryAfter && RETRY_DATE_FORMAT.format(new Date(blockedRetryAfter))}.
               </p>
             </>
@@ -261,7 +262,13 @@ export function RequestConsultationModal({
         <div className="flex flex-col items-center gap-3 py-4 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 12l5 5L20 7" stroke="var(--ok)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M5 12l5 5L20 7"
+                stroke="var(--ok)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
           <p className="text-title text-ink">Request Sent</p>
@@ -370,8 +377,8 @@ export function RequestConsultationModal({
             error={attemptedSubmit ? messageError : undefined}
             hint={
               <>
-                Mention what you need help with, relevant background, and your timeline — 2-3
-                sentences gives {memberName.split(' ')[0]} enough to respond quickly.{' '}
+                Mention what you need help with, relevant background, and your timeline — 2-3 sentences gives{' '}
+                {memberName.split(' ')[0]} enough to respond quickly.{' '}
                 {/* Neutral until they've actually started typing — an untouched field isn't an
                     error yet, it just hasn't been attempted. */}
                 <span

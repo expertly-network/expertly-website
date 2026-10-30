@@ -16,13 +16,11 @@ export function AiSearchTeaser() {
         <div>
           <Eyebrow>GrowXQ · Intelligent Discovery</Eyebrow>
           <h2 className="mt-4 text-section-title text-ink">
-            Ask in plain English. Get <span className="text-accent">exactly</span> who &amp; what
-            you need.
+            Ask in plain English. Get <span className="text-accent">exactly</span> who &amp; what you need.
           </h2>
           <p className="mt-5 max-w-[480px] text-lede text-ink-3">
-            One query searches the entire network at once, no filters to fiddle with, no jargon
-            required. Describe the matter and GrowXQ search surfaces the right people, the
-            relevant reading, and the events worth your time.
+            One query searches the entire network at once, no filters to fiddle with, no jargon required. Describe the
+            matter and GrowXQ search surfaces the right people, the relevant reading, and the events worth your time.
           </p>
           <ul className="mt-6 flex flex-col gap-3 text-[15px] text-ink-2">
             <li className="flex items-start gap-3">

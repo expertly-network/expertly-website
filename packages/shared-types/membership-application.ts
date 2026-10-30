@@ -94,7 +94,8 @@ export class UpdateApplicationRequest {
   @ApiPropertyOptional({ type: () => EducationInput, isArray: true }) educations?: EducationInput[];
   /** Exactly 2 required to submit; a draft may have 0 or 1. */
   @ApiPropertyOptional({ type: () => PeerReferenceInput, isArray: true }) peerReferences?: PeerReferenceInput[];
-  @ApiPropertyOptional({ type: () => ServicePreferenceInput, isArray: true }) servicePreferences?: ServicePreferenceInput[];
+  @ApiPropertyOptional({ type: () => ServicePreferenceInput, isArray: true })
+  servicePreferences?: ServicePreferenceInput[];
   @ApiPropertyOptional() rateMinCents?: number;
   @ApiPropertyOptional() rateMaxCents?: number;
   @ApiPropertyOptional({ enum: ['annual'] }) billingPeriod?: BillingPeriod;
@@ -150,7 +151,8 @@ export class ApplicationDto {
   @ApiProperty({ type: () => ServicePreference, isArray: true }) servicePreferences!: ServicePreference[];
   @ApiProperty({ nullable: true, type: Number }) rateMinCents!: number | null;
   @ApiProperty({ nullable: true, type: Number }) rateMaxCents!: number | null;
-  @ApiProperty({ nullable: true, enum: ['budding_entrepreneur', 'seasoned_professional'] }) selectedTier!: MembershipTier | null;
+  @ApiProperty({ nullable: true, enum: ['budding_entrepreneur', 'seasoned_professional'] })
+  selectedTier!: MembershipTier | null;
   @ApiProperty({ nullable: true, enum: ['annual'] }) billingPeriod!: BillingPeriod | null;
   @ApiProperty({ nullable: true, type: Number }) listPriceCents!: number | null;
   @ApiProperty({ nullable: true, type: String }) couponCode!: string | null;

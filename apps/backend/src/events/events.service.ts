@@ -121,7 +121,8 @@ export class EventsService {
     if (rows.length === 0) {
       throw new BadRequestException({
         code: 'CSV_NO_ROWS',
-        message: 'CSV has no event rows. Refusing to run — a full sync would delete every existing event. ' +
+        message:
+          'CSV has no event rows. Refusing to run — a full sync would delete every existing event. ' +
           'If that is really the goal, delete events individually instead.',
       });
     }

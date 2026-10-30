@@ -13,9 +13,12 @@ export class HousekeepingService {
   constructor(private readonly repo: SearchRepository) {}
 
   async run(now: Date = new Date()): Promise<{ outbox: number; queryLog: number }> {
-    const outbox = await this.repo.deleteProcessedOutboxBefore(new Date(now.getTime() - OUTBOX_RETENTION_DAYS * DAY_MS));
+    const outbox = await this.repo.deleteProcessedOutboxBefore(
+      new Date(now.getTime() - OUTBOX_RETENTION_DAYS * DAY_MS)
+    );
     const queryLog = await this.repo.deleteQueryLogsBefore(new Date(now.getTime() - QUERY_LOG_RETENTION_DAYS * DAY_MS));
-    if (outbox > 0 || queryLog > 0) this.logger.log(`Housekeeping removed ${outbox} outbox row(s), ${queryLog} log row(s).`);
+    if (outbox > 0 || queryLog > 0)
+      this.logger.log(`Housekeeping removed ${outbox} outbox row(s), ${queryLog} log row(s).`);
     return { outbox, queryLog };
   }
 }

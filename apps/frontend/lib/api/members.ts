@@ -36,10 +36,7 @@ export function getMyMemberEdits(id: string): Promise<MemberProfileEditDto[]> {
   return apiFetch<MemberProfileEditDto[]>(`/members/${id}/edits`);
 }
 
-export function createMemberEdit(
-  id: string,
-  body: CreateMemberEditRequest
-): Promise<MemberProfileEditDto> {
+export function createMemberEdit(id: string, body: CreateMemberEditRequest): Promise<MemberProfileEditDto> {
   return apiFetch<MemberProfileEditDto>(`/members/${id}/edits`, {
     method: 'POST',
     body: JSON.stringify(body),

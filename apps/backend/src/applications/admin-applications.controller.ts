@@ -3,16 +3,18 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type {
-  AdminApplicationListItemDto,
-  ApplicationDto,
-  ApplicationStatus,
-} from '@shared/membership-application';
+import type { AdminApplicationListItemDto, ApplicationDto, ApplicationStatus } from '@shared/membership-application';
 import { ApplicationsService } from './applications.service';
 import { ReviewApplicationDto } from './dto/review-application.dto';
 import { OptionalOneOfPipe } from '../common/one-of.pipe';
 
-const APPLICATION_STATUSES: readonly ApplicationStatus[] = ['draft', 'submitted', 'under_review', 'approved', 'rejected'];
+const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
+  'draft',
+  'submitted',
+  'under_review',
+  'approved',
+  'rejected',
+];
 
 // 🛡️ manageApplications — admin review queue.
 @Roles('admin')

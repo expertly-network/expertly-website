@@ -58,7 +58,13 @@ function MemberAvatar({ name, photoUrl }: { name: string; photoUrl: string | nul
     .join('');
   return photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img loading="lazy" decoding="async" src={photoUrl} alt="" className="h-9 w-9 flex-none rounded-full object-cover" />
+    <img
+      loading="lazy"
+      decoding="async"
+      src={photoUrl}
+      alt=""
+      className="h-9 w-9 flex-none rounded-full object-cover"
+    />
   ) : (
     <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-bg-alt text-xs font-semibold text-ink-2">
       {initials}
@@ -81,9 +87,7 @@ function SectionChips({ sections }: { sections: MemberEditSection[] }) {
 
 function StatusCell({ row }: { row: MemberRow }) {
   return row.pendingCount > 0 ? (
-    <Badge variant="warning">
-      {row.pendingCount} pending
-    </Badge>
+    <Badge variant="warning">{row.pendingCount} pending</Badge>
   ) : (
     <Badge variant="success">Reviewed</Badge>
   );
@@ -118,7 +122,12 @@ export function AdminMemberEditsTable({ edits }: { edits: MemberProfileEditDto[]
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full max-w-xs">
-          <Input label="Search by name" placeholder="Member name…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input
+            label="Search by name"
+            placeholder="Member name…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
         <div className="w-full max-w-[220px]">
           <Select label="Show" value={filter} onChange={(e) => setFilter(e.target.value as QueueFilter)}>
@@ -131,7 +140,9 @@ export function AdminMemberEditsTable({ edits }: { edits: MemberProfileEditDto[]
 
       {rows.length === 0 ? (
         <p className="py-16 text-center text-sm text-ink-3">
-          {filter === 'pending' && query === '' ? 'All caught up — nothing left to review.' : 'No members match this filter.'}
+          {filter === 'pending' && query === ''
+            ? 'All caught up — nothing left to review.'
+            : 'No members match this filter.'}
         </p>
       ) : (
         <>
@@ -170,7 +181,11 @@ export function AdminMemberEditsTable({ edits }: { edits: MemberProfileEditDto[]
                     </td>
                     <td className="px-6 py-4 text-xs text-ink-3">{DATE_FORMAT.format(new Date(row.lastActivity))}</td>
                     <td className="px-6 py-4 text-right">
-                      <Button href={`/admin/member-edits/${row.memberId}`} size="sm" variant={row.pendingCount > 0 ? 'primary' : 'secondary'}>
+                      <Button
+                        href={`/admin/member-edits/${row.memberId}`}
+                        size="sm"
+                        variant={row.pendingCount > 0 ? 'primary' : 'secondary'}
+                      >
                         {row.pendingCount > 0 ? 'Review' : 'View'}
                       </Button>
                     </td>
@@ -202,7 +217,11 @@ export function AdminMemberEditsTable({ edits }: { edits: MemberProfileEditDto[]
                       ? `Waiting since ${DATE_FORMAT.format(new Date(row.waitingSince))}`
                       : `Last activity ${DATE_FORMAT.format(new Date(row.lastActivity))}`}
                   </span>
-                  <Button href={`/admin/member-edits/${row.memberId}`} size="sm" variant={row.pendingCount > 0 ? 'primary' : 'secondary'}>
+                  <Button
+                    href={`/admin/member-edits/${row.memberId}`}
+                    size="sm"
+                    variant={row.pendingCount > 0 ? 'primary' : 'secondary'}
+                  >
                     {row.pendingCount > 0 ? 'Review' : 'View'}
                   </Button>
                 </div>

@@ -45,7 +45,10 @@ export class RecommendationsRepository {
   }
 
   async findMemberStatus(profileId: string): Promise<MemberStatusRow | null> {
-    const { data, error } = await this.memberProfiles().select('profile_id, status').eq('profile_id', profileId).maybeSingle();
+    const { data, error } = await this.memberProfiles()
+      .select('profile_id, status')
+      .eq('profile_id', profileId)
+      .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to load member.');
     return (data as MemberStatusRow | null) ?? null;
   }
@@ -80,10 +83,11 @@ export class RecommendationsRepository {
       .eq('id', id)
       .maybeSingle();
     if (error) throw new InternalServerErrorException('Failed to load recommendation.');
-    if (!data) throw new NotFoundException({
-      code: 'RECOMMENDATION_NOT_FOUND',
-      message: 'Recommendation not found.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'RECOMMENDATION_NOT_FOUND',
+        message: 'Recommendation not found.',
+      });
     return data as unknown as RecommendationRow;
   }
 
@@ -109,7 +113,10 @@ export class RecommendationsRepository {
     if (membersError || profilesError) throw new InternalServerErrorException('Failed to load recommendation authors.');
 
     const profileById = new Map(
-      (profiles ?? []).map((p) => [p.id as string, p as unknown as Omit<AuthorSummaryRow, 'profile_id' | 'slug' | 'photo_path'> & { id: string }])
+      (profiles ?? []).map((p) => [
+        p.id as string,
+        p as unknown as Omit<AuthorSummaryRow, 'profile_id' | 'slug' | 'photo_path'> & { id: string },
+      ])
     );
     for (const m of (members ?? []) as unknown as { profile_id: string; slug: string; photo_path: string | null }[]) {
       const p = profileById.get(m.profile_id);

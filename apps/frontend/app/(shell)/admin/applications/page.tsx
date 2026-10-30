@@ -28,8 +28,8 @@ export default async function AdminApplicationsPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Membership applications</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Review submitted applications. Approving one provisions the member profile and
-            services immediately and promotes the applicant&apos;s account to <code>member</code>.
+            Review submitted applications. Approving one provisions the member profile and services immediately and
+            promotes the applicant&apos;s account to <code>member</code>.
           </p>
         </PageContainer>
       </section>
@@ -38,9 +38,7 @@ export default async function AdminApplicationsPage() {
           {applications.length > 0 ? (
             <AdminApplicationsTable initialApplications={applications} />
           ) : (
-            <p className="py-16 text-center text-sm text-ink-3">
-              No applications waiting for review.
-            </p>
+            <p className="py-16 text-center text-sm text-ink-3">No applications waiting for review.</p>
           )}
         </PageContainer>
       </section>

@@ -29,9 +29,8 @@ export default async function AdminConsultationsPage() {
           <Eyebrow dark>Admin</Eyebrow>
           <h1 className="mt-2 text-headline text-bg-card">Consultations</h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Who requested what, and from which member, across every member. This is visibility
-            only — no contact details, message content, or actions; the member decides their own
-            requests.
+            Who requested what, and from which member, across every member. This is visibility only — no contact
+            details, message content, or actions; the member decides their own requests.
           </p>
         </PageContainer>
       </section>

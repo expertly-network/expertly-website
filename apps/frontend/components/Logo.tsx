@@ -4,13 +4,7 @@ import Link from 'next/link';
 // the headline serif (Cormorant Garamond Semibold, as in the homepage hero) and "XQ" in Geist
 // Semibold, so the logo pairs the site's two fonts. Real text — crisp at any size and themeable.
 // Size it with a text-[…] class; colour comes from `tone`.
-export function Wordmark({
-  tone = 'ink',
-  className = '',
-}: {
-  tone?: 'ink' | 'white';
-  className?: string;
-}) {
+export function Wordmark({ tone = 'ink', className = '' }: { tone?: 'ink' | 'white'; className?: string }) {
   return (
     <span
       className={`whitespace-nowrap font-[family-name:var(--font-brand-serif)] font-semibold leading-none tracking-[-0.01em] ${tone === 'white' ? 'text-white' : 'text-ink'} ${className}`}

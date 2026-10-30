@@ -73,7 +73,10 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
   return (
     <div className="flex items-start gap-6 max-[1023px]:flex-col">
       <div className="flex min-w-0 flex-1 flex-col gap-6 max-[1023px]:w-full">
-        <Section title="The member's brief" description="Step 1 of the wizard — the core questions every member answers.">
+        <Section
+          title="The member's brief"
+          description="Step 1 of the wizard — the core questions every member answers."
+        >
           <Field label="Your thoughts / notes">
             <TextValue value={inputs.notes} />
           </Field>
@@ -132,7 +135,12 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
                   <li key={file.filename + i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                     <span className="break-all">{file.filename}</span>
                     {file.url ? (
-                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent underline hover:text-ink">
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent underline hover:text-ink"
+                      >
                         Open
                       </a>
                     ) : (
@@ -184,14 +192,20 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
                 )}
               </div>
               <Field label="Services the AI picked">
-                {output.services.length > 0 ? output.services.map((s) => s.name).join(', ') : <span className="text-ink-4">None matched</span>}
+                {output.services.length > 0 ? (
+                  output.services.map((s) => s.name).join(', ')
+                ) : (
+                  <span className="text-ink-4">None matched</span>
+                )}
               </Field>
               <Field label="Countries the AI picked">
-                {output.countries.length > 0 ? output.countries.join(', ') : <span className="text-ink-4">None matched</span>}
+                {output.countries.length > 0 ? (
+                  output.countries.join(', ')
+                ) : (
+                  <span className="text-ink-4">None matched</span>
+                )}
               </Field>
-              <Field label="State / province">
-                {output.state ?? <span className="text-ink-4">None implied</span>}
-              </Field>
+              <Field label="State / province">{output.state ?? <span className="text-ink-4">None implied</span>}</Field>
               <Field label="Sources the AI cited">
                 {output.sources.length === 0 ? (
                   <span className="text-ink-4">None</span>
@@ -233,7 +247,10 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
             <div className="font-mono text-mono-label uppercase text-ink-3">Saved as</div>
             {generation.article ? (
               <>
-                <Link href={`/articles/${generation.article.id}`} className="mt-1.5 block font-medium text-ink hover:text-accent">
+                <Link
+                  href={`/articles/${generation.article.id}`}
+                  className="mt-1.5 block font-medium text-ink hover:text-accent"
+                >
                   {generation.article.title}
                 </Link>
                 <div className="mt-1 text-xs text-ink-3">{ARTICLE_STATUS_LABEL[generation.article.status]}</div>

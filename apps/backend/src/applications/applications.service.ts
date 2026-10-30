@@ -151,7 +151,10 @@ export class ApplicationsService {
 
     const patch: ApplicationPatch = {};
     // Column names come from WRITABLE_COLUMNS, values from the validated DTO field it maps to.
-    for (const [column, key] of Object.entries(WRITABLE_COLUMNS) as [keyof ApplicationRow, keyof UpdateApplicationDto][]) {
+    for (const [column, key] of Object.entries(WRITABLE_COLUMNS) as [
+      keyof ApplicationRow,
+      keyof UpdateApplicationDto,
+    ][]) {
       const value = dto[key];
       if (value !== undefined) (patch as Record<string, unknown>)[column] = value;
     }
@@ -203,10 +206,11 @@ export class ApplicationsService {
       const selectedTier = computeTier(merged.years_of_experience as number);
       const listPriceCents = MEMBERSHIP_PRICE_CENTS[merged.billing_period as BillingPeriod];
       const couponResult = applyCoupon(merged.coupon_code ?? undefined, listPriceCents);
-      if (!couponResult.valid) throw new BadRequestException({
-        code: 'COUPON_INVALID',
-        message: 'Invalid or expired coupon code.',
-      });
+      if (!couponResult.valid)
+        throw new BadRequestException({
+          code: 'COUPON_INVALID',
+          message: 'Invalid or expired coupon code.',
+        });
 
       const discountAmountCents = couponResult.discountAmountCents;
       const amountDueCents = Math.max(0, listPriceCents - discountAmountCents);
@@ -233,10 +237,11 @@ export class ApplicationsService {
 
   async findMine(userId: string): Promise<ApplicationDto> {
     const data = await this.applicationsRepository.findLatestByApplicant(userId);
-    if (!data) throw new NotFoundException({
-      code: 'APPLICATION_NOT_FOUND',
-      message: 'No application found for this account.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'APPLICATION_NOT_FOUND',
+        message: 'No application found for this account.',
+      });
 
     const serviceDetails = await this.resolveServiceDetails(data.service_preferences ?? []);
     return this.toDto(data, serviceDetails);
@@ -366,10 +371,11 @@ export class ApplicationsService {
   // identity. Callers decide whether replacing the current photo is appropriate.
   async importPhotoFromLinkedIn(user: AuthenticatedUser, sourceUrl?: string): Promise<ApplicationDto> {
     const pictureUrl = sourceUrl ?? (await this.applicationsRepository.findLinkedInPictureUrl(user.id));
-    if (!pictureUrl) throw new NotFoundException({
-      code: 'LINKEDIN_PHOTO_UNAVAILABLE',
-      message: 'No LinkedIn photo available to import.',
-    });
+    if (!pictureUrl)
+      throw new NotFoundException({
+        code: 'LINKEDIN_PHOTO_UNAVAILABLE',
+        message: 'No LinkedIn photo available to import.',
+      });
 
     // A caller-supplied URL is already pinned to media.licdn.com by the DTO; refusing redirects
     // keeps the fetch from being bounced to another host.
@@ -454,7 +460,7 @@ export class ApplicationsService {
       if (!submittedPreferences.some((p) => p.serviceId === dto.approvedServiceId)) {
         throw new BadRequestException({
           code: 'APPROVED_SERVICE_INVALID',
-          message: 'approvedServiceId must be one of the applicant\'s submitted service preferences.',
+          message: "approvedServiceId must be one of the applicant's submitted service preferences.",
         });
       }
     }
@@ -632,7 +638,9 @@ export class ApplicationsService {
     };
   }
 
-  private async resolveServiceDetails(servicePreferences: { serviceId: string }[]): Promise<Map<string, ServiceDetail>> {
+  private async resolveServiceDetails(
+    servicePreferences: { serviceId: string }[]
+  ): Promise<Map<string, ServiceDetail>> {
     if (servicePreferences.length === 0) return new Map();
     return this.applicationsRepository.findServiceDetails(servicePreferences.map((p) => p.serviceId));
   }

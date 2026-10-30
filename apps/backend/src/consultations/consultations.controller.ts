@@ -1,7 +1,11 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import { ConsultationEligibilityResponse, ConsultationMessageDto, ConsultationRequestDto } from '@shared/consultation-request';
+import {
+  ConsultationEligibilityResponse,
+  ConsultationMessageDto,
+  ConsultationRequestDto,
+} from '@shared/consultation-request';
 import { ConsultationsService } from './consultations.service';
 import { CreateConsultationRequestDto } from './dto/create-consultation-request.dto';
 import { CreateConsultationMessageDto } from './dto/create-consultation-message.dto';

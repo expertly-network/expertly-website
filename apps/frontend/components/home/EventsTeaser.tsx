@@ -15,8 +15,8 @@ export function EventsTeaser({ events }: { events: EventDto[] }) {
               Be part of what&apos;s <span className="text-accent">next</span>
             </h2>
             <p className="mt-4 max-w-xl text-lede text-ink-3">
-              From tax briefings in Dubai to M&amp;A roundtables in London — the conferences and
-              summits our members actually show up.
+              From tax briefings in Dubai to M&amp;A roundtables in London — the conferences and summits our members
+              actually show up.
             </p>
           </div>
           <Button href="/events" variant="secondary">
@@ -30,8 +30,8 @@ export function EventsTeaser({ events }: { events: EventDto[] }) {
             <Card padding="lg" className="flex flex-col items-center gap-2 text-center">
               <p className="text-sm font-medium text-ink">Events are coming soon.</p>
               <p className="max-w-md text-sm text-ink-3">
-                We&apos;re building out a calendar of conferences, meetups, and member-exclusive
-                sessions. Check back shortly.
+                We&apos;re building out a calendar of conferences, meetups, and member-exclusive sessions. Check back
+                shortly.
               </p>
             </Card>
           )}

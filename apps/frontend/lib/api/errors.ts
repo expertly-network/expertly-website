@@ -30,7 +30,11 @@ export async function apiErrorFromResponse(res: Response, fallbackMessage?: stri
   // message is an array for validation failures; `message` joins it into one readable string.
   const messages = Array.isArray(body?.message)
     ? body.message.map(String)
-    : [typeof body?.message === 'string' ? body.message : (fallbackMessage ?? `Request failed with status ${res.status}`)];
+    : [
+        typeof body?.message === 'string'
+          ? body.message
+          : (fallbackMessage ?? `Request failed with status ${res.status}`),
+      ];
   return new ApiError(
     messages.join(' '),
     res.status,

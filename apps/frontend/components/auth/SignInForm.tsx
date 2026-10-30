@@ -7,13 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { signInWithEmail } from '@/lib/auth/continue-with-email';
 
-export function SignInForm({
-  returnTo,
-  onSwitchToSignUp,
-}: {
-  returnTo: string;
-  onSwitchToSignUp: () => void;
-}) {
+export function SignInForm({ returnTo, onSwitchToSignUp }: { returnTo: string; onSwitchToSignUp: () => void }) {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -73,11 +67,7 @@ export function SignInForm({
 
       <p className="text-center text-[13px] text-ink-3">
         Not a user?{' '}
-        <button
-          type="button"
-          onClick={onSwitchToSignUp}
-          className="font-medium text-accent hover:underline"
-        >
+        <button type="button" onClick={onSwitchToSignUp} className="font-medium text-accent hover:underline">
           Become one
         </button>
       </p>

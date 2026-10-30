@@ -19,9 +19,7 @@ export function MobileCtaBar({
         <div className="text-sm font-semibold text-ink">
           {formatRate(member.rateMinCents, member.rateMaxCents, member.rateCurrency)}
         </div>
-        <div className="text-xs text-ink-3">
-          {member.isAvailable ? 'Available' : 'Currently unavailable'}
-        </div>
+        <div className="text-xs text-ink-3">{member.isAvailable ? 'Available' : 'Currently unavailable'}</div>
       </div>
       {!isOwnProfile && <Button onClick={onRequestConsultation}>Request Consultation</Button>}
     </div>

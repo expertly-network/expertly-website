@@ -16,7 +16,12 @@ export function Select({ label, id, children, error, markRequired, ...selectProp
     <div className="flex flex-col gap-1.5">
       <label htmlFor={fieldId} className="text-xs font-medium text-ink-2">
         {label}
-        {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+        {markRequired && (
+          <span aria-hidden="true" className="text-error">
+            {' '}
+            *
+          </span>
+        )}
       </label>
       <select
         id={fieldId}

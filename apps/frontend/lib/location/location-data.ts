@@ -29,9 +29,7 @@ export function toCountryOptions(countries: ICountry[], allowedNames: readonly s
 }
 
 export function toStateOptions(states: IState[]): LocationOption[] {
-  return states
-    .map((s) => ({ name: s.name, isoCode: s.isoCode }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return states.map((s) => ({ name: s.name, isoCode: s.isoCode })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function toCityNames(cities: ICity[]): string[] {

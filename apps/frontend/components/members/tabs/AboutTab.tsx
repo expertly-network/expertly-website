@@ -31,16 +31,10 @@ export function AboutTab({
             onEdit={edit('headline_bio')}
             rejectionNote={getSectionRejectionNote('headline_bio', edits)}
           />
-          {member.headline && (
-            <p className="mb-3 text-base font-semibold leading-normal text-ink">{member.headline}</p>
-          )}
+          {member.headline && <p className="mb-3 text-base font-semibold leading-normal text-ink">{member.headline}</p>}
           {member.bio && <FormattedText text={member.bio} className="text-profile-body text-ink-3" />}
           {!hasBio && (
-            <ProfileSectionEmpty
-              title="No bio yet."
-              hint="Tell clients who you are"
-              onEdit={edit('headline_bio')}
-            />
+            <ProfileSectionEmpty title="No bio yet." hint="Tell clients who you are" onEdit={edit('headline_bio')} />
           )}
         </section>
       )}
@@ -67,13 +61,16 @@ export function AboutTab({
           <ul className="flex flex-col gap-2">
             {member.engagements.map((eng) => (
               // `.mp-engagement` — light-gray row (var(--line)) on the white tab card.
-              <li
-                key={eng.id}
-                className="flex items-start gap-3 rounded-panel border border-line bg-line px-4 py-3"
-              >
+              <li key={eng.id} className="flex items-start gap-3 rounded-panel border border-line bg-line px-4 py-3">
                 <span className="mt-px flex h-5 w-5 flex-none items-center justify-center rounded-full bg-black/[0.06]">
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M3 8l4 4 6-7" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M3 8l4 4 6-7"
+                      stroke="var(--accent)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </span>
                 <span className="min-w-0 flex-1 text-profile-item font-medium text-ink">

@@ -12,8 +12,7 @@ export function ArticlesHero() {
           Insights from the people who actually <span className="text-accent">practice.</span>
         </h1>
         <p className="mt-3 max-w-xl text-lede text-white/65">
-          Peer-reviewed analysis and expert commentary from verified finance &amp; legal
-          professionals.
+          Peer-reviewed analysis and expert commentary from verified finance &amp; legal professionals.
         </p>
         <ArticlesHeroSearch />
       </PageContainer>

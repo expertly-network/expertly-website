@@ -93,19 +93,31 @@ function Toolbar({ editor }: { editor: Editor }) {
         <span className="text-[12px] font-bold">H3</span>
       </ToolbarButton>
       <span className="mx-1 h-5 w-px flex-none bg-line" />
-      <ToolbarButton label="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
+      <ToolbarButton
+        label="Bold"
+        active={editor.isActive('bold')}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
         <svg {...ICON_PROPS}>
           <path d="M6 4h8a4 4 0 010 8H6zM6 12h9a4 4 0 010 8H6z" />
         </svg>
       </ToolbarButton>
-      <ToolbarButton label="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
+      <ToolbarButton
+        label="Italic"
+        active={editor.isActive('italic')}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      >
         <svg {...ICON_PROPS}>
           <line x1="19" y1="4" x2="10" y2="4" />
           <line x1="14" y1="20" x2="5" y2="20" />
           <line x1="15" y1="4" x2="9" y2="20" />
         </svg>
       </ToolbarButton>
-      <ToolbarButton label="Underline" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+      <ToolbarButton
+        label="Underline"
+        active={editor.isActive('underline')}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
         <svg {...ICON_PROPS}>
           <path d="M6 3v7a6 6 0 0012 0V3" />
           <line x1="4" y1="21" x2="20" y2="21" />
@@ -137,9 +149,15 @@ function Toolbar({ editor }: { editor: Editor }) {
           <line x1="10" y1="6" x2="20" y2="6" />
           <line x1="10" y1="12" x2="20" y2="12" />
           <line x1="10" y1="18" x2="20" y2="18" />
-          <text x="2" y="8" fontSize="7" fill="currentColor" stroke="none">1</text>
-          <text x="2" y="14" fontSize="7" fill="currentColor" stroke="none">2</text>
-          <text x="2" y="20" fontSize="7" fill="currentColor" stroke="none">3</text>
+          <text x="2" y="8" fontSize="7" fill="currentColor" stroke="none">
+            1
+          </text>
+          <text x="2" y="14" fontSize="7" fill="currentColor" stroke="none">
+            2
+          </text>
+          <text x="2" y="20" fontSize="7" fill="currentColor" stroke="none">
+            3
+          </text>
         </svg>
       </ToolbarButton>
       <ToolbarButton
@@ -154,7 +172,11 @@ function Toolbar({ editor }: { editor: Editor }) {
 
       <span className="mx-1 h-5 w-px flex-none bg-line" />
 
-      <ToolbarButton label="Inline code" active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
+      <ToolbarButton
+        label="Inline code"
+        active={editor.isActive('code')}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+      >
         <svg {...ICON_PROPS}>
           <polyline points="16 18 22 12 16 6" />
           <polyline points="8 6 2 12 8 18" />

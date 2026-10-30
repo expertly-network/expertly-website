@@ -183,8 +183,8 @@ export function LinkedInImportStep({
       <div>
         <h2 className="text-heading text-ink">Connect your LinkedIn.</h2>
         <p className="mt-2 text-lede text-ink-3">
-          Membership applicants must connect a real LinkedIn account — this confirms the profile
-          you&apos;re applying with is genuinely yours and lets us pull your photo automatically.
+          Membership applicants must connect a real LinkedIn account — this confirms the profile you&apos;re applying
+          with is genuinely yours and lets us pull your photo automatically.
         </p>
 
         <div className="mt-7 flex flex-col gap-4 rounded-2xl border border-line bg-bg-alt p-6">
@@ -201,9 +201,9 @@ export function LinkedInImportStep({
     <div>
       <h2 className="text-heading text-ink">Connect your LinkedIn.</h2>
       <p className="mt-2 text-lede text-ink-3">
-        Your LinkedIn account is connected. We&apos;ll pre-fill what we can from your public
-        profile — you&apos;ll review and can edit everything before submitting. Skip this if
-        you&apos;d rather add it manually in the next step.
+        Your LinkedIn account is connected. We&apos;ll pre-fill what we can from your public profile — you&apos;ll
+        review and can edit everything before submitting. Skip this if you&apos;d rather add it manually in the next
+        step.
       </p>
 
       {busy ? (
@@ -230,8 +230,8 @@ export function LinkedInImportStep({
                 onChange={(e) => update({ linkedinImportConsent: e.target.checked })}
               />
               <span className="text-ink-2">
-                I consent to GrowXQ extracting my bio, work history, and education from this
-                LinkedIn profile and displaying it on my member listing.{' '}
+                I consent to GrowXQ extracting my bio, work history, and education from this LinkedIn profile and
+                displaying it on my member listing.{' '}
                 <a
                   href={LINKEDIN_DATA_USE_URL}
                   target="_blank"
@@ -254,11 +254,7 @@ export function LinkedInImportStep({
           <StepActions
             backHidden
             leftSlot={
-              <button
-                type="button"
-                onClick={() => onNext()}
-                className="text-sm font-medium text-ink-3 hover:text-ink"
-              >
+              <button type="button" onClick={() => onNext()} className="text-sm font-medium text-ink-3 hover:text-ink">
                 Skip — I&apos;ll fill this in manually →
               </button>
             }

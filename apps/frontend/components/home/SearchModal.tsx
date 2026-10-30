@@ -48,7 +48,11 @@ const MATCH_LABEL: Record<'strong' | 'good' | 'possible', string> = {
 function MatchBadge({ match }: { match?: SearchMatchDto }) {
   if (!match) return null;
   const tone =
-    match.label === 'strong' ? 'border-ink text-ink' : match.label === 'good' ? 'border-line-2 text-ink-2' : 'border-line text-ink-3';
+    match.label === 'strong'
+      ? 'border-ink text-ink'
+      : match.label === 'good'
+        ? 'border-line-2 text-ink-2'
+        : 'border-line text-ink-3';
   return (
     <span className={`ml-2 flex-none whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] ${tone}`}>
       {MATCH_LABEL[match.label]}
@@ -165,7 +169,8 @@ export function SearchModal({
   }, [waitSeconds]);
 
   const trimmed = query.trim();
-  const canSubmit = signedIn === true && status !== 'loading' && waitSeconds === 0 && trimmed.length >= MIN_QUERY_LENGTH;
+  const canSubmit =
+    signedIn === true && status !== 'loading' && waitSeconds === 0 && trimmed.length >= MIN_QUERY_LENGTH;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -230,59 +235,68 @@ export function SearchModal({
     const es = list.filter((r): r is EventSearchResult => r.type === 'event');
     return (
       <>
-      {ms.length > 0 && (
-        <div className="mb-2">
-          <SectionLabel>MEMBERS</SectionLabel>
-          {ms.map((m) => (
-            <Link key={m.id} href={`/members/${m.slug}`} className={ROW} {...NEW_TAB}>
-              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-neon text-xs font-semibold text-ink-2">
-                {initialsOf(m.name)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center"><span className="block min-w-0 truncate font-medium">{m.name}</span><MatchBadge match={m.match} /></span>
-                {(m.headline || m.location) && (
-                  <span className="block truncate text-xs text-ink-3">
-                    {[m.headline, m.location].filter(Boolean).join(' · ')}
-                  </span>
-                )}
-                <Reason text={m.reason} />
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {arts.length > 0 && (
-        <div className="mb-2">
-          <SectionLabel>ARTICLES</SectionLabel>
-          {arts.map((a) => (
-            <Link key={a.id} href={`/articles/${a.slug}`} className={ROW} {...NEW_TAB}>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center"><span className="block min-w-0 truncate font-medium">{a.title}</span><MatchBadge match={a.match} /></span>
-                {a.excerpt && <span className="block truncate text-xs text-ink-3">{a.excerpt}</span>}
-                <Reason text={a.reason} />
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {es.length > 0 && (
-        <div className="mb-2">
-          <SectionLabel>EVENTS</SectionLabel>
-          {es.map((ev) => (
-            <Link key={ev.id} href="/events" className={ROW} {...NEW_TAB}>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center"><span className="block min-w-0 truncate font-medium">{ev.title}</span><MatchBadge match={ev.match} /></span>
-                <span className="block truncate text-xs text-ink-3">
-                  {[formatEventDate(ev.startsAt), ev.location].filter(Boolean).join(' · ')}
+        {ms.length > 0 && (
+          <div className="mb-2">
+            <SectionLabel>MEMBERS</SectionLabel>
+            {ms.map((m) => (
+              <Link key={m.id} href={`/members/${m.slug}`} className={ROW} {...NEW_TAB}>
+                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-neon text-xs font-semibold text-ink-2">
+                  {initialsOf(m.name)}
                 </span>
-                <Reason text={ev.reason} />
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center">
+                    <span className="block min-w-0 truncate font-medium">{m.name}</span>
+                    <MatchBadge match={m.match} />
+                  </span>
+                  {(m.headline || m.location) && (
+                    <span className="block truncate text-xs text-ink-3">
+                      {[m.headline, m.location].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                  <Reason text={m.reason} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {arts.length > 0 && (
+          <div className="mb-2">
+            <SectionLabel>ARTICLES</SectionLabel>
+            {arts.map((a) => (
+              <Link key={a.id} href={`/articles/${a.slug}`} className={ROW} {...NEW_TAB}>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center">
+                    <span className="block min-w-0 truncate font-medium">{a.title}</span>
+                    <MatchBadge match={a.match} />
+                  </span>
+                  {a.excerpt && <span className="block truncate text-xs text-ink-3">{a.excerpt}</span>}
+                  <Reason text={a.reason} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {es.length > 0 && (
+          <div className="mb-2">
+            <SectionLabel>EVENTS</SectionLabel>
+            {es.map((ev) => (
+              <Link key={ev.id} href="/events" className={ROW} {...NEW_TAB}>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center">
+                    <span className="block min-w-0 truncate font-medium">{ev.title}</span>
+                    <MatchBadge match={ev.match} />
+                  </span>
+                  <span className="block truncate text-xs text-ink-3">
+                    {[formatEventDate(ev.startsAt), ev.location].filter(Boolean).join(' · ')}
+                  </span>
+                  <Reason text={ev.reason} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </>
     );
   };
@@ -299,7 +313,10 @@ export function SearchModal({
         className="flex max-h-[80vh] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl bg-bg-card shadow-[0_30px_80px_-20px_rgba(0,0,0,0.5)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <form onSubmit={submit} className="flex flex-shrink-0 items-center gap-2.5 border-b border-line px-4 py-3 sm:px-[18px] sm:py-4">
+        <form
+          onSubmit={submit}
+          className="flex flex-shrink-0 items-center gap-2.5 border-b border-line px-4 py-3 sm:px-[18px] sm:py-4"
+        >
           <span aria-hidden="true" className="flex-none text-ink-3">
             ⌕
           </span>
@@ -364,7 +381,10 @@ export function SearchModal({
           )}
 
           {status === 'error' && (
-            <div role="alert" className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-5 text-center text-sm text-ink-2">
+            <div
+              role="alert"
+              className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-5 text-center text-sm text-ink-2"
+            >
               <p>{errorMessage}</p>
               {waitSeconds > 0 && <p className="font-mono text-xs text-ink-3">Try again in {waitSeconds}s</p>}
             </div>
@@ -374,9 +394,7 @@ export function SearchModal({
             <>
               <div className="px-2.5 pb-2 pt-2 text-sm leading-relaxed text-ink-2">{response.answer}</div>
               {response.degraded.length > 0 && (
-                <div className="px-2.5 pb-2 text-xs text-ink-3">
-                  Results may be less precise than usual right now.
-                </div>
+                <div className="px-2.5 pb-2 text-xs text-ink-3">Results may be less precise than usual right now.</div>
               )}
               {response.results.length === 0 && (
                 <div className="px-2.5 pb-4 pt-2 text-sm text-ink-3">

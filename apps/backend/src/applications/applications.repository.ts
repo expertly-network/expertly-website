@@ -245,10 +245,11 @@ export class ApplicationsRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load application.');
-    if (!data) throw new NotFoundException({
-      code: 'APPLICATION_NOT_FOUND',
-      message: 'Application not found.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'APPLICATION_NOT_FOUND',
+        message: 'Application not found.',
+      });
     return data as unknown as ApplicationRow;
   }
 
@@ -289,7 +290,9 @@ export class ApplicationsRepository {
     if (error) throw new InternalServerErrorException('Failed to provision member profile.');
   }
 
-  async insertMemberServices(rows: { member_id: string; service_id: string; custom_label: string | null }[]): Promise<void> {
+  async insertMemberServices(
+    rows: { member_id: string; service_id: string; custom_label: string | null }[]
+  ): Promise<void> {
     const { error } = await this.memberServices().insert(rows);
     if (error) throw new InternalServerErrorException('Failed to provision member services.');
   }
@@ -330,7 +333,9 @@ export class ApplicationsRepository {
     const categoryIds = [...new Set((services ?? []).map((s) => s.category_id as string))];
     const categoryNameById = new Map<string, string>();
     if (categoryIds.length > 0) {
-      const { data: categories, error: categoriesError } = await this.categories().select('id, name').in('id', categoryIds);
+      const { data: categories, error: categoriesError } = await this.categories()
+        .select('id, name')
+        .in('id', categoryIds);
       if (categoriesError) throw new InternalServerErrorException('Failed to resolve categories.');
       for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
     }
@@ -395,7 +400,9 @@ export class ApplicationsRepository {
       byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), path]);
     }
     for (const [bucket, bucketPaths] of byBucket) {
-      const { data, error } = await this.supabase.db.storage.from(bucket).createSignedUrls(bucketPaths, expiresInSeconds);
+      const { data, error } = await this.supabase.db.storage
+        .from(bucket)
+        .createSignedUrls(bucketPaths, expiresInSeconds);
       if (error) throw new InternalServerErrorException('Failed to sign document URLs.');
       for (const entry of data ?? []) {
         if (entry.path && entry.signedUrl && !entry.error) urls[entry.path] = entry.signedUrl;

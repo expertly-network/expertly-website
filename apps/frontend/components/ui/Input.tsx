@@ -19,7 +19,12 @@ export function Input({ label, labelRight, id, error, markRequired, className, .
         <label htmlFor={fieldId} className="flex items-center justify-between text-xs font-medium text-ink-2">
           <span>
             {label}
-            {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+            {markRequired && (
+              <span aria-hidden="true" className="text-error">
+                {' '}
+                *
+              </span>
+            )}
           </span>
           {labelRight}
         </label>

@@ -28,9 +28,7 @@ export class RolesGuard implements CanActivate {
       });
     }
 
-    const hasSufficientRole = requiredRoles.some(
-      (required) => ROLE_RANK[user.role] >= ROLE_RANK[required]
-    );
+    const hasSufficientRole = requiredRoles.some((required) => ROLE_RANK[user.role] >= ROLE_RANK[required]);
     if (!hasSufficientRole) {
       throw new ForbiddenException({
         code: 'ROLE_REQUIRED',

@@ -45,17 +45,33 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
 
   const actions = (
     <>
-      <button
-        type="button"
-        onClick={share}
-        className={`${ACTION_BTN} ${copied ? 'border-accent text-accent' : ''}`}
-      >
+      <button type="button" onClick={share} className={`${ACTION_BTN} ${copied ? 'border-accent text-accent' : ''}`}>
         {copied ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="18" cy="5" r="3" />
             <circle cx="6" cy="12" r="3" />
             <circle cx="18" cy="19" r="3" />
@@ -78,7 +94,17 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
             <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
@@ -103,7 +129,16 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
         href="/members"
         className="mb-5 inline-flex items-center gap-1.5 text-profile-item text-ink-3 transition-colors hover:text-ink"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M15 18l-6-6 6-6" />
         </svg>
         Back to Members
@@ -119,7 +154,10 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-5 right-[10%] h-[180px] w-[180px] rounded-full"
-            style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--accent) 7%, transparent) 0%, transparent 70%)' }}
+            style={{
+              background:
+                'radial-gradient(circle, color-mix(in oklab, var(--accent) 7%, transparent) 0%, transparent 70%)',
+            }}
           />
         </div>
 
@@ -155,9 +193,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
             </span>
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-[3px] font-mono text-[11px] font-semibold ${
-                isSeasoned
-                  ? 'border-amber-200 bg-amber-100 text-amber-600'
-                  : 'border-line bg-line text-ink-3'
+                isSeasoned ? 'border-amber-200 bg-amber-100 text-amber-600' : 'border-line bg-line text-ink-3'
               }`}
             >
               {isSeasoned ? 'Seasoned Professional' : 'Member'}
@@ -170,7 +206,11 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
             {location && (
               <span className="inline-flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-none text-accent">
-                  <path d="M12 2C8.7 2 6 4.7 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.3-2.7-6-6-6z" stroke="currentColor" strokeWidth="1.6" />
+                  <path
+                    d="M12 2C8.7 2 6 4.7 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.3-2.7-6-6-6z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
                   <circle cx="12" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" />
                 </svg>
                 {location}
@@ -187,7 +227,11 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
               <span className="inline-flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-none text-accent">
                   <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M8 4H6a2 2 0 00-2 2v13a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M8 4H6a2 2 0 00-2 2v13a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
                 </svg>
                 {primaryPractice}
               </span>

@@ -88,11 +88,33 @@ function ProofLinks({ attachments, fileUrls }: { attachments: ProofAttachment[];
                 className="inline-flex max-w-[260px] items-center gap-1.5 rounded-input border border-line bg-bg-card px-2.5 py-1 text-xs font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
               >
                 {a.type === 'file' ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="flex-none">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="flex-none"
+                  >
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                   </svg>
                 ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="flex-none">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="flex-none"
+                  >
                     <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
                     <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
                   </svg>
@@ -130,13 +152,17 @@ function FieldDiff({ fields }: { fields: FieldChange[] }) {
             {f.label}
             {f.changed && <Badge variant="info">Changed</Badge>}
           </span>
-          <span className={`whitespace-pre-wrap break-words ${f.changed ? 'text-error line-through decoration-error' : 'text-ink-2'}`}>
+          <span
+            className={`whitespace-pre-wrap break-words ${f.changed ? 'text-error line-through decoration-error' : 'text-ink-2'}`}
+          >
             <span className="mr-1.5 text-xs text-ink-4 no-underline min-[641px]:hidden">Current:</span>
             {f.before || '—'}
           </span>
           <span
             className={`whitespace-pre-wrap break-words rounded-md ${
-              f.changed ? 'bg-[color-mix(in_oklab,var(--error)_8%,transparent)] px-2 py-1 font-medium text-error' : 'text-ink-2'
+              f.changed
+                ? 'bg-[color-mix(in_oklab,var(--error)_8%,transparent)] px-2 py-1 font-medium text-error'
+                : 'text-ink-2'
             }`}
           >
             <span className="mr-1.5 text-xs font-normal text-ink-4 min-[641px]:hidden">Proposed:</span>
@@ -153,7 +179,13 @@ function Logo({ view, fileUrls }: { view: ItemView; fileUrls: Record<string, str
   if (!src) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img loading="lazy" decoding="async" src={src} alt="" className="h-10 w-10 flex-none rounded-lg border border-line object-cover" />
+    <img
+      loading="lazy"
+      decoding="async"
+      src={src}
+      alt=""
+      className="h-10 w-10 flex-none rounded-lg border border-line object-cover"
+    />
   );
 }
 
@@ -162,7 +194,9 @@ function ItemBody({ view, before, struck }: { view: ItemView; before?: ItemView 
     return (
       <div className="min-w-0">
         <div className="text-sm font-semibold text-error line-through decoration-error">{view.title || 'Untitled'}</div>
-        {view.meta && <div className="mt-0.5 break-words text-xs text-error line-through decoration-error">{view.meta}</div>}
+        {view.meta && (
+          <div className="mt-0.5 break-words text-xs text-error line-through decoration-error">{view.meta}</div>
+        )}
       </div>
     );
   }
@@ -229,16 +263,24 @@ function DecisionControl({
           );
         })}
       </div>
-      {!hasProof && <p className="mt-1.5 text-xs text-ink-3">No proof attached, so the Verified badge is unavailable.</p>}
+      {!hasProof && (
+        <p className="mt-1.5 text-xs text-ink-3">No proof attached, so the Verified badge is unavailable.</p>
+      )}
       {needsReason && (
         <div className="mt-2.5">
           <Textarea
-            label={state.decision === 'rejected' ? 'Rejection note (shown to the member)' : 'Why no badge? (shown to the member)'}
+            label={
+              state.decision === 'rejected'
+                ? 'Rejection note (shown to the member)'
+                : 'Why no badge? (shown to the member)'
+            }
             rows={2}
             value={state.reason}
             disabled={disabled}
             onChange={(e) => onChange({ ...state, reason: e.target.value })}
-            placeholder={state.decision === 'rejected' ? 'e.g. The certificate does not match the award title.' : NO_PROOF_REASON}
+            placeholder={
+              state.decision === 'rejected' ? 'e.g. The certificate does not match the award title.' : NO_PROOF_REASON
+            }
           />
         </div>
       )}
@@ -270,7 +312,9 @@ function ItemsDiff({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {visible.length === 0 && <p className="text-sm text-ink-3">No entries changed — this resubmits the section as-is.</p>}
+      {visible.length === 0 && (
+        <p className="text-sm text-ink-3">No entries changed — this resubmits the section as-is.</p>
+      )}
       {visible.map((change, i) => {
         const badge = KIND_BADGE[change.kind];
         const hasProof = perItemProof ? change.proofAttachments.length > 0 : hasBatchProof;
@@ -279,7 +323,9 @@ function ItemsDiff({
           <div
             key={i}
             className={`rounded-xl border bg-bg-card px-4 py-3 ${
-              change.kind === 'changed' || change.kind === 'added' ? 'border-[color-mix(in_oklab,var(--error)_40%,transparent)]' : 'border-line'
+              change.kind === 'changed' || change.kind === 'added'
+                ? 'border-[color-mix(in_oklab,var(--error)_40%,transparent)]'
+                : 'border-line'
             } ${change.kind === 'unchanged' ? 'opacity-80' : ''}`}
           >
             <div className="flex items-start gap-3">
@@ -291,7 +337,9 @@ function ItemsDiff({
                 </div>
                 <ItemBody view={change.item} before={change.before} struck={change.kind === 'removed'} />
                 {change.kind === 'removed' && (
-                  <p className="mt-1.5 text-xs text-ink-3">Dropped by the member — removed from the live profile when you submit.</p>
+                  <p className="mt-1.5 text-xs text-ink-3">
+                    Dropped by the member — removed from the live profile when you submit.
+                  </p>
                 )}
                 {change.kind !== 'removed' && perItemProof && (
                   <div className="mt-2.5">
@@ -452,7 +500,9 @@ function PendingEditCard({
       await reviewMemberEdit(edit.id, status === 'verified' ? { status } : { status, reviewNote: reason.trim() });
       onDecided();
     } catch (err) {
-      setError(errorMessage(err, status === 'verified' ? 'Failed to approve this change.' : 'Failed to reject this change.'));
+      setError(
+        errorMessage(err, status === 'verified' ? 'Failed to approve this change.' : 'Failed to reject this change.')
+      );
       setBusy(null);
     }
   }
@@ -506,7 +556,8 @@ function PendingEditCard({
               onChange={(e) => setOverallNote(e.target.value)}
             />
             <p className="text-xs text-ink-3">
-              {counts.approved_verified} verified · {counts.approved_hygiene} live without badge · {counts.rejected} rejected
+              {counts.approved_verified} verified · {counts.approved_hygiene} live without badge · {counts.rejected}{' '}
+              rejected
               {undecided > 0 && ` · ${undecided} undecided`}
             </p>
             <div className="flex flex-wrap gap-2 max-[480px]:flex-col">
@@ -533,7 +584,14 @@ function PendingEditCard({
               <Button variant="secondary" onClick={() => decide('rejected')} disabled={busy !== null}>
                 {busy === 'reject' ? 'Rejecting…' : 'Confirm reject'}
               </Button>
-              <Button variant="ghost" onClick={() => { setRejecting(false); setError(null); }} disabled={busy !== null}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setRejecting(false);
+                  setError(null);
+                }}
+                disabled={busy !== null}
+              >
                 Cancel
               </Button>
             </div>
@@ -564,7 +622,8 @@ function ItemOutcomes({ edit }: { edit: MemberProfileEditDto }) {
   const reviews = edit.itemReviews;
   if (!reviews || reviews.length === 0) return null;
   const payload = Array.isArray(edit.payload) ? (edit.payload as Record<string, unknown>[]) : [];
-  const label = (decision: MemberEditItemDecision) => DECISION_OPTIONS.find((o) => o.value === decision)?.short ?? decision;
+  const label = (decision: MemberEditItemDecision) =>
+    DECISION_OPTIONS.find((o) => o.value === decision)?.short ?? decision;
   return (
     <ul className="mt-2 flex flex-col gap-1.5">
       {[...reviews]
@@ -680,7 +739,13 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
           <div className="flex items-center gap-3">
             {member.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img loading="lazy" decoding="async" src={member.photoUrl} alt="" className="h-14 w-14 flex-none rounded-xl object-cover" />
+              <img
+                loading="lazy"
+                decoding="async"
+                src={member.photoUrl}
+                alt=""
+                className="h-14 w-14 flex-none rounded-xl object-cover"
+              />
             ) : (
               <span className="flex h-14 w-14 flex-none items-center justify-center rounded-xl bg-bg-alt text-lg font-semibold text-ink-2">
                 {member.initials}
@@ -695,7 +760,15 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
             {member.isVerified && <Badge variant="brand">Verified member</Badge>}
             {member.status === 'deactivated' && <Badge variant="danger">Deactivated</Badge>}
           </div>
-          <Button href={`/members/${member.slug}`} variant="secondary" size="sm" fullWidth className="mt-4" target="_blank" rel="noopener noreferrer">
+          <Button
+            href={`/members/${member.slug}`}
+            variant="secondary"
+            size="sm"
+            fullWidth
+            className="mt-4"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             View live profile ↗
           </Button>
         </Card>
@@ -705,16 +778,16 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
             <div className="text-mono-label text-ink-3">Pending changes</div>
             <div className="mt-1 text-stat text-ink">{pending.length}</div>
             <p className="mt-1 text-caption text-ink-3">
-              List sections are decided entry by entry (verified, live without badge, or rejected, with a
-              reason the member sees). Headline, bio and contact are approved or rejected whole.
+              List sections are decided entry by entry (verified, live without badge, or rejected, with a reason the
+              member sees). Headline, bio and contact are approved or rejected whole.
             </p>
             {pending.length > 1 && (
               <div className="mt-4">
                 {confirmAll ? (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-ink-2">
-                      Publish all {pending.length} sections to {member.name}&apos;s live profile? List entries go
-                      live with the Verified badge only where proof is attached; the rest go live without it.
+                      Publish all {pending.length} sections to {member.name}&apos;s live profile? List entries go live
+                      with the Verified badge only where proof is attached; the rest go live without it.
                     </p>
                     <Button onClick={approveAll} disabled={approvingAll} fullWidth>
                       {approvingAll ? 'Approving…' : `Yes, approve all ${pending.length}`}

@@ -36,7 +36,8 @@ export function LocationFields({
 
   const isOther = form.country === OTHER;
   // Dataset unavailable (still loading or chunk failed) -> free text, so the form is never blocked.
-  const freeText = isOther || failed || (!loading && form.country !== '' && countries.every((c) => c.name !== form.country));
+  const freeText =
+    isOther || failed || (!loading && form.country !== '' && countries.every((c) => c.name !== form.country));
   const hasStates = !freeText && states.length > 0;
   const stateKnown = states.some((s) => s.name === form.state);
   const cityKnown = cities.includes(form.city);

@@ -7,10 +7,7 @@ export type EmailAuthResult =
   | { status: 'error'; message: string };
 
 // No fallback to sign-up on failure.
-export async function signInWithEmail(params: {
-  email: string;
-  password: string;
-}): Promise<EmailAuthResult> {
+export async function signInWithEmail(params: { email: string; password: string }): Promise<EmailAuthResult> {
   const supabase = createClient();
 
   try {

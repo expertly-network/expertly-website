@@ -43,15 +43,10 @@ export class AdminResourcesController {
   @Post('perks') createPerk(@Body() dto: CreatePerkDto) {
     return this.service.createPerk(dto);
   }
-  @Patch('perks/:id') updatePerk(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdatePerkDto,
-  ) {
+  @Patch('perks/:id') updatePerk(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdatePerkDto) {
     return this.service.updatePerk(id, dto);
   }
-  @Delete('perks/:id') @HttpCode(204) deletePerk(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  @Delete('perks/:id') @HttpCode(204) deletePerk(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.service.deletePerk(id);
   }
   @Get('learnings')
@@ -67,15 +62,10 @@ export class AdminResourcesController {
   @Post('learnings') createLearning(@Body() dto: CreateLearningDto) {
     return this.service.createLearning(dto);
   }
-  @Patch('learnings/:id') updateLearning(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateLearningDto,
-  ) {
+  @Patch('learnings/:id') updateLearning(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateLearningDto) {
     return this.service.updateLearning(id, dto);
   }
-  @Delete('learnings/:id') @HttpCode(204) deleteLearning(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  @Delete('learnings/:id') @HttpCode(204) deleteLearning(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.service.deleteLearning(id);
   }
   @Get('collections')
@@ -93,13 +83,11 @@ export class AdminResourcesController {
   }
   @Patch('collections/:id') updateCollection(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateCollectionDto,
+    @Body() dto: UpdateCollectionDto
   ) {
     return this.service.updateCollection(id, dto);
   }
-  @Delete('collections/:id') @HttpCode(204) deleteCollection(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  @Delete('collections/:id') @HttpCode(204) deleteCollection(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.service.deleteCollection(id);
   }
   @Get('templates')
@@ -129,15 +117,10 @@ export class AdminResourcesController {
   @Post('templates') createTemplate(@Body() dto: CreateTemplateDto) {
     return this.service.createTemplate(dto);
   }
-  @Patch('templates/:id') updateTemplate(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateTemplateDto,
-  ) {
+  @Patch('templates/:id') updateTemplate(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateTemplateDto) {
     return this.service.updateTemplate(id, dto);
   }
-  @Delete('templates/:id') @HttpCode(204) deleteTemplate(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  @Delete('templates/:id') @HttpCode(204) deleteTemplate(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.service.deleteTemplate(id);
   }
 }

@@ -45,12 +45,8 @@ const MEMBERS_ICON = (
     <path d="M21 21l-4.35-4.35" />
   </>
 );
-const ADMIN_ICON = (
-  <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />
-);
-const CONSULTATIONS_ICON = (
-  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
-);
+const ADMIN_ICON = <path d="M12 2L3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6l-9-4zM9 12l2 2 4-4" />;
+const CONSULTATIONS_ICON = <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />;
 const DASHBOARD_ICON = (
   <>
     <rect x="3" y="3" width="7" height="7" />
@@ -86,13 +82,7 @@ const PERKS_ICON = (
 // "Member Benefits" instead, alongside Dashboard and Consultations (a member both sends and
 // receives requests). Learnings/Perks/Templates are clickable and carry a "Beta" pill while
 // their offers and libraries are pre-launch.
-export function SidebarNav({
-  user,
-  variant = 'full',
-}: {
-  user: Profile | null;
-  variant?: SidebarVariant;
-}) {
+export function SidebarNav({ user, variant = 'full' }: { user: Profile | null; variant?: SidebarVariant }) {
   const iconProps = {
     width: 18,
     height: 18,
@@ -204,25 +194,14 @@ const SIGN_IN_SVG = (
   </svg>
 );
 
-export function SidebarFooter({
-  user,
-  variant = 'full',
-}: {
-  user: Profile | null;
-  variant?: SidebarVariant;
-}) {
+export function SidebarFooter({ user, variant = 'full' }: { user: Profile | null; variant?: SidebarVariant }) {
   if (!user) {
     const buttons = (
       <div className="flex flex-col gap-2">
         <Button href="/apply" size="sm" fullWidth>
           Apply Now
         </Button>
-        <SignInButton
-          variant="ghost"
-          size="sm"
-          fullWidth
-          className="text-white/80 hover:bg-white/10 hover:text-white"
-        >
+        <SignInButton variant="ghost" size="sm" fullWidth className="text-white/80 hover:bg-white/10 hover:text-white">
           Sign In
         </SignInButton>
       </div>
@@ -285,9 +264,7 @@ export function SidebarFooter({
 // Collapsed icon rail that expands to a floating overlay on hover.
 export function Sidebar({ user }: { user: Profile | null }) {
   return (
-    <aside
-      className="group fixed inset-y-0 left-0 z-30 flex w-14 flex-col overflow-x-hidden overflow-y-auto bg-ink transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-64 hover:shadow-[6px_0_32px_rgba(0,0,0,0.28)] max-[1023px]:hidden"
-    >
+    <aside className="group fixed inset-y-0 left-0 z-30 flex w-14 flex-col overflow-x-hidden overflow-y-auto bg-ink transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-64 hover:shadow-[6px_0_32px_rgba(0,0,0,0.28)] max-[1023px]:hidden">
       <div className="flex items-center justify-center px-2 py-5 group-hover:justify-start group-hover:px-4">
         <Logo variant="sidebar" collapsible />
       </div>

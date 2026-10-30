@@ -1,10 +1,5 @@
 import { generateUniqueSlug } from '../common/slugify';
-import {
-  Injectable,
-  InternalServerErrorException,
-  ConflictException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ConflictException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 export type PerkRow = Database['public']['Tables']['perks']['Row'];
@@ -113,43 +108,23 @@ export class ResourcesRepository {
     return generateUniqueSlug(this.supabase.db, 'templates', title, 'template');
   }
   async collectionSlug(title: string) {
-    return generateUniqueSlug(
-      this.supabase.db,
-      'collections',
-      title,
-      'collection',
-    );
+    return generateUniqueSlug(this.supabase.db, 'collections', title, 'collection');
   }
   private perks() {
     return this.supabase.db.from('perks');
   }
   async listPerks(): Promise<PerkRow[]> {
-    const { data, error } = await this.perks()
-      .select(PERK_COLUMNS)
-      .order('sort_order')
-      .order('id');
+    const { data, error } = await this.perks().select(PERK_COLUMNS).order('sort_order').order('id');
     check(error);
     return (data ?? []) as unknown as PerkRow[];
   }
-  async createPerk(
-    body: Database['public']['Tables']['perks']['Insert'],
-  ): Promise<PerkRow | null> {
-    const { data, error } = await this.perks()
-      .insert(body)
-      .select(PERK_COLUMNS)
-      .maybeSingle();
+  async createPerk(body: Database['public']['Tables']['perks']['Insert']): Promise<PerkRow | null> {
+    const { data, error } = await this.perks().insert(body).select(PERK_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as PerkRow | null;
   }
-  async updatePerk(
-    id: string,
-    body: Database['public']['Tables']['perks']['Update'],
-  ): Promise<PerkRow | null> {
-    const { data, error } = await this.perks()
-      .update(body)
-      .eq('id', id)
-      .select(PERK_COLUMNS)
-      .maybeSingle();
+  async updatePerk(id: string, body: Database['public']['Tables']['perks']['Update']): Promise<PerkRow | null> {
+    const { data, error } = await this.perks().update(body).eq('id', id).select(PERK_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as PerkRow | null;
   }
@@ -161,32 +136,20 @@ export class ResourcesRepository {
     return this.supabase.db.from('learnings');
   }
   async listLearnings(): Promise<LearningRow[]> {
-    const { data, error } = await this.learnings()
-      .select(LEARNING_COLUMNS)
-      .order('sort_order')
-      .order('id');
+    const { data, error } = await this.learnings().select(LEARNING_COLUMNS).order('sort_order').order('id');
     check(error);
     return (data ?? []) as unknown as LearningRow[];
   }
-  async createLearning(
-    body: Database['public']['Tables']['learnings']['Insert'],
-  ): Promise<LearningRow | null> {
-    const { data, error } = await this.learnings()
-      .insert(body)
-      .select(LEARNING_COLUMNS)
-      .maybeSingle();
+  async createLearning(body: Database['public']['Tables']['learnings']['Insert']): Promise<LearningRow | null> {
+    const { data, error } = await this.learnings().insert(body).select(LEARNING_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as LearningRow | null;
   }
   async updateLearning(
     id: string,
-    body: Database['public']['Tables']['learnings']['Update'],
+    body: Database['public']['Tables']['learnings']['Update']
   ): Promise<LearningRow | null> {
-    const { data, error } = await this.learnings()
-      .update(body)
-      .eq('id', id)
-      .select(LEARNING_COLUMNS)
-      .maybeSingle();
+    const { data, error } = await this.learnings().update(body).eq('id', id).select(LEARNING_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as LearningRow | null;
   }
@@ -198,32 +161,20 @@ export class ResourcesRepository {
     return this.supabase.db.from('collections');
   }
   async listCollections(): Promise<CollectionRow[]> {
-    const { data, error } = await this.collections()
-      .select(COLLECTION_COLUMNS)
-      .order('sort_order')
-      .order('id');
+    const { data, error } = await this.collections().select(COLLECTION_COLUMNS).order('sort_order').order('id');
     check(error);
     return (data ?? []) as unknown as CollectionRow[];
   }
-  async createCollection(
-    body: Database['public']['Tables']['collections']['Insert'],
-  ): Promise<CollectionRow | null> {
-    const { data, error } = await this.collections()
-      .insert(body)
-      .select(COLLECTION_COLUMNS)
-      .maybeSingle();
+  async createCollection(body: Database['public']['Tables']['collections']['Insert']): Promise<CollectionRow | null> {
+    const { data, error } = await this.collections().insert(body).select(COLLECTION_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as CollectionRow | null;
   }
   async updateCollection(
     id: string,
-    body: Database['public']['Tables']['collections']['Update'],
+    body: Database['public']['Tables']['collections']['Update']
   ): Promise<CollectionRow | null> {
-    const { data, error } = await this.collections()
-      .update(body)
-      .eq('id', id)
-      .select(COLLECTION_COLUMNS)
-      .maybeSingle();
+    const { data, error } = await this.collections().update(body).eq('id', id).select(COLLECTION_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as CollectionRow | null;
   }
@@ -255,17 +206,12 @@ export class ResourcesRepository {
     return (data ?? []) as unknown as TemplatePublicRow[];
   }
   async listTemplatesForAdmin(): Promise<TemplateRow[]> {
-    const { data, error } = await this.templates()
-      .select(TEMPLATE_ADMIN_COLUMNS)
-      .order('sort_order')
-      .order('id');
+    const { data, error } = await this.templates().select(TEMPLATE_ADMIN_COLUMNS).order('sort_order').order('id');
     check(error);
     return (data ?? []) as unknown as TemplateRow[];
   }
   // Only the fields needed to mint a download link, for one active template.
-  async findActiveTemplateFile(
-    id: string,
-  ): Promise<{ file_path: string; file_name: string } | null> {
+  async findActiveTemplateFile(id: string): Promise<{ file_path: string; file_name: string } | null> {
     const { data, error } = await this.templates()
       .select('file_path,file_name')
       .eq('id', id)
@@ -274,19 +220,14 @@ export class ResourcesRepository {
     check(error);
     return data as { file_path: string; file_name: string } | null;
   }
-  async createTemplate(
-    body: Database['public']['Tables']['templates']['Insert'],
-  ): Promise<TemplateRow | null> {
-    const { data, error } = await this.templates()
-      .insert(body)
-      .select(TEMPLATE_ADMIN_COLUMNS)
-      .maybeSingle();
+  async createTemplate(body: Database['public']['Tables']['templates']['Insert']): Promise<TemplateRow | null> {
+    const { data, error } = await this.templates().insert(body).select(TEMPLATE_ADMIN_COLUMNS).maybeSingle();
     check(error);
     return data as unknown as TemplateRow | null;
   }
   async updateTemplate(
     id: string,
-    body: Database['public']['Tables']['templates']['Update'],
+    body: Database['public']['Tables']['templates']['Update']
   ): Promise<TemplateRow | null> {
     const { data, error } = await this.templates()
       .update(body)
@@ -319,8 +260,7 @@ export class ResourcesRepository {
     const { data, error } = await this.supabase.db.storage
       .from(TEMPLATE_BUCKET)
       .createSignedUrl(path, expiresInSeconds, { download: fileName });
-    if (error || !data?.signedUrl)
-      throw new InternalServerErrorException('Failed to prepare the download.');
+    if (error || !data?.signedUrl) throw new InternalServerErrorException('Failed to prepare the download.');
     return data.signedUrl;
   }
   async removeTemplateFile(path: string): Promise<void> {

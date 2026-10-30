@@ -7,7 +7,12 @@ export type SectionItem = Record<string, unknown>;
 
 // Array-shaped sections whose items carry their own proofAttachments (as opposed to
 // education/work_experiences, which share one edit-level proof for the whole batch).
-export const PER_ITEM_PROOF_SECTIONS: readonly MemberEditSection[] = ['engagements', 'testimonials', 'awards', 'key_clients'];
+export const PER_ITEM_PROOF_SECTIONS: readonly MemberEditSection[] = [
+  'engagements',
+  'testimonials',
+  'awards',
+  'key_clients',
+];
 
 export const ARRAY_SECTIONS: readonly MemberEditSection[] = [
   'engagements',

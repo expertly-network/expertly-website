@@ -20,7 +20,8 @@ export function useUnsavedChangesGuard(dirty: boolean): { confirmLeave: () => bo
     function onClickCapture(e: MouseEvent) {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const anchor = (e.target as Element | null)?.closest?.('a[href]');
-      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === '_blank' || anchor.hasAttribute('download'))
+        return;
       const url = new URL(anchor.href, window.location.href);
       if (url.origin !== window.location.origin) return; // full navigation -> beforeunload handles it
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;

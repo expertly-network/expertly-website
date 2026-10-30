@@ -9,14 +9,33 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
 });
 
 const CLOCK_ICON = (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-ink-4">
+  <svg
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="flex-none text-ink-4"
+  >
     <circle cx="12" cy="12" r="10" />
     <path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z" />
   </svg>
 );
 
 const REFRESH_ICON = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M23 4v6h-6M1 20v-6h6" />
     <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
   </svg>
@@ -92,7 +111,17 @@ export function ArticleLivePreview({
     <div>
       <div className="mb-[18px] flex flex-wrap items-center justify-between gap-3 text-[12.5px] text-ink-3">
         <span className="flex items-center gap-2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-accent">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="flex-none text-accent"
+          >
             <circle cx="12" cy="12" r="10" />
             <path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z" />
           </svg>
@@ -111,13 +140,7 @@ export function ArticleLivePreview({
             disabled={coverImageLoading}
             className="absolute right-4 top-4 flex items-center gap-1.5 rounded-[9px] border border-white/[0.18] bg-black/35 px-3 py-1.5 text-[11.5px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {coverImageLoading ? (
-              'Finding images…'
-            ) : (
-              <>
-                {REFRESH_ICON} Change image
-              </>
-            )}
+            {coverImageLoading ? 'Finding images…' : <>{REFRESH_ICON} Change image</>}
           </button>
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-3 px-7 py-5">
             {serviceName && (
@@ -138,13 +161,9 @@ export function ArticleLivePreview({
               {CLOCK_ICON}
               {DATE_FORMAT.format(new Date())}
             </span>
-            <span className="flex items-center gap-1.5 text-caption text-ink-3">
-              {authorName}
-            </span>
+            <span className="flex items-center gap-1.5 text-caption text-ink-3">{authorName}</span>
             {countries.length > 0 && (
-              <span className="flex items-center gap-1.5 text-caption text-ink-3">
-                {countries.join(', ')}
-              </span>
+              <span className="flex items-center gap-1.5 text-caption text-ink-3">{countries.join(', ')}</span>
             )}
           </div>
 
@@ -167,7 +186,16 @@ export function ArticleLivePreview({
           </button>
           <WriteSubmitButton onClick={onConfirm} disabled={confirming}>
             {confirming ? 'Submitting…' : confirmLabel}
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </WriteSubmitButton>

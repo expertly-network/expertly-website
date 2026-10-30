@@ -22,8 +22,7 @@ function formatSize(bytes: number) {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-const isTemplate = (item: CollectionDto['items'][number]): item is TemplateDto =>
-  'fileType' in item;
+const isTemplate = (item: CollectionDto['items'][number]): item is TemplateDto => 'fileType' in item;
 
 // A template's first page as a sheet of paper. Falls back to a designed cover (file type on a
 // tinted page with ruled lines) when there's no preview image or it fails to load.
@@ -54,9 +53,7 @@ function Paper({
         />
       ) : (
         <div className="flex h-full w-full flex-col gap-2 p-5">
-          <span className="text-[10px] font-semibold uppercase text-accent">
-            .{template.fileType}
-          </span>
+          <span className="text-[10px] font-semibold uppercase text-accent">.{template.fileType}</span>
           <span className="line-clamp-2 text-sm font-semibold text-ink">{template.title}</span>
           {[90, 75, 82, 60, 70].map((w) => (
             <span key={w} className="h-1.5 rounded-full bg-line" style={{ width: `${w}%` }} />
@@ -108,7 +105,7 @@ export function TemplatesLibrary({
         (category === 'All templates' || t.category === category) &&
         `${t.title} ${t.description} ${t.highlights.join(' ')} ${FILE_LABEL[t.fileType]}`
           .toLowerCase()
-          .includes(q.toLowerCase()),
+          .includes(q.toLowerCase())
     )
     .sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || a.sortOrder - b.sortOrder);
   const visibleKits = kits.filter((k) => k.items.some(isTemplate));
@@ -134,7 +131,7 @@ export function TemplatesLibrary({
       setError(
         e instanceof ApiError && e.statusCode === 403
           ? 'Template downloads are for GrowXQ members.'
-          : 'The download couldn’t start. Please try again.',
+          : 'The download couldn’t start. Please try again.'
       );
     } finally {
       setDownloading(false);
@@ -169,8 +166,8 @@ export function TemplatesLibrary({
           />
         }
       >
-        Working papers, letters, workbooks and decks built for tax, legal and audit practitioners.
-        Start from a solid structure instead of a blank page.
+        Working papers, letters, workbooks and decks built for tax, legal and audit practitioners. Start from a solid
+        structure instead of a blank page.
       </ResourceHero>
 
       <PageContainer className="py-8 sm:py-10">
@@ -209,9 +206,7 @@ export function TemplatesLibrary({
                       <h3 className="mt-1 text-title group-hover:text-accent">
                         {k.title} <span aria-hidden="true">↗</span>
                       </h3>
-                      <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink-3">
-                        {k.description}
-                      </p>
+                      <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink-3">{k.description}</p>
                     </div>
                   </button>
                 );
@@ -221,11 +216,7 @@ export function TemplatesLibrary({
         )}
 
         <h2 className="mb-5 text-heading">Browse the library.</h2>
-        <div
-          role="group"
-          aria-label="Template categories"
-          className="mb-7 flex gap-2 overflow-x-auto pb-2"
-        >
+        <div role="group" aria-label="Template categories" className="mb-7 flex gap-2 overflow-x-auto pb-2">
           {categories.map((c) => (
             <button
               key={c}
@@ -294,9 +285,7 @@ export function TemplatesLibrary({
                   <p className="mt-2 line-clamp-2 text-sm text-ink-3">{t.description}</p>
                   <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs">
                     <span className="text-ink-3">{formatSize(t.fileSizeBytes)}</span>
-                    <span className="font-medium text-accent">
-                      {t.canDownload ? 'Download ↓' : 'Members only'}
-                    </span>
+                    <span className="font-medium text-accent">{t.canDownload ? 'Download ↓' : 'Members only'}</span>
                   </div>
                 </div>
               </button>
@@ -357,9 +346,7 @@ export function TemplatesLibrary({
                     {FILE_LABEL[selected.fileType]} · {formatSize(selected.fileSizeBytes)}
                   </span>
                 </div>
-                <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink-3">
-                  {selected.description}
-                </p>
+                <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink-3">{selected.description}</p>
                 {selected.highlights.length > 0 && (
                   <>
                     <h3 className="mt-6 text-sm font-semibold">What&apos;s inside</h3>
@@ -379,13 +366,10 @@ export function TemplatesLibrary({
                   {selected.canDownload ? (
                     <>
                       <Button onClick={() => download(selected)} disabled={downloading} fullWidth>
-                        {downloading
-                          ? 'Preparing…'
-                          : `Download ${FILE_LABEL[selected.fileType]} file ↓`}
+                        {downloading ? 'Preparing…' : `Download ${FILE_LABEL[selected.fileType]} file ↓`}
                       </Button>
                       <p className="mt-3 text-xs text-ink-3">
-                        A starter template to adapt to your engagement. It is a drafting aid, not
-                        professional advice.
+                        A starter template to adapt to your engagement. It is a drafting aid, not professional advice.
                       </p>
                     </>
                   ) : (

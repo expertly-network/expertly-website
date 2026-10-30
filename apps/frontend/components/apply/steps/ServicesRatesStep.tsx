@@ -30,9 +30,7 @@ export function ServicesRatesStep({
 
   const allServices = categories.flatMap((c) => c.services);
   const visibleServices =
-    categoryFilter === 'all'
-      ? allServices
-      : categories.find((c) => c.id === categoryFilter)?.services ?? [];
+    categoryFilter === 'all' ? allServices : (categories.find((c) => c.id === categoryFilter)?.services ?? []);
 
   const prefs = form.servicePreferences;
   const setPreference = (priority: 1 | 2 | 3, serviceId: string) => {
@@ -44,15 +42,12 @@ export function ServicesRatesStep({
     });
     if (priority === 1) setErrors((prev) => ({ ...prev, servicePreference1: '' }));
   };
-  const preferenceFor = (priority: 1 | 2 | 3) =>
-    prefs.find((p) => p.priority === priority)?.serviceId ?? '';
+  const preferenceFor = (priority: 1 | 2 | 3) => prefs.find((p) => p.priority === priority)?.serviceId ?? '';
   // The same service (most often "Other") picked in more than one slot collides on
   // member_services' (member_id, service_id) primary key at approval time — excluding ids
   // already chosen elsewhere prevents that at the source instead of erroring later.
   const optionsFor = (priority: 1 | 2 | 3) => {
-    const takenElsewhere = new Set(
-      prefs.filter((p) => p.priority !== priority && p.serviceId).map((p) => p.serviceId)
-    );
+    const takenElsewhere = new Set(prefs.filter((p) => p.priority !== priority && p.serviceId).map((p) => p.serviceId));
     return visibleServices.filter((s) => !takenElsewhere.has(s.id));
   };
   const setCustomLabel = (priority: 1 | 2 | 3, customLabel: string) => {
@@ -60,8 +55,7 @@ export function ServicesRatesStep({
       servicePreferences: prefs.map((p) => (p.priority === priority ? { ...p, customLabel } : p)),
     });
   };
-  const customLabelFor = (priority: 1 | 2 | 3) =>
-    prefs.find((p) => p.priority === priority)?.customLabel ?? '';
+  const customLabelFor = (priority: 1 | 2 | 3) => prefs.find((p) => p.priority === priority)?.customLabel ?? '';
   const isCustomService = (serviceId: string) => allServices.find((s) => s.id === serviceId)?.isCustom ?? false;
 
   const minDollars = Number(form.rateMinDollars);
@@ -93,23 +87,17 @@ export function ServicesRatesStep({
   return (
     <div>
       <h2 className="text-heading text-ink">Your services.</h2>
-      <p className="mt-2 text-lede text-ink-3">
-        Select your service preferences and set your consultation rate.
-      </p>
+      <p className="mt-2 text-lede text-ink-3">Select your service preferences and set your consultation rate.</p>
 
       <div className="mt-7">
-        <span className="mb-3 block text-mono-label text-ink-3">
-          SERVICE PREFERENCES — RANK YOUR TOP 3
-        </span>
+        <span className="mb-3 block text-mono-label text-ink-3">SERVICE PREFERENCES — RANK YOUR TOP 3</span>
 
         <div className="mb-4 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setCategoryFilter('all')}
             className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              categoryFilter === 'all'
-                ? 'border-ink bg-ink text-bg'
-                : 'border-line text-ink-3 hover:border-ink-3'
+              categoryFilter === 'all' ? 'border-ink bg-ink text-bg' : 'border-line text-ink-3 hover:border-ink-3'
             }`}
           >
             All
@@ -120,9 +108,7 @@ export function ServicesRatesStep({
               type="button"
               onClick={() => setCategoryFilter(c.id)}
               className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                categoryFilter === c.id
-                  ? 'border-ink bg-ink text-bg'
-                  : 'border-line text-ink-3 hover:border-ink-3'
+                categoryFilter === c.id ? 'border-ink bg-ink text-bg' : 'border-line text-ink-3 hover:border-ink-3'
               }`}
             >
               {c.name}
@@ -155,11 +141,7 @@ export function ServicesRatesStep({
           )}
 
           <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-            <Select
-              label="2nd Preference"
-              value={preferenceFor(2)}
-              onChange={(e) => setPreference(2, e.target.value)}
-            >
+            <Select label="2nd Preference" value={preferenceFor(2)} onChange={(e) => setPreference(2, e.target.value)}>
               <option value="">Select service…</option>
               {optionsFor(2).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -167,11 +149,7 @@ export function ServicesRatesStep({
                 </option>
               ))}
             </Select>
-            <Select
-              label="3rd Preference"
-              value={preferenceFor(3)}
-              onChange={(e) => setPreference(3, e.target.value)}
-            >
+            <Select label="3rd Preference" value={preferenceFor(3)} onChange={(e) => setPreference(3, e.target.value)}>
               <option value="">Select service…</option>
               {optionsFor(3).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -199,9 +177,7 @@ export function ServicesRatesStep({
 
       <div className="mt-8 border-t border-line pt-6">
         <span className="text-mono-label text-ink-3">CONSULTATION RATES</span>
-        <p className="mt-1.5 text-sm text-ink-3">
-          Your typical hourly fee range in USD. You can adjust this anytime.
-        </p>
+        <p className="mt-1.5 text-sm text-ink-3">Your typical hourly fee range in USD. You can adjust this anytime.</p>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">

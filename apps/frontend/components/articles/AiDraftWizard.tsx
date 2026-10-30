@@ -21,12 +21,30 @@ const MAX_SOURCE_FILES = 5;
 const TONES = ['Practical & accessible', 'Formal & technical', 'Concise briefing', 'Casual & conversational'];
 
 const AI_ICON = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
   </svg>
 );
 const ARROW_ICON = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M5 12h14M12 5l7 7-7 7" />
   </svg>
 );
@@ -49,7 +67,11 @@ export interface AiDraftedArticle {
 
 function WizardBackStep({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink">
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+    >
       ← Back
     </button>
   );
@@ -174,9 +196,7 @@ export function AiDraftWizard({
       setReviewedCountries(result.countries ?? []);
       setReviewedState(result.state ?? '');
     } catch (err) {
-      setGenError(
-        err instanceof ApiError ? err.message : 'Could not generate a draft right now — try again.'
-      );
+      setGenError(err instanceof ApiError ? err.message : 'Could not generate a draft right now — try again.');
     } finally {
       setGenerating(false);
     }
@@ -310,8 +330,8 @@ export function AiDraftWizard({
         {!wordsOk && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
             <p className="text-sm text-amber-700">
-              This draft is {draftWords} words. Articles need {MIN_ARTICLE_WORDS}–{MAX_ARTICLE_WORDS} words — the
-              same rule as writing it yourself.
+              This draft is {draftWords} words. Articles need {MIN_ARTICLE_WORDS}–{MAX_ARTICLE_WORDS} words — the same
+              rule as writing it yourself.
             </p>
             <button
               type="button"
@@ -319,7 +339,11 @@ export function AiDraftWizard({
               disabled={refining}
               className="rounded-[9px] border-[1.5px] border-amber-300 bg-bg-card px-4 py-2 text-[13px] font-semibold text-amber-700 transition-colors hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {refining ? 'Working…' : draftWords < MIN_ARTICLE_WORDS ? 'Expand with GrowXQ AI' : 'Condense with GrowXQ AI'}
+              {refining
+                ? 'Working…'
+                : draftWords < MIN_ARTICLE_WORDS
+                  ? 'Expand with GrowXQ AI'
+                  : 'Condense with GrowXQ AI'}
             </button>
           </div>
         )}
@@ -434,18 +458,29 @@ export function AiDraftWizard({
 
               <div className="rounded-[14px] border border-line bg-bg-alt p-5">
                 <span className="text-xs font-medium text-ink-2">
-                  Source material <span className="font-normal text-ink-4">(optional, but strongly improves quality)</span>
+                  Source material{' '}
+                  <span className="font-normal text-ink-4">(optional, but strongly improves quality)</span>
                 </span>
                 <p className="-mt-0.5 mb-3 text-[11.5px] text-ink-4">
-                  Upload documents or paste links you want the AI to read and pull real detail
-                  from — the more grounded the source, the less generic the draft.
+                  Upload documents or paste links you want the AI to read and pull real detail from — the more grounded
+                  the source, the less generic the draft.
                 </p>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex w-full flex-col items-center gap-1 rounded-[14px] border-2 border-dashed border-line-2 px-4 py-[26px] text-center transition-colors hover:border-accent hover:bg-[color-mix(in_oklab,var(--accent)_4%,transparent)]"
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mb-1.5 text-ink-4">
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mb-1.5 text-ink-4"
+                  >
                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
                     <line x1="12" y1="3" x2="12" y2="15" />
@@ -453,7 +488,9 @@ export function AiDraftWizard({
                   <span className="text-sm font-medium text-ink-2">
                     Drag &amp; drop documents, or <span className="text-accent underline">browse</span>
                   </span>
-                  <span className="mt-1 text-[11.5px] text-ink-4">Circulars, notes, judgments, decks — PDF, DOCX, TXT · up to {MAX_SOURCE_FILES} files</span>
+                  <span className="mt-1 text-[11.5px] text-ink-4">
+                    Circulars, notes, judgments, decks — PDF, DOCX, TXT · up to {MAX_SOURCE_FILES} files
+                  </span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -466,9 +503,16 @@ export function AiDraftWizard({
                 {files.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-2">
                     {files.map((f, i) => (
-                      <span key={i} className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 bg-bg-card py-[5px] pl-2 pr-2.5 text-xs font-medium text-ink-2">
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 bg-bg-card py-[5px] pl-2 pr-2.5 text-xs font-medium text-ink-2"
+                      >
                         {f.name}
-                        <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="text-ink-4 hover:text-ink">
+                        <button
+                          type="button"
+                          onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                          className="text-ink-4 hover:text-ink"
+                        >
                           ✕
                         </button>
                       </span>
@@ -510,9 +554,7 @@ export function AiDraftWizard({
                     labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
                     rows={2}
                     value={followUpAnswerMap[question] ?? ''}
-                    onChange={(e) =>
-                      setFollowUpAnswerMap((prev) => ({ ...prev, [question]: e.target.value }))
-                    }
+                    onChange={(e) => setFollowUpAnswerMap((prev) => ({ ...prev, [question]: e.target.value }))}
                   />
                 ))}
               </div>
@@ -526,7 +568,12 @@ export function AiDraftWizard({
           {subStep === 3 && (
             <>
               <label className="flex items-center gap-2.5 text-sm text-ink-2">
-                <input type="checkbox" checked={includeVisual} onChange={(e) => setIncludeVisual(e.target.checked)} className="accent-accent" />
+                <input
+                  type="checkbox"
+                  checked={includeVisual}
+                  onChange={(e) => setIncludeVisual(e.target.checked)}
+                  className="accent-accent"
+                />
                 Let GrowXQ AI include a table if it&apos;s relevant to the topic
               </label>
 

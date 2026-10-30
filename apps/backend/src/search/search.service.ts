@@ -9,14 +9,7 @@ import { fallbackPlan, makePlan } from './planner';
 import { redactResponseText, scrubResponse } from './redaction';
 import { SEARCH_SETTINGS } from './search.config';
 import { SearchRepository } from './search.repository';
-import type {
-  DegradedTag,
-  Hit,
-  Plan,
-  SearchOutcome,
-  SearchResult,
-  StageTimings,
-} from './search.types';
+import type { DegradedTag, Hit, Plan, SearchOutcome, SearchResult, StageTimings } from './search.types';
 import type { SearchFeedbackResponse, SearchResponse } from '@shared/search';
 import { resultTitle } from './search.types';
 import { TopicEmbeddingService } from './topic-embedding.service';
@@ -73,7 +66,12 @@ export class SearchService {
   }
 
   /** Thumbs up/down on an earlier answer, scoped to the caller's own log row. */
-  async feedback(userId: string, logId: string | undefined, rating: number | undefined, note: string | undefined): Promise<SearchFeedbackResponse> {
+  async feedback(
+    userId: string,
+    logId: string | undefined,
+    rating: number | undefined,
+    note: string | undefined
+  ): Promise<SearchFeedbackResponse> {
     if (!logId || (rating !== 1 && rating !== -1)) {
       throw new BadRequestException({
         code: 'SEARCH_FEEDBACK_INVALID',
@@ -129,7 +127,9 @@ export class SearchService {
     const countries: string[] = plan.countries.slice(0, 5).map(normalizeCountry).filter(Boolean);
     // terms are independent: look them up in parallel, merge in term order (same set order as sequential)
     const serviceIds = new Set<string>();
-    const matched = await Promise.all(plan.service_terms.slice(0, 4).map((term) => this.repo.matchServices(term, SEARCH_SETTINGS.serviceMatchLimit)));
+    const matched = await Promise.all(
+      plan.service_terms.slice(0, 4).map((term) => this.repo.matchServices(term, SEARCH_SETTINGS.serviceMatchLimit))
+    );
     for (const rows of matched) {
       for (const s of rows) {
         if (s.score >= 0.5) serviceIds.add(s.service_id);
@@ -139,8 +139,13 @@ export class SearchService {
     // 3. embed the topic (cached); skipped for filter-only questions.
     // A question with no topic AND no filters at all (for example a bare name) is searched as written.
     const hasFilters =
-      plan.countries.length > 0 || !!plan.city || plan.service_terms.length > 0 || !!plan.date_from ||
-      !!plan.date_to || plan.max_hourly_rate_usd != null || plan.requested_count != null;
+      plan.countries.length > 0 ||
+      !!plan.city ||
+      plan.service_terms.length > 0 ||
+      !!plan.date_from ||
+      !!plan.date_to ||
+      plan.max_hourly_rate_usd != null ||
+      plan.requested_count != null;
     let topic: string | null = plan.semantic_query?.trim() || null;
     if (!topic && !hasFilters) topic = question.trim();
     const embedding = topic ? await timed('embedding', () => this.embedTopic(topic as string, degraded)) : null;
@@ -156,23 +161,29 @@ export class SearchService {
     let city: string | null = plan.city;
     let hits: Hit[] = [];
     for (let attempt = 0; attempt < 4; attempt++) {
-      hits = await timed('hybrid', () => this.repo.hybrid({
-        query: searchTopic,
-        embedding: searchEmbedding,
-        docTypes,
-        countries: activeCountries.length ? activeCountries : null,
-        dateFrom: plan.date_from,
-        dateTo: dateToInclusive,
-        rateMaxCents: plan.max_hourly_rate_usd != null ? Math.round(plan.max_hourly_rate_usd * 100) : null,
-        limit: candidateLimit,
-        minSimilarity: SEARCH_SETTINGS.minVecSimilarity,
-        serviceIds: svcIds,
-        city,
-      }));
+      hits = await timed('hybrid', () =>
+        this.repo.hybrid({
+          query: searchTopic,
+          embedding: searchEmbedding,
+          docTypes,
+          countries: activeCountries.length ? activeCountries : null,
+          dateFrom: plan.date_from,
+          dateTo: dateToInclusive,
+          rateMaxCents: plan.max_hourly_rate_usd != null ? Math.round(plan.max_hourly_rate_usd * 100) : null,
+          limit: candidateLimit,
+          minSimilarity: SEARCH_SETTINGS.minVecSimilarity,
+          serviceIds: svcIds,
+          city,
+        })
+      );
       if (hits.length) break;
-      if (svcIds) { svcIds = null; relaxed.push('practice-area filter'); }
-      else if (city) { city = null; relaxed.push('city filter'); }
-      else if (topic && activeCountries.length) {
+      if (svcIds) {
+        svcIds = null;
+        relaxed.push('practice-area filter');
+      } else if (city) {
+        city = null;
+        relaxed.push('city filter');
+      } else if (topic && activeCountries.length) {
         // a place named together with a topic may describe the topic, not the person's location
         activeCountries = [];
         relaxed.push('country filter');
@@ -200,11 +211,15 @@ export class SearchService {
     // Deterministic (not LLM-written) honesty notes about relaxed filters, shown before the answer.
     const notes: string[] = [];
     if (practiceAreaRelaxed) {
-      notes.push(`No one matched "${plan.service_terms.join(', ')}" exactly, so these are the closest results without that requirement.`);
+      notes.push(
+        `No one matched "${plan.service_terms.join(', ')}" exactly, so these are the closest results without that requirement.`
+      );
     }
     const otherRelaxed = relaxed.filter((r) => r !== 'practice-area filter');
     if (otherRelaxed.length > 0) {
-      notes.push(`Nothing matched with the ${otherRelaxed.join(' and ')}, so ${otherRelaxed.length === 1 ? 'it was' : 'they were'} dropped.`);
+      notes.push(
+        `Nothing matched with the ${otherRelaxed.join(' and ')}, so ${otherRelaxed.length === 1 ? 'it was' : 'they were'} dropped.`
+      );
     }
     let answer = '';
     let judgeRaw: SearchOutcome['debug']['judge'] = null;
@@ -219,7 +234,9 @@ export class SearchService {
           const hit = matchLines(card, tokens);
           return `${i + 1}. [${String(r.type).toUpperCase()}] ${trimCard(r.type, card)}${hit ? ' || Lines that mention the question words: ' + hit : ''}`;
         });
-        const dropped = relaxed.length ? `\nSome filters were dropped because nothing matched: ${relaxed.join(', ')}.` : '';
+        const dropped = relaxed.length
+          ? `\nSome filters were dropped because nothing matched: ${relaxed.join(', ')}.`
+          : '';
         const judgeUser = `Question: ${question}\nFilters applied by the database: ${JSON.stringify({ types: docTypes, countries: activeCountries, city, dates: [plan.date_from, plan.date_to] })}${dropped}\n\nCandidates:\n${lines.join('\n')}`;
         const judged = await timed('judge', () => judge(this.openai, judgePrompt(applyScores), judgeUser));
         judgeRaw = { scores: judged.scores, candidates: lines.length };
@@ -235,24 +252,33 @@ export class SearchService {
         const practiceAreaHeld = !!svcIds && !practiceAreaRelaxed;
         const floor = practiceAreaHeld ? 7 : 0;
         let kept = results.map((r, i) => ({
-          r, i, raw: byN.get(i + 1) ?? 0, s: Math.max(byN.get(i + 1) ?? 0, floor), reason: reasonByN.get(i + 1),
+          r,
+          i,
+          raw: byN.get(i + 1) ?? 0,
+          s: Math.max(byN.get(i + 1) ?? 0, floor),
+          reason: reasonByN.get(i + 1),
         }));
         if (applyScores) {
           kept = kept.filter((x) => x.s >= SEARCH_SETTINGS.judgeMinScore);
           kept.sort((a, b) => b.s - a.s || a.i - b.i);
         }
-        results = kept.slice(0, wanted).map((x): SearchResult => ({
-          ...x.r,
-          relevance: applyScores ? x.s : undefined,
-          match: applyScores ? matchStrength(x.raw) : undefined,
-          reason: applyScores ? x.reason : undefined,
-        }));
+        results = kept.slice(0, wanted).map(
+          (x): SearchResult => ({
+            ...x.r,
+            relevance: applyScores ? x.s : undefined,
+            match: applyScores ? matchStrength(x.raw) : undefined,
+            reason: applyScores ? x.reason : undefined,
+          })
+        );
         answer = composeAnswer(results, applyScores, notes);
       } catch (err) {
         this.logger.error(`Judge failed: ${err instanceof Error ? err.message : String(err)}`);
         degraded.push('judge');
         results = results.slice(0, wanted);
-        answer = [...notes, `Showing ${results.length} result${results.length === 1 ? '' : 's'} that best match your question.`].join(' ');
+        answer = [
+          ...notes,
+          `Showing ${results.length} result${results.length === 1 ? '' : 's'} that best match your question.`,
+        ].join(' ');
       }
     }
 
@@ -262,8 +288,14 @@ export class SearchService {
       plan,
       degraded,
       applied: {
-        types: docTypes, topic, countries, city, serviceIds: svcIds,
-        dateFrom: plan.date_from, dateTo: plan.date_to, maxHourlyRateUsd: plan.max_hourly_rate_usd,
+        types: docTypes,
+        topic,
+        countries,
+        city,
+        serviceIds: svcIds,
+        dateFrom: plan.date_from,
+        dateTo: plan.date_to,
+        maxHourlyRateUsd: plan.max_hourly_rate_usd,
         relaxed,
       },
       debug: { topSimilarity, candidates: hits.length, judge: judgeRaw, timings },

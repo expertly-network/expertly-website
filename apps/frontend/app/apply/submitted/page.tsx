@@ -8,14 +8,12 @@ const STATUS_COPY: Record<string, { badge: string; title: string; description: s
   submitted: {
     badge: 'In Review',
     title: 'Application under review',
-    description:
-      'We are reviewing your profile and credentials. You will receive an email update once completed.',
+    description: 'We are reviewing your profile and credentials. You will receive an email update once completed.',
   },
   under_review: {
     badge: 'In Review',
     title: 'Application under review',
-    description:
-      'We are reviewing your profile and credentials. You will receive an email update once completed.',
+    description: 'We are reviewing your profile and credentials. You will receive an email update once completed.',
   },
   approved: {
     badge: 'Approved',
@@ -59,9 +57,7 @@ export default async function ApplicationSubmittedPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-title text-ink">{copy.title}</h1>
-              <span className="rounded-full bg-bg-alt px-2.5 py-1 text-xs font-medium text-ink-2">
-                {copy.badge}
-              </span>
+              <span className="rounded-full bg-bg-alt px-2.5 py-1 text-xs font-medium text-ink-2">{copy.badge}</span>
             </div>
             <p className="mt-1.5 text-sm leading-relaxed text-ink-3">{copy.description}</p>
           </div>
@@ -74,15 +70,13 @@ export default async function ApplicationSubmittedPage() {
               You&apos;re in the queue, <span className="text-accent">{application.firstName}.</span>
             </h2>
             <p className="mx-auto mt-3 max-w-[440px] text-lede text-ink-3">
-              Your application has been submitted successfully. Our credentials committee will
-              personally review your profile.
+              Your application has been submitted successfully. Our credentials committee will personally review your
+              profile.
             </p>
           </div>
         )}
 
-        <p className="mb-3.5 mt-8 text-mono-label text-ink-3">
-          {isRejected ? 'DETAILS' : 'WHAT HAPPENS NEXT'}
-        </p>
+        <p className="mb-3.5 mt-8 text-mono-label text-ink-3">{isRejected ? 'DETAILS' : 'WHAT HAPPENS NEXT'}</p>
 
         {isRejected ? (
           <div className="rounded-2xl border border-line bg-bg-card p-6 text-sm text-ink-2">

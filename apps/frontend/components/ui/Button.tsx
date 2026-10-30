@@ -1,13 +1,7 @@
 import Link from 'next/link';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 
-export type ButtonVariant =
-  | 'primary'
-  | 'secondary'
-  | 'ghost'
-  | 'secondary-dark'
-  | 'ghost-dark'
-  | 'accent';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'secondary-dark' | 'ghost-dark' | 'accent';
 export type ButtonSize = 'md' | 'sm';
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -36,17 +30,11 @@ interface CommonProps {
   className?: string;
 }
 
-function classes({
-  variant = 'primary',
-  size = 'md',
-  fullWidth,
-  className = '',
-}: Omit<CommonProps, 'children'>) {
+function classes({ variant = 'primary', size = 'md', fullWidth, className = '' }: Omit<CommonProps, 'children'>) {
   return `${BASE} ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${fullWidth ? 'w-full' : ''} ${className}`.trim();
 }
 
-type ButtonAsButton = CommonProps &
-  Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> & { href?: undefined };
+type ButtonAsButton = CommonProps & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> & { href?: undefined };
 
 type ButtonAsLink = CommonProps &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'className' | 'href'> & { href: string };
@@ -62,8 +50,7 @@ export function Button(props: ButtonAsButton | ButtonAsLink) {
     );
   }
 
-  const { variant, size, fullWidth, className, children, type = 'button', ...rest } =
-    props as ButtonAsButton;
+  const { variant, size, fullWidth, className, children, type = 'button', ...rest } = props as ButtonAsButton;
   return (
     <button type={type} className={classes({ variant, size, fullWidth, className })} {...rest}>
       {children}

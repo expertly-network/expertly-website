@@ -28,19 +28,13 @@ import {
   updateTemplate,
   uploadTemplateFile,
 } from '@/lib/api/resources';
-import {
-  perkCategories,
-  learningCategories,
-  templateCategories,
-  audiences,
-} from './resource-options';
+import { perkCategories, learningCategories, templateCategories, audiences } from './resource-options';
 export type ResourceEdit =
   | { kind: 'perks'; record: AdminPerkDto | null }
   | { kind: 'learnings'; record: AdminLearningDto | null }
   | { kind: 'collections'; record: AdminCollectionDto | null }
   | { kind: 'templates'; record: AdminTemplateDto | null };
-export type AdminResource =
-  AdminPerkDto | AdminLearningDto | AdminCollectionDto | AdminTemplateDto;
+export type AdminResource = AdminPerkDto | AdminLearningDto | AdminCollectionDto | AdminTemplateDto;
 const FILE_TYPE_LABEL = { docx: 'Word', xlsx: 'Excel', pptx: 'PowerPoint', pdf: 'PDF' } as const;
 export function ResourceEditor({
   editing,
@@ -61,9 +55,9 @@ export function ResourceEditor({
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
   const collection = editing.kind === 'collections' ? editing.record : null;
-  const [collectionKind, setCollectionKind] = useState<
-    'learning_playlist' | 'perk_stack' | 'template_kit'
-  >(collection?.kind || 'learning_playlist');
+  const [collectionKind, setCollectionKind] = useState<'learning_playlist' | 'perk_stack' | 'template_kit'>(
+    collection?.kind || 'learning_playlist'
+  );
   // Template file: an existing record's file, replaced by a fresh upload if the admin picks one.
   const template = editing.kind === 'templates' ? editing.record : null;
   const [upload, setUpload] = useState<TemplateUploadDto | null>(null);
@@ -90,21 +84,16 @@ export function ResourceEditor({
       setUploading(false);
     }
   }
-  const text = (data: FormData, key: string) =>
-    String(data.get(key) || '').trim();
+  const text = (data: FormData, key: string) => String(data.get(key) || '').trim();
   const nullable = (data: FormData, key: string) => text(data, key) || null;
   function close() {
-    if (!saving && (!dirty || window.confirm('Discard your unsaved changes?')))
-      onClose();
+    if (!saving && (!dirty || window.confirm('Discard your unsaved changes?'))) onClose();
   }
   function move(index: number, direction: number) {
     setDirty(true);
     setIds((prev) => {
       const next = [...prev];
-      [next[index], next[index + direction]] = [
-        next[index + direction],
-        next[index],
-      ];
+      [next[index], next[index + direction]] = [next[index + direction], next[index]];
       return next;
     });
   }
@@ -144,9 +133,7 @@ export function ResourceEditor({
           offerExpiresAt: nullable(data, 'offerExpiresAt'),
           isFeatured: data.get('isFeatured') === 'on',
         };
-        saved = editing.record
-          ? await updatePerk(editing.record.id, body)
-          : await createPerk(body);
+        saved = editing.record ? await updatePerk(editing.record.id, body) : await createPerk(body);
       } else if (editing.kind === 'learnings') {
         const body: CreateLearningRequest = {
           ...flags,
@@ -158,15 +145,12 @@ export function ResourceEditor({
           channel: nullable(data, 'channel'),
           durationMinutes: Number(data.get('durationMinutes')),
           category: text(data, 'category') as LearningCategory,
-          level: text(data, 'level') as
-            'beginner' | 'intermediate' | 'advanced',
+          level: text(data, 'level') as 'beginner' | 'intermediate' | 'advanced',
           audiences: data.getAll('audiences') as ResourceAudience[],
           access: text(data, 'access') as 'auto' | 'open' | 'members',
           isFeatured: data.get('isFeatured') === 'on',
         };
-        saved = editing.record
-          ? await updateLearning(editing.record.id, body)
-          : await createLearning(body);
+        saved = editing.record ? await updateLearning(editing.record.id, body) : await createLearning(body);
       } else if (editing.kind === 'templates') {
         if (!file) throw new Error('Upload the template file first.');
         const body: CreateTemplateRequest = {
@@ -191,7 +175,7 @@ export function ResourceEditor({
           const { filePath, fileName, fileSizeBytes, fileType, ...meta } = body;
           saved = await updateTemplate(
             editing.record.id,
-            upload ? { ...meta, filePath, fileName, fileSizeBytes, fileType } : meta,
+            upload ? { ...meta, filePath, fileName, fileSizeBytes, fileType } : meta
           );
         } else saved = await createTemplate(body);
       } else {
@@ -204,9 +188,7 @@ export function ResourceEditor({
           coverImageUrl: nullable(data, 'coverImageUrl'),
           itemIds: ids,
         };
-        saved = editing.record
-          ? await updateCollection(editing.record.id, body)
-          : await createCollection(body);
+        saved = editing.record ? await updateCollection(editing.record.id, body) : await createCollection(body);
       }
       onSaved(saved);
     } catch (e) {
@@ -217,26 +199,16 @@ export function ResourceEditor({
   }
   const toggle = (name: string, label: string, checked: boolean) => (
     <label className="flex min-h-11 items-center gap-2 text-sm">
-      <input
-        name={name}
-        type="checkbox"
-        defaultChecked={checked}
-        className="h-4 w-4 accent-accent"
-      />
+      <input name={name} type="checkbox" defaultChecked={checked} className="h-4 w-4 accent-accent" />
       {label}
     </label>
   );
   const audienceFields = (current: ResourceAudience[] = []) => (
     <fieldset>
-      <legend className="mb-1 text-xs font-medium">
-        Professions (leave empty for everyone)
-      </legend>
+      <legend className="mb-1 text-xs font-medium">Professions (leave empty for everyone)</legend>
       <div className="flex flex-wrap gap-4">
         {audiences.map((a) => (
-          <label
-            key={a.value}
-            className="flex min-h-11 items-center gap-2 text-sm"
-          >
+          <label key={a.value} className="flex min-h-11 items-center gap-2 text-sm">
             <input
               name="audiences"
               type="checkbox"
@@ -255,37 +227,19 @@ export function ResourceEditor({
       title={`${editing.record ? 'Edit' : 'Create'} ${editing.kind === 'perks' ? 'perk' : editing.kind === 'learnings' ? 'video' : editing.kind === 'templates' ? 'template' : 'collection'}`}
       onClose={close}
     >
-      <form
-        onSubmit={submit}
-        onChange={() => setDirty(true)}
-        className="space-y-5"
-      >
+      <form onSubmit={submit} onChange={() => setDirty(true)} className="space-y-5">
         <fieldset disabled={saving} className="space-y-5 disabled:opacity-60">
           {editing.kind === 'perks' && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input
-                  name="name"
-                  label="Product name"
-                  required
-                  maxLength={200}
-                  defaultValue={editing.record?.name}
-                />
-                <Select
-                  name="category"
-                  label="Category"
-                  defaultValue={editing.record?.category || perkCategories[0]}
-                >
+                <Input name="name" label="Product name" required maxLength={200} defaultValue={editing.record?.name} />
+                <Select name="category" label="Category" defaultValue={editing.record?.category || perkCategories[0]}>
                   {perkCategories.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </Select>
               </div>
-              <Input
-                name="tagline"
-                label="Short description"
-                defaultValue={editing.record?.tagline}
-              />
+              <Input name="tagline" label="Short description" defaultValue={editing.record?.tagline} />
               <Textarea
                 name="description"
                 label="About this product"
@@ -322,25 +276,17 @@ export function ResourceEditor({
                 label="Offer status"
                 defaultValue={editing.record?.offerStatus || 'coming_soon'}
               >
-                <option value="coming_soon">
-                  Coming soon (offers stay hidden)
-                </option>
+                <option value="coming_soon">Coming soon (offers stay hidden)</option>
                 <option value="live">Live</option>
               </Select>
               <p className="text-xs text-ink-3">
-                A live offer needs text and a code or HTTPS redemption link for
-                at least one tier. To remove a tier, clear all three fields.
+                A live offer needs text and a code or HTTPS redemption link for at least one tier. To remove a tier,
+                clear all three fields.
               </p>
               <div className="grid gap-5 sm:grid-cols-2">
                 <fieldset className="space-y-3 rounded-xl border border-line p-4">
-                  <legend className="px-1 text-sm font-semibold">
-                    Client offer
-                  </legend>
-                  <Input
-                    name="userOffer"
-                    label="Offer text"
-                    defaultValue={editing.record?.userOffer || ''}
-                  />
+                  <legend className="px-1 text-sm font-semibold">Client offer</legend>
+                  <Input name="userOffer" label="Offer text" defaultValue={editing.record?.userOffer || ''} />
                   <Input
                     name="userCouponCode"
                     label="Coupon code"
@@ -354,14 +300,8 @@ export function ResourceEditor({
                   />
                 </fieldset>
                 <fieldset className="space-y-3 rounded-xl border border-line p-4">
-                  <legend className="px-1 text-sm font-semibold">
-                    Member offer
-                  </legend>
-                  <Input
-                    name="memberOffer"
-                    label="Offer text"
-                    defaultValue={editing.record?.memberOffer || ''}
-                  />
+                  <legend className="px-1 text-sm font-semibold">Member offer</legend>
+                  <Input name="memberOffer" label="Offer text" defaultValue={editing.record?.memberOffer || ''} />
                   <Input
                     name="memberCouponCode"
                     label="Coupon code"
@@ -387,34 +327,15 @@ export function ResourceEditor({
                 type="date"
                 defaultValue={editing.record?.offerExpiresAt || ''}
               />
-              {toggle(
-                'isFeatured',
-                'Featured product',
-                editing.record?.isFeatured || false,
-              )}
+              {toggle('isFeatured', 'Featured product', editing.record?.isFeatured || false)}
             </>
           )}
           {editing.kind === 'learnings' && (
             <>
-              <Input
-                name="title"
-                label="Video title"
-                required
-                maxLength={200}
-                defaultValue={editing.record?.title}
-              />
-              <Textarea
-                name="summary"
-                label="Why watch this"
-                rows={3}
-                defaultValue={editing.record?.summary}
-              />
+              <Input name="title" label="Video title" required maxLength={200} defaultValue={editing.record?.title} />
+              <Textarea name="summary" label="Why watch this" rows={3} defaultValue={editing.record?.summary} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Select
-                  name="videoProvider"
-                  label="Provider"
-                  defaultValue={editing.record?.videoProvider || 'youtube'}
-                >
+                <Select name="videoProvider" label="Provider" defaultValue={editing.record?.videoProvider || 'youtube'}>
                   <option value="youtube">YouTube</option>
                   <option value="file">Hosted video file</option>
                 </Select>
@@ -441,81 +362,41 @@ export function ResourceEditor({
                 defaultValue={editing.record?.thumbnailUrl || ''}
               />
               <p className="text-xs text-ink-3">
-                Use an image in resource-assets, not a YouTube thumbnail URL, to
-                keep locked video links private.
+                Use an image in resource-assets, not a YouTube thumbnail URL, to keep locked video links private.
               </p>
-              <Input
-                name="channel"
-                label="Creator / channel"
-                defaultValue={editing.record?.channel || ''}
-              />
+              <Input name="channel" label="Creator / channel" defaultValue={editing.record?.channel || ''} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Select
-                  name="category"
-                  label="Topic"
-                  defaultValue={
-                    editing.record?.category || learningCategories[0]
-                  }
-                >
+                <Select name="category" label="Topic" defaultValue={editing.record?.category || learningCategories[0]}>
                   {learningCategories.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </Select>
-                <Select
-                  name="level"
-                  label="Level"
-                  defaultValue={editing.record?.level || 'beginner'}
-                >
+                <Select name="level" label="Level" defaultValue={editing.record?.level || 'beginner'}>
                   {['beginner', 'intermediate', 'advanced'].map((l) => (
                     <option key={l}>{l}</option>
                   ))}
                 </Select>
               </div>
               {audienceFields(editing.record?.audiences)}
-              <Select
-                name="access"
-                label="Who can watch?"
-                defaultValue={editing.record?.access || 'auto'}
-              >
-                <option value="auto">
-                  Automatic: first in an active playlist is open to clients
-                </option>
+              <Select name="access" label="Who can watch?" defaultValue={editing.record?.access || 'auto'}>
+                <option value="auto">Automatic: first in an active playlist is open to clients</option>
                 <option value="open">All signed-in users</option>
                 <option value="members">Members only</option>
               </Select>
-              {toggle(
-                'isFeatured',
-                'Featured video',
-                editing.record?.isFeatured || false,
-              )}
+              {toggle('isFeatured', 'Featured video', editing.record?.isFeatured || false)}
             </>
           )}
           {editing.kind === 'templates' && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input
-                  name="title"
-                  label="Template title"
-                  required
-                  maxLength={200}
-                  defaultValue={template?.title}
-                />
-                <Select
-                  name="category"
-                  label="Category"
-                  defaultValue={template?.category || templateCategories[0]}
-                >
+                <Input name="title" label="Template title" required maxLength={200} defaultValue={template?.title} />
+                <Select name="category" label="Category" defaultValue={template?.category || templateCategories[0]}>
                   {templateCategories.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </Select>
               </div>
-              <Textarea
-                name="description"
-                label="What it helps with"
-                rows={3}
-                defaultValue={template?.description}
-              />
+              <Textarea name="description" label="What it helps with" rows={3} defaultValue={template?.description} />
               <Textarea
                 name="highlights"
                 label="What's inside (one point per line)"
@@ -528,8 +409,7 @@ export function ResourceEditor({
                   <p className="mb-3 text-sm">
                     {file.fileName}{' '}
                     <span className="text-ink-3">
-                      · {FILE_TYPE_LABEL[file.fileType]} ·{' '}
-                      {Math.max(1, Math.round(file.fileSizeBytes / 1024))} KB
+                      · {FILE_TYPE_LABEL[file.fileType]} · {Math.max(1, Math.round(file.fileSizeBytes / 1024))} KB
                       {upload ? ' · new upload, saved on Save changes' : ''}
                     </span>
                   </p>
@@ -552,8 +432,8 @@ export function ResourceEditor({
                   </p>
                 )}
                 <p className="mt-2 text-xs text-ink-3">
-                  Templates are members-only. The file is stored privately and only members get a
-                  short-lived download link.
+                  Templates are members-only. The file is stored privately and only members get a short-lived download
+                  link.
                 </p>
               </fieldset>
               <Input
@@ -562,8 +442,7 @@ export function ResourceEditor({
                 defaultValue={template?.previewImageUrl || ''}
               />
               <p className="-mt-3 text-xs text-ink-3">
-                Shown publicly as the card preview (first page/sheet/slide). Leave empty for a
-                designed cover.
+                Shown publicly as the card preview (first page/sheet/slide). Leave empty for a designed cover.
               </p>
               {audienceFields(template?.audiences)}
               {toggle('isFeatured', 'Featured template', template?.isFeatured || false)}
@@ -571,19 +450,8 @@ export function ResourceEditor({
           )}
           {editing.kind === 'collections' && (
             <>
-              <Input
-                name="title"
-                label="Collection title"
-                required
-                maxLength={200}
-                defaultValue={collection?.title}
-              />
-              <Textarea
-                name="description"
-                label="Description"
-                rows={3}
-                defaultValue={collection?.description}
-              />
+              <Input name="title" label="Collection title" required maxLength={200} defaultValue={collection?.title} />
+              <Textarea name="description" label="Description" rows={3} defaultValue={collection?.description} />
               <Select
                 id="collection-kind"
                 label="Collection type"
@@ -606,23 +474,16 @@ export function ResourceEditor({
                 defaultValue={collection?.coverImageUrl || ''}
               />
               <fieldset>
-                <legend className="mb-3 text-sm font-semibold">
-                  Items in display order
-                </legend>
+                <legend className="mb-3 text-sm font-semibold">Items in display order</legend>
                 <p className="mb-3 text-xs text-ink-3">
-                  The first video in an active playlist is available to clients
-                  unless its access is Members only.
+                  The first video in an active playlist is available to clients unless its access is Members only.
                 </p>
                 <ol className="space-y-2">
                   {ids.map((id, i) => (
-                    <li
-                      key={id}
-                      className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3"
-                    >
+                    <li key={id} className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
                       <span className="text-xs text-ink-3">{i + 1}.</span>
                       <span className="min-w-0 flex-1 text-sm">
-                        {options.find((o) => o.id === id)?.title ||
-                          'Unavailable item'}
+                        {options.find((o) => o.id === id)?.title || 'Unavailable item'}
                       </span>
                       <div className="flex">
                         <Button
@@ -661,9 +522,7 @@ export function ResourceEditor({
                     </li>
                   ))}
                 </ol>
-                {!ids.length && (
-                  <p className="py-3 text-sm text-ink-3">No items yet.</p>
-                )}
+                {!ids.length && <p className="py-3 text-sm text-ink-3">No items yet.</p>}
                 <div className="mt-3 flex flex-wrap items-end gap-3">
                   <div className="min-w-0 flex-1">
                     <Select
@@ -714,11 +573,7 @@ export function ResourceEditor({
               step={1}
               defaultValue={editing.record?.sortOrder || 0}
             />
-            {toggle(
-              'isActive',
-              'Active (visible on the website)',
-              editing.record?.isActive ?? true,
-            )}
+            {toggle('isActive', 'Active (visible on the website)', editing.record?.isActive ?? true)}
           </div>
         </fieldset>
         {error && (

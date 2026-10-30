@@ -46,7 +46,9 @@ export async function verifySupabaseToken(token: string): Promise<AuthenticatedU
         ? (claims.app_status as AccountStatus)
         : 'suspended';
   const memberStatus: MemberStatus =
-    claims.app_member_status === 'active' || claims.app_member_status === 'deactivated' ? claims.app_member_status : null;
+    claims.app_member_status === 'active' || claims.app_member_status === 'deactivated'
+      ? claims.app_member_status
+      : null;
 
   return {
     id: claims.sub,

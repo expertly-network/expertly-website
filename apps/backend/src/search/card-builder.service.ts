@@ -37,7 +37,10 @@ export class CardBuilderService {
       ),
       '; '
     );
-    const categories = aggDistinct(src.services.map((s) => s.category_name), '; ');
+    const categories = aggDistinct(
+      src.services.map((s) => s.category_name),
+      '; '
+    );
     const serviceIds = [...new Set(src.services.map((s) => s.service_id))].sort();
 
     const name = btrim((person.first_name ?? '') + ' ' + (person.last_name ?? ''));
@@ -84,7 +87,11 @@ export class CardBuilderService {
     const a = src.article;
     if (a.status !== 'published') return null;
 
-    const topics = src.serviceNames.filter((n) => !OTHER_PLACEHOLDER.test(n)).sort(pgCompare).join('; ') || null;
+    const topics =
+      src.serviceNames
+        .filter((n) => !OTHER_PLACEHOLDER.test(n))
+        .sort(pgCompare)
+        .join('; ') || null;
     const labels = a.custom_service_labels;
     const custom =
       labels !== null && typeof labels === 'object' && !Array.isArray(labels)
@@ -184,7 +191,9 @@ export class CardBuilderService {
       title: p.title,
       searchName: btrim(p.title + ' ' + (p.firm ?? '')),
       content,
-      contentHash: createHash('md5').update(p.title + '\n' + content, 'utf8').digest('hex'),
+      contentHash: createHash('md5')
+        .update(p.title + '\n' + content, 'utf8')
+        .digest('hex'),
       serviceIds: p.serviceIds,
       countries: p.countries,
       city: nz(p.city),

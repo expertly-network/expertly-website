@@ -1,17 +1,8 @@
 'use client';
 import { useState } from 'react';
-import type {
-  AdminPerkDto,
-  AdminLearningDto,
-  AdminCollectionDto,
-  AdminTemplateDto,
-} from '@shared/resource';
+import type { AdminPerkDto, AdminLearningDto, AdminCollectionDto, AdminTemplateDto } from '@shared/resource';
 import { Badge, Button, Card, Input } from '@/components/ui';
-import {
-  ResourceEditor,
-  type ResourceEdit,
-  type AdminResource,
-} from './ResourceEditor';
+import { ResourceEditor, type ResourceEdit, type AdminResource } from './ResourceEditor';
 import { ResourceDialog } from './ResourceDialog';
 import { deleteResource } from '@/lib/api/resources';
 export function AdminResources({
@@ -29,9 +20,7 @@ export function AdminResources({
   const [videos, setVideos] = useState(initialVideos);
   const [collections, setCollections] = useState(initialCollections);
   const [templates, setTemplates] = useState(initialTemplates);
-  const [tab, setTab] = useState<'perks' | 'learnings' | 'templates' | 'collections'>(
-    'perks',
-  );
+  const [tab, setTab] = useState<'perks' | 'learnings' | 'templates' | 'collections'>('perks');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<ResourceEdit | null>(null);
   const [deleting, setDeleting] = useState<{
@@ -43,17 +32,9 @@ export function AdminResources({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const rows: AdminResource[] = (
-    tab === 'perks'
-      ? perks
-      : tab === 'learnings'
-        ? videos
-        : tab === 'templates'
-          ? templates
-          : collections
+    tab === 'perks' ? perks : tab === 'learnings' ? videos : tab === 'templates' ? templates : collections
   )
-    .filter((r) =>
-      ('name' in r ? r.name : r.title).toLowerCase().includes(q.toLowerCase()),
-    )
+    .filter((r) => ('name' in r ? r.name : r.title).toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => a.sortOrder - b.sortOrder);
   function edit(row: AdminResource) {
     setNotice('');
@@ -70,14 +51,10 @@ export function AdminResources({
     else setEditing({ kind: tab, record: null });
   }
   function saved(row: AdminResource) {
-    if ('name' in row)
-      setPerks((prev) => [...prev.filter((p) => p.id !== row.id), row]);
-    else if ('videoUrl' in row)
-      setVideos((prev) => [...prev.filter((p) => p.id !== row.id), row]);
-    else if ('filePath' in row)
-      setTemplates((prev) => [...prev.filter((p) => p.id !== row.id), row]);
-    else
-      setCollections((prev) => [...prev.filter((p) => p.id !== row.id), row]);
+    if ('name' in row) setPerks((prev) => [...prev.filter((p) => p.id !== row.id), row]);
+    else if ('videoUrl' in row) setVideos((prev) => [...prev.filter((p) => p.id !== row.id), row]);
+    else if ('filePath' in row) setTemplates((prev) => [...prev.filter((p) => p.id !== row.id), row]);
+    else setCollections((prev) => [...prev.filter((p) => p.id !== row.id), row]);
     setEditing(null);
     setNotice('Changes saved.');
   }
@@ -87,31 +64,21 @@ export function AdminResources({
     setError('');
     try {
       await deleteResource(deleting.kind, deleting.id);
-      if (deleting.kind === 'perks')
-        setPerks((p) => p.filter((r) => r.id !== deleting.id));
-      if (deleting.kind === 'learnings')
-        setVideos((p) => p.filter((r) => r.id !== deleting.id));
-      if (deleting.kind === 'templates')
-        setTemplates((p) => p.filter((r) => r.id !== deleting.id));
+      if (deleting.kind === 'perks') setPerks((p) => p.filter((r) => r.id !== deleting.id));
+      if (deleting.kind === 'learnings') setVideos((p) => p.filter((r) => r.id !== deleting.id));
+      if (deleting.kind === 'templates') setTemplates((p) => p.filter((r) => r.id !== deleting.id));
       setCollections((p) =>
         p
-          .filter(
-            (r) => deleting.kind !== 'collections' || r.id !== deleting.id,
-          )
+          .filter((r) => deleting.kind !== 'collections' || r.id !== deleting.id)
           .map((r) => ({
             ...r,
-            itemIds:
-              deleting.kind === 'collections'
-                ? r.itemIds
-                : r.itemIds.filter((id) => id !== deleting.id),
-          })),
+            itemIds: deleting.kind === 'collections' ? r.itemIds : r.itemIds.filter((id) => id !== deleting.id),
+          }))
       );
       setDeleting(null);
       setNotice('Resource deleted.');
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Could not delete this resource.',
-      );
+      setError(e instanceof Error ? e.message : 'Could not delete this resource.');
     } finally {
       setBusy(false);
     }
@@ -119,11 +86,7 @@ export function AdminResources({
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div
-          role="group"
-          aria-label="Resource type"
-          className="flex flex-wrap gap-2"
-        >
+        <div role="group" aria-label="Resource type" className="flex flex-wrap gap-2">
           {(['perks', 'learnings', 'templates', 'collections'] as const).map((t) => (
             <Button
               key={t}
@@ -147,14 +110,7 @@ export function AdminResources({
         </div>
         <Button onClick={create}>
           Create{' '}
-          {tab === 'perks'
-            ? 'perk'
-            : tab === 'learnings'
-              ? 'video'
-              : tab === 'templates'
-                ? 'template'
-                : 'collection'}{' '}
-          +
+          {tab === 'perks' ? 'perk' : tab === 'learnings' ? 'video' : tab === 'templates' ? 'template' : 'collection'} +
         </Button>
       </div>
       <div className="mb-5 max-w-lg">
@@ -178,17 +134,9 @@ export function AdminResources({
             <div className="flex flex-wrap items-center gap-4">
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <h2 className="break-words font-sans text-sm font-semibold">
-                    {'name' in r ? r.name : r.title}
-                  </h2>
-                  <Badge variant={r.isActive ? 'success' : 'neutral'}>
-                    {r.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                  {'offerStatus' in r && (
-                    <Badge>
-                      {r.offerStatus === 'live' ? 'Live offer' : 'Coming soon'}
-                    </Badge>
-                  )}
+                  <h2 className="break-words font-sans text-sm font-semibold">{'name' in r ? r.name : r.title}</h2>
+                  <Badge variant={r.isActive ? 'success' : 'neutral'}>{r.isActive ? 'Active' : 'Inactive'}</Badge>
+                  {'offerStatus' in r && <Badge>{r.offerStatus === 'live' ? 'Live offer' : 'Coming soon'}</Badge>}
                   {'access' in r && (
                     <Badge>
                       {r.access === 'auto'
@@ -242,9 +190,7 @@ export function AdminResources({
         {!rows.length && (
           <Card padding="md">
             <p className="text-sm text-ink-3">
-              {q
-                ? 'No resources match your search.'
-                : 'No resources yet. Create the first one above.'}
+              {q ? 'No resources match your search.' : 'No resources yet. Create the first one above.'}
             </p>
           </Card>
         )}
@@ -279,18 +225,10 @@ export function AdminResources({
             </p>
           )}
           <div className="mt-6 flex justify-end gap-3">
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() => setDeleting(null)}
-            >
+            <Button variant="secondary" disabled={busy} onClick={() => setDeleting(null)}>
               Cancel
             </Button>
-            <Button
-              disabled={busy}
-              onClick={remove}
-              className="bg-error hover:bg-error/90"
-            >
+            <Button disabled={busy} onClick={remove} className="bg-error hover:bg-error/90">
               {busy ? 'Deleting…' : 'Delete resource'}
             </Button>
           </div>

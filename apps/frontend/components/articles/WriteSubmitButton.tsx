@@ -1,10 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-export function WriteSubmitButton({
-  children,
-  className = '',
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function WriteSubmitButton({ children, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"

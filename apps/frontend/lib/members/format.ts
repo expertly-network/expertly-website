@@ -7,11 +7,7 @@ function currencySymbol(currency: string): string {
   return currency === 'USD' ? '$' : `${currency} `;
 }
 
-export function formatRate(
-  minCents: number | null,
-  maxCents: number | null,
-  currency: string
-): string {
+export function formatRate(minCents: number | null, maxCents: number | null, currency: string): string {
   if (minCents === null || maxCents === null) return 'Rate on request';
   const symbol = currencySymbol(currency);
   const min = Math.round(minCents / 100);
@@ -79,7 +75,10 @@ export function externalHref(url: string | null | undefined): string | null {
 }
 
 // `{ href, label }` for a list row's optional link, or undefined when there's no safe URL.
-export function externalLink(url: string | null | undefined, label: string): { href: string; label: string } | undefined {
+export function externalLink(
+  url: string | null | undefined,
+  label: string
+): { href: string; label: string } | undefined {
   const href = externalHref(url);
   return href ? { href, label } : undefined;
 }

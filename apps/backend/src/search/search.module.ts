@@ -13,15 +13,27 @@ import { SearchService } from './search.service';
 import { TopicEmbeddingService } from './topic-embedding.service';
 
 @Module({
-  imports: [
-    AuthModule,
-    ThrottlerModule.forRoot({ throttlers: SEARCH_THROTTLERS }),
-  ],
+  imports: [AuthModule, ThrottlerModule.forRoot({ throttlers: SEARCH_THROTTLERS })],
   controllers: [SearchController],
   providers: [
-    SearchRepository, OpenAiClient, EmbeddingService, CardBuilderService, OutboxService, HousekeepingService,
-    TopicEmbeddingService, SearchService, SearchThrottlerGuard,
+    SearchRepository,
+    OpenAiClient,
+    EmbeddingService,
+    CardBuilderService,
+    OutboxService,
+    HousekeepingService,
+    TopicEmbeddingService,
+    SearchService,
+    SearchThrottlerGuard,
   ],
-  exports: [SearchRepository, OpenAiClient, EmbeddingService, CardBuilderService, OutboxService, HousekeepingService, SearchService],
+  exports: [
+    SearchRepository,
+    OpenAiClient,
+    EmbeddingService,
+    CardBuilderService,
+    OutboxService,
+    HousekeepingService,
+    SearchService,
+  ],
 })
 export class SearchModule {}

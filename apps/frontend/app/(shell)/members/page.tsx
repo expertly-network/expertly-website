@@ -18,11 +18,9 @@ export const metadata = {
     'Hire verified finance & legal counsel. Every practitioner is individually credential-verified and peer-reviewed.',
 };
 
-export default async function MembersPage(
-  props: {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-  }
-) {
+export default async function MembersPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const searchParams = await props.searchParams;
   const filters = parseMemberFilters(searchParams);
   const query = buildMembersQueryString({ ...filters, page: 1, pageSize: PAGE_SIZE });
@@ -71,8 +69,8 @@ export default async function MembersPage(
             Hire verified <span className="text-accent">finance &amp; legal</span> counsel.
           </h1>
           <p className="mt-3 max-w-xl text-lede text-white/65">
-            Every practitioner below has been individually credential-verified and
-            peer-reviewed. No agencies, no intermediaries, direct access only.
+            Every practitioner below has been individually credential-verified and peer-reviewed. No agencies, no
+            intermediaries, direct access only.
           </p>
           <div className="mt-8 max-w-2xl">
             <DirectoryHeroSearch filters={filters} />

@@ -29,19 +29,42 @@ const DAY = 24 * HOUR;
 // Named policies, so related routes share one allowance and the numbers live in one place.
 export const RATE_LIMITS = {
   /** Paid LLM calls: AI drafting, refining, follow-up questions, topic suggestions. */
-  ai: [{ limit: 10, windowSeconds: MINUTE }, { limit: 60, windowSeconds: HOUR }, { limit: 200, windowSeconds: DAY }],
+  ai: [
+    { limit: 10, windowSeconds: MINUTE },
+    { limit: 60, windowSeconds: HOUR },
+    { limit: 200, windowSeconds: DAY },
+  ],
   /** The full AI draft (web research + long generation) is the most expensive call. */
-  aiDraft: [{ limit: 3, windowSeconds: MINUTE }, { limit: 20, windowSeconds: HOUR }, { limit: 50, windowSeconds: DAY }],
+  aiDraft: [
+    { limit: 3, windowSeconds: MINUTE },
+    { limit: 20, windowSeconds: HOUR },
+    { limit: 50, windowSeconds: DAY },
+  ],
   /** Paid LinkedIn scrape (n8n). An applicant needs it once or twice. */
-  linkedinImport: [{ limit: 5, windowSeconds: HOUR }, { limit: 10, windowSeconds: DAY }],
+  linkedinImport: [
+    { limit: 5, windowSeconds: HOUR },
+    { limit: 10, windowSeconds: DAY },
+  ],
   /** Third-party API with a small quota (Unsplash). */
-  coverImages: [{ limit: 20, windowSeconds: MINUTE }, { limit: 200, windowSeconds: HOUR }],
+  coverImages: [
+    { limit: 20, windowSeconds: MINUTE },
+    { limit: 200, windowSeconds: HOUR },
+  ],
   /** Stops brute-forcing coupon codes. */
-  coupon: [{ limit: 10, windowSeconds: MINUTE }, { limit: 30, windowSeconds: HOUR }],
+  coupon: [
+    { limit: 10, windowSeconds: MINUTE },
+    { limit: 30, windowSeconds: HOUR },
+  ],
   /** File uploads (storage cost, magic-byte sniffing). */
-  upload: [{ limit: 20, windowSeconds: MINUTE }, { limit: 200, windowSeconds: DAY }],
+  upload: [
+    { limit: 20, windowSeconds: MINUTE },
+    { limit: 200, windowSeconds: DAY },
+  ],
   /** Content a user creates that other people see or an admin must review. */
-  write: [{ limit: 20, windowSeconds: MINUTE }, { limit: 300, windowSeconds: DAY }],
+  write: [
+    { limit: 20, windowSeconds: MINUTE },
+    { limit: 300, windowSeconds: DAY },
+  ],
 } satisfies Record<string, RateLimitRule[]>;
 
 /** Applies to every route that has no @RateLimit of its own. */

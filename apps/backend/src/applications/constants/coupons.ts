@@ -9,9 +9,7 @@ const COUPONS: Record<string, CouponDefinition> = {
   LAUNCH100: { discountType: 'full_waiver' },
 };
 
-export type CouponResult =
-  | { valid: true; discountAmountCents: number }
-  | { valid: false };
+export type CouponResult = { valid: true; discountAmountCents: number } | { valid: false };
 
 export function applyCoupon(code: string | undefined, listPriceCents: number): CouponResult {
   if (!code) return { valid: true, discountAmountCents: 0 };

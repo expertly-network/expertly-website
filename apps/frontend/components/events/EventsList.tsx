@@ -118,9 +118,7 @@ export function EventsList({
               key={opt.value}
               type="button"
               onClick={() =>
-                setFormatFilter((prev) =>
-                  active ? prev.filter((f) => f !== opt.value) : [...prev, opt.value]
-                )
+                setFormatFilter((prev) => (active ? prev.filter((f) => f !== opt.value) : [...prev, opt.value]))
               }
               className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] bg-bg-card px-3.5 py-2 font-mono text-[12px] font-semibold transition-colors ${
                 active ? '' : 'border-line-2 text-ink-3 hover:border-ink-3 hover:text-ink'
@@ -148,11 +146,7 @@ export function EventsList({
 
       {hasFilters && (
         <div className="flex justify-end pt-4">
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="font-mono text-[11px] font-semibold text-accent"
-          >
+          <button type="button" onClick={resetFilters} className="font-mono text-[11px] font-semibold text-accent">
             Clear all filters ✕
           </button>
         </div>

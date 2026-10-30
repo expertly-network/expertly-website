@@ -76,10 +76,7 @@ export class ConsultationsService {
   // checked first, then the daily rate limit (global across all members). Shared by create()
   // (enforces it) and checkEligibility() (reports it ahead of time, before the requester has
   // filled out the form at all) — one source of truth so the two can't drift.
-  private async eligibility(
-    requesterId: string,
-    memberId: string
-  ): Promise<ConsultationEligibilityResponse> {
+  private async eligibility(requesterId: string, memberId: string): Promise<ConsultationEligibilityResponse> {
     const cooldown = await this.pendingCooldownStatus(requesterId, memberId);
     if (cooldown.blocked) {
       return { blocked: true, reason: 'pending', retryAfter: cooldown.retryAfter };
@@ -97,10 +94,7 @@ export class ConsultationsService {
   // Read-only probe for the frontend to call before even opening the request form — same rules
   // create() enforces, just reported instead of thrown, so the user finds out without filling
   // out the whole form first.
-  async checkEligibility(
-    requester: AuthenticatedUser,
-    memberId: string
-  ): Promise<ConsultationEligibilityResponse> {
+  async checkEligibility(requester: AuthenticatedUser, memberId: string): Promise<ConsultationEligibilityResponse> {
     return this.eligibility(requester.id, memberId);
   }
 
@@ -212,7 +206,11 @@ export class ConsultationsService {
   }
 
   // Member-only — the member the request was sent to.
-  private async decide(id: string, member: AuthenticatedUser, dto: UpdateConsultationDto): Promise<ConsultationRequestDto> {
+  private async decide(
+    id: string,
+    member: AuthenticatedUser,
+    dto: UpdateConsultationDto
+  ): Promise<ConsultationRequestDto> {
     if (dto.status === undefined || dto.responseMessage === undefined) {
       throw new BadRequestException({
         code: 'DECISION_INCOMPLETE',
@@ -386,7 +384,9 @@ export class ConsultationsService {
         ...r,
         requesterIsVerifiedMember: isMember,
         requesterFirmName: firm?.firmName ?? null,
-        requesterAvatarUrl: firm?.photoPath ? this.repository.buildPhotoUrl(firm.photoPath) : (profile?.avatarUrl ?? null),
+        requesterAvatarUrl: firm?.photoPath
+          ? this.repository.buildPhotoUrl(firm.photoPath)
+          : (profile?.avatarUrl ?? null),
         requesterCity: firm?.city ?? null,
         requesterCountry: firm?.country ?? null,
       };

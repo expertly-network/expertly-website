@@ -123,7 +123,11 @@ export function ArticlesGrid({
       </div>
 
       <p className="mt-6 font-mono text-xs text-ink-3" aria-live="polite">
-        {status === 'filtering' ? 'Loading…' : failed?.page === 1 ? '\u00a0' : `${total} article${total === 1 ? '' : 's'}`}
+        {status === 'filtering'
+          ? 'Loading…'
+          : failed?.page === 1
+            ? '\u00a0'
+            : `${total} article${total === 1 ? '' : 's'}`}
       </p>
 
       {failed?.mode === 'filtering' && status === 'idle' && retryCard}
@@ -141,7 +145,10 @@ export function ArticlesGrid({
             ))}
             {status === 'loading-more' &&
               Array.from({ length: Math.min(ARTICLES_PAGE_SIZE, total - articles.length) }).map((_, i) => (
-                <div key={`skeleton-${i}`} className="h-[330px] animate-pulse rounded-2xl border border-line bg-bg-alt" />
+                <div
+                  key={`skeleton-${i}`}
+                  className="h-[330px] animate-pulse rounded-2xl border border-line bg-bg-alt"
+                />
               ))}
           </div>
 

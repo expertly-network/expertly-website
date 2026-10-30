@@ -56,22 +56,13 @@ const config: Config = {
       fontSize: {
         // From theme.css verbatim — the design's own hero/marketing scale.
         eyebrow: ['11px', { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' }],
-        display: [
-          'clamp(44px, 6.5vw, 96px)',
-          { lineHeight: '0.98', letterSpacing: '-0.03em', fontWeight: '500' },
-        ],
-        headline: [
-          'clamp(32px, 4vw, 56px)',
-          { lineHeight: '1.04', letterSpacing: '-0.025em', fontWeight: '500' },
-        ],
+        display: ['clamp(44px, 6.5vw, 96px)', { lineHeight: '0.98', letterSpacing: '-0.03em', fontWeight: '500' }],
+        headline: ['clamp(32px, 4vw, 56px)', { lineHeight: '1.04', letterSpacing: '-0.025em', fontWeight: '500' }],
         'section-title': [
           'clamp(28px, 3.2vw, 44px)',
           { lineHeight: '1.08', letterSpacing: '-0.02em', fontWeight: '500' },
         ],
-        lede: [
-          'clamp(17px, 1.3vw, 20px)',
-          { lineHeight: '1.5', letterSpacing: '-0.005em', fontWeight: '400' },
-        ],
+        lede: ['clamp(17px, 1.3vw, 20px)', { lineHeight: '1.5', letterSpacing: '-0.005em', fontWeight: '400' }],
 
         // This app's additions — consolidated from recurring (but not
         // perfectly consistent, e.g. 17/18/19px card titles) sizes used
@@ -88,10 +79,7 @@ const config: Config = {
         stat: ['28px', { lineHeight: 'normal', letterSpacing: '-0.02em', fontWeight: '500' }],
         label: ['12px', { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' }],
         caption: ['13px', { lineHeight: '1.4', letterSpacing: 'normal', fontWeight: '400' }],
-        'mono-label': [
-          '11px',
-          { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' },
-        ],
+        'mono-label': ['11px', { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' }],
 
         // Member profile page (design/static_html/assets/styles.css's .mp-* scale). Weights are
         // left to the call site since the prototype pairs the same size with 500/600/700.
@@ -129,7 +117,8 @@ const config: Config = {
         'confetti-fall': {
           '0%': { transform: 'translateY(-12px) translateX(0) rotate(0deg)', opacity: '1' },
           '100%': {
-            transform: 'translateY(160px) translateX(var(--confetti-drift, 0px)) rotate(var(--confetti-rotate, 200deg))',
+            transform:
+              'translateY(160px) translateX(var(--confetti-drift, 0px)) rotate(var(--confetti-rotate, 200deg))',
             opacity: '0',
           },
         },

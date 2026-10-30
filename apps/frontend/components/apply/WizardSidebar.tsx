@@ -23,8 +23,7 @@ export function WizardSidebar({
         Let&apos;s build your <em className="font-normal not-italic text-accent">profile.</em>
       </h1>
       <p className="mt-4 text-lede text-ink-3">
-        Complete the questions below. Once approved, this information will display on your public
-        directory listing.
+        Complete the questions below. Once approved, this information will display on your public directory listing.
       </p>
 
       <div className="mt-12 flex flex-col gap-1">
@@ -47,11 +46,7 @@ export function WizardSidebar({
             >
               <span
                 className={`flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border text-xs ${
-                  isActive
-                    ? 'border-ink bg-ink text-bg'
-                    : isDone
-                      ? 'border-ok bg-ok text-white'
-                      : 'border-line bg-bg'
+                  isActive ? 'border-ink bg-ink text-bg' : isDone ? 'border-ok bg-ok text-white' : 'border-line bg-bg'
                 }`}
               >
                 {isDone ? '✓' : step.num}

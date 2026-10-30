@@ -1,4 +1,19 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -45,10 +60,11 @@ function assertUuids(name: string, values: (string | undefined)[]): void {
 function toPositiveInt(name: string, value?: string): number | undefined {
   if (value === undefined) return undefined;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 1) throw new BadRequestException({
-    code: 'VALIDATION_FAILED',
-    message: `${name} must be a positive integer.`,
-  });
+  if (!Number.isInteger(n) || n < 1)
+    throw new BadRequestException({
+      code: 'VALIDATION_FAILED',
+      message: `${name} must be a positive integer.`,
+    });
   return n;
 }
 const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
@@ -60,14 +76,11 @@ export class ArticlesController {
     private readonly aiService: AiService,
     private readonly unsplashService: UnsplashService,
     private readonly categoriesService: CategoriesService
-  ) { }
+  ) {}
 
   // `:idOrSlug` — the article's UUID or its slug (public URLs use the slug).
   @Get(':idOrSlug')
-  findOne(
-    @Param('idOrSlug') idOrSlug: string,
-    @CurrentUser() user: AuthenticatedUser
-  ): Promise<ArticleDto> {
+  findOne(@Param('idOrSlug') idOrSlug: string, @CurrentUser() user: AuthenticatedUser): Promise<ArticleDto> {
     return this.articlesService.findOne(idOrSlug, user);
   }
 
@@ -148,10 +161,11 @@ export class ArticlesController {
       }
     }
 
-    if (!payload) throw new BadRequestException({
-      code: 'AI_DRAFT_PAYLOAD_MISSING',
-      message: 'Missing `payload` field.',
-    });
+    if (!payload)
+      throw new BadRequestException({
+        code: 'AI_DRAFT_PAYLOAD_MISSING',
+        message: 'Missing `payload` field.',
+      });
     let parsed: unknown;
     try {
       parsed = JSON.parse(payload);
@@ -164,10 +178,11 @@ export class ArticlesController {
 
     const dto = plainToInstance(AiDraftRequestDto, parsed);
     const errors = await validate(dto);
-    if (errors.length > 0) throw new BadRequestException({
-      code: 'AI_DRAFT_PAYLOAD_INVALID',
-      message: 'Invalid AI draft request.',
-    });
+    if (errors.length > 0)
+      throw new BadRequestException({
+        code: 'AI_DRAFT_PAYLOAD_INVALID',
+        message: 'Invalid AI draft request.',
+      });
 
     // No serviceIds come from the client anymore — the model infers them, picking only from
     // this full active-services candidate list (never trusted beyond what's actually offered).
@@ -207,10 +222,7 @@ export class ArticlesController {
   @Roles('member')
   @RateLimit('write', ...RATE_LIMITS.write)
   @Post()
-  create(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateArticleDto
-  ): Promise<ArticleDto> {
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateArticleDto): Promise<ArticleDto> {
     return this.articlesService.create(user, dto);
   }
 

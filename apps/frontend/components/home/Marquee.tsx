@@ -52,10 +52,7 @@ export function Marquee<T>({
         const doubled = [...row, ...row];
         return (
           <div key={ri} className={`overflow-hidden ${ri % 2 ? 'marquee-row-reverse' : ''}`}>
-            <div
-              className="marquee-track flex w-max gap-3"
-              style={{ animationDuration: `${durationFor(ri)}s` }}
-            >
+            <div className="marquee-track flex w-max gap-3" style={{ animationDuration: `${durationFor(ri)}s` }}>
               {doubled.map((item, i) => (
                 <div key={`${itemKey(item)}-${i}`}>{renderItem(item)}</div>
               ))}

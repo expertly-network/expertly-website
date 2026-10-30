@@ -5,8 +5,8 @@ const STATS = [
     num: '100%',
     label: (
       <>
-        <b className="font-medium text-ink">Manual review</b>: every profile is personally
-        verified by our team before going live.
+        <b className="font-medium text-ink">Manual review</b>: every profile is personally verified by our team before
+        going live.
       </>
     ),
   },
@@ -14,8 +14,8 @@ const STATS = [
     num: '0',
     label: (
       <>
-        <b className="font-medium text-ink">Junior associates</b>: every member is a
-        partner-level, senior, or founder practitioner.
+        <b className="font-medium text-ink">Junior associates</b>: every member is a partner-level, senior, or founder
+        practitioner.
       </>
     ),
   },
@@ -23,8 +23,8 @@ const STATS = [
     num: '20+',
     label: (
       <>
-        <b className="font-medium text-ink">Jurisdictions</b> covered: from Chennai and Singapore
-        to London, Dubai, and New York.
+        <b className="font-medium text-ink">Jurisdictions</b> covered: from Chennai and Singapore to London, Dubai, and
+        New York.
       </>
     ),
   },
@@ -37,8 +37,8 @@ export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) 
       <Card padding="md">
         <h3 className="text-title text-ink">Every member is individually vetted.</h3>
         <p className="mt-3 text-sm text-ink-3">
-          Our screening covers credentials, years in practice, jurisdiction expertise, and a peer
-          review by existing members. No self-serve listings.
+          Our screening covers credentials, years in practice, jurisdiction expertise, and a peer review by existing
+          members. No self-serve listings.
         </p>
         <div className="mt-2">
           {STATS.map((stat) => (
@@ -61,9 +61,7 @@ export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) 
                 'radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%)',
             }}
           />
-          <span className="relative font-mono text-[9px] font-bold text-white/40">
-            FOR PRACTITIONERS
-          </span>
+          <span className="relative font-mono text-[9px] font-bold text-white/40">FOR PRACTITIONERS</span>
           <h3 className="relative mt-2 text-title text-bg-card">Join the network.</h3>
           <p className="relative mt-2 text-sm text-white/60">
             Apply for membership and get discovered by clients globally. Keep 100% of your fees.

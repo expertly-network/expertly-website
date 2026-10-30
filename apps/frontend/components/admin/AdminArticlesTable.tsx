@@ -42,7 +42,11 @@ function AdminArticleRow({
     setError(null);
     setBusy('reject');
     try {
-      await reviewArticle(article.id, { status: 'rejected', rejectionReason: reason.trim(), expectedUpdatedAt: article.updatedAt });
+      await reviewArticle(article.id, {
+        status: 'rejected',
+        rejectionReason: reason.trim(),
+        expectedUpdatedAt: article.updatedAt,
+      });
       onDecided(article.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to reject this article.');
@@ -66,13 +70,9 @@ function AdminArticleRow({
           </Link>
         )}
       </td>
-      <td className="px-6 py-4 text-sm text-ink-2">
-        {article.services.map((s) => s.name).join(', ') || '—'}
-      </td>
+      <td className="px-6 py-4 text-sm text-ink-2">{article.services.map((s) => s.name).join(', ') || '—'}</td>
       <td className="px-6 py-4 text-sm text-ink-2">{article.countries.join(', ') || '—'}</td>
-      <td className="px-6 py-4 text-xs text-ink-3">
-        {DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()}
-      </td>
+      <td className="px-6 py-4 text-xs text-ink-3">{DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()}</td>
       <td className="px-6 py-4">
         {!rejecting ? (
           <div className="flex gap-2">
@@ -85,12 +85,7 @@ function AdminArticleRow({
           </div>
         ) : (
           <div className="flex w-64 flex-col gap-2">
-            <Textarea
-              label="Rejection reason"
-              rows={2}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
+            <Textarea label="Rejection reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="flex gap-2">
               <Button size="sm" variant="secondary" onClick={reject} disabled={busy !== null}>
                 {busy === 'reject' ? 'Rejecting…' : 'Confirm reject'}
@@ -101,7 +96,11 @@ function AdminArticleRow({
             </div>
           </div>
         )}
-        {error && <div className="mt-2 max-w-64"><ErrorBanner message={error} /></div>}
+        {error && (
+          <div className="mt-2 max-w-64">
+            <ErrorBanner message={error} />
+          </div>
+        )}
       </td>
     </tr>
   );

@@ -20,7 +20,7 @@ const REASON_COPY: Record<'completed' | 'declined', { title: string; label: stri
   declined: {
     title: 'Decline this request',
     label: 'Reason for declining',
-    placeholder: "e.g. This falls outside my practice area — referred them to a colleague who specializes in it.",
+    placeholder: 'e.g. This falls outside my practice area — referred them to a colleague who specializes in it.',
   },
 };
 
@@ -41,11 +41,29 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'num
 function Avatar({ src, alt }: { src: string | null | undefined; alt: string }) {
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img loading="lazy" decoding="async" src={src} alt={alt} className="h-12 w-12 flex-none rounded-full border border-line object-cover" />;
+    return (
+      <img
+        loading="lazy"
+        decoding="async"
+        src={src}
+        alt={alt}
+        className="h-12 w-12 flex-none rounded-full border border-line object-cover"
+      />
+    );
   }
   return (
     <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full border border-line bg-bg-alt text-ink-4">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
         <circle cx="12" cy="7" r="4" />
       </svg>
@@ -55,9 +73,23 @@ function Avatar({ src, alt }: { src: string | null | undefined; alt: string }) {
 
 function VerifiedBadge() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="flex-none text-ok" aria-label="Verified">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="flex-none text-ok"
+      aria-label="Verified"
+    >
       <circle cx="12" cy="12" r="10" />
-      <path d="M8 12.5l2.5 2.5L16 9" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M8 12.5l2.5 2.5L16 9"
+        fill="none"
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -120,10 +152,23 @@ export function ConsultationCard(props: ConsultationCardProps) {
               <span className="text-title text-ink">{title}</span>
               {showVerified && <VerifiedBadge />}
               {firm && <span className="text-caption text-ink-4">{firm}</span>}
-              {firm && location && <span className="text-caption text-ink-4" aria-hidden="true">&middot;</span>}
+              {firm && location && (
+                <span className="text-caption text-ink-4" aria-hidden="true">
+                  &middot;
+                </span>
+              )}
               {location && (
                 <span className="inline-flex items-center gap-1 text-caption text-ink-4">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="flex-none">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                    className="flex-none"
+                  >
                     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
@@ -134,7 +179,16 @@ export function ConsultationCard(props: ConsultationCardProps) {
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-3">
               {(request.serviceName || request.customServiceLabel) && (
                 <span className="inline-flex items-center gap-1.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="flex-none">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                    className="flex-none"
+                  >
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
@@ -142,7 +196,15 @@ export function ConsultationCard(props: ConsultationCardProps) {
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
                   <rect x="3" y="4" width="18" height="18" rx="2" />
                   <line x1="16" y1="2" x2="16" y2="6" />
                   <line x1="8" y1="2" x2="8" y2="6" />
@@ -189,7 +251,10 @@ export function ConsultationCard(props: ConsultationCardProps) {
               </a>
             )}
             {phone && (
-              <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="inline-flex items-center gap-1.5 hover:text-ink hover:underline">
+              <a
+                href={`tel:${phone.replace(/[^+\d]/g, '')}`}
+                className="inline-flex items-center gap-1.5 hover:text-ink hover:underline"
+              >
                 {phone}
               </a>
             )}
@@ -221,7 +286,17 @@ export function ConsultationCard(props: ConsultationCardProps) {
                   onClick={() => setReasonAction('completed')}
                   className="border-ok text-ok hover:border-ok hover:bg-ok/10"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
                   Completed
@@ -239,7 +314,11 @@ export function ConsultationCard(props: ConsultationCardProps) {
             )}
           </div>
         )}
-        {error && <div className="mt-3"><ErrorBanner message={error} /></div>}
+        {error && (
+          <div className="mt-3">
+            <ErrorBanner message={error} />
+          </div>
+        )}
 
         <ConsultationMessageThread requestId={request.id} viewerId={viewerId} locked={request.status !== 'pending'} />
 

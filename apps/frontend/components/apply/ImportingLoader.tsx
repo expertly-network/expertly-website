@@ -35,13 +35,7 @@ const LINE_HEIGHT_PX = 32;
  * this component fast-forwards to the last stage (if it isn't there already) before calling
  * `onReachedEnd()` exactly once — that's the caller's cue that it's now safe to move on.
  */
-export function ImportingLoader({
-  done = false,
-  onReachedEnd,
-}: {
-  done?: boolean;
-  onReachedEnd?: () => void;
-}) {
+export function ImportingLoader({ done = false, onReachedEnd }: { done?: boolean; onReachedEnd?: () => void }) {
   const [stageIndex, setStageIndex] = useState(0);
   const firedRef = useRef(false);
   const atEnd = stageIndex >= STAGES.length - 1;
@@ -90,9 +84,7 @@ export function ImportingLoader({
         </div>
       </div>
 
-      <p className="text-xs text-ink-3">
-        This can take anywhere from a few seconds to a couple of minutes.
-      </p>
+      <p className="text-xs text-ink-3">This can take anywhere from a few seconds to a couple of minutes.</p>
     </div>
   );
 }

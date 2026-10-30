@@ -30,7 +30,9 @@ export function parseMemberFilters(searchParams: RawSearchParams): MemberFilters
   return {
     q: toSingleTrimmed(searchParams.q)?.slice(0, 100),
     categoryId: categoryId && UUID.test(categoryId) ? categoryId : undefined,
-    serviceId: toArray(searchParams.serviceId).filter((id) => UUID.test(id)).slice(0, MAX_FILTER_VALUES),
+    serviceId: toArray(searchParams.serviceId)
+      .filter((id) => UUID.test(id))
+      .slice(0, MAX_FILTER_VALUES),
     country: toArray(searchParams.country)
       .filter((c) => c.length <= 100)
       .slice(0, MAX_FILTER_VALUES),

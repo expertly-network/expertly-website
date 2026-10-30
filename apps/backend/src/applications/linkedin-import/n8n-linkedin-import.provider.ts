@@ -1,10 +1,6 @@
 import { BadGatewayException, Injectable, Logger, RequestTimeoutException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type {
-  EducationInput,
-  LinkedInImportResponse,
-  WorkExperienceInput,
-} from '@shared/membership-application';
+import type { EducationInput, LinkedInImportResponse, WorkExperienceInput } from '@shared/membership-application';
 import { LinkedInImportProvider } from './linkedin-import.provider';
 import { EDUCATIONS_MAX, WORK_EXPERIENCES_MAX } from '../dto/update-application.dto';
 
@@ -28,8 +24,18 @@ function truncateBio(bio: string): string {
 
 // Converts a 3-letter month abbreviation to its 1-12 number.
 const MONTH_NUM: Record<string, number> = {
-  Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
-  Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+  Jan: 1,
+  Feb: 2,
+  Mar: 3,
+  Apr: 4,
+  May: 5,
+  Jun: 6,
+  Jul: 7,
+  Aug: 8,
+  Sep: 9,
+  Oct: 10,
+  Nov: 11,
+  Dec: 12,
 };
 
 interface RawDate {
@@ -137,10 +143,7 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
     return this.toResponse(raw);
   }
 
-  private async fetchProfile(
-    webhookUrl: string,
-    linkedinUrl: string
-  ): Promise<RawLinkedInProfile | undefined> {
+  private async fetchProfile(webhookUrl: string, linkedinUrl: string): Promise<RawLinkedInProfile | undefined> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 

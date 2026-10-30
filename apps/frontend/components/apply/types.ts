@@ -72,13 +72,9 @@ export function toUpdateRequest(
         .filter((w) => w.title.trim() || w.company.trim())
         .map((w) => ({ ...w, companyUrl: w.companyUrl || undefined }))
     ),
-    educations: nonEmptyOrUndefined(
-      form.educations.filter((e) => e.institution.trim() || e.degree.trim())
-    ),
+    educations: nonEmptyOrUndefined(form.educations.filter((e) => e.institution.trim() || e.degree.trim())),
     // Filters out blank template entries.
-    peerReferences: nonEmptyOrUndefined(
-      form.peerReferences.filter((r) => r.name.trim() || r.email.trim())
-    ),
+    peerReferences: nonEmptyOrUndefined(form.peerReferences.filter((r) => r.name.trim() || r.email.trim())),
     servicePreferences: form.servicePreferences,
     rateMinCents: form.rateMinDollars ? Math.round(Number(form.rateMinDollars) * 100) : undefined,
     rateMaxCents: form.rateMaxDollars ? Math.round(Number(form.rateMaxDollars) * 100) : undefined,
@@ -112,9 +108,7 @@ export function fromDto(app: ApplicationDto): Partial<WizardFormState> {
     workExperiences: app.workExperiences.length > 0 ? app.workExperiences : [{ ...EMPTY_WORK_EXPERIENCE }],
     educations: app.educations.length > 0 ? app.educations : [{ ...EMPTY_EDUCATION }],
     peerReferences:
-      app.peerReferences.length === 2
-        ? app.peerReferences
-        : [{ ...EMPTY_PEER_REFERENCE }, { ...EMPTY_PEER_REFERENCE }],
+      app.peerReferences.length === 2 ? app.peerReferences : [{ ...EMPTY_PEER_REFERENCE }, { ...EMPTY_PEER_REFERENCE }],
     servicePreferences: app.servicePreferences.map((p) => ({
       serviceId: p.serviceId,
       priority: p.priority,
@@ -189,9 +183,25 @@ export const REGIONS: { value: ApplicationRegion; label: string }[] = [
 ];
 
 export const COUNTRIES = [
-  'India', 'Singapore', 'United Kingdom', 'United States', 'United Arab Emirates',
-  'Germany', 'France', 'Italy', 'Spain', 'Japan', 'Australia', 'Canada',
-  'Brazil', 'China', 'Ghana', 'Nigeria', 'Egypt', 'South Africa', 'Other',
+  'India',
+  'Singapore',
+  'United Kingdom',
+  'United States',
+  'United Arab Emirates',
+  'Germany',
+  'France',
+  'Italy',
+  'Spain',
+  'Japan',
+  'Australia',
+  'Canada',
+  'Brazil',
+  'China',
+  'Ghana',
+  'Nigeria',
+  'Egypt',
+  'South Africa',
+  'Other',
 ];
 
 // Every ITU-assigned calling code, one entry per country/territory. Several countries share a

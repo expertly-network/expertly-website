@@ -53,12 +53,7 @@ export function Modal({
           <h2 id="modal-title" className="text-title text-ink">
             {title}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-ink-3 hover:text-ink"
-          >
+          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-3 hover:text-ink">
             ✕
           </button>
         </div>

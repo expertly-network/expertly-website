@@ -1,9 +1,4 @@
-import type {
-  PerkCategory,
-  LearningCategory,
-  ResourceAudience,
-  TemplateCategory,
-} from '@shared/resource';
+import type { PerkCategory, LearningCategory, ResourceAudience, TemplateCategory } from '@shared/resource';
 export const perkCategories: PerkCategory[] = [
   'Tax & Compliance',
   'Accounting & Audit',

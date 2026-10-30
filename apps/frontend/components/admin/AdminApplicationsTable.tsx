@@ -89,10 +89,7 @@ export function AdminApplicationsTable({
     }
   }
 
-  const statusesPresent = useMemo(
-    () => [...new Set(initialApplications.map((a) => a.status))],
-    [initialApplications]
-  );
+  const statusesPresent = useMemo(() => [...new Set(initialApplications.map((a) => a.status))], [initialApplications]);
 
   const applications = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -150,13 +147,55 @@ export function AdminApplicationsTable({
           <table className="w-full min-w-[1080px] border-collapse">
             <thead>
               <tr className="border-b border-line bg-bg-alt text-left text-xs font-medium text-ink-3">
-                <SortableHeader label="Applicant" sortKeyName="name" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHeader label="Location" sortKeyName="location" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHeader label="Services" sortKeyName="service" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHeader label="Category" sortKeyName="category" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHeader label="Experience" sortKeyName="experience" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHeader label="Created" sortKeyName="created" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableHeader label="Status" sortKeyName="status" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableHeader
+                  label="Applicant"
+                  sortKeyName="name"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHeader
+                  label="Location"
+                  sortKeyName="location"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHeader
+                  label="Services"
+                  sortKeyName="service"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHeader
+                  label="Category"
+                  sortKeyName="category"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHeader
+                  label="Experience"
+                  sortKeyName="experience"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHeader
+                  label="Created"
+                  sortKeyName="created"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableHeader
+                  label="Status"
+                  sortKeyName="status"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={toggleSort}
+                />
                 <th className="px-6 py-3">
                   <span className="sr-only">Review</span>
                 </th>
@@ -171,7 +210,10 @@ export function AdminApplicationsTable({
                     </div>
                     <div className="text-xs text-ink-3">{application.contactEmail}</div>
                     <div className="text-xs text-ink-3">{formatPhone(application)}</div>
-                    <ExternalLink url={application.linkedinUrl} className="text-xs text-accent underline hover:text-ink">
+                    <ExternalLink
+                      url={application.linkedinUrl}
+                      className="text-xs text-accent underline hover:text-ink"
+                    >
                       LinkedIn
                     </ExternalLink>
                   </td>
@@ -206,7 +248,9 @@ export function AdminApplicationsTable({
                   <td className="px-6 py-4 text-sm text-ink-2">
                     {application.yearsOfExperience != null ? `${application.yearsOfExperience} yrs` : '—'}
                   </td>
-                  <td className="px-6 py-4 text-xs text-ink-3">{DATE_FORMAT.format(new Date(application.createdAt))}</td>
+                  <td className="px-6 py-4 text-xs text-ink-3">
+                    {DATE_FORMAT.format(new Date(application.createdAt))}
+                  </td>
                   <td className="px-6 py-4 text-sm text-ink-2">
                     <ApplicationStatusBadge status={application.status} />
                     {application.rejectionReason && (

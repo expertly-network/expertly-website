@@ -115,9 +115,7 @@ export function ImageCropper({
     >
       <div className="w-full max-w-sm rounded-xl bg-bg-card p-5">
         <h3 className="text-base font-medium text-ink">{copy.title}</h3>
-        <p className="mt-1 text-xs text-ink-3">
-          {copy.hint} Drag to reposition and use the slider to zoom.
-        </p>
+        <p className="mt-1 text-xs text-ink-3">{copy.hint} Drag to reposition and use the slider to zoom.</p>
         <div
           className="mx-auto mt-4 touch-none select-none overflow-hidden rounded-input border border-line-2 bg-bg-alt"
           style={{ width: VIEWPORT, height: VIEWPORT, maxWidth: '100%' }}
@@ -164,8 +162,8 @@ export function ImageCropper({
         />
         {subject === 'photo' && natural && VIEWPORT / scale < LOW_RES_EDGE && (
           <p className="mt-2 text-xs text-amber-700">
-            This photo is low resolution and may look blurry on your profile. A larger image (at least{' '}
-            {LOW_RES_EDGE}×{LOW_RES_EDGE}px) works best{zoom > 1 ? ', or zoom out a little' : ''}.
+            This photo is low resolution and may look blurry on your profile. A larger image (at least {LOW_RES_EDGE}×
+            {LOW_RES_EDGE}px) works best{zoom > 1 ? ', or zoom out a little' : ''}.
           </p>
         )}
         {failed && (

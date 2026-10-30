@@ -8,15 +8,10 @@ import { SuccessNotice } from '@/components/shared/SuccessNotice';
 
 export const metadata = {
   title: 'Articles — GrowXQ',
-  description:
-    'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
+  description: 'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
 };
 
-export default async function ArticlesPage(
-  props: {
-    searchParams: Promise<{ tab?: string; saved?: string }>;
-  }
-) {
+export default async function ArticlesPage(props: { searchParams: Promise<{ tab?: string; saved?: string }> }) {
   const searchParams = await props.searchParams;
   const [firstPage, categories, profile] = await Promise.all([
     getArticlesServer({ page: 1, pageSize: ARTICLES_PAGE_SIZE }),

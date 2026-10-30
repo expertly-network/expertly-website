@@ -21,9 +21,7 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
           <Link href="/articles" className="text-sm font-medium text-white/80 hover:text-white">
             ← Articles
           </Link>
-          {article.services[0] && (
-            <Badge variant="emphasis">{article.services[0].name}</Badge>
-          )}
+          {article.services[0] && <Badge variant="emphasis">{article.services[0].name}</Badge>}
         </div>
       </div>
 
@@ -46,8 +44,8 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
           <div className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-line bg-bg-alt px-6 py-8 text-center">
             <p className="text-sm font-medium text-ink">Sign in to read the full article</p>
             <p className="max-w-sm text-sm text-ink-3">
-              The rest of this article, plus member profiles and consultation requests, are
-              available to signed-in users.
+              The rest of this article, plus member profiles and consultation requests, are available to signed-in
+              users.
             </p>
             <div className="mt-1 flex gap-3">
               <SignInButton>Sign In</SignInButton>

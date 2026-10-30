@@ -46,7 +46,12 @@ export function MultiSelect({
     <div className="flex flex-col">
       <label className="mb-2 block text-[13px] font-semibold text-ink">
         {label}
-        {markRequired && <span aria-hidden="true" className="text-error"> *</span>}
+        {markRequired && (
+          <span aria-hidden="true" className="text-error">
+            {' '}
+            *
+          </span>
+        )}
       </label>
       <FilterPopover
         label={placeholder ?? label}

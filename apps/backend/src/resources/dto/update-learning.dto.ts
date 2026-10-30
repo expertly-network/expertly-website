@@ -14,11 +14,7 @@ import {
   ArrayMaxSize,
   ValidateIf,
 } from 'class-validator';
-import {
-  LEARNING_CATEGORIES,
-  type LearningCategory,
-  type ResourceAudience,
-} from '@shared/resource';
+import { LEARNING_CATEGORIES, type LearningCategory, type ResourceAudience } from '@shared/resource';
 
 export class UpdateLearningDto {
   @ValidateIf((_, value) => value !== undefined)

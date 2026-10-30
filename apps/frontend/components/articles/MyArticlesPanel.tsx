@@ -53,15 +53,23 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
     return (
       <div className="mx-auto max-w-[420px] rounded-[18px] border border-dashed border-line-2 bg-bg-card px-8 py-12 text-center">
         <div className="mx-auto mb-[18px] flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] text-accent">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <polyline points="14,2 14,8 20,8" />
           </svg>
         </div>
         <p className="mb-2 text-[17px] font-semibold text-ink">You haven&apos;t published anything yet</p>
         <p className="mb-[22px] text-[13.5px] leading-[1.55] text-ink-3">
-          Write your first article and it&apos;ll show up here — including anything still waiting
-          on editorial review.
+          Write your first article and it&apos;ll show up here — including anything still waiting on editorial review.
         </p>
         <WriteArticleCtaButton />
       </div>
@@ -88,12 +96,16 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
                     {badge.label.toUpperCase()}
                   </span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img loading="lazy" decoding="async" src={article.coverImageUrl} alt="" className="h-[140px] w-full object-cover" />
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={article.coverImageUrl}
+                    alt=""
+                    className="h-[140px] w-full object-cover"
+                  />
                 </div>
                 <div className="flex flex-1 flex-col p-5">
-                  <span className="mb-2 text-xs text-ink-3">
-                    {DATE_FORMAT.format(new Date(article.createdAt))}
-                  </span>
+                  <span className="mb-2 text-xs text-ink-3">{DATE_FORMAT.format(new Date(article.createdAt))}</span>
                   <h3 className="line-clamp-2 text-title text-ink">{article.title}</h3>
                   {article.status === 'rejected' && article.rejectionReason && (
                     <p className="mt-2 text-xs text-error">{article.rejectionReason}</p>
@@ -124,7 +136,16 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
                 title="Edit article"
                 className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/65"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                   <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>

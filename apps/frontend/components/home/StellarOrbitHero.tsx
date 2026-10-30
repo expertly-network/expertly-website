@@ -19,33 +19,19 @@ const RINGS: Ring[] = [
     radius: 132.5,
     size: 265,
     spin: 'ccw',
-    dots: [
-      { deg: 90 },
-      { deg: 210, size: 'sm' },
-      { deg: 330 },
-    ],
+    dots: [{ deg: 90 }, { deg: 210, size: 'sm' }, { deg: 330 }],
   },
   {
     radius: 188,
     size: 376,
     spin: 'cw',
-    dots: [
-      { deg: 0, size: 'lg' },
-      { deg: 90 },
-      { deg: 180, size: 'lg' },
-      { deg: 270, size: 'sm' },
-    ],
+    dots: [{ deg: 0, size: 'lg' }, { deg: 90 }, { deg: 180, size: 'lg' }, { deg: 270, size: 'sm' }],
   },
   {
     radius: 243.5,
     size: 487,
     spin: 'cw',
-    dots: [
-      { deg: 45, size: 'sm' },
-      { deg: 135, size: 'lg' },
-      { deg: 225 },
-      { deg: 315, size: 'lg' },
-    ],
+    dots: [{ deg: 45, size: 'sm' }, { deg: 135, size: 'lg' }, { deg: 225 }, { deg: 315, size: 'lg' }],
   },
   {
     radius: 299,
@@ -135,24 +121,19 @@ export function StellarOrbitHero({
   const orbitCount = useCountUp(20, 2000, 700);
 
   return (
-    <section
-      id="hero-stellar"
-      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-ink text-bg-card"
-    >
+    <section id="hero-stellar" className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-ink text-bg-card">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-[8%] -top-[15%] h-[900px] w-[900px] rounded-full"
         style={{
-          background:
-            'radial-gradient(circle, color-mix(in oklab, var(--accent) 7%, transparent) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, color-mix(in oklab, var(--accent) 7%, transparent) 0%, transparent 65%)',
         }}
       />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[5%] left-[5%] h-[600px] w-[600px] rounded-full"
         style={{
-          background:
-            'radial-gradient(circle, color-mix(in oklab, var(--accent) 4%, transparent) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, color-mix(in oklab, var(--accent) 4%, transparent) 0%, transparent 65%)',
         }}
       />
 
@@ -184,8 +165,8 @@ export function StellarOrbitHero({
               className="mx-auto mt-6 max-w-[460px] text-lede text-white/50 lg:mx-0"
               style={{ animation: 'hs-fade-in 0.7s ease 1.9s both' }}
             >
-              A specialist network of verified senior practitioners. Skip the referral chains and
-              junior associates. Search, verify credentials, and meet the right expert directly.
+              A specialist network of verified senior practitioners. Skip the referral chains and junior associates.
+              Search, verify credentials, and meet the right expert directly.
             </p>
 
             <div
@@ -239,9 +220,7 @@ export function StellarOrbitHero({
                     {num}
                     {suffix}
                   </span>
-                  <span className="whitespace-nowrap font-mono text-[10px] font-medium text-white/35">
-                    {label}
-                  </span>
+                  <span className="whitespace-nowrap font-mono text-[10px] font-medium text-white/35">{label}</span>
                 </div>
               ))}
             </div>
@@ -256,10 +235,7 @@ export function StellarOrbitHero({
             <div className="h-[302px] w-[302px] min-[640px]:h-[405px] min-[640px]:w-[405px] lg:h-[540px] lg:w-[540px]">
               <div className="relative h-[540px] w-[540px] flex-none origin-top-left scale-[0.56] min-[640px]:scale-[0.75] lg:translate-x-[40px] lg:scale-100">
                 {RINGS.map((ring, ringIdx) => {
-                  const priorDots = RINGS.slice(0, ringIdx).reduce(
-                    (sum, r) => sum + r.dots.length,
-                    0
-                  );
+                  const priorDots = RINGS.slice(0, ringIdx).reduce((sum, r) => sum + r.dots.length, 0);
                   return (
                     <div
                       key={ringIdx}
@@ -295,12 +271,7 @@ export function StellarOrbitHero({
                             <div style={{ animation: `${counterSpin} 40s linear infinite` }}>
                               {photoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={photoUrl}
-                                  alt=""
-                                  className="rounded-full object-cover"
-                                  style={avatarStyle}
-                                />
+                                <img src={photoUrl} alt="" className="rounded-full object-cover" style={avatarStyle} />
                               ) : (
                                 <div
                                   className="rounded-full"
@@ -324,9 +295,7 @@ export function StellarOrbitHero({
                     <span className="block text-[28px] font-semibold leading-none tracking-[-0.04em] text-accent">
                       {orbitCount}k+
                     </span>
-                    <span className="mt-1 block font-mono text-[9.5px] text-white/45">
-                      Practitioners
-                    </span>
+                    <span className="mt-1 block font-mono text-[9.5px] text-white/45">Practitioners</span>
                   </div>
                 </div>
               </div>

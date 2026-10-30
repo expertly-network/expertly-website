@@ -1,4 +1,18 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
@@ -43,10 +57,11 @@ export class AdminEventsController {
     }
 
     const buffer = await part.toBuffer();
-    if (buffer.length === 0) throw new BadRequestException({
-      code: 'FILE_EMPTY',
-      message: 'Uploaded file is empty.',
-    });
+    if (buffer.length === 0)
+      throw new BadRequestException({
+        code: 'FILE_EMPTY',
+        message: 'Uploaded file is empty.',
+      });
 
     return this.eventsService.importFromCsv(buffer);
   }

@@ -8,9 +8,7 @@ const PROTECTED_PREFIXES = ['/dashboard', '/apply', '/admin', '/articles/write',
 export async function middleware(request: NextRequest) {
   const { response, userId } = await updateSession(request);
 
-  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
-    request.nextUrl.pathname.startsWith(prefix)
-  );
+  const isProtected = PROTECTED_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix));
 
   if (isProtected && !userId) {
     const redirectUrl = new URL('/login', request.url);

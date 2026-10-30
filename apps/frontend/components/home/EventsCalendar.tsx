@@ -7,15 +7,37 @@ import { UpcomingEvents } from '@/components/home/UpcomingEvents';
 import type { EventDto } from '@shared/event';
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const COUNTRY_CODE: Record<string, string> = {
-  'United States': 'US', 'United Kingdom': 'UK', 'South Korea': 'KR', India: 'IN',
-  Netherlands: 'NL', Singapore: 'SG', 'United Arab Emirates': 'AE', Switzerland: 'CH',
-  'Hong Kong': 'HK', Belgium: 'BE', Germany: 'DE', Spain: 'ES', France: 'FR',
-  'Cayman Islands': 'KY', Egypt: 'EG', Canada: 'CA',
+  'United States': 'US',
+  'United Kingdom': 'UK',
+  'South Korea': 'KR',
+  India: 'IN',
+  Netherlands: 'NL',
+  Singapore: 'SG',
+  'United Arab Emirates': 'AE',
+  Switzerland: 'CH',
+  'Hong Kong': 'HK',
+  Belgium: 'BE',
+  Germany: 'DE',
+  Spain: 'ES',
+  France: 'FR',
+  'Cayman Islands': 'KY',
+  Egypt: 'EG',
+  Canada: 'CA',
 };
 
 function countryCode(name: string | null): string {
@@ -129,7 +151,16 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
             aria-label="Previous month"
             className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-line-2 bg-bg-card text-ink-3 transition-colors hover:border-ink hover:text-ink"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M15 6l-6 6 6 6" />
             </svg>
           </button>
@@ -143,7 +174,16 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
             aria-label="Next month"
             className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-line-2 bg-bg-card text-ink-3 transition-colors hover:border-ink hover:text-ink"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M9 6l6 6-6 6" />
             </svg>
           </button>
@@ -153,10 +193,7 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
           <div className="min-w-0 overflow-hidden">
             <div className="grid grid-cols-7 border-b-2 border-ink-2">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                <div
-                  key={d}
-                  className="py-2.5 pb-3.5 text-center font-mono text-[10px] font-bold text-ink-2"
-                >
+                <div key={d} className="py-2.5 pb-3.5 text-center font-mono text-[10px] font-bold text-ink-2">
                   {d}
                 </div>
               ))}
@@ -271,20 +308,15 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               style={{ background: 'color-mix(in oklab, var(--accent) 18%, transparent)' }}
             />
             <div className="relative z-[1] flex flex-1 flex-col justify-center gap-4 p-7">
-              <span className="font-mono text-[9px] font-bold text-accent">
-                Stay informed
-              </span>
+              <span className="font-mono text-[9px] font-bold text-accent">Stay informed</span>
               <h3 className="text-[21px] font-semibold leading-tight tracking-[-0.02em] text-bg-card">
                 Discover the right event for you, and make the best out of it.
               </h3>
               <p className="text-[13px] leading-relaxed text-white/50">
-                This is a curated list of all the leading networking events hosted across the
-                industry. Join GrowXQ, to discover the who, when, where and connect with the
-                right network.
+                This is a curated list of all the leading networking events hosted across the industry. Join GrowXQ, to
+                discover the who, when, where and connect with the right network.
               </p>
-              <SignInLink
-                className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-bold text-ink transition-colors hover:bg-accent-2"
-              >
+              <SignInLink className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-bold text-ink transition-colors hover:bg-accent-2">
                 Join for free →
               </SignInLink>
               <Link

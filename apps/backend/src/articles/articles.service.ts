@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { AdminAccessService } from '../auth/admin-access.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
@@ -49,7 +56,7 @@ export class ArticlesService {
     private readonly aiService: AiService,
     private readonly aiDraftGenerationsRepository: AiDraftGenerationsRepository,
     private readonly adminAccess: AdminAccessService
-  ) { }
+  ) {}
 
   // Resolves a submission to 'published' or 'pending_review' based on the review mode.
   private resolveSubmitStatus(): ArticleStatus {
@@ -109,9 +116,7 @@ export class ArticlesService {
     const body = sanitizeArticleBody(dto.body);
     if (status !== 'draft') assertWordCount(body);
     await this.assertActiveServiceIds(dto.serviceIds, dto.customServiceLabels);
-    const aiGenerationId = dto.aiGenerationId
-      ? await this.resolveOwnAiGenerationId(dto.aiGenerationId, user.id)
-      : null;
+    const aiGenerationId = dto.aiGenerationId ? await this.resolveOwnAiGenerationId(dto.aiGenerationId, user.id) : null;
     const slug = await this.articlesRepository.findUniqueSlug(dto.title);
 
     const row = await this.articlesRepository.insert({
@@ -149,7 +154,10 @@ export class ArticlesService {
     // back for review — otherwise approval could be bypassed by publishing something harmless
     // and editing it afterwards. (Admins editing someone else's article keep its status.)
     const changesContent =
-      dto.title !== undefined || dto.body !== undefined || dto.coverImageUrl !== undefined || dto.serviceIds !== undefined;
+      dto.title !== undefined ||
+      dto.body !== undefined ||
+      dto.coverImageUrl !== undefined ||
+      dto.serviceIds !== undefined;
     if (
       resultingStatus === undefined &&
       existing.status === 'published' &&
@@ -380,7 +388,11 @@ function deriveReadTimeMinutes(body: string): number {
   return Math.max(1, Math.round(countArticleWords(body) / 200));
 }
 
-function toDto(row: ArticleRow, serviceDetails: Map<string, ServiceDetail>, authors: Map<string, AuthorInfo>): ArticleDto {
+function toDto(
+  row: ArticleRow,
+  serviceDetails: Map<string, ServiceDetail>,
+  authors: Map<string, AuthorInfo>
+): ArticleDto {
   return { ...toListDto(row, serviceDetails, authors), body: row.body };
 }
 

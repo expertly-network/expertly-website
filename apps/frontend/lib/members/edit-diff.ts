@@ -33,9 +33,7 @@ export interface ItemChange {
   proofAttachments: ProofAttachment[];
 }
 
-export type SectionDiff =
-  | { shape: 'fields'; fields: FieldChange[] }
-  | { shape: 'items'; items: ItemChange[] };
+export type SectionDiff = { shape: 'fields'; fields: FieldChange[] } | { shape: 'items'; items: ItemChange[] };
 
 type Item = Record<string, unknown>;
 
@@ -70,7 +68,9 @@ export function viewOfItem(section: MemberEditSection, item: Item): ItemView {
   };
   switch (section) {
     case 'engagements':
-      return { title: str(item.title), meta: joinMeta([
+      return {
+        title: str(item.title),
+        meta: joinMeta([
           item.organization,
           item.clientName ? `Client: ${str(item.clientName)}` : '',
           item.clientEmail,
@@ -84,14 +84,29 @@ export function viewOfItem(section: MemberEditSection, item: Item): ItemView {
               )
             : []),
         ]),
-        body: null, logoUrl: null, logoUploadPath: null };
+        body: null,
+        logoUrl: null,
+        logoUploadPath: null,
+      };
     case 'education':
-      return { title: str(item.degree), meta: joinMeta([item.institution, item.field, item.endYear]), body: null, logoUrl: null, logoUploadPath: null };
+      return {
+        title: str(item.degree),
+        meta: joinMeta([item.institution, item.field, item.endYear]),
+        body: null,
+        logoUrl: null,
+        logoUploadPath: null,
+      };
     case 'work_experiences': {
       const end = item.isCurrent ? 'Present' : monthYear(item.endMonth, item.endYear);
       const start = monthYear(item.startMonth, item.startYear);
       const range = start ? `${start} – ${end}` : '';
-      return { title: str(item.title), meta: joinMeta([item.company, range]), body: str(item.description) || null, logoUrl: null, logoUploadPath: null };
+      return {
+        title: str(item.title),
+        meta: joinMeta([item.company, range]),
+        body: str(item.description) || null,
+        logoUrl: null,
+        logoUploadPath: null,
+      };
     }
     case 'key_clients':
       return { title: str(item.name), meta: '', body: null, ...logo };
@@ -104,7 +119,13 @@ export function viewOfItem(section: MemberEditSection, item: Item): ItemView {
         logoUploadPath: null,
       };
     case 'awards':
-      return { title: str(item.title), meta: joinMeta([item.issuingBody, item.year]), body: str(item.description) || null, logoUrl: null, logoUploadPath: null };
+      return {
+        title: str(item.title),
+        meta: joinMeta([item.issuingBody, item.year]),
+        body: str(item.description) || null,
+        logoUrl: null,
+        logoUploadPath: null,
+      };
     default:
       return { title: '', meta: '', body: null, logoUrl: null, logoUploadPath: null };
   }

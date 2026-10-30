@@ -14,8 +14,7 @@ export function CredentialsTab({
   isOwnProfile: boolean;
   onEdit: (section: 'education' | 'work_experiences') => void;
 }) {
-  const edit = (section: 'education' | 'work_experiences') =>
-    isOwnProfile ? () => onEdit(section) : undefined;
+  const edit = (section: 'education' | 'work_experiences') => (isOwnProfile ? () => onEdit(section) : undefined);
 
   return (
     <div className="flex flex-col gap-7">
@@ -37,7 +36,10 @@ export function CredentialsTab({
           // `.mp-edu-grid` / `.mp-edu-card`
           <div className="grid grid-cols-2 gap-3 max-[639px]:grid-cols-1">
             {member.educations.map((edu) => (
-              <div key={edu.id} className="rounded-panel border border-line bg-bg-card p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+              <div
+                key={edu.id}
+                className="rounded-panel border border-line bg-bg-card p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+              >
                 <div className="text-profile-item font-semibold text-ink">{edu.degree}</div>
                 <div className="mt-[3px] text-profile-meta text-ink-3">
                   {edu.institution}

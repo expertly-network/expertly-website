@@ -33,7 +33,13 @@ export interface ProfileRoleRow {
   status: 'active' | 'suspended' | 'deleted';
 }
 
-const PROFILE_IDENTITY_COLUMNS = ['id', 'avatarUrl:avatar_url', 'role', 'firstName:first_name', 'lastName:last_name'] as const;
+const PROFILE_IDENTITY_COLUMNS = [
+  'id',
+  'avatarUrl:avatar_url',
+  'role',
+  'firstName:first_name',
+  'lastName:last_name',
+] as const;
 export interface ProfileIdentityRow {
   id: string;
   avatarUrl: string | null;
@@ -117,10 +123,7 @@ export class ConsultationsRepository {
   }
 
   async findProfileRole(id: string): Promise<ProfileRoleRow | null> {
-    const { data, error } = await this.profiles()
-      .select(PROFILE_ROLE_COLUMNS.join(', '))
-      .eq('id', id)
-      .maybeSingle();
+    const { data, error } = await this.profiles().select(PROFILE_ROLE_COLUMNS.join(', ')).eq('id', id).maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to look up profile.');
     return data as unknown as ProfileRoleRow | null;
@@ -231,10 +234,11 @@ export class ConsultationsRepository {
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load consultation request.');
-    if (!data) throw new NotFoundException({
-      code: 'CONSULTATION_NOT_FOUND',
-      message: 'Consultation request not found.',
-    });
+    if (!data)
+      throw new NotFoundException({
+        code: 'CONSULTATION_NOT_FOUND',
+        message: 'Consultation request not found.',
+      });
     return data as unknown as ConsultationRequestDto;
   }
 

@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { Eyebrow } from '@/components/ui';
 import { WriteOptionCard } from '@/components/articles/WriteOptionCard';
-import { ManualArticleForm, EMPTY_MANUAL_ARTICLE_FORM, type ManualArticleFormState } from '@/components/articles/ManualArticleForm';
+import {
+  ManualArticleForm,
+  EMPTY_MANUAL_ARTICLE_FORM,
+  type ManualArticleFormState,
+} from '@/components/articles/ManualArticleForm';
 import { AiDraftWizard } from '@/components/articles/AiDraftWizard';
 import { ArticleLivePreview } from '@/components/articles/ArticleLivePreview';
 import { WriteSuccess } from '@/components/articles/WriteSuccess';
@@ -30,14 +34,32 @@ function toManualFormState(article: ArticleDto): ManualArticleFormState {
 }
 
 const UPLOAD_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
     <polyline points="14,2 14,8 20,8" />
     <path d="M12 18v-6M9.5 14.5L12 12l2.5 2.5" />
   </svg>
 );
 const AI_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
   </svg>
 );
@@ -153,9 +175,14 @@ export function WriteArticleFlow({
     return <WriteSuccess status={result.status} articleSlug={result.slug} />;
   }
 
-  const isLiveEdit =
-    isEditing && (editArticle!.status === 'published' || editArticle!.status === 'pending_review');
-  const confirmLabel = !isEditing ? 'Publish' : isLiveEdit ? 'Save changes' : editArticle!.status === 'rejected' ? 'Resubmit' : 'Publish';
+  const isLiveEdit = isEditing && (editArticle!.status === 'published' || editArticle!.status === 'pending_review');
+  const confirmLabel = !isEditing
+    ? 'Publish'
+    : isLiveEdit
+      ? 'Save changes'
+      : editArticle!.status === 'rejected'
+        ? 'Resubmit'
+        : 'Publish';
 
   return (
     <div className="bg-bg-card pb-[120px] pt-8">
@@ -191,8 +218,8 @@ export function WriteArticleFlow({
               Share your expertise.
             </h2>
             <p className="mt-3 text-base leading-[1.6] text-ink-3">
-              Publish an article and reach verified practitioners across 20+ countries. Choose how
-              you&apos;d like to create it.
+              Publish an article and reach verified practitioners across 20+ countries. Choose how you&apos;d like to
+              create it.
             </p>
           </div>
           <div className="mx-auto mt-11 grid max-w-[980px] animate-[anvIn_0.4s_cubic-bezier(0.22,1,0.36,1)_both] grid-cols-2 gap-6 text-left max-[720px]:grid-cols-1">
@@ -236,9 +263,7 @@ export function WriteArticleFlow({
           <AiDraftWizard
             categories={categories}
             onDrafted={async (draft) => {
-              const names = services
-                .filter((s) => draft.serviceIds.includes(s.id))
-                .map((s) => s.name);
+              const names = services.filter((s) => draft.serviceIds.includes(s.id)).map((s) => s.name);
               // The real title makes this query specific to the article, not just its practice
               // area — the member can still swap it for another suggestion at the preview step.
               const query = [names.join(' '), draft.title].filter(Boolean).join(' ');

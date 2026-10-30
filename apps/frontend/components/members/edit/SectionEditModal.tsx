@@ -33,9 +33,7 @@ function rowAttachments(row: Row): ProofAttachment[] {
 // Submit isn't a native form submit, so required-field completeness is checked explicitly.
 function hasRequiredFieldsFilled(config: SectionConfig, data: Row | Row[]): boolean {
   const rows = Array.isArray(data) ? data : [data];
-  const requiredKeys = config.fields
-    .filter((f) => 'required' in f && f.required)
-    .map((f) => f.key);
+  const requiredKeys = config.fields.filter((f) => 'required' in f && f.required).map((f) => f.key);
   return rows.every((row) =>
     requiredKeys.every((key) => {
       const value = row[key];
@@ -95,7 +93,10 @@ function initialPayload(member: MemberDto, section: MemberEditSection): Row | Ro
         : [{ ...EMPTY_ROW.testimonials }];
     case 'awards':
       return member.awards.length
-        ? member.awards.map(({ isVerified: _v, ...rest }) => ({ ...rest, proofAttachments: rest.proofAttachments ?? [] }))
+        ? member.awards.map(({ isVerified: _v, ...rest }) => ({
+            ...rest,
+            proofAttachments: rest.proofAttachments ?? [],
+          }))
         : [{ ...EMPTY_ROW.awards }];
   }
 }
@@ -106,7 +107,11 @@ function cleanPayload(section: MemberEditSection, data: Row | Row[]): Row | Row[
   const rows = data.map((row) => {
     const { logoPreview: _p, ...rest } = row;
     const out: Row = { ...rest };
-    if ((section === 'engagements' || section === 'testimonials') && typeof out.clientEmail === 'string' && !out.clientEmail.trim()) {
+    if (
+      (section === 'engagements' || section === 'testimonials') &&
+      typeof out.clientEmail === 'string' &&
+      !out.clientEmail.trim()
+    ) {
       delete out.clientEmail;
     }
     if (section === 'engagements') {
@@ -120,13 +125,7 @@ function cleanPayload(section: MemberEditSection, data: Row | Row[]): Row | Row[
   return section === 'work_experiences' ? sortWorkHistory(rows) : rows;
 }
 
-function VerificationMethods({
-  row,
-  onChange,
-}: {
-  row: Row;
-  onChange: (key: string, value: unknown) => void;
-}) {
+function VerificationMethods({ row, onChange }: { row: Row; onChange: (key: string, value: unknown) => void }) {
   const selected = Array.isArray(row.verificationMethods) ? (row.verificationMethods as string[]) : [];
   return (
     <fieldset className="flex flex-col gap-2">
@@ -161,15 +160,7 @@ function VerificationMethods({
   );
 }
 
-function Field({
-  spec,
-  value,
-  onChange,
-}: {
-  spec: FieldSpec;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
+function Field({ spec, value, onChange }: { spec: FieldSpec; value: unknown; onChange: (value: unknown) => void }) {
   if (spec.type === 'verification-methods') return null;
   if (spec.type === 'textarea') {
     return (
@@ -388,16 +379,14 @@ export function SectionEditModal({
               <div className="rounded-xl border border-line bg-bg-alt p-3 text-xs text-ink-2">
                 <p className="font-medium text-ink">Before you add key clients</p>
                 <ul className="mt-1 list-disc space-y-1 pl-4">
+                  <li>We may randomly call or email a client to verify the relationship.</li>
                   <li>
-                    We may randomly call or email a client to verify the relationship.
+                    You must have worked with the client directly, not a generic client of the organisation you did the
+                    work through.
                   </li>
                   <li>
-                    You must have worked with the client directly, not a generic client of the
-                    organisation you did the work through.
-                  </li>
-                  <li>
-                    Up to {KEY_CLIENTS_MAX} key clients ({rows.length} of {KEY_CLIENTS_MAX} used). Clients
-                    with proof attached show as Verified.
+                    Up to {KEY_CLIENTS_MAX} key clients ({rows.length} of {KEY_CLIENTS_MAX} used). Clients with proof
+                    attached show as Verified.
                   </li>
                 </ul>
               </div>
@@ -405,15 +394,9 @@ export function SectionEditModal({
             {rows.map((row, i) => (
               <div key={i} className="rounded-xl border border-line p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <span className="text-mono-label text-ink-3">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
+                  <span className="text-mono-label text-ink-3">{String(i + 1).padStart(2, '0')}</span>
                   {rows.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeRow(i)}
-                      className="text-xs font-medium text-error"
-                    >
+                    <button type="button" onClick={() => removeRow(i)} className="text-xs font-medium text-error">
                       Remove
                     </button>
                   )}
@@ -462,17 +445,15 @@ export function SectionEditModal({
                       }}
                       className="mt-1 block text-sm"
                     />
-                    {row.logoUploadPath ? (
-                      <p className="mt-1 text-xs text-ok">New logo cropped and uploaded.</p>
-                    ) : null}
+                    {row.logoUploadPath ? <p className="mt-1 text-xs text-ok">New logo cropped and uploaded.</p> : null}
                   </div>
                 )}
                 {needsPerItemProof && (
                   <div className="mt-3 rounded-xl border border-line p-3">
                     <p className="text-xs font-medium text-ink-2">Proof for this item (optional)</p>
                     <p className="mt-0.5 text-xs text-ink-3">
-                      Attach proof to be eligible for the Verified badge. Without it, an admin can still
-                      approve this item, but it will not be marked Verified.
+                      Attach proof to be eligible for the Verified badge. Without it, an admin can still approve this
+                      item, but it will not be marked Verified.
                     </p>
                     {rowAttachments(row).length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1.5">
@@ -569,8 +550,8 @@ export function SectionEditModal({
           <div className="rounded-xl border border-line p-4">
             <p className="text-xs font-medium text-ink-2">Proof (optional)</p>
             <p className="mt-0.5 text-xs text-ink-3">
-              Proof is needed for the Verified badge. Without it, an admin can still approve the changes
-              but they will not be marked Verified.
+              Proof is needed for the Verified badge. Without it, an admin can still approve the changes but they will
+              not be marked Verified.
             </p>
             <div className="mt-2 flex gap-2">
               <button

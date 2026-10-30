@@ -2,11 +2,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function DashboardLoading() {
   return (
-    <div
-      role="status"
-      aria-label="Loading your dashboard"
-      className="animate-pulse"
-    >
+    <div role="status" aria-label="Loading your dashboard" className="animate-pulse">
       <div className="h-72 bg-ink" />
       <PageContainer className="py-8">
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

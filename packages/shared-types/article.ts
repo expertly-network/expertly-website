@@ -37,7 +37,10 @@ export class ArticleDto {
   @ApiProperty() readTimeMinutes!: number;
   @ApiProperty() coverImageUrl!: string;
   @ApiProperty({ type: () => ArticleService, isArray: true }) services!: ArticleService[];
-  @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } }) customServiceLabels!: Record<string, string>;
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } }) customServiceLabels!: Record<
+    string,
+    string
+  >;
   // An article can apply to more than one country.
   @ApiProperty({ type: String, isArray: true }) countries!: string[];
   @ApiProperty({ nullable: true, type: String }) state!: string | null;
@@ -72,7 +75,10 @@ export class CreateArticleRequest {
   @ApiProperty() body!: string;
   @ApiProperty() coverImageUrl!: string;
   @ApiProperty({ type: String, isArray: true }) serviceIds!: string[];
-  @ApiPropertyOptional({ type: 'object', additionalProperties: { type: 'string' } }) customServiceLabels?: Record<string, string>;
+  @ApiPropertyOptional({ type: 'object', additionalProperties: { type: 'string' } }) customServiceLabels?: Record<
+    string,
+    string
+  >;
   @ApiProperty({ type: String, isArray: true }) countries!: string[];
   @ApiPropertyOptional() state?: string;
   // Omit to publish (or submit for review); 'draft' skips the word-count check.

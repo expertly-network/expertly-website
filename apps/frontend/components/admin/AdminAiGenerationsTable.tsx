@@ -98,7 +98,10 @@ export function AdminAiGenerationsTable({ generations }: { generations: AdminAiG
               </thead>
               <tbody>
                 {filtered.map((g) => (
-                  <tr key={g.id} className="border-b border-line align-top transition-colors last:border-b-0 hover:bg-bg-alt/60">
+                  <tr
+                    key={g.id}
+                    className="border-b border-line align-top transition-colors last:border-b-0 hover:bg-bg-alt/60"
+                  >
                     <td className="px-6 py-4">
                       <Link href={`/admin/ai-generations/${g.id}`} className="font-medium text-ink hover:text-accent">
                         {g.draftTitle ?? 'Generation failed'}
