@@ -22,13 +22,11 @@ Every schema change gets folded back into these four files instead of accumulati
 scratch. The day this repo ships to production, that stops: from then on every change is a new,
 additive, numbered migration, and these four files are never edited again.
 
-**Patching a database built from an older version of these files.** Because changes are folded
-back into `0001`–`0004` rather than appended, an already-running database doesn't pick them up by
-itself. Each such change that matters for a live project (security, constraints, indexes) also ships
-as an idempotent, dated script in `supabase/patches/` — run it once in the SQL Editor; a fresh
-rebuild never needs it. Current: `2026-10-29_security_hardening.sql` (Storage policies/limits,
-private `application-documents` bucket; then run
-`apps/backend/scripts/migrate-application-documents.mjs` once).
+**Updating a database built from an older version of these files.** Changes are folded back into
+the existing files rather than appended, so there is no patch folder: a fresh rebuild from these
+files is always the current schema. An already-running pre-production database is brought up to
+date either by rebuilding it from scratch (below), or by a one-off, idempotent catch-up script run
+once in the SQL Editor and not kept in the repo. `docs/deployment.md` has the rollout checklist.
 
 **AI search lives in the same four files** (extensions in `0001`; functions in `0003` — wrapped in
 `set check_function_bodies = off` because the `LANGUAGE sql` ones read tables that `0004`
@@ -37,14 +35,13 @@ creates later; tables, triggers, RLS and grants in `0004`). The browser roles (`
 `profiles` (own row via RLS) — see "Least privilege for the browser key" at the end of `0004`.
 
 **Rebuilding a dev database from scratch** (fresh Supabase project): run `0001`–`0004`, then the
-dev seeds in `../seed/dev/` in filename order (`01_members`, `02_events`, `03_articles` — the
-seed inserts fire the search triggers, so the outbox fills itself), then `0008`/`0009`; start the
-worker so it builds the cards and then embeds them (`pnpm worker`).
+dev seeds `0005`–`0007` (members, events, articles — the seed inserts fire the search triggers, so
+the outbox fills itself), then `0008`/`0009` (re-runnable — `on conflict (id) do nothing`); start
+the worker so it builds the cards and then embeds them (`pnpm worker`).
 
-**Dev seeds live outside this folder on purpose** (`supabase/seed/dev/`, moved 2026-10-29). Anything
-in `migrations/` is applied by `supabase db push` to whichever project is linked — production
-included — and the dev seeds create 50 fake, publicly listed members and 34 fake events. Never
-apply `seed/dev/` to production.
+**`0005`–`0007` are dev-only seeds** (50 fake, publicly listed members, 34 fake events, 9
+articles). They stay in this folder by choice, so don't point `supabase db push` at a production
+project while they're here — and never apply them to production by hand.
 Cards are derived data — nothing about search needs to be restored from a dump.
 
 **Content seeds** (real launch content, not dev fixtures): `0008_seed_resources.sql` (perks,

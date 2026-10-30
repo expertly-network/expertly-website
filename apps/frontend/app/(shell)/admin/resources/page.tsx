@@ -24,7 +24,7 @@ export default async function AdminResourcesPage() {
       getAdminTemplatesServer(),
     ]);
   } catch (error) {
-    if (error instanceof ApiError && error.statusCode === 403)
+    if (error instanceof ApiError && error.code === 'PERMISSION_REQUIRED')
       return (
         <PageContainer className="py-16">
           <Card>

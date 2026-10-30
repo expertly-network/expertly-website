@@ -15,7 +15,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
+import { validate, type ValidationError } from 'class-validator';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isUUID } from 'class-validator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -67,6 +67,15 @@ function toPositiveInt(name: string, value?: string): number | undefined {
     });
   return n;
 }
+// Same options as the global ValidationPipe (main.ts), for bodies that arrive inside a multipart
+// field and so never pass through it. Failure messages are flattened the same way the pipe does
+// (one string per failed constraint), so the error body has the global shape.
+const MANUAL_VALIDATION_OPTIONS = { whitelist: true, forbidNonWhitelisted: true } as const;
+
+function validationMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((e) => [...Object.values(e.constraints ?? {}), ...validationMessages(e.children ?? [])]);
+}
+
 const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
 
 @Controller('articles')
@@ -176,12 +185,17 @@ export class ArticlesController {
       });
     }
 
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+      throw new BadRequestException({
+        code: 'AI_DRAFT_PAYLOAD_INVALID',
+        message: '`payload` must be a JSON object.',
+      });
     const dto = plainToInstance(AiDraftRequestDto, parsed);
-    const errors = await validate(dto);
+    const errors = await validate(dto, MANUAL_VALIDATION_OPTIONS);
     if (errors.length > 0)
       throw new BadRequestException({
         code: 'AI_DRAFT_PAYLOAD_INVALID',
-        message: 'Invalid AI draft request.',
+        message: validationMessages(errors),
       });
 
     // No serviceIds come from the client anymore — the model infers them, picking only from

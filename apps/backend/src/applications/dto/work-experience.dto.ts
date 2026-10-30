@@ -1,19 +1,23 @@
 import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Max, MaxLength, Min } from 'class-validator';
 import type { FirmSize } from '@shared/membership-application';
+import { FREE_TEXT_MAX, LABEL_MAX, PLACE_MAX, URL_MAX, YEAR_MAX, YEAR_MIN } from './field-limits';
 
 const FIRM_SIZES: FirmSize[] = ['solo', '2_10', '11_50', '51_200', '200_plus'];
 
 export class WorkExperienceDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(LABEL_MAX)
   title!: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(LABEL_MAX)
   company!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PLACE_MAX)
   city?: string;
 
   @IsOptional()
@@ -22,6 +26,7 @@ export class WorkExperienceDto {
 
   @IsOptional()
   @IsUrl()
+  @MaxLength(URL_MAX)
   companyUrl?: string;
 
   @IsOptional()
@@ -31,6 +36,8 @@ export class WorkExperienceDto {
   startMonth?: number;
 
   @IsInt()
+  @Min(YEAR_MIN)
+  @Max(YEAR_MAX)
   startYear!: number;
 
   @IsOptional()
@@ -41,6 +48,8 @@ export class WorkExperienceDto {
 
   @IsOptional()
   @IsInt()
+  @Min(YEAR_MIN)
+  @Max(YEAR_MAX)
   endYear?: number;
 
   @IsBoolean()
@@ -48,6 +57,6 @@ export class WorkExperienceDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(FREE_TEXT_MAX)
   description?: string;
 }

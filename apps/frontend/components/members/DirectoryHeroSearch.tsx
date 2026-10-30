@@ -26,7 +26,7 @@ export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
   return (
     <form
       onSubmit={onSubmit}
-      className="flex items-center gap-2 rounded-2xl bg-bg-card p-2 pl-4 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)]"
+      className="flex items-center gap-2 rounded-2xl bg-bg-card p-2 pl-4 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] focus-within:ring-[3px] focus-within:ring-accent"
     >
       <span aria-hidden="true" className="h-2 w-2 flex-none animate-pulse rounded-full bg-accent" />
       <label htmlFor="directory-search" className="sr-only">

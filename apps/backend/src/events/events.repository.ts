@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { EventDto } from '@shared/event';
-import { generateUniqueSlug } from '../common/slugify';
+import { generateUniqueSlug, generateUniqueSlugs, isSlugUniqueViolation, SlugTakenException } from '../common/slugify';
 import { MAX_LIST_ROWS } from '../common/list-limits';
 
 export type EventInsert = Database['public']['Tables']['events']['Insert'];
@@ -82,13 +82,20 @@ export class EventsRepository {
     return data as unknown as EventDto;
   }
 
-  async findUniqueSlug(title: string, reserved?: Set<string>): Promise<string> {
-    return generateUniqueSlug(this.supabase.db, 'events', title, 'event', reserved);
+  async findUniqueSlug(title: string): Promise<string> {
+    return generateUniqueSlug(this.supabase.db, 'events', title, 'event');
   }
 
+  // One slug per title, unique against the table and each other, in one existence query.
+  async findUniqueSlugs(titles: string[]): Promise<string[]> {
+    return generateUniqueSlugs(this.supabase.db, 'events', titles, 'event');
+  }
+
+  // Throws SlugTakenException when a concurrent insert took the slug (callers retry).
   async insert(row: EventInsert): Promise<EventDto> {
     const { data: inserted, error } = await this.events().insert(row).select(EVENT_COLUMNS.join(', ')).single();
 
+    if (isSlugUniqueViolation(error)) throw new SlugTakenException('EVENT_SLUG_TAKEN', 'Event slug already exists.');
     if (error || !inserted) throw new InternalServerErrorException('Failed to create event.');
     return inserted as unknown as EventDto;
   }
@@ -99,6 +106,7 @@ export class EventsRepository {
 
     const { data: inserted, error } = await this.events().insert(rows).select(EVENT_COLUMNS.join(', '));
 
+    if (isSlugUniqueViolation(error)) throw new SlugTakenException('EVENT_SLUG_TAKEN', 'Event slug already exists.');
     if (error || !inserted) throw new InternalServerErrorException('Failed to create events.');
     return inserted as unknown as EventDto[];
   }

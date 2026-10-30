@@ -253,14 +253,25 @@ export class ConsultationsService {
         message: 'Only completed consultations can be rated.',
       });
     }
+    if (existing.rating !== null && existing.rating !== undefined) throw this.ratingAlreadySet();
     const updated = await this.repository.updateRating(id, requester.id, rating);
     if (!updated) {
+      // Lost a race with a concurrent rating (or the status changed under us) — re-read to say which.
+      const current = await this.repository.findById(id);
+      if (current.rating !== null && current.rating !== undefined) throw this.ratingAlreadySet();
       throw new ConflictException({
         code: 'CONSULTATION_NOT_COMPLETED',
         message: 'Only completed consultations can be rated.',
       });
     }
     return updated;
+  }
+
+  private ratingAlreadySet(): ConflictException {
+    return new ConflictException({
+      code: 'RATING_ALREADY_SET',
+      message: 'This consultation has already been rated.',
+    });
   }
 
   async adminList(): Promise<ConsultationRequestDto[]> {

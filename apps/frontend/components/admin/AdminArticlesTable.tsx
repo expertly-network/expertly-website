@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { reviewArticle } from '@/lib/api/articles';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { AdminArticleListItemDto } from '@shared/article';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
@@ -29,7 +29,7 @@ function AdminArticleRow({
       await reviewArticle(article.id, { status: 'published', expectedUpdatedAt: article.updatedAt });
       onDecided(article.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to approve this article.');
+      setError(apiErrorMessage(err, 'Failed to approve this article.'));
       setBusy(null);
     }
   }
@@ -49,7 +49,7 @@ function AdminArticleRow({
       });
       onDecided(article.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to reject this article.');
+      setError(apiErrorMessage(err, 'Failed to reject this article.'));
       setBusy(null);
     }
   }

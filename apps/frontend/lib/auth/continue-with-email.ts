@@ -48,6 +48,12 @@ export async function signUpWithEmail(params: {
     });
 
     if (error) {
+      // An already-registered address gets the same "check your email" outcome as a new one, so
+      // the form can't be used to probe which emails have accounts. (With Confirm email ON this
+      // error isn't raised at all — see below — but auto-confirm projects do return it.)
+      if (error.code === 'user_already_exists' || error.code === 'email_exists') {
+        return { status: 'check_email', email };
+      }
       return { status: 'error', message: mapAuthError(error) };
     }
 
@@ -58,15 +64,9 @@ export async function signUpWithEmail(params: {
       return { status: 'signed_in' };
     }
 
-    if (data.user && data.user.identities?.length === 0) {
-      // Signals the email is already registered; no error is thrown to avoid leaking existence.
-      return {
-        status: 'error',
-        message:
-          "An account already exists for this email. Try signing in instead, or use 'Forgot password' — or sign in with LinkedIn if that's how you originally joined.",
-      };
-    }
-
+    // An existing account comes back as an obfuscated user with no identities. Deliberately
+    // indistinguishable from a fresh sign-up: the owner of the address already knows they have an
+    // account, and "check your email" / "Forgot password" covers them.
     return { status: 'check_email', email };
   } catch (err) {
     return { status: 'error', message: mapAuthError(err) };

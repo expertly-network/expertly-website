@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "GrowXQ API",
-    "description": "Every `apps/backend` REST endpoint, grouped to match `docs/rest-api.md`. Base path `/v1` (set via `{{baseUrl}}`). Public/member routes are grouped by resource near the top; every 🛡️ admin-only route lives in the single **Admin** folder at the bottom instead, with one sub-folder per resource.\n\nQuick start:\n1. Import the companion environment file (`GrowXQ.postman_environment.json`) and select it top-right.\n2. Fill in `supabaseUrl` / `supabaseAnonKey` (from your `.env`) and `testEmail` / `testPassword` (an existing Supabase user).\n3. Run **Auth (Supabase) → Sign in** — it auto-saves a real JWT into `accessToken`, which every other request inherits as its Bearer token.\n4. Replace the placeholder `{{...Id}}` variables with real ids as you create resources (most GET list endpoints return them).\n\n⚠️ **Keep this collection in sync with the contract.** Whenever an endpoint is added, removed, or its request/response shape changes (see root `CLAUDE.md` → \"Database schema & REST API\"), update this file in the same change — see `postman/README.md`. Every error response is `{ statusCode, code, message }` (`message` is an array for `VALIDATION_FAILED`); 429s add `retryAfterSeconds`. Authenticated routes are rate-limited per user (`429 RATE_LIMITED`) — see docs/rest-api.md \"Errors\" and \"Rate limits\".",
+    "description": "Every `apps/backend` REST endpoint, grouped to match `docs/rest-api.md`. Base path `/v1` (set via `{{baseUrl}}`). Public/member routes are grouped by resource near the top; every 🛡️ admin-only route lives in the single **Admin** folder at the bottom instead, with one sub-folder per resource.\n\nQuick start:\n1. Import the companion environment file (`GrowXQ.postman_environment.json`) and select it top-right.\n2. Fill in `supabaseUrl` / `supabaseAnonKey` (from your `.env`) and `testEmail` / `testPassword` (an existing Supabase user).\n3. Run **Auth (Supabase) → Sign in** — it auto-saves a real JWT into `accessToken`, which every other request inherits as its Bearer token.\n4. Replace the placeholder `{{...Id}}` variables with real ids as you create resources (most GET list endpoints return them).\n\n⚠️ **Keep this collection in sync with the contract.** Whenever an endpoint is added, removed, or its request/response shape changes (see root `CLAUDE.md` → \"Database schema & REST API\"), update this file in the same change — see `postman/README.md`. Every error response is `{ statusCode, code, message }` (`message` is an array for `VALIDATION_FAILED`); 429s add `retryAfterSeconds`. Authenticated routes are rate-limited per user (`429 RATE_LIMITED`) — see docs/rest-api.md \"Errors\" and \"Rate limits\".\n\n**2026-10-30:** every response carries `X-Request-Id` (your own `X-Request-Id` header is echoed back if it matches `^[A-Za-z0-9._-]{1,64}$`, else a fresh UUID — each request ships a disabled `X-Request-Id` header you can enable to correlate with API logs). A 5xx `message` is never the exception text — it is a fixed sentence per code (`AI_*`, `COVER_IMAGES_*`, `LINKEDIN_IMPORT_FAILED`, `DATABASE_UNAVAILABLE`) or a generic one per status. Slug-generating creates retry a lost slug race 3 times before `409 *_SLUG_TAKEN`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -221,7 +221,15 @@
           "name": "GET /health — Health check",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/health",
               "host": [
@@ -231,7 +239,37 @@
                 "health"
               ]
             },
-            "description": "🌐 Public.",
+            "description": "🌐 Public.\n\nLiveness only (no DB): `200 { status: \"ok\", uptime }`. For readiness use `GET /health/ready`.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /health/ready — Readiness probe (database reachable)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional; echoed back."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "🌐 Public. Added 2026-10-30. HEAD-selects one `profiles.id` through the service-role client (3s timeout). `200 { \"status\": \"ok\" }`; `503 DATABASE_UNAVAILABLE` (\"Service temporarily unavailable.\") when the database does not answer. Use for container / Coolify health checks; `GET /health` stays a DB-free liveness check. Not access-logged.",
             "auth": {
               "type": "noauth"
             }
@@ -242,7 +280,15 @@
           "name": "GET /hello — Hello (smoke test)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/hello",
               "host": [
@@ -252,7 +298,7 @@
                 "hello"
               ]
             },
-            "description": "🌐 Public.",
+            "description": "🌐 Public.\n\n`200 { message, timestamp }`.",
             "auth": {
               "type": "noauth"
             }
@@ -263,7 +309,15 @@
           "name": "GET /me — Get my claims",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/me",
               "host": [
@@ -281,7 +335,15 @@
           "name": "GET /me/contact — Get my contact info",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/me/contact",
               "host": [
@@ -300,7 +362,15 @@
           "name": "GET /member/ping — Member ping",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/member/ping",
               "host": [
@@ -311,7 +381,7 @@
                 "ping"
               ]
             },
-            "description": "👤 member (admin also passes — ranked role model). Smoke test for the `member` guard."
+            "description": "👤 member (admin also passes — ranked role model). Smoke test for the `member` guard.\n\nErrors: `403 ROLE_REQUIRED`, `MEMBER_DEACTIVATED`."
           },
           "response": []
         }
@@ -325,7 +395,15 @@
           "name": "GET /categories — List categories (public taxonomy tree)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/categories",
               "host": [
@@ -355,6 +433,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -367,7 +452,7 @@
                 "me"
               ]
             },
-            "description": "_client_ role only. Upsert: creates a draft on first call, merges fields on repeat calls. Every field optional — shown here mid-wizard with `status: \"draft\"`. Set `status: \"submitted\"` once every required field above is filled (see docs/rest-api.md) to trigger the full completeness check. Submitting requires a linked LinkedIn identity (`400 LINKEDIN_NOT_CONNECTED`); a save racing a submit/decision gets `409 APPLICATION_LOCKED`.",
+            "description": "_client_ role only. Upsert: creates a draft on first call, merges fields on repeat calls. Every field optional — shown here mid-wizard with `status: \"draft\"`. Set `status: \"submitted\"` once every required field above is filled (see docs/rest-api.md) to trigger the full completeness check. Submitting requires a linked LinkedIn identity (`400 LINKEDIN_NOT_CONNECTED`); a save racing a submit/decision gets `409 APPLICATION_LOCKED`.\n\nRate limit (2026-10-30): own `application-save` bucket — 20/min, 60/hour, 200/day → `429 RATE_LIMITED`. `linkedinUrl` and `workExperiences[].companyUrl` must be http(s) → else `400 URL_INVALID`. Bounds (`400 VALIDATION_FAILED`): firstName/lastName ≤100, phoneCountryCode ≤10, phone ≤40, country/state/city ≤100, contactEmail ≤254, linkedinUrl/companyUrl ≤2048, couponCode ≤50, terms/privacyVersionAgreed ≤50, rateMin/MaxCents ≥0; workExperiences title/company ≤200, city ≤100, years 1900–2100; educations institution/degree/fieldOfStudy ≤200, years 1900–2100; peerReferences name/relationship ≤100, email ≤254, phone ≤40; servicePreferences[].customLabel ≤100. Other codes: `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_ALREADY_OPEN` · `400 RATE_RANGE_INVALID`, `COUPON_INVALID`, `SERVICE_PREFERENCES_DUPLICATE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `APPLICATION_INCOMPLETE`, `WORK_HISTORY_END_BEFORE_START`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Jordan\",\n  \"lastName\": \"Reyes\",\n  \"contactEmail\": \"jordan.reyes@example.com\",\n  \"phoneCountryCode\": \"+1\",\n  \"phone\": \"4155551234\",\n  \"country\": \"United States\",\n  \"state\": \"California\",\n  \"city\": \"San Francisco\",\n  \"linkedinUrl\": \"https://linkedin.com/in/jordanreyes\",\n  \"bio\": \"Tax advisor with 15 years of experience helping cross-border businesses navigate transfer pricing and indirect tax compliance.\",\n  \"yearsOfExperience\": 15,\n  \"workExperiences\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"companyUrl\": \"https://reyestax.example.com\",\n      \"city\": \"San Francisco\",\n      \"firmSize\": \"2_10\",\n      \"startMonth\": 3,\n      \"startYear\": 2015,\n      \"isCurrent\": true\n    }\n  ],\n  \"educations\": [\n    {\n      \"institution\": \"University of California, Berkeley\",\n      \"degree\": \"J.D.\",\n      \"fieldOfStudy\": \"Tax Law\",\n      \"startYear\": 2006,\n      \"endYear\": 2009\n    }\n  ],\n  \"peerReferences\": [\n    {\n      \"name\": \"Amara Okafor\",\n      \"relationship\": \"Former colleague\",\n      \"email\": \"amara.okafor@example.com\",\n      \"phone\": \"+14155559876\"\n    },\n    {\n      \"name\": \"Liam Chen\",\n      \"relationship\": \"Client\",\n      \"email\": \"liam.chen@example.com\"\n    }\n  ],\n  \"servicePreferences\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"priority\": 1\n    },\n    {\n      \"serviceId\": \"{{serviceIdSecondary}}\",\n      \"priority\": 2\n    }\n  ],\n  \"rateMinCents\": 30000,\n  \"rateMaxCents\": 60000,\n  \"billingPeriod\": \"annual\",\n  \"couponCode\": \"LAUNCH25\",\n  \"linkedinImportConsent\": true,\n  \"termsVersionAgreed\": \"2026-01-01\",\n  \"privacyVersionAgreed\": \"2026-01-01\",\n  \"backgroundCheckConsent\": true,\n  \"currentStep\": 5,\n  \"status\": \"draft\"\n}",
@@ -384,7 +469,15 @@
           "name": "GET /applications/me — Get my application",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/applications/me",
               "host": [
@@ -407,6 +500,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -420,7 +520,7 @@
                 "linkedin-import"
               ]
             },
-            "description": "🔒 Auth. Fetch-and-normalize only — does NOT save. Frontend merges the result and saves via POST /applications/me. Returns every LinkedIn role (sub-roles at one firm included, may overlap) up to 15, with `description`, education up to 5, and `photoUrl` — the 800px LinkedIn photo to pass to POST /applications/me/photo/linkedin as `sourceUrl`. `linkedinUrl` must be a LinkedIn profile URL (linkedin.com/in/<handle>, ≤300 chars) — anything else is a 400. Client accounts only (`403 APPLICATION_CLIENTS_ONLY`).",
+            "description": "🔒 Auth. Fetch-and-normalize only — does NOT save. Frontend merges the result and saves via POST /applications/me. Returns every LinkedIn role (sub-roles at one firm included, may overlap) up to 15, with `description`, education up to 5, and `photoUrl` — the 800px LinkedIn photo to pass to POST /applications/me/photo/linkedin as `sourceUrl`. `linkedinUrl` must be a LinkedIn profile URL (linkedin.com/in/<handle>, ≤300 chars) — anything else is a 400. Client accounts only (`403 APPLICATION_CLIENTS_ONLY`).\n\nErrors (2026-10-30): `502 LINKEDIN_IMPORT_FAILED` (not configured / unreachable / non-2xx / bad body; fixed message), `408 LINKEDIN_IMPORT_TIMEOUT` (>100s incl. body read), `403 APPLICATION_CLIENTS_ONLY`, `429 RATE_LIMITED` (5/hour, 10/day).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"linkedinUrl\": \"https://www.linkedin.com/in/jordanreyes\"\n}",
@@ -441,6 +541,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -476,6 +583,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -489,7 +603,7 @@
                 "coupon-preview"
               ]
             },
-            "description": "🔒 Auth. Stateless — does not require a draft to exist. `valid: false` (not an error) when the code is unrecognized.",
+            "description": "🔒 Auth. Stateless — does not require a draft to exist. `valid: false` (not an error) when the code is unrecognized.\n\n`couponCode` ≤ 50 chars. Rate limit: `coupon` bucket, 10/min, 30/hour.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"billingPeriod\": \"annual\",\n  \"couponCode\": \"LAUNCH25\"\n}",
@@ -506,7 +620,15 @@
           "name": "POST /applications/me/uploads — Upload photo or document",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/applications/me/uploads",
               "host": [
@@ -518,7 +640,7 @@
                 "uploads"
               ]
             },
-            "description": "🔒 Auth. `multipart/form-data`. `kind` is `photo` (JPEG/PNG, 5MB max) or `document` (JPEG/PNG/PDF, 15MB max). Only allowed while the caller has a draft application. Photos go to the public application-assets bucket; documents to the private application-documents bucket, returned as 15-minute signed URLs in `documents[].url`. At most 10 documents per application (`400 APPLICATION_DOCUMENT_LIMIT`).",
+            "description": "🔒 Auth. `multipart/form-data`. `kind` is `photo` (JPEG/PNG, 5MB max) or `document` (JPEG/PNG/PDF, 15MB max). Only allowed while the caller has a draft application. Photos go to the public application-assets bucket; documents to the private application-documents bucket, returned as 15-minute signed URLs in `documents[].url`. At most 10 documents per application (`400 APPLICATION_DOCUMENT_LIMIT`).\n\nFields are validated with whitelist + forbidNonWhitelisted (2026-10-30): a bad/missing `kind` or any extra field → `400 VALIDATION_FAILED` with `message` as an array. Other codes: `FILE_REQUIRED`, `FILE_TOO_LARGE`, `FILE_INVALID_TYPE`, `APPLICATION_NOT_DRAFT`, `APPLICATION_DOCUMENT_LIMIT`.",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -548,7 +670,15 @@
           "name": "GET /articles — List published articles (filterable, paginated)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles?page=1&pageSize=12",
               "host": [
@@ -594,7 +724,7 @@
                 }
               ]
             },
-            "description": "🌐 Public. Browse grid — published only, no `body`. The total match count across all pages is in the `X-Total-Count` response header; the body is a plain array. `400` for a non-UUID authorId/serviceId/excludeId or a non-positive page/pageSize. With neither `page` nor `pageSize`, returns the first 50 (never unbounded); `X-Total-Count` is the full total.",
+            "description": "🌐 Public. Browse grid — published only, no `body`. The total match count across all pages is in the `X-Total-Count` response header; the body is a plain array. `400` for a non-UUID authorId/serviceId/excludeId or a non-positive page/pageSize. With neither `page` nor `pageSize`, returns the first 50 (never unbounded); `X-Total-Count` is the full total.\n\n2026-10-30: articles whose author account is inactive/deleted or whose member profile is deactivated are excluded (rows and `X-Total-Count`).",
             "auth": {
               "type": "noauth"
             }
@@ -605,7 +735,15 @@
           "name": "GET /articles/{{articleId}}/preview — Public teaser of a published article",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles/{{articleId}}/preview",
               "host": [
@@ -617,7 +755,7 @@
                 "preview"
               ]
             },
-            "description": "🌐 Public. `ArticleListItemDto` (no `body`) of one published article — what a signed-out visitor sees. Accepts the UUID or the slug in place of `{{articleId}}`. `404` if there's no published article with that id/slug.",
+            "description": "🌐 Public. `ArticleListItemDto` (no `body`) of one published article — what a signed-out visitor sees. Accepts the UUID or the slug in place of `{{articleId}}`. `404` if there's no published article with that id/slug.\n\n2026-10-30: `404 ARTICLE_NOT_FOUND` too when the author is no longer listed (inactive/deleted account, deactivated member profile).",
             "auth": {
               "type": "noauth"
             }
@@ -628,7 +766,15 @@
           "name": "GET /articles/me — List my articles (any status)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles/me",
               "host": [
@@ -647,7 +793,15 @@
           "name": "GET /articles/cover-images — Get cover image suggestions",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles/cover-images?query=international%20tax%20compliance",
               "host": [
@@ -666,7 +820,7 @@
                 }
               ]
             },
-            "description": "member. Proxies an Unsplash search server-side so the API key never reaches the client."
+            "description": "member. Proxies an Unsplash search server-side so the API key never reaches the client.\n\nErrors (2026-10-30): `503 COVER_IMAGES_NOT_CONFIGURED`, `502 COVER_IMAGES_PROVIDER_ERROR`, `429 RATE_LIMITED` (20/min, 200/hour)."
           },
           "response": []
         },
@@ -674,7 +828,15 @@
           "name": "GET /articles/{{articleId}} — Get article detail (by UUID or slug)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles/{{articleId}}",
               "host": [
@@ -685,7 +847,7 @@
                 "{{articleId}}"
               ]
             },
-            "description": "🔑 Auth, any role. The path segment is the article's UUID **or** its slug — to look up by slug instead, replace `{{articleId}}` with e.g. `rbi-s-new-nbfc-framework-final-regulations-on-exemption-from-nbfc-registration` (the `slug` field from `GET /articles`). `404` (not `403`) if it’s a draft the caller can’t see."
+            "description": "🔑 Auth, any role. The path segment is the article's UUID **or** its slug — to look up by slug instead, replace `{{articleId}}` with e.g. `rbi-s-new-nbfc-framework-final-regulations-on-exemption-from-nbfc-registration` (the `slug` field from `GET /articles`). `404` (not `403`) if it’s a draft the caller can’t see.\n\n2026-10-30: someone else's article is visible only when published by a still-listed author (else `404 ARTICLE_NOT_FOUND`), unless the caller has fresh `manageArticles`."
           },
           "response": []
         },
@@ -697,6 +859,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -709,7 +878,7 @@
                 "ai-followup-questions"
               ]
             },
-            "description": "member. Plain JSON (unlike ai-draft below — no files here). Analyzes the step-1 brief (notes/recentDevelopments/advice only — no service/country/state, those are AI-inferred later by ai-draft) and returns the minimum useful set of follow-up questions (0-10) — an empty array is a valid, expected result.",
+            "description": "member. Plain JSON (unlike ai-draft below — no files here). Analyzes the step-1 brief (notes/recentDevelopments/advice only — no service/country/state, those are AI-inferred later by ai-draft) and returns the minimum useful set of follow-up questions (0-10) — an empty array is a valid, expected result.\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai` bucket).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"notes\": \"Focus on indirect tax exposure when expanding into the EU.\",\n  \"recentDevelopments\": \"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\n  \"advice\": \"Recommend proactive nexus studies before entering a new market.\"\n}",
@@ -726,7 +895,15 @@
           "name": "POST /articles/ai-draft — AI: generate draft",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles/ai-draft",
               "host": [
@@ -737,7 +914,7 @@
                 "ai-draft"
               ]
             },
-            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct. Response carries `generationId` — the id of this attempt's audit row; send it back as `aiGenerationId` on POST /articles so admins can trace the saved article to these inputs (GET /admin/ai-generations/{{aiGenerationId}}).",
+            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct. Response carries `generationId` — the id of this attempt's audit row; send it back as `aiGenerationId` on POST /articles so admins can trace the saved article to these inputs (GET /admin/ai-generations/{{aiGenerationId}}).\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai-draft` bucket: 3/min, 20/hour, 50/day). The `payload` field is validated with whitelist + forbidNonWhitelisted: unknown keys → `400 AI_DRAFT_PAYLOAD_INVALID` (`message` array); valid JSON that is not an object → `400 AI_DRAFT_PAYLOAD_INVALID`; missing → `AI_DRAFT_PAYLOAD_MISSING`.",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -765,6 +942,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -777,7 +961,7 @@
                 "ai-refine"
               ]
             },
-            "description": "member. Plain JSON (unlike ai-draft). Re-prompts against the current draft plus requested changes; returns a complete revised draft.",
+            "description": "member. Plain JSON (unlike ai-draft). Re-prompts against the current draft plus requested changes; returns a complete revised draft.\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai` bucket).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Cross-Border Tax Planning for Growing Startups\",\n  \"body\": \"International tax planning has shifted dramatically for growth-stage companies expanding beyond their home market. This article walks through the practical steps a founder or finance lead should take before entering a new jurisdiction, from nexus studies to transfer pricing documentation. (Replace this placeholder with real body copy — remember POST/PATCH enforce an 800–2000 word count whenever the resulting status is not 'draft'.)\",\n  \"refinementNotes\": \"Make the tone more formal and add a short conclusion paragraph.\",\n  \"tone\": \"Formal\"\n}",
@@ -798,6 +982,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -810,7 +1001,7 @@
                 "suggest-topics"
               ]
             },
-            "description": "member. `serviceIds` optional — omit to let the backend sample 3 random active services.",
+            "description": "member. `serviceIds` optional — omit to let the backend sample 3 random active services.\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai` bucket).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ]\n}",
@@ -831,6 +1022,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -842,7 +1040,7 @@
                 "articles"
               ]
             },
-            "description": "member (admin also passes). Omit `status` (or send anything other than 'draft') to submit — actual published/pending_review resolution is server-side via `ARTICLES_REVIEW_MODE`.\n\nTo save an article generated with POST /articles/ai-draft instead, add the draft's `generationId` to the body as `\"aiGenerationId\": \"{{aiGenerationId}}\"` (and `\"creationMode\": \"ai\"` — the server forces it anyway when aiGenerationId is set). It must be one of your own generations (400 otherwise); POST only, PATCH ignores the link.",
+            "description": "member (admin also passes). Omit `status` (or send anything other than 'draft') to submit — actual published/pending_review resolution is server-side via `ARTICLES_REVIEW_MODE`.\n\nTo save an article generated with POST /articles/ai-draft instead, add the draft's `generationId` to the body as `\"aiGenerationId\": \"{{aiGenerationId}}\"` (and `\"creationMode\": \"ai\"` — the server forces it anyway when aiGenerationId is set). It must be one of your own generations (400 otherwise); POST only, PATCH ignores the link.\n\nBounds (2026-10-30, `400 VALIDATION_FAILED`, same on PATCH): serviceIds ≤20, countries ≤250 entries each ≤100 chars, state ≤100. `customServiceLabels` values must be text ≤100 (≤20 labels) → `400 CUSTOM_SERVICE_LABEL_INVALID`. Slug race: retried 3 times, then `409 ARTICLE_SLUG_TAKEN`. `429 RATE_LIMITED` (`write` bucket). Other codes: `ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `AI_GENERATION_NOT_OWNER`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Navigating Transfer Pricing Audits in 2026\",\n  \"body\": \"International tax planning has shifted dramatically for growth-stage companies expanding beyond their home market. This article walks through the practical steps a founder or finance lead should take before entering a new jurisdiction, from nexus studies to transfer pricing documentation. (Replace this placeholder with real body copy — remember POST/PATCH enforce an 800–2000 word count whenever the resulting status is not 'draft'.)\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1554224154-26032fced8bd\",\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ],\n  \"customServiceLabels\": {},\n  \"countries\": [\n    \"United States\"\n  ],\n  \"state\": \"California\",\n  \"status\": \"published\",\n  \"creationMode\": \"manual\"\n}",
@@ -863,6 +1061,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -875,7 +1080,7 @@
                 "{{articleId}}"
               ]
             },
-            "description": "🔒 Owner or admin. All fields optional; only provided fields change.",
+            "description": "🔒 Owner or admin. All fields optional; only provided fields change.\n\nEditorial mode (2026-10-30): an author changing `countries` (like title/body/coverImageUrl/serviceIds) on a published article sends it back to `pending_review`; `state` does not. The AI summary is regenerated only when title/body actually change on a published article (or it becomes published without one). Codes: `404 ARTICLE_NOT_FOUND` · `403 ARTICLE_NOT_OWNER` · `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `CUSTOM_SERVICE_LABEL_INVALID`, `VALIDATION_FAILED`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Navigating Transfer Pricing Audits in 2026 (Updated)\",\n  \"status\": \"draft\"\n}",
@@ -892,7 +1097,15 @@
           "name": "DELETE /articles/{{articleId}} — Delete article",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/articles/{{articleId}}",
               "host": [
@@ -916,7 +1129,15 @@
           "name": "GET /events — List upcoming/published events",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/events?upcoming=true",
               "host": [
@@ -950,7 +1171,15 @@
           "name": "GET /members — List members (directory)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/members?q=tax&serviceId={{serviceId}}&sort=featured&page=1&pageSize=8",
               "host": [
@@ -1024,7 +1253,15 @@
           "name": "GET /members/me/profile — Get my own profile id + slug",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/members/me/profile",
               "host": [
@@ -1044,7 +1281,15 @@
           "name": "GET /members/{{memberSlug}} — Get member profile by slug",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/members/{{memberSlug}}",
               "host": [
@@ -1055,7 +1300,7 @@
                 "{{memberSlug}}"
               ]
             },
-            "description": "🔒 Auth, any role. Keyed on slug, NOT the UUID. `404` if not found, not active, or a deactivated profile that isn’t the caller’s own."
+            "description": "🔒 Auth, any role. Keyed on slug, NOT the UUID. `404` if not found, not active, or a deactivated profile that isn’t the caller’s own.\n\nContact details (2026-10-30): `contactEmail`, `workEmail`, `contactPhone`, `linkedinUrl` are returned only to the owner, an admin with `manageMembers`, an active member, or a client with any consultation request to this member — everyone else gets `null` for those four. New field `contactVisible: boolean` says which (website/firmWebsite stay public). To check both sides, run this as a client before and after `POST /consultations`."
           },
           "response": []
         },
@@ -1067,6 +1312,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1101,6 +1353,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1114,7 +1373,7 @@
                 "edits"
               ]
             },
-            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```\n\n**Updated 2026-10-10.** Proof is optional everywhere. Items may carry `id` (live item id when editing) — live items now return their `proofAttachments` so you can resend them. Server rules: engagements need `clientName` (+ optional `clientEmail`, `verificationMethods` from engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other, `verificationMethodOther`); key_clients max 20; work_experiences may overlap (concurrent roles; stored newest-first; only end-before-start is rejected); contact accepts `workEmail`; testimonials accept optional `clientEmail` (2026-10-21). `clientEmail` on engagements/testimonials is only returned to the owner/admin.\n\n**To test engagements instead, replace the whole body with:**\n```json\n{\n  \"section\": \"engagements\",\n  \"payload\": [\n    {\n      \"title\": \"Cross-border restructuring\",\n      \"organization\": \"Acme Holdings\",\n      \"clientName\": \"Jane Doe\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"verificationMethods\": [\"engagement_letter\", \"other\"],\n      \"verificationMethodOther\": \"Signed scope email\",\n      \"year\": 2024,\n      \"url\": null,\n      \"proofAttachments\": [{ \"type\": \"link\", \"url\": \"https://example.com/letter.pdf\", \"label\": \"Engagement letter\" }]\n    }\n  ]\n}\n```\n\n**To test contact instead, replace the whole body with:**\n```json\n{\n  \"section\": \"contact\",\n  \"payload\": {\n    \"contactEmail\": \"priya@example.com\",\n    \"workEmail\": \"priya@firm.example.com\",\n    \"contactPhone\": \"+65 5555 0100\",\n    \"linkedinUrl\": \"https://www.linkedin.com/in/priya-menon\",\n    \"website\": null\n  }\n}\n```\n\n**To test testimonials instead, replace the whole body with:**\n```json\n{\n  \"section\": \"testimonials\",\n  \"payload\": [\n    {\n      \"quote\": \"Clear, practical advice on our Singapore holding structure.\",\n      \"clientName\": \"Jane Doe\",\n      \"clientTitle\": \"CFO\",\n      \"clientCompany\": \"Acme Holdings\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"serviceName\": \"International Tax\",\n      \"occurredOn\": \"2026-03-01\",\n      \"proofAttachments\": []\n    }\n  ]\n}\n``` URL fields (contact.linkedinUrl/website, engagements[].url, key_clients[].logoUrl, link-type proofAttachments, proofLink) must be http(s) — anything else is `400 URL_INVALID`. Bounds: ≤50 items per array section, ≤10 proof attachments per item, ≤20 newly attached files per edit.",
+            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```\n\n**Updated 2026-10-10.** Proof is optional everywhere. Items may carry `id` (live item id when editing) — live items now return their `proofAttachments` so you can resend them. Server rules: engagements need `clientName` (+ optional `clientEmail`, `verificationMethods` from engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other, `verificationMethodOther`); key_clients max 20; work_experiences may overlap (concurrent roles; stored newest-first; only end-before-start is rejected); contact accepts `workEmail`; testimonials accept optional `clientEmail` (2026-10-21). `clientEmail` on engagements/testimonials is only returned to the owner/admin.\n\n**To test engagements instead, replace the whole body with:**\n```json\n{\n  \"section\": \"engagements\",\n  \"payload\": [\n    {\n      \"title\": \"Cross-border restructuring\",\n      \"organization\": \"Acme Holdings\",\n      \"clientName\": \"Jane Doe\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"verificationMethods\": [\"engagement_letter\", \"other\"],\n      \"verificationMethodOther\": \"Signed scope email\",\n      \"year\": 2024,\n      \"url\": null,\n      \"proofAttachments\": [{ \"type\": \"link\", \"url\": \"https://example.com/letter.pdf\", \"label\": \"Engagement letter\" }]\n    }\n  ]\n}\n```\n\n**To test contact instead, replace the whole body with:**\n```json\n{\n  \"section\": \"contact\",\n  \"payload\": {\n    \"contactEmail\": \"priya@example.com\",\n    \"workEmail\": \"priya@firm.example.com\",\n    \"contactPhone\": \"+65 5555 0100\",\n    \"linkedinUrl\": \"https://www.linkedin.com/in/priya-menon\",\n    \"website\": null\n  }\n}\n```\n\n**To test testimonials instead, replace the whole body with:**\n```json\n{\n  \"section\": \"testimonials\",\n  \"payload\": [\n    {\n      \"quote\": \"Clear, practical advice on our Singapore holding structure.\",\n      \"clientName\": \"Jane Doe\",\n      \"clientTitle\": \"CFO\",\n      \"clientCompany\": \"Acme Holdings\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"serviceName\": \"International Tax\",\n      \"occurredOn\": \"2026-03-01\",\n      \"proofAttachments\": []\n    }\n  ]\n}\n``` URL fields (contact.linkedinUrl/website, engagements[].url, key_clients[].logoUrl, link-type proofAttachments, proofLink) must be http(s) — anything else is `400 URL_INVALID`. Bounds: ≤50 items per array section, ≤10 proof attachments per item, ≤20 newly attached files per edit.\n\n**Payload hardening (2026-10-30):** unknown keys in a payload/item are stripped (`isVerified` included); proofAttachments entries keep only {type,url,label}. `400 FIELD_TOO_LONG`: short text (title, organization, clientName, company, degree, institution, field, name, issuingBody, clientTitle, clientCompany, serviceName, occurredOn, id, logoUploadPath, headline) > 300; description/quote > 2000; bio > 5000; URLs > 2048; emails > 254; contactPhone > 50; proof url > 2048 / label > 300. `400 PAYLOAD_ITEM_INVALID`: a text field that is not a string/null, a number field (year, endYear, startYear, startMonth, endMonth) not a number/null, or a non-boolean isCurrent. key_clients: an item without a new `logoUploadPath` keeps the live item's logoUrl on approval; a client-sent `logoUrl` is ignored. `429 RATE_LIMITED` (`write` bucket).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"section\": \"headline_bio\",\n  \"payload\": {\n    \"headline\": \"Cross-Border Tax & Transfer Pricing Advisor\",\n    \"bio\": \"I help fast-growing companies manage multi-jurisdiction tax exposure as they scale internationally.\"\n  }\n}",
@@ -1131,7 +1390,15 @@
           "name": "GET /members/{{memberId}}/edits — List my edit requests",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/members/{{memberId}}/edits",
               "host": [
@@ -1155,6 +1422,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1167,7 +1441,7 @@
                 "{{memberId}}"
               ]
             },
-            "description": "🔑 member, owner-only (`{{memberId}}` must be you). Any combination of `isAvailable`, `availabilityNotes` (≤200; `null`/`\"\"` clears) and `photoUploadPath` — at least one (`400 NOTHING_TO_UPDATE`). Applies immediately, no admin review. Returns the updated `MemberDto`.\n\nShipped body sets availability only. For a photo: first `POST /members/{{memberId}}/uploads` with `{ fileName, contentType }`, PUT the image bytes to the returned `uploadUrl`, then send the returned `path` as `photoUploadPath` (JPEG/PNG/WebP, ≤5MB — else `400 PHOTO_INVALID_TYPE` / `PHOTO_TOO_LARGE`).\n\n**To update the photo too, replace the whole body with:**\n```json\n{\n  \"isAvailable\": true,\n  \"availabilityNotes\": null,\n  \"photoUploadPath\": \"{{memberId}}/1761022800000-profile-photo.png\"\n}\n```",
+            "description": "🔑 member, owner-only (`{{memberId}}` must be you). Any combination of `isAvailable`, `availabilityNotes` (≤200; `null`/`\"\"` clears) and `photoUploadPath` — at least one (`400 NOTHING_TO_UPDATE`). Applies immediately, no admin review. Returns the updated `MemberDto`.\n\nShipped body sets availability only. For a photo: first `POST /members/{{memberId}}/uploads` with `{ fileName, contentType }`, PUT the image bytes to the returned `uploadUrl`, then send the returned `path` as `photoUploadPath` (JPEG/PNG/WebP, ≤5MB — else `400 PHOTO_INVALID_TYPE` / `PHOTO_TOO_LARGE`).\n\n**To update the photo too, replace the whole body with:**\n```json\n{\n  \"isAvailable\": true,\n  \"availabilityNotes\": null,\n  \"photoUploadPath\": \"{{memberId}}/1761022800000-profile-photo.png\"\n}\n```\n\n2026-10-30: the photo size is checked from storage metadata before download (`400 PHOTO_TOO_LARGE` > 5MB; `PHOTO_INVALID_TYPE` for non JPEG/PNG/WebP). The response carries the same contact-visibility rule and `contactVisible` as GET /members/:slug. Codes: `403 MEMBER_NOT_OWNER` · `404 MEMBER_NOT_FOUND` · `400 UPLOAD_NOT_OWNED`, `NOTHING_TO_UPDATE`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"isAvailable\": false,\n  \"availabilityNotes\": \"Travelling — back from 4 Nov\"\n}",
@@ -1184,7 +1458,15 @@
           "name": "GET /members/{{memberId}}/recommendations — List recommendations for a member",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/members/{{memberId}}/recommendations",
               "host": [
@@ -1208,6 +1490,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1242,6 +1531,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1282,6 +1578,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1310,7 +1613,15 @@
           "name": "GET /consultations/can-request/{{memberId}} — Check eligibility to request",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/consultations/can-request/{{memberId}}",
               "host": [
@@ -1330,7 +1641,15 @@
           "name": "GET /consultations/mine — List my sent requests",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/consultations/mine",
               "host": [
@@ -1349,7 +1668,15 @@
           "name": "GET /consultations/received — List my received requests",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/consultations/received",
               "host": [
@@ -1372,6 +1699,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1384,7 +1718,7 @@
                 "{{consultationId}}"
               ]
             },
-            "description": "🔒 Either participant, authorized per field. Shipped body is the member's decision: `status` (`completed`|`declined`) + `responseMessage` (10–500 chars), sent together — only the request's member. Never mix a decision and a rating (`400 MIXED_UPDATE`); empty body is `400 NOTHING_TO_UPDATE`.\n\n**To rate as the requester instead (only once `completed` — `pending`/`declined` return 409), replace the whole body with:**\n```json\n{\n  \"rating\": 5\n}\n```",
+            "description": "🔒 Either participant, authorized per field. Shipped body is the member's decision: `status` (`completed`|`declined`) + `responseMessage` (10–500 chars), sent together — only the request's member. Never mix a decision and a rating (`400 MIXED_UPDATE`); empty body is `400 NOTHING_TO_UPDATE`.\n\n**To rate as the requester instead (only once `completed` — `pending`/`declined` return 409), replace the whole body with:**\n```json\n{\n  \"rating\": 5\n}\n```\n\nRating is set once (2026-10-30): rating an already-rated consultation → `409 RATING_ALREADY_SET`. Other codes: `404 CONSULTATION_NOT_FOUND` · `403 CONSULTATION_NOT_PARTICIPANT`, `MEMBER_DEACTIVATED` · `409 CONSULTATION_ALREADY_DECIDED`, `CONSULTATION_NOT_COMPLETED` · `400 MIXED_UPDATE`, `NOTHING_TO_UPDATE`, `DECISION_INCOMPLETE`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"completed\",\n  \"responseMessage\": \"Happy to help — sent a follow-up email with next steps and a proposed engagement scope.\"\n}",
@@ -1401,7 +1735,15 @@
           "name": "GET /consultations/{{consultationId}}/messages — List thread messages",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/consultations/{{consultationId}}/messages",
               "host": [
@@ -1425,6 +1767,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1464,6 +1813,13 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
               }
             ],
             "url": {
@@ -1484,7 +1840,7 @@
                 }
               }
             },
-            "description": "🔒 Auth, any role. Natural-language search over members, articles and events. `query` 2–500 chars (`400` otherwise); `scope` `all`|`members`|`articles`|`events`; `limit` 1–20. Response: `{ logId, answer, results, applied, degraded, ms }` — `answer` is composed from `results` only; each result may carry `relevance`, `match` and a one-line `reason` when a topic was searched. Rate limit 10/min + 100/hour per user → `429` `{ statusCode, error, message, retryAfterSeconds: 30 }` (counted per API instance). Takes several seconds (two AI calls).\n\nTo send feedback on an answer instead, replace the whole body with:\n```json\n{\n  \"action\": \"feedback\",\n  \"logId\": \"<the logId from a previous answer>\",\n  \"rating\": 1,\n  \"note\": \"optional, max 500 chars\"\n}\n```\n`rating` is `1` or `-1`; response `{ ok: true }`; scoped to your own question; feedback has its own limit of 30/min."
+            "description": "🔒 Auth, any role. Natural-language search over members, articles and events. `query` 2–500 chars (`400` otherwise); `scope` `all`|`members`|`articles`|`events`; `limit` 1–20. Response: `{ logId, answer, results, applied, degraded, ms }` — `answer` is composed from `results` only; each result may carry `relevance`, `match` and a one-line `reason` when a topic was searched. Rate limit 10/min + 100/hour per user → `429` `{ statusCode, error, message, retryAfterSeconds: 30 }` (counted per API instance). Takes several seconds (two AI calls).\n\nTo send feedback on an answer instead, replace the whole body with:\n```json\n{\n  \"action\": \"feedback\",\n  \"logId\": \"<the logId from a previous answer>\",\n  \"rating\": 1,\n  \"note\": \"optional, max 500 chars\"\n}\n```\n`rating` is `1` or `-1`; response `{ ok: true }`; scoped to your own question; feedback has its own limit of 30/min.\n\n2026-10-30: redaction also strips local-format phone numbers and wa.me/WhatsApp links; card text skips companyUrl/website/linkedinUrl and contact/email/phone keys. Planner/embedding/judge failures still degrade (see `degraded`); internal table failures are `500 SEARCH_DB_ERROR`. 429 body is `{ statusCode, code: \"RATE_LIMITED\", message, retryAfterSeconds }`."
           },
           "response": []
         }
@@ -1498,7 +1854,15 @@
           "name": "GET /perks — Browse active metadata and authorized content",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/perks",
               "host": [
@@ -1526,7 +1890,15 @@
           "name": "GET /perks/{{perkSlug}} — Read role-shaped detail",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/perks/{{perkSlug}}",
               "host": [
@@ -1555,7 +1927,15 @@
           "name": "GET /learnings — Browse active metadata and authorized content",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/learnings",
               "host": [
@@ -1583,7 +1963,15 @@
           "name": "GET /learnings/{{learningId}} — Read role-shaped detail",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/learnings/{{learningId}}",
               "host": [
@@ -1612,7 +2000,15 @@
           "name": "GET /collections — Browse active metadata and authorized content",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/collections",
               "host": [
@@ -1640,7 +2036,15 @@
           "name": "GET /collections/{{collectionId}} — Read role-shaped detail",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/collections/{{collectionId}}",
               "host": [
@@ -1669,7 +2073,15 @@
           "name": "GET /templates — Browse templates (metadata only)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/templates?q=&category=",
               "host": [
@@ -1707,7 +2119,15 @@
           "name": "GET /templates/{{templateId}} — Read one template",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/templates/{{templateId}}",
               "host": [
@@ -1736,7 +2156,15 @@
           "name": "POST /templates/{{templateId}}/download — Get a 60-second download link",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/templates/{{templateId}}/download",
               "host": [
@@ -1771,7 +2199,15 @@
           "name": "GET /admin/ping — Admin ping",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/admin/ping",
               "host": [
@@ -1782,7 +2218,7 @@
                 "ping"
               ]
             },
-            "description": "🛡️ admin (exact role). Smoke test for the `admin` guard."
+            "description": "🛡️ admin (exact role). Smoke test for the `admin` guard.\n\n`@Roles('admin')`, freshly re-checked. `200 { ok: true, as: \"admin\" }`; `403 ROLE_REQUIRED` / `ADMIN_NOT_CONFIRMED`."
           },
           "response": []
         },
@@ -1793,7 +2229,15 @@
               "name": "GET /admin/categories — List all categories",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/categories",
                   "host": [
@@ -1816,6 +2260,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -1828,7 +2279,7 @@
                     "categories"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy.",
+                "description": "🛡️ manageTaxonomy.\n\nBounds (2026-10-30): `name` ≤100; `imageUrl` http(s) only, ≤2048 (`400 VALIDATION_FAILED`).",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"imageUrl\": \"https://images.example.com/categories/tax-advisory.png\"\n}",
@@ -1849,6 +2300,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -1862,7 +2320,7 @@
                     "{{categoryId}}"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy. All fields optional.",
+                "description": "🛡️ manageTaxonomy. All fields optional.\n\nBounds (2026-10-30): `name` ≤100; `imageUrl` http(s), ≤2048. `404 CATEGORY_NOT_FOUND`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}",
@@ -1879,7 +2337,15 @@
               "name": "DELETE /admin/categories/{{categoryId}} — Delete category",
               "request": {
                 "method": "DELETE",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/categories/{{categoryId}}",
                   "host": [
@@ -1891,7 +2357,7 @@
                     "{{categoryId}}"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy. `409 CATEGORY_HAS_SERVICES` if it still has services."
+                "description": "🛡️ manageTaxonomy. `409 CATEGORY_HAS_SERVICES` if it still has services.\n\n`409 CATEGORY_NOT_EMPTY` while the category still has services; `404 CATEGORY_NOT_FOUND`."
               },
               "response": []
             },
@@ -1903,6 +2369,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -1917,7 +2390,7 @@
                     "services"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy. Services are always created scoped under a category.",
+                "description": "🛡️ manageTaxonomy. Services are always created scoped under a category.\n\n`name` ≤100 (2026-10-30).",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Transfer Pricing Advisory\",\n  \"isCustom\": false\n}",
@@ -1938,6 +2411,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -1951,7 +2431,7 @@
                     "{{serviceId}}"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy. All fields optional.",
+                "description": "🛡️ manageTaxonomy. All fields optional.\n\n`name` ≤100 (2026-10-30). `404 SERVICE_NOT_FOUND`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Transfer Pricing Advisory\",\n  \"sortOrder\": 3,\n  \"isActive\": true\n}",
@@ -1968,7 +2448,15 @@
               "name": "DELETE /admin/services/{{serviceId}} — Delete service",
               "request": {
                 "method": "DELETE",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/services/{{serviceId}}",
                   "host": [
@@ -1980,7 +2468,7 @@
                     "{{serviceId}}"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy. `409 SERVICE_IN_USE` if still referenced by a member/article/application."
+                "description": "🛡️ manageTaxonomy. `409 SERVICE_IN_USE` if still referenced by a member/article/application.\n\n`404 SERVICE_NOT_FOUND`."
               },
               "response": []
             }
@@ -1993,7 +2481,15 @@
               "name": "GET /admin/applications — List applications",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/applications",
                   "host": [
@@ -2020,7 +2516,15 @@
               "name": "GET /admin/applications/{{applicationId}} — Get application detail",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/applications/{{applicationId}}",
                   "host": [
@@ -2044,6 +2548,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2057,7 +2568,7 @@
                     "{{applicationId}}"
                   ]
                 },
-                "description": "🛡️ manageApplications. Shipped body approves. `approvedServiceId` must be one of the applicant’s own submitted servicePreferences. `memberTier`/`membershipStartedAt` are optional admin overrides, only used when approving.\n\n**To test Reject instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"rejectionReason\": \"Peer references could not be verified — please resubmit with updated contacts.\"\n}\n```",
+                "description": "🛡️ manageApplications. Shipped body approves. `approvedServiceId` must be one of the applicant’s own submitted servicePreferences. `memberTier`/`membershipStartedAt` are optional admin overrides, only used when approving.\n\n**To test Reject instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"rejectionReason\": \"Peer references could not be verified — please resubmit with updated contacts.\"\n}\n```\n\n2026-10-30: `rejectionReason` ≤ 2000; `approvedServiceId` must be a UUID (`400 VALIDATION_FAILED`). Approval retries a lost member-slug race 3 times, then `409 MEMBER_SLUG_TAKEN`. Other codes: `404 APPLICATION_NOT_FOUND` · `409 APPLICATION_NOT_REVIEWABLE`, `APPLICATION_ALREADY_REVIEWED` · `400 REJECTION_REASON_REQUIRED`, `APPROVED_SERVICE_REQUIRED`, `APPROVED_SERVICE_INVALID`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"status\": \"approved\",\n  \"approvedServiceId\": \"{{serviceId}}\",\n  \"memberTier\": \"seasoned_professional\",\n  \"membershipStartedAt\": \"2026-10-01\"\n}",
@@ -2079,7 +2590,15 @@
               "name": "GET /admin/articles — List review queue",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/articles",
                   "host": [
@@ -2110,6 +2629,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2146,7 +2672,15 @@
               "name": "GET /admin/ai-generations — List AI draft attempts (log)",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/ai-generations",
                   "host": [
@@ -2179,7 +2713,15 @@
               "name": "GET /admin/ai-generations/{{aiGenerationId}} — Get one AI draft attempt (inputs + output)",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/ai-generations/{{aiGenerationId}}",
                   "host": [
@@ -2204,7 +2746,15 @@
               "name": "GET /admin/events — List all events",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/events",
                   "host": [
@@ -2223,7 +2773,15 @@
               "name": "GET /admin/events/export — Export events to CSV",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/events/export",
                   "host": [
@@ -2243,7 +2801,15 @@
               "name": "POST /admin/events/import — Import events from CSV (full sync)",
               "request": {
                 "method": "POST",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/events/import",
                   "host": [
@@ -2255,7 +2821,7 @@
                     "import"
                   ]
                 },
-                "description": "🛡️ manageEvents. `.csv` only. Each row is the FULL desired state of one event (replace, not patch) and the whole file is a full sync: blank `id` → create; filled `id` matching an existing event → replace every column except `slug`; any existing event whose id is absent from the file → **deleted**. All-or-nothing — every row is validated before anything is written; one failing row means nothing is written (`400`, one `\"Row N: ...\"` message per failure). A file with zero data rows is rejected outright rather than deleting everything.",
+                "description": "🛡️ manageEvents. `.csv` only. Each row is the FULL desired state of one event (replace, not patch) and the whole file is a full sync: blank `id` → create; filled `id` matching an existing event → replace every column except `slug`; any existing event whose id is absent from the file → **deleted**. All-or-nothing — every row is validated before anything is written; one failing row means nothing is written (`400`, one `\"Row N: ...\"` message per failure). A file with zero data rows is rejected outright rather than deleting everything.\n\nEach row is checked against the same field rules as POST /admin/events (row-level `Row N: ...` messages). New slugs are regenerated together and retried 3 times on a slug race, then `409 EVENT_SLUG_TAKEN`. Codes: `400 FILE_REQUIRED`, `FILE_EMPTY`, `CSV_INVALID`, `CSV_NO_ROWS`.",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2274,7 +2840,15 @@
               "name": "GET /admin/events/{{eventId}} — Get event detail",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/events/{{eventId}}",
                   "host": [
@@ -2298,6 +2872,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2310,7 +2891,7 @@
                     "events"
                   ]
                 },
-                "description": "🛡️ manageEvents. Omitting `status` defaults to 'draft'. A draft only strictly needs title/description/startDate — the rest become required once `status` resolves to 'published' (see Publish requirements in docs/rest-api.md).",
+                "description": "🛡️ manageEvents. Omitting `status` defaults to 'draft'. A draft only strictly needs title/description/startDate — the rest become required once `status` resolves to 'published' (see Publish requirements in docs/rest-api.md).\n\nField rules (2026-10-30, `400 VALIDATION_FAILED`): title ≤200, description ≤20000, shortDescription ≤500, eventType/country/city ≤100, venueName/organiserName ≤200; coverImageUrl/registrationUrl ≤2048 and http(s) only (scheme-less www.x.com still accepted); startDate/endDate ISO 8601; timezone an IANA zone (e.g. `Asia/Kolkata`), ≤64. Slug race retried 3 times, then `409 EVENT_SLUG_TAKEN`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"title\": \"Cross-Border M&A Masterclass\",\n  \"description\": \"A half-day workshop covering deal structuring, due diligence, and post-merger integration for cross-border transactions.\",\n  \"shortDescription\": \"Hands-on workshop on cross-border M&A fundamentals.\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1507679799987-c73779587ccf\",\n  \"startDate\": \"2026-11-12T09:00:00.000Z\",\n  \"endDate\": \"2026-11-12T17:00:00.000Z\",\n  \"timezone\": \"America/New_York\",\n  \"eventType\": \"Workshop\",\n  \"eventFormat\": \"hybrid\",\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"venueName\": \"GrowXQ HQ\",\n  \"isFree\": false,\n  \"registrationUrl\": \"https://example.com/events/cross-border-ma-masterclass\",\n  \"organiserName\": \"GrowXQ Events Team\",\n  \"status\": \"published\"\n}",
@@ -2331,6 +2912,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2344,7 +2932,7 @@
                     "{{eventId}}"
                   ]
                 },
-                "description": "🛡️ manageEvents. All fields optional. Every optional field also accepts explicit `null` to CLEAR it — omitting the key leaves it unchanged.",
+                "description": "🛡️ manageEvents. All fields optional. Every optional field also accepts explicit `null` to CLEAR it — omitting the key leaves it unchanged.\n\nField rules (2026-10-30, `400 VALIDATION_FAILED`): title ≤200, description ≤20000, shortDescription ≤500, eventType/country/city ≤100, venueName/organiserName ≤200; coverImageUrl/registrationUrl ≤2048 and http(s) only (scheme-less www.x.com still accepted); startDate/endDate ISO 8601; timezone an IANA zone (e.g. `Asia/Kolkata`), ≤64. `404 EVENT_NOT_FOUND`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"city\": \"Boston\",\n  \"venueName\": null\n}",
@@ -2361,7 +2949,15 @@
               "name": "DELETE /admin/events/{{eventId}} — Delete event",
               "request": {
                 "method": "DELETE",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/events/{{eventId}}",
                   "host": [
@@ -2386,7 +2982,15 @@
               "name": "GET /admin/members — List all members",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/members",
                   "host": [
@@ -2409,6 +3013,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2439,7 +3050,15 @@
               "name": "GET /admin/members/{{memberId}}/edits — Get member edits detail (per-member review page)",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/members/{{memberId}}/edits",
                   "host": [
@@ -2460,7 +3079,15 @@
               "name": "GET /admin/member-edits — List all edit requests (queue)",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/member-edits?status=all",
                   "host": [
@@ -2490,6 +3117,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2503,7 +3137,7 @@
                     "{{memberEditId}}"
                   ]
                 },
-                "description": "🛡️ manageMembers. Shipped body is the per-item review for an array-section edit (engagements, education, work_experiences, key_clients, testimonials, awards): `items` must cover every payload index exactly once. Decisions: `approved_verified` (live WITH Verified badge; item must have proof, else 400 VERIFIED_REQUIRES_PROOF), `approved_hygiene` (live WITHOUT badge; `reason` required, shown to member), `rejected` (not applied; `reason` required). `status` is derived (verified if any item accepted) — omit it. Accepted items go live, rejected items are dropped (a live item stays as-is); decisions are stored in `itemReviews`.\n\n**To review a headline_bio / contact edit (or approve the whole edit) instead, replace the whole body with:**\n```json\n{\n  \"status\": \"verified\"\n}\n```\n\n**To reject the whole edit instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"reviewNote\": \"Please attach a proof document for this engagement before resubmitting.\"\n}\n```",
+                "description": "🛡️ manageMembers. Shipped body is the per-item review for an array-section edit (engagements, education, work_experiences, key_clients, testimonials, awards): `items` must cover every payload index exactly once. Decisions: `approved_verified` (live WITH Verified badge; item must have proof, else 400 VERIFIED_REQUIRES_PROOF), `approved_hygiene` (live WITHOUT badge; `reason` required, shown to member), `rejected` (not applied; `reason` required). `status` is derived (verified if any item accepted) — omit it. Accepted items go live, rejected items are dropped (a live item stays as-is); decisions are stored in `itemReviews`.\n\n**To review a headline_bio / contact edit (or approve the whole edit) instead, replace the whole body with:**\n```json\n{\n  \"status\": \"verified\"\n}\n```\n\n**To reject the whole edit instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"reviewNote\": \"Please attach a proof document for this engagement before resubmitting.\"\n}\n```\n\n2026-10-30: a key-client logo over 2MB fails with `400 LOGO_TOO_LARGE` from storage metadata, before download (`LOGO_INVALID_TYPE` for a non-image). Approved key_clients without a new upload keep the live logoUrl.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"items\": [\n    {\n      \"index\": 0,\n      \"decision\": \"approved_verified\"\n    },\n    {\n      \"index\": 1,\n      \"decision\": \"approved_hygiene\",\n      \"reason\": \"Proof not attached\"\n    },\n    {\n      \"index\": 2,\n      \"decision\": \"rejected\",\n      \"reason\": \"Could not confirm this client relationship\"\n    }\n  ],\n  \"reviewNote\": \"Thanks for the update.\"\n}",
@@ -2525,7 +3159,15 @@
               "name": "GET /admin/consultations — List all consultation requests",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/consultations",
                   "host": [
@@ -2548,6 +3190,13 @@
                   {
                     "key": "Content-Type",
                     "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                   }
                 ],
                 "url": {
@@ -2587,7 +3236,15 @@
                   "name": "GET /admin/perks — List all including inactive",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/perks",
                       "host": [
@@ -2616,7 +3273,15 @@
                   "name": "GET /admin/perks/{{perkId}} — Read full management fields",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/perks/{{perkId}}",
                       "host": [
@@ -2650,6 +3315,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -2662,7 +3334,7 @@
                         "perks"
                       ]
                     },
-                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields.",
+                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields.\n\nSlug race (2026-10-30): regenerated and retried 3 times, then `409 RESOURCE_SLUG_TAKEN`.",
                     "auth": {
                       "type": "bearer",
                       "bearer": [
@@ -2693,6 +3365,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -2733,7 +3412,15 @@
                   "name": "DELETE /admin/perks/{{perkId}} — Delete resource",
                   "request": {
                     "method": "DELETE",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/perks/{{perkId}}",
                       "host": [
@@ -2768,7 +3455,15 @@
                   "name": "GET /admin/learnings — List all including inactive",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/learnings",
                       "host": [
@@ -2797,7 +3492,15 @@
                   "name": "GET /admin/learnings/{{learningId}} — Read full management fields",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/learnings/{{learningId}}",
                       "host": [
@@ -2831,6 +3534,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -2843,7 +3553,7 @@
                         "learnings"
                       ]
                     },
-                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields.",
+                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields.\n\nYouTube videos need a youtube.com/youtu.be/youtube-nocookie.com URL with a valid 11-char id → else `400 LEARNING_YOUTUBE_URL_REQUIRED`. An https `thumbnailUrl` must be in the resource-assets bucket → else `400 LEARNING_THUMBNAIL_INVALID`.",
                     "auth": {
                       "type": "bearer",
                       "bearer": [
@@ -2874,6 +3584,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -2887,7 +3604,7 @@
                         "{{learningId}}"
                       ]
                     },
-                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only.",
+                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only.\n\nSame video/thumbnail rules as create: `400 LEARNING_YOUTUBE_URL_REQUIRED`, `LEARNING_THUMBNAIL_INVALID`.",
                     "auth": {
                       "type": "bearer",
                       "bearer": [
@@ -2914,7 +3631,15 @@
                   "name": "DELETE /admin/learnings/{{learningId}} — Delete resource",
                   "request": {
                     "method": "DELETE",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/learnings/{{learningId}}",
                       "host": [
@@ -2949,7 +3674,15 @@
                   "name": "GET /admin/collections — List all including inactive",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/collections",
                       "host": [
@@ -2978,7 +3711,15 @@
                   "name": "GET /admin/collections/{{collectionId}} — Read full management fields",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/collections/{{collectionId}}",
                       "host": [
@@ -3012,6 +3753,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -3024,7 +3772,7 @@
                         "collections"
                       ]
                     },
-                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields. To create a perk stack instead, replace the whole body with:\n{\n  \"kind\": \"perk_stack\",\n  \"title\": \"Example stack\",\n  \"itemIds\": [\n    \"{{perkId}}\"\n  ]\n}\n\nkind is one of learning_playlist, perk_stack, template_kit; itemIds must be ids of that kind (videos, perks or templates). To create a template kit instead, replace the whole body with:\n{\n  \"kind\": \"template_kit\",\n  \"title\": \"New audit engagement\",\n  \"itemIds\": [\"{{templateId}}\"]\n}",
+                    "description": "Slugs generated server-side and stable on edit. Unknown fields rejected. See shared-types/resource.ts for optional fields. To create a perk stack instead, replace the whole body with:\n{\n  \"kind\": \"perk_stack\",\n  \"title\": \"Example stack\",\n  \"itemIds\": [\n    \"{{perkId}}\"\n  ]\n}\n\nkind is one of learning_playlist, perk_stack, template_kit; itemIds must be ids of that kind (videos, perks or templates). To create a template kit instead, replace the whole body with:\n{\n  \"kind\": \"template_kit\",\n  \"title\": \"New audit engagement\",\n  \"itemIds\": [\"{{templateId}}\"]\n}\n\nSlug race (2026-10-30): regenerated and retried 3 times, then `409 RESOURCE_SLUG_TAKEN`.",
                     "auth": {
                       "type": "bearer",
                       "bearer": [
@@ -3055,6 +3803,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -3068,7 +3823,7 @@
                         "{{collectionId}}"
                       ]
                     },
-                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only. Supply the entire desired itemIds array to add/remove/reorder; no duplicates, IDs must match kind. Kind is immutable. Empty itemIds removes all items.",
+                    "description": "PATCH fields are optional, but at least one is required. Null clears nullable fields only. Supply the entire desired itemIds array to add/remove/reorder; no duplicates, IDs must match kind. Kind is immutable. Empty itemIds removes all items.\n\nSending a different `kind` → `400 COLLECTION_KIND_IMMUTABLE` (omit `kind`). Bad itemIds → `400 COLLECTION_ITEMS_INVALID`; unknown id → `404 COLLECTION_NOT_FOUND`.",
                     "auth": {
                       "type": "bearer",
                       "bearer": [
@@ -3095,7 +3850,15 @@
                   "name": "DELETE /admin/collections/{{collectionId}} — Delete resource",
                   "request": {
                     "method": "DELETE",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/collections/{{collectionId}}",
                       "host": [
@@ -3130,7 +3893,15 @@
                   "name": "GET /admin/templates — List all including inactive",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/templates",
                       "host": [
@@ -3159,7 +3930,15 @@
                   "name": "GET /admin/templates/{{templateId}} — Read full management fields",
                   "request": {
                     "method": "GET",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
                       "host": [
@@ -3189,7 +3968,15 @@
                   "name": "POST /admin/templates/upload — Upload a template file",
                   "request": {
                     "method": "POST",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/templates/upload",
                       "host": [
@@ -3233,6 +4020,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -3245,7 +4039,7 @@
                         "templates"
                       ]
                     },
-                    "description": "🛡️ manageResources. Upload the file first and copy its response fields in. filePath must exist in the private template-files bucket. Slug generated server-side. previewImageUrl is an optional public teaser image (templates/... resource-assets path or HTTPS).",
+                    "description": "🛡️ manageResources. Upload the file first and copy its response fields in. filePath must exist in the private template-files bucket. Slug generated server-side. previewImageUrl is an optional public teaser image (templates/... resource-assets path or HTTPS).\n\nSlug race (2026-10-30): regenerated and retried 3 times, then `409 RESOURCE_SLUG_TAKEN`.",
                     "auth": {
                       "type": "bearer",
                       "bearer": [
@@ -3276,6 +4070,13 @@
                       {
                         "key": "Content-Type",
                         "value": "application/json"
+                      },
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
                       }
                     ],
                     "url": {
@@ -3316,7 +4117,15 @@
                   "name": "DELETE /admin/templates/{{templateId}} — Delete template",
                   "request": {
                     "method": "DELETE",
-                    "header": [],
+                    "header": [
+                      {
+                        "key": "X-Request-Id",
+                        "value": "{{$guid}}",
+                        "type": "text",
+                        "disabled": true,
+                        "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                      }
+                    ],
                     "url": {
                       "raw": "{{baseUrl}}/admin/templates/{{templateId}}",
                       "host": [

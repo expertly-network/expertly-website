@@ -1,7 +1,9 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui';
 import { formatArticleDate, formatReadTime, formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
+import { mustHotlink } from '@/lib/images';
 
 function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36 | 60 }) {
   const dimension = size === 60 ? 'h-[60px] w-[60px]' : 'h-9 w-9';
@@ -9,12 +11,11 @@ function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36
 
   if (article.authorPhotoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        loading="lazy"
-        decoding="async"
+      <Image
         src={article.authorPhotoUrl}
         alt=""
+        width={size}
+        height={size}
         className={`${dimension} flex-none rounded-full object-cover`}
       />
     );
@@ -39,13 +40,13 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
       <Link href={`/articles/${featured.slug}`} className="flex flex-col gap-5">
         <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[360px]">
           {featured.coverImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              loading="lazy"
-              decoding="async"
+            <Image
               src={featured.coverImageUrl}
+              unoptimized={mustHotlink(featured.coverImageUrl)}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover"
+              fill
+              sizes="(min-width: 1024px) 55vw, 100vw"
+              className="object-cover"
             />
           ) : null}
           {featured.services[0] && (

@@ -7,6 +7,9 @@
 -- Image columns hold paths inside the public `resource-assets` Storage bucket (the API turns
 -- them into full URLs). For a fresh project, restore the resource-assets Storage bucket
 -- from an external backup with these same object paths. Image binaries are not kept in Git.
+--
+-- Re-runnable: every insert is `on conflict (id) do nothing`, so applying this again (e.g. via
+-- `supabase db push`) skips rows that already exist and never overwrites an admin's later edits.
 -- ============================================================================
 
 insert into public.perks
@@ -32,7 +35,8 @@ values
   ('be22077c-a078-4901-91e3-d08240353bbf', 'perplexity', 'Perplexity', 'AI Tools', 'AI search that cites its sources', 'Answer engine that shows sources for every answer, with a Deep Research mode and enterprise plans.', array['Perplexity Pro', 'Deep Research', 'Enterprise Pro']::text[], 'https://www.perplexity.ai', 'perks/logos/perplexity.png', 'perks/covers/perplexity.jpg', false, 180),
   ('c9a88a76-c4cc-4f9b-9956-6e90952c890f', 'fireflies-ai', 'Fireflies.ai', 'AI Tools', 'AI notes for client calls', 'Records, transcribes and summarises calls and meetings, with searchable notes and action items.', array['Transcription', 'Meeting summaries', 'Action items']::text[], 'https://fireflies.ai', 'perks/logos/fireflies-ai.png', 'perks/covers/fireflies-ai.jpg', false, 190),
   ('636ab5f3-9967-41ed-81c3-5240044d1f58', 'taxdome', 'TaxDome', 'Practice & Productivity', 'All-in-one practice management', 'Client portal, CRM, workflows, e-signatures and billing built for accounting and tax firms.', array['Client portal', 'Workflows', 'E-signatures', 'Billing']::text[], 'https://taxdome.com', 'perks/logos/taxdome.png', 'perks/covers/taxdome.jpg', false, 200),
-  ('0f96281d-5047-465d-ac30-bd980e6a7fd1', 'notion', 'Notion', 'Practice & Productivity', 'Connected workspace for docs and projects', 'Docs, wikis and projects in one workspace, with Notion AI for drafting and search.', array['Notion', 'Notion AI', 'Notion Calendar']::text[], 'https://www.notion.so', 'perks/logos/notion.png', 'perks/covers/notion.jpg', false, 210);
+  ('0f96281d-5047-465d-ac30-bd980e6a7fd1', 'notion', 'Notion', 'Practice & Productivity', 'Connected workspace for docs and projects', 'Docs, wikis and projects in one workspace, with Notion AI for drafting and search.', array['Notion', 'Notion AI', 'Notion Calendar']::text[], 'https://www.notion.so', 'perks/logos/notion.png', 'perks/covers/notion.jpg', false, 210)
+on conflict (id) do nothing;
 
 insert into public.learnings
   (id, title, summary, video_provider, video_url, thumbnail_url, channel, duration_minutes, category, level, audiences, is_featured, sort_order)
@@ -56,7 +60,8 @@ values
   ('0e59e033-ac60-45ec-9e30-ebfcafc79a2b', 'PowerPoint Copilot Tutorial: How Microsoft''s New AI Changes Everything', 'Turn a memo or a Word document into a first-draft deck, then edit instead of starting blank.', 'youtube', 'https://www.youtube.com/watch?v=Yq6JlVrs-IU', 'learnings/thumbnails/0e59e033-ac60-45ec-9e30-ebfcafc79a2b.jpg', 'Kevin Stratvert', 9, 'Excel & decks', 'beginner', array['tax', 'legal', 'audit']::text[], false, 170),
   ('f2f3a77b-b1c5-48c6-8072-bc03312c18bf', 'n8n Tutorial for Beginners: Build AI Automations for Free', 'The basic building blocks of workflow automation. No code, and free to try.', 'youtube', 'https://www.youtube.com/watch?v=Fy1UCBcgF2o', 'learnings/thumbnails/f2f3a77b-b1c5-48c6-8072-bc03312c18bf.jpg', 'Charlie Chang', 19, 'Automation', 'intermediate', array['tax', 'legal', 'audit']::text[], false, 180),
   ('a9125f30-8ca1-41fb-82bd-7cc7baf50847', 'Automate Invoice Entry with n8n + Tally', 'A concrete accounting workflow: invoices in, Tally entries out. Good proof that automation fits a small practice.', 'youtube', 'https://www.youtube.com/watch?v=s1hgeDf_xnY', 'learnings/thumbnails/a9125f30-8ca1-41fb-82bd-7cc7baf50847.jpg', 'Pratik Joshi', 16, 'Automation', 'intermediate', array['tax']::text[], false, 190),
-  ('5a6b7446-81b2-4d15-a159-d48782e319b2', 'DPDP Rules 2025 Explained: What It Means for Your Data & Privacy', 'Client data is what you hold. Know what the new rules mean before you paste any of it into an AI tool.', 'youtube', 'https://www.youtube.com/watch?v=I0z1pF2W-Sg', 'learnings/thumbnails/5a6b7446-81b2-4d15-a159-d48782e319b2.jpg', 'Vajiram & Ravi', 15, 'Data & privacy', 'beginner', array['tax', 'legal', 'audit']::text[], false, 200);
+  ('5a6b7446-81b2-4d15-a159-d48782e319b2', 'DPDP Rules 2025 Explained: What It Means for Your Data & Privacy', 'Client data is what you hold. Know what the new rules mean before you paste any of it into an AI tool.', 'youtube', 'https://www.youtube.com/watch?v=I0z1pF2W-Sg', 'learnings/thumbnails/5a6b7446-81b2-4d15-a159-d48782e319b2.jpg', 'Vajiram & Ravi', 15, 'Data & privacy', 'beginner', array['tax', 'legal', 'audit']::text[], false, 200)
+on conflict (id) do nothing;
 
 insert into public.collections
   (id, kind, slug, title, description, audiences, item_ids, sort_order)
@@ -70,4 +75,5 @@ values
   ('175a48d2-713d-4853-871b-1e8ed6ce2347', 'perk_stack', 'boutique-law-firm', 'Boutique law firm', 'Research Indian case law, draft faster and get agreements signed.', '{}'::text[], array['8a432fbc-bb06-43ef-a413-8eaccfb7b18e', '7ea0f588-f45d-4c65-97da-e01a8906caf6', '99dd2422-766a-42b5-8112-56f793d30b5e', '47f53ed1-3124-46a6-9516-368c2816e52c']::uuid[], 20),
   ('a318878c-efc7-4a81-8463-09a1671b93d1', 'perk_stack', 'audit-team', 'Audit team', 'Build workpapers and flag unusual entries before partner review.', '{}'::text[], array['149a6506-8ab9-4455-89e9-8f2bcc0d0f1d', 'c0516c96-2292-4724-a415-c66536e4cdc4', '97bbd2e7-becd-42bc-90ba-7b89108239c3']::uuid[], 30),
   ('21f6474e-befe-46c0-9889-8fecc9448119', 'perk_stack', 'startup-finance-and-cs', 'Startup finance and CS', 'Books, cap table and board records for a growing company.', '{}'::text[], array['3cfe5280-09ad-4678-8478-e78d69e3739d', '207fb4ae-a7b2-41d7-9359-1735d9468e03', '9563124a-200d-47fe-aaaf-62f46ccf81aa', '47f53ed1-3124-46a6-9516-368c2816e52c']::uuid[], 40),
-  ('4301812e-2741-4dbb-8328-9751536585f5', 'perk_stack', 'ai-first-practice', 'AI-first practice', 'Research, summarise and capture knowledge with AI.', '{}'::text[], array['97bbd2e7-becd-42bc-90ba-7b89108239c3', 'be22077c-a078-4901-91e3-d08240353bbf', 'c9a88a76-c4cc-4f9b-9956-6e90952c890f', '0f96281d-5047-465d-ac30-bd980e6a7fd1']::uuid[], 50);
+  ('4301812e-2741-4dbb-8328-9751536585f5', 'perk_stack', 'ai-first-practice', 'AI-first practice', 'Research, summarise and capture knowledge with AI.', '{}'::text[], array['97bbd2e7-becd-42bc-90ba-7b89108239c3', 'be22077c-a078-4901-91e3-d08240353bbf', 'c9a88a76-c4cc-4f9b-9956-6e90952c890f', '0f96281d-5047-465d-ac30-bd980e6a7fd1']::uuid[], 50)
+on conflict (id) do nothing;

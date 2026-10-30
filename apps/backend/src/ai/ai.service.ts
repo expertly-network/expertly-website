@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  GatewayTimeoutException,
+  type HttpException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { generateText, type LanguageModel, type ToolSet } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -23,9 +30,40 @@ function boundedCall(timeoutMs: number = AI_CALL_TIMEOUT_MS): { abortSignal: Abo
   return { abortSignal: AbortSignal.timeout(timeoutMs), maxRetries: 1 };
 }
 
+// Output caps per call, so a runaway generation can't bill unbounded tokens. Sized to the task
+// with headroom for reasoning models (whose hidden reasoning counts against the same cap): a full
+// 800-2000-word HTML draft in JSON is ~3-5k tokens; follow-up questions, topic ideas and the
+// summary are a few hundred at most.
+const MAX_TOKENS_DRAFT = 8_000;
+const MAX_TOKENS_FOLLOWUP = 2_000;
+const MAX_TOKENS_TOPICS = 1_000;
+const MAX_TOKENS_SUMMARY = 1_000;
+
 // Providers supported by AI_PROVIDER.
 type AiProvider = 'openai' | 'anthropic' | 'google';
 const SUPPORTED_PROVIDERS: AiProvider[] = ['openai', 'anthropic', 'google'];
+
+// The client only ever sees the code (and the filter's fixed sentence for it); which variable is
+// missing is logged server-side, never returned.
+function aiNotConfigured(): ServiceUnavailableException {
+  return new ServiceUnavailableException({ code: 'AI_NOT_CONFIGURED', message: 'AI features are not configured.' });
+}
+
+// True when the call was cut off by boundedCall's AbortSignal.timeout, including when the SDK
+// wraps that abort (RetryError.lastError / Error.cause).
+function isTimeoutError(error: unknown, depth = 0): boolean {
+  if (!error || typeof error !== 'object' || depth > 3) return false;
+  const e = error as { name?: unknown; cause?: unknown; lastError?: unknown };
+  if (e.name === 'TimeoutError' || e.name === 'AbortError') return true;
+  return isTimeoutError(e.cause, depth + 1) || isTimeoutError(e.lastError, depth + 1);
+}
+
+// Maps a failed provider call to AI_TIMEOUT (504) or AI_PROVIDER_ERROR (502).
+function providerFailure(error: unknown, operation: string): HttpException {
+  return isTimeoutError(error)
+    ? new GatewayTimeoutException({ code: 'AI_TIMEOUT', message: `${operation} timed out.` })
+    : new BadGatewayException({ code: 'AI_PROVIDER_ERROR', message: `${operation} failed.` });
+}
 
 export interface ArticleDraftOutput {
   title: string;
@@ -163,34 +201,39 @@ export class AiService {
 
   constructor(private readonly draftGenerationsRepository: AiDraftGenerationsRepository) {}
 
+  private missingKey(name: string): ServiceUnavailableException {
+    this.logger.error(`AI call refused: ${name} is not set for the configured AI_PROVIDER`);
+    return aiNotConfigured();
+  }
+
   // Resolves the language model configured via AI_PROVIDER/AI_MODEL.
   private resolveModel(): LanguageModel {
     const provider = process.env.AI_PROVIDER as AiProvider | undefined;
     const modelId = process.env.AI_MODEL;
 
     if (!provider || !modelId) {
-      throw new ServiceUnavailableException('AI drafting is not configured (set AI_PROVIDER and AI_MODEL).');
+      this.logger.error('AI call refused: AI_PROVIDER and AI_MODEL must both be set');
+      throw aiNotConfigured();
     }
     if (!SUPPORTED_PROVIDERS.includes(provider)) {
-      throw new ServiceUnavailableException(
-        `Unsupported AI_PROVIDER "${provider}" (expected one of ${SUPPORTED_PROVIDERS.join(', ')}).`
-      );
+      this.logger.error(`AI call refused: unsupported AI_PROVIDER (expected one of ${SUPPORTED_PROVIDERS.join(', ')})`);
+      throw aiNotConfigured();
     }
 
     switch (provider) {
       case 'openai': {
         const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) throw new ServiceUnavailableException('OPENAI_API_KEY is not set.');
+        if (!apiKey) throw this.missingKey('OPENAI_API_KEY');
         return createOpenAI({ apiKey })(modelId);
       }
       case 'anthropic': {
         const apiKey = process.env.ANTHROPIC_API_KEY;
-        if (!apiKey) throw new ServiceUnavailableException('ANTHROPIC_API_KEY is not set.');
+        if (!apiKey) throw this.missingKey('ANTHROPIC_API_KEY');
         return createAnthropic({ apiKey })(modelId);
       }
       case 'google': {
         const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-        if (!apiKey) throw new ServiceUnavailableException('GOOGLE_GENERATIVE_AI_API_KEY is not set.');
+        if (!apiKey) throw this.missingKey('GOOGLE_GENERATIVE_AI_API_KEY');
         return createGoogleGenerativeAI({ apiKey })(modelId);
       }
     }
@@ -202,24 +245,24 @@ export class AiService {
     const modelId = process.env.AI_MODEL;
 
     if (!provider || !modelId) {
-      throw new ServiceUnavailableException('AI drafting is not configured (set AI_PROVIDER and AI_MODEL).');
+      this.logger.error('AI call refused: AI_PROVIDER and AI_MODEL must both be set');
+      throw aiNotConfigured();
     }
     if (!SUPPORTED_PROVIDERS.includes(provider)) {
-      throw new ServiceUnavailableException(
-        `Unsupported AI_PROVIDER "${provider}" (expected one of ${SUPPORTED_PROVIDERS.join(', ')}).`
-      );
+      this.logger.error(`AI call refused: unsupported AI_PROVIDER (expected one of ${SUPPORTED_PROVIDERS.join(', ')})`);
+      throw aiNotConfigured();
     }
 
     switch (provider) {
       case 'openai': {
         const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) throw new ServiceUnavailableException('OPENAI_API_KEY is not set.');
+        if (!apiKey) throw this.missingKey('OPENAI_API_KEY');
         const openai = createOpenAI({ apiKey });
         return { model: openai(modelId), tools: { web_search: openai.tools.webSearch({}) } };
       }
       case 'anthropic': {
         const apiKey = process.env.ANTHROPIC_API_KEY;
-        if (!apiKey) throw new ServiceUnavailableException('ANTHROPIC_API_KEY is not set.');
+        if (!apiKey) throw this.missingKey('ANTHROPIC_API_KEY');
         const anthropic = createAnthropic({ apiKey });
         return {
           model: anthropic(modelId),
@@ -228,7 +271,7 @@ export class AiService {
       }
       case 'google': {
         const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-        if (!apiKey) throw new ServiceUnavailableException('GOOGLE_GENERATIVE_AI_API_KEY is not set.');
+        if (!apiKey) throw this.missingKey('GOOGLE_GENERATIVE_AI_API_KEY');
         const google = createGoogleGenerativeAI({ apiKey });
         return { model: google(modelId), tools: { url_context: google.tools.urlContext({}) } };
       }
@@ -253,11 +296,12 @@ export class AiService {
         tools,
         system: FOLLOWUP_SYSTEM_PROMPT,
         prompt: brief,
+        maxOutputTokens: MAX_TOKENS_FOLLOWUP,
         ...boundedCall(AI_TOOL_CALL_TIMEOUT_MS),
       }));
     } catch (error) {
       this.logger.error('AI follow-up question generation failed', error instanceof Error ? error.stack : error);
-      throw new ServiceUnavailableException('Could not generate follow-up questions right now — try again.');
+      throw providerFailure(error, 'AI follow-up question generation');
     }
 
     return this.parseFollowUpQuestions(text);
@@ -316,7 +360,13 @@ export class AiService {
 
     try {
       const model = this.resolveModel();
-      const { text } = await generateText({ model, system: DRAFT_SYSTEM_PROMPT, prompt, ...boundedCall() });
+      const { text } = await generateText({
+        model,
+        system: DRAFT_SYSTEM_PROMPT,
+        prompt,
+        maxOutputTokens: MAX_TOKENS_DRAFT,
+        ...boundedCall(),
+      });
       const corrected = parseDraftResponse(text);
       const correctedCount = countArticleWords(corrected.body);
       if (correctedCount < MIN_ARTICLE_WORDS || correctedCount > MAX_ARTICLE_WORDS) {
@@ -396,6 +446,7 @@ export class AiService {
         model,
         tools,
         system: DRAFT_SYSTEM_PROMPT,
+        maxOutputTokens: MAX_TOKENS_DRAFT,
         ...boundedCall(AI_TOOL_CALL_TIMEOUT_MS),
         prompt: [
           {
@@ -427,7 +478,7 @@ export class AiService {
         sourceFilePaths,
         latencyMs: Date.now() - startedAt,
       });
-      throw new ServiceUnavailableException('AI drafting failed — try again or write the article manually.');
+      throw providerFailure(error, 'AI article draft generation');
     }
 
     const output = await this.ensureWordCount(parseDraftResponse(result.text));
@@ -525,10 +576,16 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: REFINE_SYSTEM_PROMPT, prompt, ...boundedCall() }));
+      ({ text } = await generateText({
+        model,
+        system: REFINE_SYSTEM_PROMPT,
+        prompt,
+        maxOutputTokens: MAX_TOKENS_DRAFT,
+        ...boundedCall(),
+      }));
     } catch (error) {
       this.logger.error('AI article refine failed', error instanceof Error ? error.stack : error);
-      throw new ServiceUnavailableException('AI refine failed — try again or edit the draft manually.');
+      throw providerFailure(error, 'AI article refine');
     }
 
     return this.ensureWordCount(parseDraftResponse(text));
@@ -541,10 +598,16 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: TOPICS_SYSTEM_PROMPT, prompt, ...boundedCall() }));
+      ({ text } = await generateText({
+        model,
+        system: TOPICS_SYSTEM_PROMPT,
+        prompt,
+        maxOutputTokens: MAX_TOKENS_TOPICS,
+        ...boundedCall(),
+      }));
     } catch (error) {
       this.logger.error('AI topic suggestion failed', error instanceof Error ? error.stack : error);
-      throw new ServiceUnavailableException('Could not generate topic ideas right now — try again.');
+      throw providerFailure(error, 'AI topic suggestion');
     }
 
     return parseTopics(text);
@@ -558,10 +621,16 @@ export class AiService {
 
     let text: string;
     try {
-      ({ text } = await generateText({ model, system: SUMMARY_SYSTEM_PROMPT, prompt, ...boundedCall() }));
+      ({ text } = await generateText({
+        model,
+        system: SUMMARY_SYSTEM_PROMPT,
+        prompt,
+        maxOutputTokens: MAX_TOKENS_SUMMARY,
+        ...boundedCall(),
+      }));
     } catch (error) {
       this.logger.error('AI article summary generation failed', error instanceof Error ? error.stack : error);
-      throw new ServiceUnavailableException('AI summary generation failed.');
+      throw providerFailure(error, 'AI article summary generation');
     }
 
     return parseSummaryResponse(text);

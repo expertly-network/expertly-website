@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@/components/ui';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { updateMember } from '@/lib/api/members';
 import type { MemberDto } from '@shared/member';
 
@@ -30,7 +30,7 @@ export function AvailabilityControl({ member }: { member: MemberDto }) {
       router.refresh();
     } catch (err) {
       setIsAvailable(member.isAvailable);
-      setError(err instanceof ApiError ? err.message : 'Could not update your availability — please try again.');
+      setError(apiErrorMessage(err, 'Could not update your availability — please try again.'));
     } finally {
       setSaving(false);
     }

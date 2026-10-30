@@ -3,8 +3,10 @@ dist/
 .next/
 .turbo/
 *.tsbuildinfo
-.env
-.env.local
+# Every env file (.env, .env.local, .env.production, …) except the committed templates.
+.env*
+!.env.example
+!**/.env.example
 *.log
 .DS_Store
 supabase/.temp/

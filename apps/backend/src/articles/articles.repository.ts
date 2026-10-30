@@ -3,7 +3,7 @@ import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
 import { MAX_LIST_ROWS } from '../common/list-limits';
-import { generateUniqueSlug } from '../common/slugify';
+import { generateUniqueSlug, isSlugUniqueViolation, SlugTakenException } from '../common/slugify';
 
 export type ArticleInsert = Database['public']['Tables']['articles']['Insert'];
 export type ArticleUpdate = Database['public']['Tables']['articles']['Update'];
@@ -66,6 +66,19 @@ const ARTICLE_COLUMNS = [
 ] as const;
 
 const LIST_COLUMNS = ARTICLE_COLUMNS.filter((c) => c !== 'body');
+
+// Public reads only show articles whose author is live: an inner join on the author's profile
+// (filtered to status 'active', not deleted) drops a suspended/deleted author's articles in SQL,
+// so paging and `total` stay exact. A deactivated member profile is excluded by id (see
+// findDeactivatedMemberIds) — admin-authored articles have no member profile and stay visible.
+const LIVE_AUTHOR_EMBED = 'live_author:profiles!articles_author_id_fkey!inner(status, deleted_at)';
+
+type WithLiveAuthor<T> = T & { live_author?: unknown };
+
+function stripLiveAuthor<T>(row: WithLiveAuthor<T>): T {
+  const { live_author: _liveAuthor, ...rest } = row;
+  return rest as T;
+}
 
 // Article slugs are kebab-case titles, so they can never collide with this UUID shape.
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -135,6 +148,9 @@ export class ArticlesRepository {
   async insert(row: ArticleInsert): Promise<ArticleRow> {
     const { data: inserted, error } = await this.articles().insert(row).select(ARTICLE_COLUMNS.join(', ')).single();
 
+    // A slug race on insert: SlugTakenException so the service regenerates and retries.
+    if (isSlugUniqueViolation(error))
+      throw new SlugTakenException('ARTICLE_SLUG_TAKEN', 'Article slug already exists.');
     if (error || !inserted) throw new InternalServerErrorException('Failed to create article.');
     return inserted as unknown as ArticleRow;
   }
@@ -145,9 +161,12 @@ export class ArticlesRepository {
     filters: PublishedArticleFilters,
     range: { from: number; to: number }
   ): Promise<{ rows: ArticleListRow[]; total: number }> {
+    const deactivatedIds = await this.findDeactivatedMemberIds();
     let query = this.articles()
-      .select(LIST_COLUMNS.join(', '), { count: 'exact' })
+      .select(`${LIST_COLUMNS.join(', ')}, ${LIVE_AUTHOR_EMBED}`, { count: 'exact' })
       .eq('status', 'published')
+      .eq('live_author.status', 'active')
+      .is('live_author.deleted_at', null)
       .order('created_at', { ascending: false })
       // Tiebreak so page boundaries are stable when two articles share a timestamp.
       .order('id', { ascending: true });
@@ -156,25 +175,50 @@ export class ArticlesRepository {
     if (filters.serviceIds?.length) query = query.overlaps('service_ids', filters.serviceIds);
     if (filters.countries?.length) query = query.overlaps('countries', filters.countries);
     if (filters.excludeId) query = query.neq('id', filters.excludeId);
+    if (deactivatedIds.length > 0) query = query.not('author_id', 'in', `(${deactivatedIds.join(',')})`);
     query = query.range(range.from, range.to);
 
     const { data, error, count } = await query;
 
     if (error) throw new InternalServerErrorException('Failed to load articles.');
-    const rows = (data ?? []) as unknown as ArticleListRow[];
+    const rows = ((data ?? []) as unknown as WithLiveAuthor<ArticleListRow>[]).map(stripLiveAuthor);
     return { rows, total: count ?? rows.length };
   }
 
   async findPublishedPreview(idOrSlug: string): Promise<ArticleListRow | null> {
     const column = UUID_PATTERN.test(idOrSlug) ? 'id' : 'slug';
     const { data, error } = await this.articles()
-      .select(LIST_COLUMNS.join(', '))
+      .select(`${LIST_COLUMNS.join(', ')}, ${LIVE_AUTHOR_EMBED}`)
       .eq(column, idOrSlug)
       .eq('status', 'published')
+      .eq('live_author.status', 'active')
+      .is('live_author.deleted_at', null)
       .maybeSingle();
 
     if (error) throw new InternalServerErrorException('Failed to load article.');
-    return data as unknown as ArticleListRow | null;
+    if (!data) return null;
+    const row = stripLiveAuthor(data as unknown as WithLiveAuthor<ArticleListRow>);
+    return (await this.isAuthorListed(row.author_id)) ? row : null;
+  }
+
+  // Whether an author's published articles are publicly visible: account active and not deleted,
+  // and — when they have a member profile — that profile not deactivated. For single-article
+  // reads (the list query does the same filter in SQL).
+  async isAuthorListed(authorId: string): Promise<boolean> {
+    const [{ data: profile, error: profileError }, { data: member, error: memberError }] = await Promise.all([
+      this.profiles().select('status, deleted_at').eq('id', authorId).maybeSingle(),
+      this.memberProfiles().select('status').eq('profile_id', authorId).maybeSingle(),
+    ]);
+    if (profileError || memberError) throw new InternalServerErrorException('Failed to resolve article author.');
+    if (!profile || profile.status !== 'active' || profile.deleted_at) return false;
+    return !member || member.status !== 'deactivated';
+  }
+
+  // Deactivation is a rare admin action, so this list stays short enough to inline as a filter.
+  private async findDeactivatedMemberIds(): Promise<string[]> {
+    const { data, error } = await this.memberProfiles().select('profile_id').eq('status', 'deactivated');
+    if (error) throw new InternalServerErrorException('Failed to load articles.');
+    return (data ?? []).map((r) => r.profile_id as string);
   }
 
   async findByIdOrThrow(id: string): Promise<ArticleRow> {

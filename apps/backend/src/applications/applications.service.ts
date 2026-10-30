@@ -1,3 +1,4 @@
+import { withUniqueSlugRetry } from '../common/slugify';
 import {
   BadGatewayException,
   BadRequestException,
@@ -28,6 +29,7 @@ import { applyCoupon } from './constants/coupons';
 import { deriveRegion } from './constants/country-region';
 import { findLocationMismatch } from './location-check';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/work-history';
+import { isHttpUrl } from '../common/http-url';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import {
   ApplicationsRepository,
@@ -161,6 +163,18 @@ export class ApplicationsService {
 
     // Work history is validated (no end-before-start; overlapping roles are allowed) and stored
     // newest-first regardless of the order the client sent it in.
+    // @IsUrl() alone also admits ftp:// and other schemes; these links end up as <a href> on the
+    // admin review screen and (companyUrl → firm_website) the public profile, so only http(s).
+    if (dto.linkedinUrl && !isHttpUrl(dto.linkedinUrl)) {
+      throw new BadRequestException({ code: 'URL_INVALID', message: 'linkedinUrl must be an http(s) web address.' });
+    }
+    if (dto.workExperiences?.some((w) => w.companyUrl && !isHttpUrl(w.companyUrl))) {
+      throw new BadRequestException({
+        code: 'URL_INVALID',
+        message: 'workExperiences[].companyUrl must be an http(s) web address.',
+      });
+    }
+
     if (dto.workExperiences !== undefined) {
       assertValidWorkHistory(dto.workExperiences);
       patch.work_experiences = sortWorkHistoryNewestFirst(dto.workExperiences);
@@ -478,10 +492,6 @@ export class ApplicationsService {
       return { status: 'rejected' };
     }
 
-    const slug = await this.applicationsRepository.findUniqueMemberSlug(
-      `${application.first_name} ${application.last_name}`
-    );
-
     // Columns a member profile can't exist without. assertComplete() requires them at submit time,
     // so only an application submitted before those checks existed can lack one.
     const memberTier = dto.memberTier ?? application.selected_tier;
@@ -508,7 +518,12 @@ export class ApplicationsService {
     const approvedPreference = submittedPreferences.find((p) => p.serviceId === dto.approvedServiceId)!;
     let profileCreated = false;
     try {
-      await this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(application, dto, slug, required));
+      // Regenerates the slug and retries if a concurrent insert took it (SlugTakenException).
+      await withUniqueSlugRetry(
+        () => this.applicationsRepository.findUniqueMemberSlug(`${application.first_name} ${application.last_name}`),
+        (slug) =>
+          this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(application, dto, slug, required))
+      );
       profileCreated = true;
       await this.applicationsRepository.insertMemberServices([
         {

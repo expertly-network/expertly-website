@@ -160,6 +160,8 @@ export class MemberDto extends MemberListItemDto {
   @ApiProperty({ nullable: true, type: String }) workEmail!: string | null;
   @ApiProperty({ nullable: true, type: String }) contactPhone!: string | null;
   @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;
+  /** False when contactEmail/workEmail/contactPhone/linkedinUrl were withheld (null) for this viewer. */
+  @ApiProperty() contactVisible!: boolean;
   @ApiProperty({ nullable: true, type: String }) website!: string | null;
   @ApiProperty({ type: () => MemberWorkExperience, isArray: true }) workExperiences!: MemberWorkExperience[];
   @ApiProperty({ type: () => MemberEducation, isArray: true }) educations!: MemberEducation[];

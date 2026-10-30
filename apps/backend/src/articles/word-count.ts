@@ -11,9 +11,14 @@ export const MAX_ARTICLE_WORDS = 2000;
 // megabyte-sized body (drafts skip the word check) from being stored or sent to the AI.
 export const MAX_ARTICLE_BODY_LENGTH = 100_000;
 
+// Block-level and line-break tags: stripping them must leave a word boundary behind, or
+// `<h2>Tax tips</h2><p>File early</p>` reads as "Tax tipsFile early" (one word short per block).
+export const BLOCK_TAG =
+  /<\/?(?:p|div|h[1-6]|li|ul|ol|blockquote|pre|br|hr|tr|td|th|table|figure|figcaption|section|article)\b[^>]*>/gi;
+
 // Strips HTML tags, leaving plain text.
 export function stripHtml(html: string): string {
-  return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} });
+  return sanitizeHtml(html.replace(BLOCK_TAG, ' $&'), { allowedTags: [], allowedAttributes: {} });
 }
 
 export function countArticleWords(body: string): number {

@@ -31,6 +31,37 @@ of silently leaving OAuth signups blank. It fills:
   the confirmed current value, not a placeholder. Revisit this function the day those documents
   change or a real versioning scheme is built.
 
+Since 2026-10-30 it runs with `search_path = ''` (every name schema-qualified) and **raises**
+instead of skipping: an auth user with no/blank email (`not_null_violation` — only phone or
+anonymous sign-in could produce one, neither enabled) or an email already on another profile
+(`unique_violation` on `profiles_email_key`; GoTrue normally links same-email identities to the
+existing user, so this only happens if that linking was skipped). The raise aborts the GoTrue signup
+("Database error saving new user"); the message shows in the Auth logs.
+
+### Conventions (2026-10-30 audit follow-ups — `0004_tables.sql`)
+
+- **RLS:** every policy comparing against the caller is scoped `to authenticated` and wraps
+  `(select auth.uid())`, so Postgres evaluates it once per statement (an initPlan) rather than per
+  row. RLS stays defense-in-depth — the API uses the service role.
+- **CHECK constraints added:** `ai_draft_generations.status in ('success','failed')`,
+  `articles.creation_mode in ('manual','ai')`, `membership_applications.list_price_cents >= 0` and
+  `discount_amount_cents >= 0`, `member_profiles.rate_currency ~ '^[A-Z]{3}$'` (ISO 4217).
+- **`updated_at` triggers** (`set_updated_at()`) now also on `categories` and `services`.
+- **Indexes added:** `member_profile_edits_pending_idx (member_id, section) where status =
+  'pending'` (superseding older pending edits on submit); `member_profiles_text_trgm_idx` (one GIN
+  trigram index over `headline, firm_name, bio, city, state, country` — the directory's free-text
+  `ILIKE '%…%'`, read as one BitmapOr); `profiles_full_name_trgm_idx` (GIN trigram on the
+  expression `lower(coalesce(first_name,'') || ' ' || coalesce(last_name,''))` — must stay
+  character-for-character identical to `member_directory_ids()`' name match or it isn't used).
+  Every FK column the API filters or joins on has its own index (e.g. `*_reviewed_by_idx`,
+  `consultation_requests_service_id_idx`, `consultation_messages_request_id_idx (request_id,
+  created_at)`, `articles_ai_generation_id_idx`).
+- **Indexes dropped:** `perks_active_category_idx` (the API reads the whole tens-of-rows table and
+  filters in code) and `learnings_search_idx` (no query reads `learnings.search_tsv` yet — the
+  column is kept for the planned library search; add the GIN index with it).
+- **Storage:** the public `resource-assets` bucket no longer allows `image/svg+xml` (an SVG can
+  carry script). The one existing SVG (`perks/logos/cleartax.svg`, from `0008`) predates this.
+
 ## Membership applications (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 
 **Source:** `design/static_html/apply.html` and `onboarding_form.html` (two UI iterations of the
@@ -73,9 +104,9 @@ immutable snapshot again, same as the original design. Approving an application
 | `rate_min_cents`, `rate_max_cents` | int, nullable, check `max > min` (only enforced once both are non-null) | USD/hr; required at submit |
 | `selected_tier` | enum `budding_entrepreneur`\|`seasoned_professional`, nullable | computed and stamped only at the submit transition — admin can override, but that override applies to the eventual `member_profiles` row, not this record |
 | `billing_period` | enum `monthly`\|`annual`, nullable | required at submit; app-layer now only ever writes `'annual'` (monthly removed 2026-08-31 per client feedback) — the DB enum still has the unused `monthly` value, not worth an `ALTER TYPE ... DROP VALUE` migration for a value nothing writes |
-| `list_price_cents` | int, nullable | stamped at the submit transition |
+| `list_price_cents` | int, nullable, check `>= 0` | stamped at the submit transition |
 | `coupon_code` | text, nullable | free text; validity checked in application code, no `coupons` table (deliberate — see below) |
-| `discount_amount_cents` | int, default 0 | |
+| `discount_amount_cents` | int, default 0, check `>= 0` | |
 | `amount_due_cents` | int, nullable, check `>= 0` | stamped at the submit transition |
 | `payment_status` | enum `pending`\|`waived`\|`paid`, nullable | stamped at the submit transition; only `waived` is reachable without a real payment gateway |
 | `linkedin_import_consent` | bool, default `false` | |
@@ -221,7 +252,7 @@ also flip `status` back to `draft` (self-service unpublish) via `PATCH` regardle
 | `state` | text | optional |
 | `rejection_reason` | text | nullable; set only when `status = 'rejected'` (editorial mode), cleared on any resubmission — same shape as `membership_applications.rejection_reason` |
 | `ai_summary` | text | nullable; server-written once by `ArticlesService.generateSummaryIfNeeded()` the first time an article becomes `published` (fire-and-forget, never blocks the publish/approve response) — see `docs/rest-api.md`. Never client-writable. Seed data pre-populates it for dev fixtures. |
-| `creation_mode` | text NOT NULL | default `'manual'`; `'manual' \| 'ai'`, settable via `CreateArticleRequest.creationMode` — see `POST /v1/articles/ai-draft` in `docs/rest-api.md` |
+| `creation_mode` | text NOT NULL, check `manual`\|`ai` | default `'manual'`; `'manual' \| 'ai'`, settable via `CreateArticleRequest.creationMode` — see `POST /v1/articles/ai-draft` in `docs/rest-api.md` |
 | `ai_generation_id` | uuid FK → `ai_draft_generations.id`, `on delete set null` | nullable; set only on `POST /v1/articles` from `CreateArticleRequest.aiGenerationId` (the ai-draft response's `generationId`), after checking the generation belongs to the caller — links an AI-written article back to the inputs/output it was generated from, for the admin AI-generations log. Never changed by `PATCH`. Forces `creation_mode = 'ai'`. FK constraint is added after `ai_draft_generations` is created in `0004_tables.sql` (that table is declared later in the file). Indexed. |
 | `created_at`, `updated_at` | timestamptz | |
 
@@ -361,7 +392,7 @@ before clicking Generate leaves no row — a known, accepted gap, not a bug.
 | `tone`, `extra_instructions`, `draft_title`, `draft_body` | text | nullable; the generated output and the wizard's finishing-touches fields, for reviewing quality later |
 | `include_visual` | boolean NOT NULL, default `false` | the wizard's "include a table if relevant" toggle (`AiDraftArticleRequest.includeVisual`) |
 | `provider`, `model` | text | nullable; `process.env.AI_PROVIDER`/`AI_MODEL` at the time of the call |
-| `status` | text NOT NULL | `'success' \| 'failed'` |
+| `status` | text NOT NULL, check `success`\|`failed` | `'success' \| 'failed'` |
 | `error_message` | text | nullable; set only when `status = 'failed'` |
 | `latency_ms` | integer | nullable |
 | `created_at` | timestamptz | |
@@ -456,7 +487,10 @@ Every question: `id`, `user_id`, `source` (`user`\|`eval`), `question`, `plan` (
 `created_at`.
 
 ### Functions
-`search_hybrid` (meaning + words + names, Reciprocal Rank Fusion), `search_match_services`,
+`search_hybrid` (meaning + words + names, Reciprocal Rank Fusion; since 2026-10-30 its vector
+channel orders by `embedding <=> p_embedding::halfvec(768)` directly so the HNSW index
+`search_documents_emb_idx` serves it, with `hnsw.ef_search = 100` and `hnsw.iterative_scan =
+relaxed_order` — needs pgvector ≥ 0.8), `search_match_services`,
 `search_pending_embeddings`, `search_store_embedding` (rejects stale writes by hash),
 `search_enqueue`, `search_trg`, `search_outbox_claim`, `search_outbox_complete` (5 attempts, then
 `failed`). Card building, the embedding
@@ -540,7 +574,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `firm_website` | text, nullable | Added 2026-09-29 as `NOT NULL`, relaxed to nullable 2026-10-03 — required for every *new* application regardless of `firm_name` (any well-formed URL accepted — a personal site or a LinkedIn page, not just a firm domain — enforced at submit time by `ApplicationsService.assertComplete()`), but a small number of applications submitted before that check existed may genuinely have none; approving one of those now inserts `null` rather than failing. Every read path (`MembersRepository`, both frontend profile views) already treated this as nullable. |
 | `years_of_experience` | smallint, check 0–60 | drives tier, same shape as the application's own field |
 | `rate_min_cents`, `rate_max_cents` | int, check `max > min` | **Named to match `membership_applications.rate_min_cents`/`rate_max_cents`** — same concept, not `fee_range_*` as an earlier draft of this section had it |
-| `rate_currency` | text, default `'USD'` | ISO 4217 code — the prototype only ever shows `'$'`, not a real currency code; every seed profile is USD, stored properly so a future non-USD member doesn't need a schema change |
+| `rate_currency` | text, default `'USD'`, check `^[A-Z]{3}$` | ISO 4217 code — the prototype only ever shows `'$'`, not a real currency code; every seed profile is USD, stored properly so a future non-USD member doesn't need a schema change |
 | `member_tier` | enum `membership_tier` (shared with applications) | admin-overridable at approval |
 | `is_available` | bool, default `true` | Member-controlled via `PATCH /v1/members/:id` (`isAvailable`; applies immediately, no review). |
 | `availability_notes` | text, nullable | Same endpoint; ≤200 chars, shown under the status. |
@@ -751,6 +785,8 @@ create policy consultation_messages_select_participant
     )
   );
 ```
+(Historical snippet — the live policy is `to authenticated` with `(select auth.uid())`, see
+"Conventions" under Identity & Auth.)
 
 **⚠️ Pending: the migration below has NOT been applied yet.** Safe — no backfill needed
 (pre-production):
@@ -923,7 +959,7 @@ Downloadable starter documents. **All members-only.** Kits are `collections` row
 | `preview_image_url` | text, nullable | public teaser image path in resource-assets (`templates/previews/<slug>.jpg`) |
 | `audiences` | text[] ⊆ tax/legal/audit | |
 | `is_featured`, `sort_order`, `is_active` | | |
-| `search_tsv` | tsvector, generated | title + description, GIN-indexed |
+| `search_tsv` | tsvector, generated | title + description; not indexed (index dropped 2026-10-30 — nothing reads it yet; add `using gin (search_tsv)` with the planned library search) |
 | `created_at`, `updated_at` | timestamptz | `set_updated_at` trigger |
 
 RLS on, all grants revoked from `anon`/`authenticated`; `collections_prune_item()` also fires on

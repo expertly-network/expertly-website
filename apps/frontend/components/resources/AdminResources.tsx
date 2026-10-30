@@ -5,6 +5,7 @@ import { Badge, Button, Card, Input } from '@/components/ui';
 import { ResourceEditor, type ResourceEdit, type AdminResource } from './ResourceEditor';
 import { ResourceDialog } from './ResourceDialog';
 import { deleteResource } from '@/lib/api/resources';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 export function AdminResources({
   initialPerks,
   initialVideos,
@@ -78,7 +79,7 @@ export function AdminResources({
       setDeleting(null);
       setNotice('Resource deleted.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete this resource.');
+      setError(apiErrorMessage(e, 'Could not delete this resource.'));
     } finally {
       setBusy(false);
     }

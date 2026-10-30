@@ -3,7 +3,7 @@
 -- GET /v1/articles/:id, and the homepage's Latest Articles / member profile Articles tab
 -- against real data.
 --
--- Same status as 01_members.sql / 02_events.sql: not part of the
+-- Same status as 0005 / 0006: not part of the
 -- pre-production single-schema convention (supabase/migrations/README.md) — a deliberate
 -- one-off exception, apply/tear down manually, never against production.
 --
@@ -13,7 +13,7 @@
 -- the article's subject and byline location. `slug` is hand-computed here the same way
 -- ArticlesService.generateUniqueSlug() would (kebab-case title, no collisions in this set).
 --
--- Apply: `psql "$DATABASE_URL" -f supabase/seed/dev/03_articles.sql`
+-- Apply: `psql "$DATABASE_URL" -f supabase/migrations/0007_dev_seed_articles.sql`
 -- Idempotent: re-running is safe — `on conflict (slug) do nothing`.
 -- ============================================================================
 

@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { formatRate, formatTenure } from '@/lib/members/format';
@@ -12,12 +14,12 @@ export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
       <div className="mb-1 text-mono-label text-ink-3">About the author</div>
       <div className="mt-3 flex items-center gap-3">
         {author.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            loading="lazy"
-            decoding="async"
+          <Image
             src={author.photoUrl}
+            unoptimized={mustHotlink(author.photoUrl)}
             alt={author.name}
+            width={48}
+            height={48}
             className="h-12 w-12 flex-none rounded-full border border-line object-cover"
           />
         ) : (

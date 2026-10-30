@@ -113,7 +113,13 @@ export function ProfileSidebar({
           <div className="relative mb-2.5 flex items-center gap-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 2l2.4 5H20l-4.5 3.5 1.7 5.5L12 13l-5.2 3 1.7-5.5L4 7h5.6L12 2z" fill="var(--accent)" />
-              <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M9 12l2 2 4-4"
+                className="stroke-white"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
             <span className="font-mono text-[10.5px] font-bold text-white/90">GrowXQ Verified</span>
           </div>

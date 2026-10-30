@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import Link from 'next/link';
 import type { MemberListItemDto } from '@shared/member';
 export function MemberSection({
@@ -58,10 +59,10 @@ export function MemberSection({
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neon text-sm font-medium text-ink">
                   {member.photoUrl ? (
                     <Image
-                      unoptimized
                       width={56}
                       height={56}
                       src={member.photoUrl}
+                      unoptimized={mustHotlink(member.photoUrl)}
                       alt=""
                       className="h-full w-full object-cover"
                     />

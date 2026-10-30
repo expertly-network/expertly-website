@@ -40,6 +40,8 @@ export function SearchBox({
 
   return (
     <>
+      {/* The input is borderless (outline-none); the caller's `className` styles the container and
+          must give it a focus-within treatment so keyboard focus stays visible. */}
       <form onSubmit={submit} role="search" className={`flex w-full items-center gap-3 ${className}`}>
         {leading}
         <input

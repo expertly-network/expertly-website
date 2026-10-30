@@ -38,14 +38,35 @@ $$;
 --     membership_applications.terms_version_agreed/privacy_version_agreed — there's no real
 --     versioning system yet, so '1.0'/'1.0' is the confirmed real current value, not a
 --     placeholder. Bump both here (and reconsider this function) the day those documents change.
+--
+-- Failure modes, both deliberate (a raise aborts the GoTrue signup, which the user sees as
+-- "Database error saving new user"; the message below is what shows up in the Auth logs):
+--   - No email. profiles.email is NOT NULL and the whole app keys on it; only phone or anonymous
+--     sign-in can create such a user, and neither is enabled (docs/auth.md). Inventing a
+--     placeholder address would be worse than refusing.
+--   - Email already on another profile (unique profiles_email_key). GoTrue links a new OAuth
+--     identity with the same verified email to the EXISTING auth.users row (no insert, so this
+--     trigger doesn't fire), and linkIdentity() does the same for the LinkedIn connect flow; a
+--     second auth.users row with the same email only appears if that automatic linking was
+--     skipped (e.g. an unverified provider email). Silently skipping the insert would leave a
+--     user with no profile, and taking over the other profile would hand one person another's
+--     account — so it fails loudly instead.
+-- search_path = '' (every name below is schema-qualified): a SECURITY DEFINER function must not
+-- resolve anything through a caller-controllable path.
 create function public.handle_new_user()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 declare
   provider public.auth_provider;
 begin
+  if new.email is null or btrim(new.email) = '' then
+    raise exception 'handle_new_user: auth user % has no email; profiles.email is required', new.id
+      using errcode = 'not_null_violation',
+            hint = 'Only email, Google and LinkedIn sign-in are supported (docs/auth.md).';
+  end if;
+
   provider := case new.raw_app_meta_data ->> 'provider'
     when 'google' then 'google'
     when 'linkedin_oidc' then 'linkedin_oidc'
@@ -65,6 +86,11 @@ begin
     jsonb_build_object('termsVersion', '1.0', 'privacyVersion', '1.0', 'acceptedAt', now())
   );
   return new;
+exception
+  when unique_violation then
+    raise exception 'handle_new_user: email % already belongs to another profile', new.email
+      using errcode = 'unique_violation',
+            hint = 'Sign in with the existing account and link the new provider to it.';
 end;
 $$;
 
@@ -72,7 +98,7 @@ $$;
 create function public.handle_user_email_sync()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 begin
   update public.profiles set email = new.email where id = new.id;
@@ -139,11 +165,23 @@ set check_function_bodies = off;
 
 -- The three-way search: meaning (halfvec cosine) + words (tsvector) + names (trigram),
 -- merged with Reciprocal Rank Fusion (k = 60, name channel weight 0.7).
+--
+-- The vector channel orders by `c.embedding <=> p_embedding::halfvec(768)` — the parameter
+-- itself, not a column of the `params` CTE — because that is the only shape the HNSW index
+-- (search_documents_emb_idx) can serve; ordering by a joined CTE value forces an exact scan +
+-- sort over every card. The filters are applied while walking the index, so:
+--   hnsw.ef_search = 100            — the default (40) would cap the channel below its 50 rows;
+--   hnsw.iterative_scan = relaxed_order — keep walking the graph when filters discard
+--                                     candidates instead of returning too few. Needs pgvector
+--                                     >= 0.8.0 (Supabase ships 0.8.x); `vec`'s row_number()
+--                                     re-sorts by exact distance, so the ranks stay ordered.
 create or replace function public.search_hybrid(p_query text DEFAULT NULL::text, p_embedding text DEFAULT NULL::text, p_doc_types text[] DEFAULT NULL::text[], p_service_ids uuid[] DEFAULT NULL::uuid[], p_countries text[] DEFAULT NULL::text[], p_city text DEFAULT NULL::text, p_date_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_date_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_rate_max_cents integer DEFAULT NULL::integer, p_limit integer DEFAULT 10, p_min_similarity double precision DEFAULT 0)
  RETURNS TABLE(doc_type text, source_id uuid, title text, score double precision, vec_rank integer, kw_rank integer, name_rank integer, vec_sim double precision)
  LANGUAGE sql
  STABLE
  SET search_path TO 'public', 'extensions'
+ SET hnsw.ef_search TO '100'
+ SET hnsw.iterative_scan TO 'relaxed_order'
 AS $function$
   with params as (
     select nullif(btrim(p_query), '') as q,
@@ -164,11 +202,13 @@ AS $function$
   ),
   vec as (
     select t.id, t.doc_type, t.sim, row_number() over (order by t.dist) as rn
-      from (select c.id, c.doc_type, c.embedding <=> pr.emb as dist, 1 - (c.embedding <=> pr.emb) as sim
-              from cand c cross join params pr
-             where pr.emb is not null and c.embedding is not null
-               and 1 - (c.embedding <=> pr.emb) >= p_min_similarity
-             order by dist limit 50) t
+      from (select c.id, c.doc_type,
+                   c.embedding <=> p_embedding::halfvec(768) as dist,
+                   1 - (c.embedding <=> p_embedding::halfvec(768)) as sim
+              from cand c
+             where p_embedding is not null and c.embedding is not null
+               and 1 - (c.embedding <=> p_embedding::halfvec(768)) >= p_min_similarity
+             order by c.embedding <=> p_embedding::halfvec(768) limit 50) t
   ),
   kw as (
     select t.id, t.doc_type, row_number() over (order by t.r desc) as rn
@@ -392,6 +432,14 @@ revoke execute on function public.search_trg() from public, anon, authenticated;
 --                  category (both given: both must hold — docs/rest-api.md GET /v1/members)
 --   p_sort         newest | tenure | rate_asc | rate_desc | (default) verified first, newest
 -- Service-role only (granted below); LIKE wildcards in p_q are escaped.
+--
+-- The free-text match is a union of three id sets (text_hits) rather than one OR across tables,
+-- so each arm can use its own index: the member_profiles columns one BitmapOr over
+-- member_profiles_text_trgm_idx, the name arm profiles_full_name_trgm_idx on the first word
+-- (every other word is still checked, case-insensitively, against the same lowercased name).
+-- The ILIKE patterns are written out from p_q rather than read from `term` so they're plan-time
+-- constants a trigram index can use. services/categories are a fixed ~150-row taxonomy — no
+-- index beats a scan there.
 -- ============================================================================
 
 create or replace function public.member_directory_ids(
@@ -421,6 +469,32 @@ as $$
       join categories c on c.id = s.category_id, term
      where term.raw is not null
        and (s.name ilike term.pattern or c.name ilike term.pattern)
+  ),
+  text_hits as (
+    select m.profile_id
+      from member_profiles m
+     where nullif(btrim(p_q), '') is not null
+       and (m.headline ilike '%' || replace(replace(replace(btrim(p_q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+         or m.firm_name ilike '%' || replace(replace(replace(btrim(p_q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+         or m.bio ilike '%' || replace(replace(replace(btrim(p_q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+         or m.city ilike '%' || replace(replace(replace(btrim(p_q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+         or m.state ilike '%' || replace(replace(replace(btrim(p_q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+         or m.country ilike '%' || replace(replace(replace(btrim(p_q), '\', '\\'), '%', '\%'), '_', '\_') || '%')
+    union
+    -- the member's name: every word must appear in "first last" (lowercased)
+    select p2.id
+      from profiles p2, term
+     where term.raw is not null
+       and lower(coalesce(p2.first_name, '') || ' ' || coalesce(p2.last_name, ''))
+           like '%' || replace(replace(replace((string_to_array(lower(btrim(p_q)), ' '))[1], '\', '\\'), '%', '\%'), '_', '\_') || '%'
+       and not exists (
+         select 1 from unnest(term.words) w
+          where position(w in lower(coalesce(p2.first_name, '') || ' ' || coalesce(p2.last_name, ''))) = 0
+       )
+    union
+    select ms.member_id
+      from member_services ms
+     where ms.service_id in (select id from text_services)
   )
   select mp.profile_id
     from member_profiles mp
@@ -440,17 +514,7 @@ as $$
        or exists (select 1 from member_services ms join services s on s.id = ms.service_id
                    where ms.member_id = mp.profile_id and s.category_id = p_category_id)
      )
-     and (
-       term.raw is null
-       or mp.headline ilike term.pattern or mp.firm_name ilike term.pattern or mp.bio ilike term.pattern
-       or mp.city ilike term.pattern or mp.state ilike term.pattern or mp.country ilike term.pattern
-       or not exists (
-         select 1 from unnest(term.words) w
-          where position(w in lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))) = 0
-       )
-       or exists (select 1 from member_services ms
-                   where ms.member_id = mp.profile_id and ms.service_id in (select id from text_services))
-     )
+     and (term.raw is null or mp.profile_id in (select profile_id from text_hits))
    order by
      case when p_sort = 'newest' then mp.membership_started_at end desc nulls last,
      case when p_sort = 'tenure' then mp.years_of_experience end desc nulls last,

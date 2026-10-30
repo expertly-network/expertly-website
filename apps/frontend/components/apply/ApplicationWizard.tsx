@@ -10,70 +10,52 @@ import { BackgroundStep } from '@/components/apply/steps/BackgroundStep';
 import { ServicesRatesStep } from '@/components/apply/steps/ServicesRatesStep';
 import { ReviewSubmitStep } from '@/components/apply/steps/ReviewSubmitStep';
 import { INITIAL_WIZARD_STATE, fromDto, toUpdateRequest, type WizardFormState } from '@/components/apply/types';
-import { getCategories } from '@/lib/api/categories';
-import { getMyApplication, importLinkedInPhoto, saveApplication } from '@/lib/api/applications';
+import { importLinkedInPhoto, saveApplication } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
 import { hasLinkedInIdentity } from '@/lib/auth/linkedin';
-import { createClient } from '@/lib/supabase/client';
 import type { CategoryDto } from '@shared/category';
+import type { ApplicationDto } from '@shared/membership-application';
 
 const TOTAL_STEPS = 5;
 
-export function ApplicationWizard() {
+// Initial state for a resumed draft (or a fresh application when there's none). The account's own
+// login email is the default contact email — it applies equally to an applicant who signed up with
+// email/password and one who came through LinkedIn.
+function initialForm(application: ApplicationDto | null, accountEmail: string): WizardFormState {
+  const form: WizardFormState = {
+    ...INITIAL_WIZARD_STATE,
+    ...(application ? fromDto(application) : {}),
+    importedFields: new Set<string>(),
+  };
+  if (!form.contactEmail && accountEmail) form.contactEmail = accountEmail;
+  return form;
+}
+
+/**
+ * `initialApplication` is the caller's draft, fetched by the server page (which already redirects
+ * every non-draft status), or null to start a new one. `categories` feed steps 4 and 5.
+ */
+export function ApplicationWizard({
+  initialApplication,
+  accountEmail,
+  categories,
+}: {
+  initialApplication: ApplicationDto | null;
+  accountEmail: string;
+  categories: CategoryDto[];
+}) {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState<WizardFormState>(INITIAL_WIZARD_STATE);
-  const [categories, setCategories] = useState<CategoryDto[]>([]);
-  const [resuming, setResuming] = useState(true);
+  const [step, setStep] = useState(initialApplication?.currentStep || 1);
+  const [form, setForm] = useState<WizardFormState>(() => initialForm(initialApplication, accountEmail));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Fetched once; steps 4 and 5 are the only consumers.
-  useEffect(() => {
-    getCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]));
-  }, []);
-
-  // Redirects to the status page if the application is already submitted/decided.
-  useEffect(() => {
-    let cancelled = false;
-    // The account's own login email is a sensible, always-available default for contact email —
-    // fetched alongside the draft rather than gated behind LinkedIn, since it applies equally to
-    // an applicant who signed up with email/password. getSession() (not getUser()) deliberately —
-    // this is a UI convenience default, not an authorization decision, so it should stay a cheap
-    // local cookie read (per docs/auth.md's own distinction) instead of adding a real network
-    // round-trip to every /apply load — getUser() here previously left the page stuck on its
-    // loading skeleton until that round-trip finished.
-    Promise.all([getMyApplication(), createClient().auth.getSession()])
-      .then(([app, { data }]) => {
-        if (cancelled) return;
-        if (app && app.status !== 'draft') {
-          router.replace('/apply/submitted');
-          return;
-        }
-        setForm((prev) => {
-          const next: WizardFormState = { ...prev, ...(app ? fromDto(app) : {}), importedFields: new Set<string>() };
-          if (!next.contactEmail && data.session?.user.email) next.contactEmail = data.session.user.email;
-          return next;
-        });
-        if (app) setStep(app.currentStep || 1);
-      })
-      .finally(() => {
-        if (!cancelled) setResuming(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Fills in a photo from the applicant's linked LinkedIn identity once one is confirmed — run
   // here, not inside LinkedInImportStep, because connecting LinkedIn does a full page redirect
   // away and back to /apply. That redirect can land the wizard back on ANY step (goBack()/the
   // sidebar's "revisit a completed step" navigation is client-side only and never persists
-  // currentStep), so step 1 may not even render on return. Keying this off "resuming just
-  // finished" instead of "step 1 is showing" makes it run regardless.
+  // currentStep), so step 1 may not even render on return. Running it on mount makes it run
+  // regardless of which step shows.
   //
   // Deliberately does NOT touch linkedinImportConsent — connecting LinkedIn verifies identity
   // (and, via LinkedIn's own OAuth consent screen, already covers sharing name/email/photo with
@@ -81,29 +63,31 @@ export function ApplicationWizard() {
   // publish their bio/work-history/education, which stays a real opt-in checkbox in
   // LinkedInImportStep, set only when they actually choose to run that import.
   useEffect(() => {
-    if (resuming || form.photoUrl) return;
+    if (form.photoUrl) return;
     let cancelled = false;
     (async () => {
-      const linked = await hasLinkedInIdentity();
-      if (cancelled || !linked) return;
-      importLinkedInPhoto()
-        .then((withPhoto) => {
-          if (cancelled) return;
-          // Tagged as imported so the LinkedIn profile import can later swap this low-res OAuth
-          // picture for the scrape's full-size photo — a manual upload clears the tag.
-          setForm((prev) =>
-            prev.photoUrl
-              ? prev
-              : { ...prev, ...fromDto(withPhoto), importedFields: new Set(prev.importedFields).add('photoUrl') }
-          );
-        })
-        .catch(() => {});
+      try {
+        const linked = await hasLinkedInIdentity();
+        if (cancelled || !linked) return;
+        const withPhoto = await importLinkedInPhoto();
+        if (cancelled) return;
+        // Tagged as imported so the LinkedIn profile import can later swap this low-res OAuth
+        // picture for the scrape's full-size photo — a manual upload clears the tag.
+        setForm((prev) =>
+          prev.photoUrl
+            ? prev
+            : { ...prev, ...fromDto(withPhoto), importedFields: new Set(prev.importedFields).add('photoUrl') }
+        );
+      } catch {
+        // Best-effort convenience only: the photo field stays empty and the applicant uploads one
+        // in step 2 (where the photo is required), so there's nothing to block on or report here.
+      }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resuming]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount (see above)
+  }, []);
 
   function update(patch: Partial<WizardFormState>) {
     setForm((prev) => {
@@ -150,7 +134,7 @@ export function ApplicationWizard() {
       router.push('/apply/submitted');
       router.refresh();
     } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 409) {
+      if (err instanceof ApiError && err.code === 'APPLICATION_LOCKED') {
         setSaveError('You already have an application in progress.');
       } else if (err instanceof ApiError) {
         setSaveError(err.message);
@@ -159,26 +143,6 @@ export function ApplicationWizard() {
       }
       setSaving(false);
     }
-  }
-
-  if (resuming) {
-    return (
-      <div className="grid min-h-screen grid-cols-[360px_1fr] bg-bg-alt max-[900px]:grid-cols-1">
-        <WizardSidebar currentStep={1} onStepClick={() => {}} />
-        <div className="mx-auto w-full max-w-[1300px] px-[60px] pb-14 pt-24 max-[900px]:px-6 max-[900px]:pb-10 max-[900px]:pt-24">
-          <div className="mb-10 h-[3px] w-full animate-pulse rounded-full bg-line" />
-          <div className="rounded-2xl border border-line-2 bg-bg-card p-12 shadow-[0_8px_36px_rgba(11,11,12,0.02)] max-[640px]:p-6">
-            <div className="flex flex-col gap-5">
-              <div className="h-7 w-2/5 animate-pulse rounded-md bg-bg-alt" />
-              <div className="h-4 w-4/5 animate-pulse rounded-md bg-bg-alt" />
-              <div className="mt-4 h-32 animate-pulse rounded-2xl bg-bg-alt" />
-              <div className="h-14 animate-pulse rounded-input bg-bg-alt" />
-              <div className="h-14 animate-pulse rounded-input bg-bg-alt" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (

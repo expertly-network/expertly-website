@@ -29,6 +29,7 @@ import {
   uploadTemplateFile,
 } from '@/lib/api/resources';
 import { perkCategories, learningCategories, templateCategories, audiences } from './resource-options';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 export type ResourceEdit =
   | { kind: 'perks'; record: AdminPerkDto | null }
   | { kind: 'learnings'; record: AdminLearningDto | null }
@@ -79,7 +80,7 @@ export function ResourceEditor({
       setUpload(await uploadTemplateFile(picked));
       setDirty(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not upload this file.');
+      setError(apiErrorMessage(e, 'Could not upload this file.'));
     } finally {
       setUploading(false);
     }
@@ -99,6 +100,10 @@ export function ResourceEditor({
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (editing.kind === 'templates' && !file) {
+      setError('Upload the template file first.');
+      return;
+    }
     setSaving(true);
     setError('');
     const data = new FormData(event.currentTarget);
@@ -152,7 +157,7 @@ export function ResourceEditor({
         };
         saved = editing.record ? await updateLearning(editing.record.id, body) : await createLearning(body);
       } else if (editing.kind === 'templates') {
-        if (!file) throw new Error('Upload the template file first.');
+        if (!file) return; // checked before saving began
         const body: CreateTemplateRequest = {
           ...flags,
           title: text(data, 'title'),
@@ -192,7 +197,7 @@ export function ResourceEditor({
       }
       onSaved(saved);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save. Try again.');
+      setError(apiErrorMessage(e, 'Could not save. Try again.'));
     } finally {
       setSaving(false);
     }

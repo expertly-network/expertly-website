@@ -45,6 +45,10 @@ create table public.profiles (
 
 create unique index profiles_email_key on public.profiles (email);
 create index profiles_role_idx on public.profiles (role);
+-- member_directory_ids()' name match (first word, LIKE '%…%') — the expression must stay
+-- character-for-character identical to the one in that function or the index isn't used.
+create index profiles_full_name_trgm_idx on public.profiles
+  using gin (lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '')) extensions.gin_trgm_ops);
 
 alter table public.profiles
   add constraint profiles_admin_role_only_for_admins check (admin_role is null or role = 'admin');
@@ -68,9 +72,13 @@ create trigger on_auth_user_updated
 -- (which bypasses RLS by nature), so leaving writes locked down is intentional.
 alter table public.profiles enable row level security;
 
+-- Every policy that compares against auth.uid() is scoped `to authenticated` (no other role has a
+-- uid) and wraps it as `(select auth.uid())`, so Postgres evaluates it once per statement (an
+-- initPlan) instead of once per row.
 create policy profiles_select_own
   on public.profiles for select
-  using (auth.uid() = id);
+  to authenticated
+  using ((select auth.uid()) = id);
 
 -- custom_access_token_hook (0003_functions.sql) runs as supabase_auth_admin, not as the
 -- logged-in user, so profiles_select_own's `auth.uid() = id` never matches it (there's no
@@ -106,6 +114,10 @@ create table public.categories (
   updated_at timestamptz not null default now()
 );
 
+create trigger set_categories_updated_at
+  before update on public.categories
+  for each row execute function public.set_updated_at();
+
 alter table public.categories enable row level security;
 
 create policy categories_select_all
@@ -129,6 +141,10 @@ create table public.services (
 );
 
 create index services_category_id_idx on public.services (category_id);
+
+create trigger set_services_updated_at
+  before update on public.services
+  for each row execute function public.set_updated_at();
 
 alter table public.services enable row level security;
 
@@ -427,9 +443,9 @@ create table public.membership_applications (
   -- transition, hence nullable here.
   selected_tier membership_tier,
   billing_period billing_period,
-  list_price_cents integer,
+  list_price_cents integer check (list_price_cents >= 0),
   coupon_code text,
-  discount_amount_cents integer not null default 0,
+  discount_amount_cents integer not null default 0 check (discount_amount_cents >= 0),
   amount_due_cents integer check (amount_due_cents >= 0),
   payment_status payment_status,
 
@@ -469,7 +485,8 @@ alter table public.membership_applications enable row level security;
 
 create policy membership_applications_select_own
   on public.membership_applications for select
-  using (auth.uid() = applicant_id);
+  to authenticated
+  using ((select auth.uid()) = applicant_id);
 
 -- ============================================================================
 -- articles — a member (or admin) writes an article, published immediately (no editorial
@@ -490,7 +507,7 @@ create table public.articles (
   ai_summary text,
   read_time_minutes smallint not null,
   cover_image_url text not null,
-  creation_mode text not null default 'manual',
+  creation_mode text not null default 'manual' check (creation_mode in ('manual', 'ai')),
   -- No FK — arrays can't reference a table. Same load-bearing trade-off as
   -- membership_applications.service_preferences: the backend MUST validate every id against
   -- a live, is_active-filtered services query before insert/update. Unlike the write
@@ -535,7 +552,8 @@ create policy articles_select_published
 
 create policy articles_select_own
   on public.articles for select
-  using (auth.uid() = author_id);
+  to authenticated
+  using ((select auth.uid()) = author_id);
 
 -- ============================================================================
 -- events — public suggestion + admin-curated listing. `status` is the single source of
@@ -629,11 +647,13 @@ alter table public.consultation_requests enable row level security;
 
 create policy consultation_requests_select_requester
   on public.consultation_requests for select
-  using (auth.uid() = requester_id);
+  to authenticated
+  using ((select auth.uid()) = requester_id);
 
 create policy consultation_requests_select_member
   on public.consultation_requests for select
-  using (auth.uid() = member_id);
+  to authenticated
+  using ((select auth.uid()) = member_id);
 
 -- consultation_messages — free-form back-and-forth thread on a consultation_requests row.
 -- Append-only (no edit/delete in this feature); sender_id is whichever side (requester or
@@ -654,11 +674,12 @@ alter table public.consultation_messages enable row level security;
 
 create policy consultation_messages_select_participant
   on public.consultation_messages for select
+  to authenticated
   using (
     exists (
       select 1 from public.consultation_requests cr
       where cr.id = request_id
-        and (cr.requester_id = auth.uid() or cr.member_id = auth.uid())
+        and (cr.requester_id = (select auth.uid()) or cr.member_id = (select auth.uid()))
     )
   );
 
@@ -793,17 +814,19 @@ alter table public.peer_connect_member_preferences enable row level security;
 
 create policy peer_connect_member_preferences_select_own
   on public.peer_connect_member_preferences for select
-  using (auth.uid() = member_id);
+  to authenticated
+  using ((select auth.uid()) = member_id);
 
 -- peer_connect_matches' select policy, added here (not alongside its own RLS enable above)
 -- because it looks up match membership through peer_connect_member_preferences, which didn't
 -- exist yet at that point.
 create policy peer_connect_matches_select_participant
   on public.peer_connect_matches for select
+  to authenticated
   using (
     exists (
       select 1 from public.peer_connect_member_preferences pcm
-      where pcm.match_id = peer_connect_matches.id and pcm.member_id = auth.uid()
+      where pcm.match_id = peer_connect_matches.id and pcm.member_id = (select auth.uid())
     )
   );
 
@@ -864,7 +887,7 @@ create table public.member_profiles (
   rate_max_cents integer check (rate_max_cents > rate_min_cents),
   -- ISO 4217 code, not the prototype's literal '$' — every seed profile in the prototype is USD;
   -- stored as a real currency code so a future non-USD member doesn't require a schema change.
-  rate_currency text not null default 'USD',
+  rate_currency text not null default 'USD' check (rate_currency ~ '^[A-Z]{3}$'),   -- ISO 4217
 
   member_tier public.membership_tier not null,
   is_available boolean not null default true,
@@ -934,6 +957,12 @@ create table public.member_profiles (
 create index member_profiles_status_idx on public.member_profiles (status, is_verified desc, created_at desc);
 create index member_profiles_application_id_idx on public.member_profiles (application_id);
 create index member_profiles_member_tier_idx on public.member_profiles (member_tier);
+-- member_directory_ids()' free-text ILIKE '%…%' over these columns: one multi-column trigram index,
+-- read as a single BitmapOr.
+create index member_profiles_text_trgm_idx on public.member_profiles using gin (
+  headline extensions.gin_trgm_ops, firm_name extensions.gin_trgm_ops, bio extensions.gin_trgm_ops,
+  city extensions.gin_trgm_ops, state extensions.gin_trgm_ops, country extensions.gin_trgm_ops
+);
 
 create trigger set_member_profiles_updated_at
   before update on public.member_profiles
@@ -955,7 +984,8 @@ create policy member_profiles_select_active
 
 create policy member_profiles_select_own
   on public.member_profiles for select
-  using (auth.uid() = profile_id);
+  to authenticated
+  using ((select auth.uid()) = profile_id);
 
 -- custom_access_token_hook (0003_functions.sql) reads member_profiles.status as
 -- supabase_auth_admin — same grant + policy pattern as profiles_select_auth_admin above.
@@ -1038,6 +1068,9 @@ create table public.member_profile_edits (
 create index member_profile_edits_member_id_idx on public.member_profile_edits (member_id, submitted_at desc);
 create index member_profile_edits_status_idx on public.member_profile_edits (status, submitted_at desc);
 create index member_profile_edits_reviewed_by_idx on public.member_profile_edits (reviewed_by);
+-- MembersRepository.supersedePendingEdits(): a member's still-pending edits for one section.
+create index member_profile_edits_pending_idx on public.member_profile_edits (member_id, section)
+  where status = 'pending';
 
 create trigger set_member_profile_edits_updated_at
   before update on public.member_profile_edits
@@ -1049,7 +1082,8 @@ alter table public.member_profile_edits enable row level security;
 -- same posture as membership_applications_select_own. No public policy.
 create policy member_profile_edits_select_own
   on public.member_profile_edits for select
-  using (auth.uid() = member_id);
+  to authenticated
+  using ((select auth.uid()) = member_id);
 
 -- ============================================================================
 -- member_recommendations — a peer recommendation one active member writes for another. Published
@@ -1086,7 +1120,8 @@ create policy member_recommendations_select_visible
 
 create policy member_recommendations_select_recipient
   on public.member_recommendations for select
-  using (auth.uid() = recipient_id);
+  to authenticated
+  using ((select auth.uid()) = recipient_id);
 
 -- ============================================================================
 -- AI draft generations — a write-once audit row per completed POST /v1/articles/ai-draft attempt
@@ -1125,7 +1160,7 @@ create table public.ai_draft_generations (
   draft_body text,
   provider text,
   model text,
-  status text not null, -- 'success' | 'failed'
+  status text not null check (status in ('success', 'failed')),
   error_message text,
   latency_ms integer,
   created_at timestamptz not null default now()
@@ -1149,7 +1184,8 @@ alter table public.ai_draft_generations enable row level security;
 -- every table in this repo still gets at least an owner-scoped policy.
 create policy ai_draft_generations_select_own
   on public.ai_draft_generations for select
-  using (auth.uid() = author_id);
+  to authenticated
+  using ((select auth.uid()) = author_id);
 
 -- ============================================================================
 -- Storage — write posture for every bucket below. Only the backend's service-role client writes
@@ -1401,7 +1437,8 @@ create table public.perks (
     check (member_offer is null or member_coupon_code is not null or member_offer_url is not null)
 );
 
-create index perks_active_category_idx on public.perks (is_active, category, sort_order);
+-- No secondary index: the API reads the whole (admin-curated, tens-of-rows) table ordered by
+-- sort_order and filters per role in code (ResourcesRepository) — an index would only cost writes.
 
 create trigger set_perks_updated_at
   before update on public.perks
@@ -1438,7 +1475,8 @@ create table public.learnings (
 );
 
 create index learnings_active_category_idx on public.learnings (is_active, category, sort_order);
-create index learnings_search_idx on public.learnings using gin (search_tsv);
+-- search_tsv has no index yet: no query reads it (learnings are listed whole and filtered in the
+-- API). Kept as a column for the planned library search; add `using gin (search_tsv)` with it.
 
 create trigger set_learnings_updated_at
   before update on public.learnings
@@ -1483,9 +1521,12 @@ revoke all on table public.perks, public.learnings, public.collections from anon
 
 -- Storage — resource-assets bucket: perk logos/covers and learning thumbnails. Public: nothing
 -- here is sensitive (thumbnails are our own copies keyed by learning id, never the YouTube id).
+-- No image/svg+xml: an SVG is a document that can carry script, served from a public URL. (The
+-- one existing SVG, perks/logos/cleartax.svg from 0008, predates this; replace it with a PNG
+-- before restoring this bucket into a fresh project.)
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('resource-assets', 'resource-assets', true, 5242880,   -- 5 MB; uploaded by admins
-        array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
+        array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 on conflict (id) do nothing;
 
 -- ============================================================================

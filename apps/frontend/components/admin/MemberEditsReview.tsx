@@ -1,12 +1,14 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Button, Card, Textarea, type BadgeVariant } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { SECTION_TITLES } from '@/components/members/edit/sectionFieldConfig';
 import { reviewMemberEdit } from '@/lib/api/members';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { ChangedSegments, ChangedValue } from '@/components/shared/ChangedValue';
 import {
   countChanges,
@@ -67,7 +69,7 @@ function decisionOf(edit: MemberProfileEditDto): { label: string; variant: Badge
 }
 
 function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof ApiError ? err.message : fallback;
+  return apiErrorMessage(err, fallback);
 }
 
 // ── Proof ────────────────────────────────────────────────────────────────────────────────────
@@ -178,6 +180,8 @@ function Logo({ view, fileUrls }: { view: ItemView; fileUrls: Record<string, str
   const src = view.logoUploadPath ? fileUrls[view.logoUploadPath] : view.logoUrl;
   if (!src) return null;
   return (
+    // Raw <img>: a short-lived signed URL (pending upload) or a member-entered logo URL on any host,
+    // neither of which next/image's remotePatterns can allow.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       loading="lazy"
@@ -738,12 +742,12 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
         <Card padding="md">
           <div className="flex items-center gap-3">
             {member.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                loading="lazy"
-                decoding="async"
+              <Image
                 src={member.photoUrl}
+                unoptimized={mustHotlink(member.photoUrl)}
                 alt=""
+                width={56}
+                height={56}
                 className="h-14 w-14 flex-none rounded-xl object-cover"
               />
             ) : (

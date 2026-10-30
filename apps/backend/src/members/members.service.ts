@@ -178,25 +178,27 @@ export class MembersService {
   }
 
   // Full profile shape for GET :slug and PATCH :id. Private proof (and client emails) only for the
-  // owning member and admins.
+  // owning member and admins; contact details per canSeeContact().
   private async toDetailDto(row: MemberProfileDetailRow, user: AuthenticatedUser): Promise<MemberDto> {
+    const isOwner = row.profile_id === user.id;
     const [profilesById, servicesByMember, isMemberAdmin] = await Promise.all([
       this.membersRepository.findProfilesByIds([row.profile_id]),
       this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
-      row.profile_id === user.id ? Promise.resolve(false) : this.adminAccess.hasFreshPermission(user, 'manageMembers'),
+      isOwner ? Promise.resolve(false) : this.adminAccess.hasFreshPermission(user, 'manageMembers'),
     ]);
 
-    const includeProof = row.profile_id === user.id || isMemberAdmin;
+    const includeProof = isOwner || isMemberAdmin;
+    const contactVisible = includeProof || (await this.canSeeContact(row.profile_id, user));
 
-    return {
+    const dto: MemberDto = {
       ...this.toListDto(row, profilesById, servicesByMember),
       firmWebsite: row.firm_website,
       availabilityNotes: row.availability_notes,
       isAvailable: row.is_available,
-      contactEmail: row.contact_email,
-      workEmail: row.work_email,
-      contactPhone: row.contact_phone,
-      linkedinUrl: row.linkedin_url,
+      contactEmail: contactVisible ? row.contact_email : null,
+      workEmail: contactVisible ? row.work_email : null,
+      contactPhone: contactVisible ? row.contact_phone : null,
+      linkedinUrl: contactVisible ? row.linkedin_url : null,
       website: row.website,
       workExperiences: normalizeLiveSection(
         'work_experiences',
@@ -222,7 +224,20 @@ export class MembersService {
         row.key_clients,
         includeProof
       ) as unknown as MemberDto['keyClients'],
+      // Tells the contact tab "hidden from you" apart from "not provided".
+      contactVisible,
     };
+    return dto;
+  }
+
+  // Product decision (2026-10-30): a member's email/work email/phone/LinkedIn are shown, besides
+  // the owner and member-managing admins, only to active members (the peer network — the
+  // app_member_status claim, resolved fresh by SupabaseAuthGuard when absent) and to clients who
+  // have sent this member a consultation request (any status). Everyone else gets null.
+  private async canSeeContact(memberId: string, user: AuthenticatedUser): Promise<boolean> {
+    if (user.role === 'member') return user.memberStatus === 'active';
+    if (user.role === 'client') return this.membersRepository.hasConsultationWith(user.id, memberId);
+    return false;
   }
 
   async requestUpload(memberId: string, user: AuthenticatedUser, dto: CreateUploadDto): Promise<UploadResponse> {
@@ -283,6 +298,8 @@ export class MembersService {
 
   private async publishProfilePhoto(memberId: string, uploadPath: string): Promise<string> {
     this.assertOwnedPath(memberId, uploadPath);
+    // Size from storage metadata first, so an oversized object is never pulled into memory.
+    if ((await this.membersRepository.findProofFileSize(uploadPath)) > MAX_PHOTO_BYTES) throw this.photoTooLarge();
     const buffer = await this.membersRepository.downloadProofFile(uploadPath);
     const sniffed = await sniffFileType(buffer);
     const ext = sniffed ? PHOTO_MIME_TO_EXT[sniffed.mime] : undefined;
@@ -292,16 +309,15 @@ export class MembersService {
         message: 'Profile photos must be a JPEG, PNG, or WebP image.',
       });
     }
-    if (buffer.length > MAX_PHOTO_BYTES) {
-      throw new BadRequestException({
-        code: 'PHOTO_TOO_LARGE',
-        message: 'Profile photos must be under 5MB.',
-      });
-    }
+    if (buffer.length > MAX_PHOTO_BYTES) throw this.photoTooLarge();
     const publicPath = `members/${memberId}/profile-photo-${randomUUID()}.${ext}`;
     await this.membersRepository.uploadPublicAsset(publicPath, buffer, sniffed.mime);
     this.logger.log(`Member ${memberId} updated their profile photo (${publicPath})`);
     return publicPath;
+  }
+
+  private photoTooLarge(): BadRequestException {
+    return new BadRequestException({ code: 'PHOTO_TOO_LARGE', message: 'Profile photos must be under 5MB.' });
   }
 
   async listMyEdits(memberId: string, user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
@@ -615,7 +631,7 @@ export class MembersService {
         id: liveMatch ? (liveMatch.id as string) : randomUUID(),
         isVerified: resolved[i].decision === 'approved_verified',
       };
-      items.push(section === 'key_clients' ? await this.publishClientLogo(memberId, accepted) : accepted);
+      items.push(section === 'key_clients' ? await this.publishClientLogo(memberId, accepted, liveMatch) : accepted);
     }
 
     if (section === 'work_experiences') {
@@ -628,30 +644,37 @@ export class MembersService {
   // A newly uploaded key-client logo sits in the private member-proofs bucket as
   // `logoUploadPath`, but the public profile reads `logoUrl`. On approval, copy the file into the
   // public application-assets bucket (magic-byte checked) and point `logoUrl` at it. Items without
-  // a new upload keep whatever `logoUrl` they already had.
-  private async publishClientLogo(memberId: string, item: EditPayloadItem): Promise<EditPayloadItem> {
-    const { logoUploadPath, ...rest } = item;
+  // a new upload keep the logoUrl of the LIVE item they edit (or none for a new item) — a
+  // client-supplied logoUrl is never trusted, or a member could point their profile at any URL.
+  private async publishClientLogo(
+    memberId: string,
+    item: EditPayloadItem,
+    liveMatch: EditPayloadItem | undefined
+  ): Promise<EditPayloadItem> {
+    const { logoUploadPath, logoUrl: _clientLogoUrl, ...rest } = item;
     if (typeof logoUploadPath !== 'string' || logoUploadPath.length === 0) {
-      return { ...rest, logoUrl: typeof rest.logoUrl === 'string' ? rest.logoUrl : null };
+      return { ...rest, logoUrl: typeof liveMatch?.logoUrl === 'string' ? liveMatch.logoUrl : null };
     }
     this.assertOwnedPath(memberId, logoUploadPath);
+    const clientName = typeof rest.name === 'string' ? rest.name : 'a client';
+    const logoTooLarge = () =>
+      new BadRequestException({
+        code: 'LOGO_TOO_LARGE',
+        message: `The logo for ${clientName} is larger than 2MB — reject this edit instead.`,
+      });
 
+    // Size from storage metadata first, so an oversized object is never pulled into memory.
+    if ((await this.membersRepository.findProofFileSize(logoUploadPath)) > MAX_LOGO_BYTES) throw logoTooLarge();
     const buffer = await this.membersRepository.downloadProofFile(logoUploadPath);
     const sniffed = await sniffFileType(buffer);
     const ext = sniffed ? LOGO_MIME_TO_EXT[sniffed.mime] : undefined;
-    const clientName = typeof rest.name === 'string' ? rest.name : 'a client';
     if (!sniffed || !ext) {
       throw new BadRequestException({
         code: 'LOGO_INVALID_TYPE',
         message: `The logo for ${clientName} isn't a PNG, JPEG, WebP, or GIF image — reject this edit instead.`,
       });
     }
-    if (buffer.length > MAX_LOGO_BYTES) {
-      throw new BadRequestException({
-        code: 'LOGO_TOO_LARGE',
-        message: `The logo for ${clientName} is larger than 2MB — reject this edit instead.`,
-      });
-    }
+    if (buffer.length > MAX_LOGO_BYTES) throw logoTooLarge();
 
     const publicPath = `members/${memberId}/client-logos/${randomUUID()}.${ext}`;
     await this.membersRepository.uploadPublicAsset(publicPath, buffer, sniffed.mime);

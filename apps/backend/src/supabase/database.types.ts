@@ -444,6 +444,7 @@ export type Database = {
           is_active: boolean;
           is_featured: boolean;
           level: string;
+          search_tsv: unknown | null;
           sort_order: number;
           summary: string;
           thumbnail_url: string | null;
@@ -463,6 +464,7 @@ export type Database = {
           is_active?: boolean;
           is_featured?: boolean;
           level: string;
+          search_tsv?: never;
           sort_order?: number;
           summary?: string;
           thumbnail_url?: string | null;
@@ -482,6 +484,7 @@ export type Database = {
           is_active?: boolean;
           is_featured?: boolean;
           level?: string;
+          search_tsv?: never;
           sort_order?: number;
           summary?: string;
           thumbnail_url?: string | null;
@@ -1208,6 +1211,168 @@ export type Database = {
         };
         Relationships: [];
       };
+      search_documents: {
+        Row: {
+          chunk_index: number;
+          city: string | null;
+          content: string;
+          content_hash: string;
+          countries: string[];
+          created_at: string;
+          doc_date: string;
+          doc_type: string;
+          embedded_hash: string | null;
+          embedding: string | null;
+          embedding_model: string | null;
+          event_end: string | null;
+          event_start: string | null;
+          id: number;
+          is_available: boolean | null;
+          rate_max_cents: number | null;
+          rate_min_cents: number | null;
+          search_name: string;
+          service_ids: string[];
+          source_id: string;
+          title: string;
+          tsv: unknown | null;
+          updated_at: string;
+        };
+        Insert: {
+          chunk_index?: number;
+          city?: string | null;
+          content: string;
+          content_hash: string;
+          countries?: string[];
+          created_at?: string;
+          doc_date?: string;
+          doc_type: string;
+          embedded_hash?: string | null;
+          embedding?: string | null;
+          embedding_model?: string | null;
+          event_end?: string | null;
+          event_start?: string | null;
+          id?: number;
+          is_available?: boolean | null;
+          rate_max_cents?: number | null;
+          rate_min_cents?: number | null;
+          search_name: string;
+          service_ids?: string[];
+          source_id: string;
+          title: string;
+          tsv?: never;
+          updated_at?: string;
+        };
+        Update: {
+          chunk_index?: number;
+          city?: string | null;
+          content?: string;
+          content_hash?: string;
+          countries?: string[];
+          created_at?: string;
+          doc_date?: string;
+          doc_type?: string;
+          embedded_hash?: string | null;
+          embedding?: string | null;
+          embedding_model?: string | null;
+          event_end?: string | null;
+          event_start?: string | null;
+          id?: number;
+          is_available?: boolean | null;
+          rate_max_cents?: number | null;
+          rate_min_cents?: number | null;
+          search_name?: string;
+          service_ids?: string[];
+          source_id?: string;
+          title?: string;
+          tsv?: never;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      search_outbox: {
+        Row: {
+          attempts: number;
+          claimed_at: string | null;
+          doc_type: string;
+          enqueued_at: string;
+          failed: boolean;
+          id: number;
+          last_error: string | null;
+          processed_at: string | null;
+          source_id: string;
+        };
+        Insert: {
+          attempts?: number;
+          claimed_at?: string | null;
+          doc_type: string;
+          enqueued_at?: string;
+          failed?: boolean;
+          id?: number;
+          last_error?: string | null;
+          processed_at?: string | null;
+          source_id: string;
+        };
+        Update: {
+          attempts?: number;
+          claimed_at?: string | null;
+          doc_type?: string;
+          enqueued_at?: string;
+          failed?: boolean;
+          id?: number;
+          last_error?: string | null;
+          processed_at?: string | null;
+          source_id?: string;
+        };
+        Relationships: [];
+      };
+      search_query_log: {
+        Row: {
+          answer: string | null;
+          applied: Json | null;
+          created_at: string;
+          degraded: string[];
+          feedback: number | null;
+          feedback_note: string | null;
+          id: string;
+          ms: number | null;
+          plan: Json | null;
+          question: string;
+          result_refs: NonNullable<Json>;
+          source: string;
+          user_id: string | null;
+        };
+        Insert: {
+          answer?: string | null;
+          applied?: Json | null;
+          created_at?: string;
+          degraded?: string[];
+          feedback?: number | null;
+          feedback_note?: string | null;
+          id?: string;
+          ms?: number | null;
+          plan?: Json | null;
+          question: string;
+          result_refs?: NonNullable<Json>;
+          source?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          answer?: string | null;
+          applied?: Json | null;
+          created_at?: string;
+          degraded?: string[];
+          feedback?: number | null;
+          feedback_note?: string | null;
+          id?: string;
+          ms?: number | null;
+          plan?: Json | null;
+          question?: string;
+          result_refs?: NonNullable<Json>;
+          source?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       services: {
         Row: {
           category_id: string;
@@ -1264,6 +1429,7 @@ export type Database = {
           id: string;
           is_active: boolean;
           is_featured: boolean;
+          search_tsv: unknown | null;
           slug: string;
           sort_order: number;
           title: string;
@@ -1283,6 +1449,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           is_featured?: boolean;
+          search_tsv?: never;
           slug: string;
           sort_order?: number;
           title: string;
@@ -1302,6 +1469,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           is_featured?: boolean;
+          search_tsv?: never;
           slug?: string;
           sort_order?: number;
           title?: string;
@@ -1315,6 +1483,84 @@ export type Database = {
     };
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json };
+      member_directory_ids: {
+        Args: {
+          p_category_id?: string | null;
+          p_countries?: string[] | null;
+          p_limit?: number;
+          p_offset?: number;
+          p_q?: string | null;
+          p_rate_max_cents?: number | null;
+          p_rate_min_cents?: number | null;
+          p_service_ids?: string[] | null;
+          p_sort?: string | null;
+        };
+        Returns: {
+          profile_id: string;
+        }[];
+      };
+      search_enqueue: { Args: { p_id: string; p_type: string }; Returns: undefined };
+      search_hybrid: {
+        Args: {
+          p_city?: string | null;
+          p_countries?: string[] | null;
+          p_date_from?: string | null;
+          p_date_to?: string | null;
+          p_doc_types?: string[] | null;
+          p_embedding?: string | null;
+          p_limit?: number;
+          p_min_similarity?: number;
+          p_query?: string | null;
+          p_rate_max_cents?: number | null;
+          p_service_ids?: string[] | null;
+        };
+        Returns: {
+          doc_type: string;
+          kw_rank: number | null;
+          name_rank: number | null;
+          score: number;
+          source_id: string;
+          title: string;
+          vec_rank: number | null;
+          vec_sim: number | null;
+        }[];
+      };
+      search_match_services: {
+        Args: { p_limit?: number; p_text: string };
+        Returns: {
+          category_name: string;
+          score: number;
+          service_id: string;
+          service_name: string;
+        }[];
+      };
+      search_outbox_claim: {
+        Args: { p_lease?: string; p_limit?: number };
+        Returns: {
+          claimed_at: string;
+          doc_type: string;
+          id: number;
+          source_id: string;
+        }[];
+      };
+      search_outbox_complete: {
+        Args: { p_claimed_at: string; p_error?: string | null; p_id: number };
+        Returns: undefined;
+      };
+      search_pending_embeddings: {
+        Args: { p_limit?: number };
+        Returns: {
+          content: string;
+          content_hash: string;
+          doc_type: string;
+          id: number;
+          title: string;
+        }[];
+      };
+      search_store_embedding: {
+        Args: { p_embedding: string; p_hash: string; p_id: number; p_model: string };
+        Returns: boolean;
+      };
     };
     Enums: {
       admin_role: "super_admin" | "content_manager" | "reviewer";

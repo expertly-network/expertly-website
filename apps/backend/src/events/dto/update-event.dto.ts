@@ -1,5 +1,23 @@
-import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsTimeZone,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import type { EventFormat, EventStatus } from '@shared/event';
+import {
+  EVENT_DESCRIPTION_MAX,
+  EVENT_LABEL_MAX,
+  EVENT_SHORT_DESCRIPTION_MAX,
+  EVENT_TITLE_MAX,
+  EVENT_URL_MAX,
+  EVENT_URL_OPTIONS,
+} from './create-event.dto';
 
 const EVENT_FORMATS: EventFormat[] = ['in_person', 'virtual', 'hybrid'];
 const EVENT_STATUSES: EventStatus[] = ['draft', 'published'];
@@ -8,37 +26,43 @@ export class UpdateEventDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(EVENT_TITLE_MAX)
   title?: string;
 
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(EVENT_DESCRIPTION_MAX)
   description?: string;
 
   // null clears the field; omitting it leaves it unchanged.
   @IsOptional()
   @IsString()
+  @MaxLength(EVENT_SHORT_DESCRIPTION_MAX)
   shortDescription?: string | null;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl(EVENT_URL_OPTIONS)
+  @MaxLength(EVENT_URL_MAX)
   coverImageUrl?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   @IsNotEmpty()
   startDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   endDate?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsTimeZone()
+  @MaxLength(64)
   timezone?: string | null;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   eventType?: string | null;
 
   @IsOptional()
@@ -47,14 +71,17 @@ export class UpdateEventDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   country?: string | null;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   city?: string | null;
 
   @IsOptional()
   @IsString()
+  @MaxLength(EVENT_LABEL_MAX)
   venueName?: string | null;
 
   @IsOptional()
@@ -62,11 +89,13 @@ export class UpdateEventDto {
   isFree?: boolean;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl(EVENT_URL_OPTIONS)
+  @MaxLength(EVENT_URL_MAX)
   registrationUrl?: string | null;
 
   @IsOptional()
   @IsString()
+  @MaxLength(EVENT_LABEL_MAX)
   organiserName?: string | null;
 
   @IsOptional()

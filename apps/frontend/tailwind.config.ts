@@ -1,7 +1,13 @@
 import type { Config } from 'tailwindcss';
 
+// CSS-variable colors only support Tailwind's opacity modifier (ring-ink/[0.08], border-accent/20, …)
+// through <alpha-value>; a bare var(--x) silently drops every such utility. color-mix keeps the
+// variable as the single source of truth (alpha 1 renders the variable's exact color).
+const token = (name: string) => `color-mix(in srgb, var(${name}) calc(<alpha-value> * 100%), transparent)`;
+
 const config: Config = {
-  content: ['./app/**/*.{js,ts,jsx,tsx,mdx}', './components/**/*.{js,ts,jsx,tsx,mdx}'],
+  // lib/ holds shared class-name constants (e.g. lib/articles/prose.ts), so it's scanned too.
+  content: ['./app/**/*.{js,ts,jsx,tsx,mdx}', './components/**/*.{js,ts,jsx,tsx,mdx}', './lib/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       // Color tokens — values live in app/globals.css as CSS custom
@@ -11,32 +17,51 @@ const config: Config = {
       // here. Full usage guidance: docs/design-system.md.
       colors: {
         bg: {
-          DEFAULT: 'var(--bg)',
-          alt: 'var(--bg-alt)',
-          card: 'var(--bg-card)',
+          DEFAULT: token('--bg'),
+          alt: token('--bg-alt'),
+          card: token('--bg-card'),
         },
         ink: {
-          DEFAULT: 'var(--ink)',
-          2: 'var(--ink-2)',
-          3: 'var(--ink-3)',
-          4: 'var(--ink-4)',
+          DEFAULT: token('--ink'),
+          2: token('--ink-2'),
+          3: token('--ink-3'),
+          4: token('--ink-4'),
         },
         line: {
-          DEFAULT: 'var(--line)',
-          2: 'var(--line-2)',
+          DEFAULT: token('--line'),
+          2: token('--line-2'),
         },
         accent: {
-          DEFAULT: 'var(--accent)',
-          2: 'var(--accent-2)',
+          DEFAULT: token('--accent'),
+          2: token('--accent-2'),
         },
-        neon: 'var(--neon)',
-        ok: 'var(--ok)',
-        error: 'var(--error)',
-        'nav-green': 'var(--nav-green)',
+        neon: token('--neon'),
+        ok: token('--ok'),
+        error: token('--error'),
+        'nav-green': token('--nav-green'),
         cta: {
-          DEFAULT: 'var(--cta)',
-          hover: 'var(--cta-hover)',
+          DEFAULT: token('--cta'),
+          hover: token('--cta-hover'),
         },
+        // Warning / pending-review state (date-overlap warnings, "pending verification" chips, the
+        // Badge `warning` variant). Values are Tailwind's amber-700 / amber-50 / amber-200, which
+        // these call sites used directly before the token existed — same rendering.
+        warn: {
+          DEFAULT: '#b45309',
+          soft: '#fffbeb',
+          line: '#fde68a',
+        },
+      },
+
+      // The write flow's dark submit button (WriteSubmitButton): near-black ink easing to a
+      // slightly lighter charcoal.
+      // Soft elevation for the member profile's header card, tab bar and tab panel.
+      boxShadow: {
+        panel: '0 2px 12px rgba(0,0,0,0.06)',
+      },
+
+      backgroundImage: {
+        'ink-sheen': 'linear-gradient(135deg, var(--ink), #1a1a1c)',
       },
 
       fontFamily: {

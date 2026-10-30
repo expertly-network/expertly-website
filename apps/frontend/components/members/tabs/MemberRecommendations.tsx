@@ -1,8 +1,11 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Textarea } from '@/components/ui';
 import { ApiError, apiFetch } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { createClient } from '@/lib/supabase/client';
 import { formatMonthYear } from '@/lib/members/format';
 import type { CreateRecommendationRequest, MemberRecommendationDto, UpdateRecommendationRequest } from '@shared/member';
@@ -10,11 +13,17 @@ import type { CreateRecommendationRequest, MemberRecommendationDto, UpdateRecomm
 const MIN_LEN = 10;
 const MAX_LEN = 2000;
 
-// Mirrors the backend's error codes so each failure gets a specific message.
-const POST_ERRORS: Record<number, string> = {
-  403: 'Only active members can write recommendations, and not for themselves.',
-  404: 'This member can no longer receive recommendations.',
-  409: 'You have already recommended this member.',
+// The backend's error codes (recommendations.service.ts) → a specific message for each.
+const POST_ERRORS: Record<string, string> = {
+  RECOMMENDATION_SELF: 'You can’t write a recommendation for yourself.',
+  RECOMMENDATION_AUTHOR_NOT_ACTIVE_MEMBER: 'Only active members can write recommendations.',
+  RECOMMENDATION_RECIPIENT_NOT_FOUND: 'This member can no longer receive recommendations.',
+  RECOMMENDATION_ALREADY_EXISTS: 'You have already recommended this member.',
+};
+
+const UPDATE_ERRORS: Record<string, string> = {
+  RECOMMENDATION_NOT_FOUND: 'This recommendation no longer exists.',
+  RECOMMENDATION_NOT_RECIPIENT: 'Only the member who received this recommendation can change it.',
 };
 
 /** Reads `app_role` and `sub` off the current session's JWT (display gating only; the API enforces it). */
@@ -58,7 +67,7 @@ export function MemberRecommendations({
     try {
       setItems(await apiFetch<MemberRecommendationDto[]>(`/members/${memberId}/recommendations`));
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load recommendations.');
+      setLoadError(apiErrorMessage(err, 'Could not load recommendations.'));
     }
   }, [memberId]);
 
@@ -94,12 +103,8 @@ export function MemberRecommendations({
       setItems((prev) => [created, ...(prev ?? [])]);
       setBody('');
     } catch (err) {
-      if (err instanceof ApiError) {
-        setFormError(POST_ERRORS[err.statusCode] ?? err.message);
-        if (err.statusCode === 409) void load();
-      } else {
-        setFormError('Could not publish your recommendation. Please try again.');
-      }
+      setFormError(apiErrorMessage(err, 'Could not publish your recommendation. Please try again.', POST_ERRORS));
+      if (err instanceof ApiError && err.code === 'RECOMMENDATION_ALREADY_EXISTS') void load();
     } finally {
       setSubmitting(false);
     }
@@ -116,7 +121,7 @@ export function MemberRecommendations({
       });
       setItems((prev) => (prev ?? []).map((r) => (r.id === updated.id ? updated : r)));
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not update this recommendation.');
+      setActionError(apiErrorMessage(err, 'Could not update this recommendation.', UPDATE_ERRORS));
     } finally {
       setBusyId(null);
     }
@@ -175,12 +180,12 @@ export function MemberRecommendations({
             >
               <div className="mb-2 flex flex-wrap items-center gap-2.5">
                 {rec.author.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    loading="lazy"
-                    decoding="async"
+                  <Image
                     src={rec.author.photoUrl}
+                    unoptimized={mustHotlink(rec.author.photoUrl)}
                     alt=""
+                    width={36}
+                    height={36}
                     className="h-9 w-9 flex-none rounded-full object-cover"
                   />
                 ) : (
@@ -198,7 +203,7 @@ export function MemberRecommendations({
                   <span className="font-mono text-[10.5px] text-ink-4">{formatMonthYear(rec.createdAt)}</span>
                 </div>
                 {rec.isHidden && (
-                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                  <span className="rounded-full bg-warn-soft px-2.5 py-1 text-[11px] font-semibold text-warn">
                     Hidden from your profile
                   </span>
                 )}

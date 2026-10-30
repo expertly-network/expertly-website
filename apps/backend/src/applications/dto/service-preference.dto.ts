@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class ServicePreferenceDto {
   @IsUUID()
@@ -9,5 +9,6 @@ export class ServicePreferenceDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   customLabel?: string;
 }

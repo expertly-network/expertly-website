@@ -269,6 +269,7 @@ export function ManualArticleForm({
         {coverImageLoading ? (
           <div className="h-16 w-[84px] flex-none animate-pulse rounded-[9px] bg-line-2" />
         ) : (
+          // Raw <img>: an Unsplash suggestion, hotlinked as Unsplash requires (lib/images.ts).
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={value.coverImageUrl}

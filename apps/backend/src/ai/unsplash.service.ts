@@ -1,4 +1,4 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
 interface UnsplashSearchResult {
   results: { urls: { regular: string } }[];
@@ -19,7 +19,12 @@ export class UnsplashService {
   async search(query: string): Promise<string[]> {
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!accessKey) {
-      throw new ServiceUnavailableException('Cover image suggestions are not configured (set UNSPLASH_ACCESS_KEY).');
+      // Which variable is missing is logged, never returned to the client.
+      this.logger.error('Cover image search refused: UNSPLASH_ACCESS_KEY is not set');
+      throw new ServiceUnavailableException({
+        code: 'COVER_IMAGES_NOT_CONFIGURED',
+        message: 'Cover image suggestions are not configured.',
+      });
     }
 
     const url = new URL(SEARCH_URL);
@@ -28,23 +33,24 @@ export class UnsplashService {
     url.searchParams.set('orientation', 'landscape');
     url.searchParams.set('content_filter', 'high');
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const providerError = () =>
+      new BadGatewayException({ code: 'COVER_IMAGES_PROVIDER_ERROR', message: 'Unsplash search failed.' });
+
+    // The signal also bounds reading the body, not just the response headers.
+    const signal = AbortSignal.timeout(TIMEOUT_MS);
+    let body: UnsplashSearchResult;
     try {
-      const res = await fetch(url, {
-        headers: { Authorization: `Client-ID ${accessKey}` },
-        signal: controller.signal,
-      });
+      const res = await fetch(url, { headers: { Authorization: `Client-ID ${accessKey}` }, signal });
       if (!res.ok) {
-        throw new Error(`Unsplash search failed with status ${res.status}.`);
+        this.logger.error(`Unsplash search failed with status ${res.status} for query "${query}"`);
+        throw providerError();
       }
-      const body = (await res.json()) as UnsplashSearchResult;
-      return body.results.map((r) => r.urls.regular);
+      body = (await res.json()) as UnsplashSearchResult;
     } catch (error) {
+      if (error instanceof BadGatewayException) throw error;
       this.logger.error(`Unsplash search failed for query "${query}"`, error instanceof Error ? error.stack : error);
-      throw new ServiceUnavailableException('Could not fetch cover image suggestions — try again.');
-    } finally {
-      clearTimeout(timeout);
+      throw providerError();
     }
+    return body.results.map((r) => r.urls.regular);
   }
 }

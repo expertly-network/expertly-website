@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { ProfileSectionEmpty, ProfileSectionHeader } from '@/components/members/ProfileSection';
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
 import { displayHost, externalHref } from '@/lib/members/format';
+import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
+import { Button } from '@/components/ui';
 import type { MemberDto, MemberProfileEditDto } from '@shared/member';
 
 interface ContactItem {
@@ -61,12 +63,17 @@ export function ContactTab({
   edits,
   isOwnProfile,
   onEdit,
+  onRequestConsultation,
 }: {
   member: MemberDto;
   edits: MemberProfileEditDto[];
   isOwnProfile: boolean;
   onEdit: (section: 'contact') => void;
+  /** Opens the request-consultation modal — the way a viewer without contact access gets in touch. */
+  onRequestConsultation?: () => void;
 }) {
+  // The owner always sees their own details; for anyone else the API may have withheld them.
+  const contactHidden = !isOwnProfile && !isContactVisible(member);
   const items: ContactItem[] = [];
   if (member.contactEmail) {
     items.push({
@@ -132,8 +139,19 @@ export function ContactTab({
         onEdit={isOwnProfile ? () => onEdit('contact') : undefined}
         rejectionNote={getSectionRejectionNote('contact', edits)}
       />
+      {contactHidden && (
+        // Website / company links stay public, so they can still render below this notice.
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-bg-alt p-4">
+          <p className="min-w-0 flex-1 basis-60 text-profile-item text-ink-3">{CONTACT_HIDDEN_MESSAGE}</p>
+          {onRequestConsultation && (
+            <Button size="sm" onClick={onRequestConsultation}>
+              Request Consultation
+            </Button>
+          )}
+        </div>
+      )}
       {items.length === 0 ? (
-        isOwnProfile ? (
+        contactHidden ? null : isOwnProfile ? (
           <ProfileSectionEmpty
             title="No contact details yet."
             hint="Let clients reach you"

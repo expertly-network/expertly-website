@@ -24,18 +24,20 @@ export function ProfileTabs({
   edits,
   isOwnProfile,
   onEdit,
+  onRequestConsultation,
 }: {
   member: MemberDto;
   edits: MemberProfileEditDto[];
   isOwnProfile: boolean;
   onEdit: (section: MemberEditSection) => void;
+  onRequestConsultation?: () => void;
 }) {
   const [active, setActive] = useUrlTab<Tab>(TAB_KEYS, 'about');
 
   return (
     <div>
       {/* `.mp-tabs-nav` / `.mp-tab` — underline tabs, not pills. */}
-      <div className="mb-4 overflow-hidden rounded-panel border border-line bg-bg-card shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+      <div className="mb-4 overflow-hidden rounded-panel border border-line bg-bg-card shadow-panel">
         <div role="tablist" className="flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
             <button
@@ -55,10 +57,7 @@ export function ProfileTabs({
       </div>
 
       {/* `.mp-tab-content` */}
-      <div
-        role="tabpanel"
-        className="rounded-panel border border-line bg-bg-card p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] max-[640px]:p-5"
-      >
+      <div role="tabpanel" className="rounded-panel border border-line bg-bg-card p-6 shadow-panel max-[640px]:p-5">
         {active === 'about' && <AboutTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />}
         {active === 'credentials' && (
           <CredentialsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
@@ -68,7 +67,13 @@ export function ProfileTabs({
           <ReviewsTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
         )}
         {active === 'contact' && (
-          <ContactTab member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={onEdit} />
+          <ContactTab
+            member={member}
+            edits={edits}
+            isOwnProfile={isOwnProfile}
+            onEdit={onEdit}
+            onRequestConsultation={onRequestConsultation}
+          />
         )}
       </div>
     </div>

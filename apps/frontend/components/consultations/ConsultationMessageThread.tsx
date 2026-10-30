@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { listConsultationMessages, postConsultationMessage } from '@/lib/api/consultations';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ConsultationMessageDto } from '@shared/consultation-request';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
@@ -45,7 +45,7 @@ export function ConsultationMessageThread({
     try {
       setMessages(await listConsultationMessages(requestId));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load messages.');
+      setError(apiErrorMessage(err, 'Failed to load messages.'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export function ConsultationMessageThread({
       setMessages((prev) => [...(prev ?? []), sent]);
       setDraft('');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to send message.');
+      setError(apiErrorMessage(err, 'Failed to send message.'));
     } finally {
       setSending(false);
     }

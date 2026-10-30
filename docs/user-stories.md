@@ -27,7 +27,12 @@ committing to sign up.
 - [ ] `GET /v1/members` supports search (name/practice/location/firm/title), filter (practice area,
       country, price-range bucket), sort, and pagination per `docs/rest-api.md`
 - [ ] Guest can view a member's full public profile (`GET /v1/members/:slug`)
-- [ ] No member contact info is exposed without booking a consultation (once that feature exists)
+- [x] A member's contact details (`contactEmail`, `workEmail`, `contactPhone`, `linkedinUrl`) are
+      returned only to the profile owner, admins with `manageMembers`, active members, and clients
+      who have sent that member a consultation request (any status); everyone else gets `null` plus
+      `contactVisible: false`, and the Contact tab and profile PDF explain the gap ("shared with
+      members and with clients who have a consultation with this member") instead of an empty state (implemented 2026-10-30, `docs/rest-api.md`
+      `GET /v1/members/:slug`)
 
 ### US-01-03: Reading a published article as a guest
 As a visitor, I want to read member-authored articles so I can evaluate the platform's expertise

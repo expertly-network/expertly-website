@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
+import { FIELD_FOCUS_WITHIN } from '@/components/ui/field-styles';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
@@ -10,7 +11,7 @@ import { LocationFields } from '@/components/apply/LocationFields';
 import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const BIO_MAX_CHARS = 2000;
@@ -88,7 +89,7 @@ export function IdentityStep({
       update({ photoUrl: updated.photoUrl ?? undefined });
       clearError('photo');
     } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : 'Failed to upload photo — please try again.');
+      setUploadError(apiErrorMessage(err, 'Failed to upload photo — please try again.'));
     } finally {
       setUploading(false);
     }
@@ -180,11 +181,12 @@ export function IdentityStep({
             required
           />
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-ink-2">
+            <label htmlFor="phone" className="text-xs font-medium text-ink-2">
               WhatsApp / Phone <span className="font-normal text-ink-3">(optional)</span>
             </label>
-            <div className="flex overflow-hidden rounded-input border border-line">
+            <div className={`flex overflow-hidden rounded-input border border-line ${FIELD_FOCUS_WITHIN}`}>
               <select
+                aria-label="Phone country code"
                 className="max-w-[9.5rem] border-r border-line bg-bg-alt px-2 text-xs text-ink outline-none"
                 value={form.phoneCountryCode}
                 onChange={(e) => update({ phoneCountryCode: e.target.value })}
@@ -196,6 +198,7 @@ export function IdentityStep({
                 ))}
               </select>
               <input
+                id="phone"
                 type="tel"
                 placeholder="7700 900 000"
                 className="min-w-0 flex-1 bg-transparent px-3.5 py-3 text-sm text-ink outline-none"

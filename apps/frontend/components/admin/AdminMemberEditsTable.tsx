@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useMemo, useState } from 'react';
 import { Badge, Button, Input, Select } from '@/components/ui';
 import { SECTION_TITLES } from '@/components/members/edit/sectionFieldConfig';
@@ -57,12 +59,12 @@ function MemberAvatar({ name, photoUrl }: { name: string; photoUrl: string | nul
     .map((p) => p[0]?.toUpperCase())
     .join('');
   return photoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      loading="lazy"
-      decoding="async"
+    <Image
       src={photoUrl}
+      unoptimized={mustHotlink(photoUrl)}
       alt=""
+      width={36}
+      height={36}
       className="h-9 w-9 flex-none rounded-full object-cover"
     />
   ) : (

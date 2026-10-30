@@ -70,13 +70,24 @@ export function jsonbEachText(obj: { [key: string]: JsonValue }): { key: string;
 
 // Never in a card: layout/noise keys, and every field the API keeps owner/admin-only
 // (members/member-sections.ts normalizeLiveItem) — proof attachments (private storage paths and
-// links), third-party client emails, verification details. Card text is embedded, sent to the
-// search judge, and can surface in its answer to any signed-in user.
+// links), third-party client emails, verification details — plus every link/contact key an item
+// may carry (companyUrl from application-era work history, website, linkedinUrl, ...). Card text
+// is embedded, sent to the search judge, and can surface in its answer to any signed-in user.
 const SKIPPED_KEYS = new Set([
   'id',
   'url',
   'logoUrl',
   'logo_url',
+  'companyUrl',
+  'company_url',
+  'website',
+  'linkedinUrl',
+  'linkedin_url',
+  'contactEmail',
+  'workEmail',
+  'contactPhone',
+  'email',
+  'phone',
   'isCurrent',
   'startYear',
   'endYear',

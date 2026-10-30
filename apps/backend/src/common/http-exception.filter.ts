@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 /** Every error response body (docs/rest-api.md "Errors"). */
 export interface ApiErrorBody {
@@ -33,6 +33,29 @@ function isValidationMessage(message: unknown): boolean {
   return Array.isArray(message) || (typeof message === 'string' && message.startsWith('Validation failed'));
 }
 
+// What a client sees for a 5xx. The exception's own message is only ever logged: server-side
+// failures can carry provider, database or configuration detail. A code with a fixed client-safe
+// sentence here gets it; any other 5xx gets its status's generic sentence.
+const SERVER_ERROR_MESSAGES: Record<string, string> = {
+  AI_NOT_CONFIGURED: 'AI features are not available right now.',
+  AI_PROVIDER_ERROR: 'The AI service could not complete the request — try again.',
+  AI_TIMEOUT: 'The AI service took too long to respond — try again.',
+  COVER_IMAGES_NOT_CONFIGURED: 'Cover image search is not available right now.',
+  COVER_IMAGES_PROVIDER_ERROR: 'Cover image search failed — try again.',
+  LINKEDIN_IMPORT_FAILED: 'LinkedIn import failed — try again or fill in the form manually.',
+  DATABASE_UNAVAILABLE: 'Service temporarily unavailable.',
+};
+
+const GENERIC_SERVER_MESSAGES: Record<number, string> = {
+  502: 'Upstream service error.',
+  503: 'Service temporarily unavailable.',
+  504: 'Upstream service timed out.',
+};
+
+function serverErrorMessage(status: number, code: string): string {
+  return SERVER_ERROR_MESSAGES[code] ?? GENERIC_SERVER_MESSAGES[status] ?? 'Internal server error.';
+}
+
 function defaultCode(status: number): string {
   return DEFAULT_CODES[status] ?? `HTTP_${status}`;
 }
@@ -61,13 +84,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const reply = host.switchToHttp().getResponse<FastifyReply>();
+    const http = host.switchToHttp();
+    const reply = http.getResponse<FastifyReply>();
+    const request = http.getRequest<FastifyRequest | undefined>();
     const body = this.toBody(exception);
     if (body.statusCode >= 500) {
+      // The original message goes to the log (with the request id to correlate), never the client.
       this.logger.error(
-        `${body.code}: ${Array.isArray(body.message) ? body.message.join('; ') : body.message}`,
+        `${body.code}: ${Array.isArray(body.message) ? body.message.join('; ') : body.message}` +
+          (request?.id ? ` reqId=${request.id}` : ''),
         exception instanceof Error ? exception.stack : undefined
       );
+      body.message = serverErrorMessage(body.statusCode, body.code);
     }
     void reply.status(body.statusCode).send(body);
   }

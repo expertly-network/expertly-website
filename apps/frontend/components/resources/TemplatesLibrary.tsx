@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { CollectionDto, TemplateDto, TemplateFileType } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Badge, Button, Card, Input } from '@/components/ui';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { getTemplateDownload } from '@/lib/api/resources';
 import { ResourceHero } from './ResourceHero';
 import { ResourceDialog } from './ResourceDialog';
@@ -42,6 +42,7 @@ function Paper({
       className={`overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(11,11,12,0.06),0_12px_28px_-10px_rgba(11,11,12,0.28)] ring-1 ring-black/5 ${className}`}
     >
       {template.previewImageUrl && !failed ? (
+        // unoptimized: an admin may point a preview at any https host, not only resource-assets.
         <Image
           unoptimized
           src={template.previewImageUrl}
@@ -129,9 +130,10 @@ export function TemplatesLibrary({
       window.location.assign(url);
     } catch (e) {
       setError(
-        e instanceof ApiError && e.statusCode === 403
-          ? 'Template downloads are for GrowXQ members.'
-          : 'The download couldn’t start. Please try again.'
+        apiErrorMessage(e, 'The download couldn’t start. Please try again.', {
+          TEMPLATE_MEMBERS_ONLY: 'Template downloads are for GrowXQ members.',
+          TEMPLATE_NOT_FOUND: 'This template is no longer available.',
+        })
       );
     } finally {
       setDownloading(false);

@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Input, Select, Textarea } from '@/components/ui';
@@ -7,7 +9,7 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ApplicationStatusBadge, ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
 import { REGIONS } from '@/components/apply/types';
 import { reviewApplication } from '@/lib/api/applications';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ApplicationDto } from '@shared/membership-application';
 import { externalHref, externalLink } from '@/lib/members/format';
 import { formatCents, formatDateRange } from '@/lib/apply/format';
@@ -125,7 +127,7 @@ export function ApplicationReviewDetail({
       router.push('/admin/applications');
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to approve this application.');
+      setError(apiErrorMessage(err, 'Failed to approve this application.'));
       setBusy(null);
     }
   }
@@ -142,7 +144,7 @@ export function ApplicationReviewDetail({
       router.push('/admin/applications');
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to reject this application.');
+      setError(apiErrorMessage(err, 'Failed to reject this application.'));
       setBusy(null);
     }
   }
@@ -156,12 +158,12 @@ export function ApplicationReviewDetail({
           <div className="flex items-center gap-[18px] px-6 py-5">
             <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
               {application.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  loading="lazy"
-                  decoding="async"
+                <Image
                   src={application.photoUrl}
+                  unoptimized={mustHotlink(application.photoUrl)}
                   alt="Profile"
+                  width={96}
+                  height={96}
                   className="h-full w-full object-cover"
                 />
               ) : (

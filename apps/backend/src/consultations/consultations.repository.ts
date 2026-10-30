@@ -264,16 +264,16 @@ export class ConsultationsRepository {
     return updated as unknown as ConsultationRequestDto;
   }
 
-  // Same atomic-conditional pattern as updateStatus: the `.neq('status', 'pending')` and
-  // `.eq('requester_id', ...)` filters live on the UPDATE itself. Returns null when the row
-  // doesn't belong to this requester, or is still 'pending' (not yet decided) — the caller
-  // distinguishes neither of those from a real DB error.
+  // Same atomic-conditional pattern as updateStatus: the status, requester and `rating is null`
+  // filters live on the UPDATE itself, so a rating can only ever be set once. Returns null when
+  // the row doesn't belong to this requester, isn't completed, or is already rated.
   async updateRating(id: string, requesterId: string, rating: number): Promise<ConsultationRequestDto | null> {
     const { data: updated, error } = await this.consultations()
       .update({ rating })
       .eq('id', id)
       .eq('requester_id', requesterId)
       .eq('status', 'completed')
+      .is('rating', null)
       .select(CONSULTATION_COLUMNS.join(', '))
       .maybeSingle();
 

@@ -14,7 +14,7 @@ import { AiDraftWizard } from '@/components/articles/AiDraftWizard';
 import { ArticleLivePreview } from '@/components/articles/ArticleLivePreview';
 import { WriteSuccess } from '@/components/articles/WriteSuccess';
 import { createArticle, updateArticle, getCoverImageSuggestions } from '@/lib/api/articles';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { useUnsavedChangesGuard } from '@/lib/hooks/useUnsavedChangesGuard';
 import type { CategoryDto } from '@shared/category';
 import type { ArticleDto } from '@shared/article';
@@ -133,7 +133,7 @@ export function WriteArticleFlow({
         router.push('/articles?tab=mine&saved=draft');
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save draft.');
+      setError(apiErrorMessage(err, 'Failed to save draft.'));
     } finally {
       setSavingDraft(false);
     }
@@ -165,7 +165,7 @@ export function WriteArticleFlow({
         setStep('success');
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save changes.');
+      setError(apiErrorMessage(err, 'Failed to save changes.'));
     } finally {
       setSubmitting(false);
     }
@@ -175,14 +175,9 @@ export function WriteArticleFlow({
     return <WriteSuccess status={result.status} articleSlug={result.slug} />;
   }
 
-  const isLiveEdit = isEditing && (editArticle!.status === 'published' || editArticle!.status === 'pending_review');
-  const confirmLabel = !isEditing
-    ? 'Publish'
-    : isLiveEdit
-      ? 'Save changes'
-      : editArticle!.status === 'rejected'
-        ? 'Resubmit'
-        : 'Publish';
+  const editStatus = editArticle?.status;
+  const isLiveEdit = editStatus === 'published' || editStatus === 'pending_review';
+  const confirmLabel = isLiveEdit ? 'Save changes' : editStatus === 'rejected' ? 'Resubmit' : 'Publish';
 
   return (
     <div className="bg-bg-card pb-[120px] pt-8">
@@ -194,8 +189,8 @@ export function WriteArticleFlow({
               setStep(manual.body ? 'manual' : 'ai');
               return;
             }
-            if (isEditing) {
-              if (confirmLeave()) router.push(`/articles/${editArticle!.slug}`);
+            if (editArticle) {
+              if (confirmLeave()) router.push(`/articles/${editArticle.slug}`);
               return;
             }
             if (step === 'choose') {

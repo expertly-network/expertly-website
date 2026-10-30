@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImageCropper } from '@/components/ui/ImageCropper';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { requestMemberUpload, updateMember } from '@/lib/api/members';
 import { uploadToSignedUrl } from '@/lib/api/upload';
 
@@ -44,7 +44,7 @@ export function ChangePhotoButton({ memberId }: { memberId: string }) {
       await updateMember(memberId, { photoUploadPath: path });
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update your photo — please try again.');
+      setError(apiErrorMessage(err, 'Could not update your photo — please try again.'));
     } finally {
       setSaving(false);
     }

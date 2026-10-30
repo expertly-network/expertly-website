@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useId, useRef, type ReactNode, type TextareaHTMLAttributes } from 'react';
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
@@ -32,7 +32,10 @@ export function Textarea({
   className = '',
   ...textareaProps
 }: TextareaProps) {
-  const fieldId = id ?? textareaProps.name;
+  // Falls back to a generated id so the <label> is always tied to the control, even when a call
+  // site passes neither `id` nor `name`.
+  const generatedId = useId();
+  const fieldId = id ?? textareaProps.name ?? generatedId;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

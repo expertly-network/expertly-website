@@ -5,7 +5,7 @@ import { Badge, Button } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { EventsList } from '@/components/events/EventsList';
 import { deleteEvent } from '@/lib/api/events';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { EventDto, EventStatus } from '@shared/event';
 
 const STATUS_BADGE_VARIANT: Record<EventStatus, 'neutral' | 'emphasis'> = {
@@ -33,7 +33,7 @@ function AdminEventActions({ event, onDeleted }: { event: EventDto; onDeleted: (
       await deleteEvent(event.id);
       onDeleted(event.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete this event.');
+      setError(apiErrorMessage(err, 'Failed to delete this event.'));
       setBusy(false);
     }
   }

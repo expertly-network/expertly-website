@@ -15,7 +15,7 @@ import {
 } from '@/components/members/edit/sectionFieldConfig';
 import { createMemberEdit, requestMemberUpload } from '@/lib/api/members';
 import { uploadToSignedUrl } from '@/lib/api/upload';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { CreateMemberEditRequest, MemberDto, MemberEditSection, ProofAttachment } from '@shared/member';
 
 type Row = Record<string, unknown>;
@@ -298,7 +298,7 @@ export function SectionEditModal({
       updateField(rowIndex, 'logoUploadPath', path);
       updateField(rowIndex, 'logoPreview', URL.createObjectURL(file));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Logo upload failed. Please try again.');
+      setError(apiErrorMessage(err, 'Logo upload failed. Please try again.'));
     }
   }
 
@@ -315,7 +315,7 @@ export function SectionEditModal({
       }
       updateField(rowIndex, 'proofAttachments', [...rowAttachments((rows as Row[])[rowIndex]), ...uploaded]);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'File upload failed. Please try again.');
+      setError(apiErrorMessage(err, 'File upload failed. Please try again.'));
     } finally {
       setUploadingRow(null);
     }
@@ -364,7 +364,7 @@ export function SectionEditModal({
       onSubmitted();
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setError(apiErrorMessage(err, 'Something went wrong. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -423,10 +423,11 @@ export function SectionEditModal({
                       {dateErrors[i]}
                     </p>
                   )}
-                  {!dateErrors[i] && dateWarnings[i] && <p className="text-xs text-amber-700">{dateWarnings[i]}</p>}
+                  {!dateErrors[i] && dateWarnings[i] && <p className="text-xs text-warn">{dateWarnings[i]}</p>}
                 </div>
                 {config.shape === 'clients' && (
                   <div className="mt-3">
+                    {/* Raw <img>: a blob:/data: preview of the picked file, or a member-entered logo URL on any host. */}
                     {typeof row.logoPreview === 'string' ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={row.logoPreview} alt="" className="mb-2 h-16 w-16 rounded-input object-cover" />
@@ -434,8 +435,11 @@ export function SectionEditModal({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={row.logoUrl} alt="" className="mb-2 h-16 w-16 rounded-input object-contain" />
                     ) : null}
-                    <label className="text-xs font-medium text-ink-2">Logo (cropped to a square)</label>
+                    <label htmlFor={`logo-${i}`} className="text-xs font-medium text-ink-2">
+                      Logo (cropped to a square)
+                    </label>
                     <input
+                      id={`logo-${i}`}
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
                       onChange={(e) => {
@@ -478,7 +482,7 @@ export function SectionEditModal({
                       </ul>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <label className="rounded-input border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:border-ink">
+                      <label className="cursor-pointer rounded-input border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:border-ink focus-within:ring-[3px] focus-within:ring-ink/[0.08]">
                         {uploadingRow === i ? 'Uploading…' : 'Add file(s)'}
                         <input
                           type="file"
@@ -489,7 +493,7 @@ export function SectionEditModal({
                             if (e.target.files?.length) handleProofFilesSelected(i, e.target.files);
                             e.target.value = '';
                           }}
-                          className="hidden"
+                          className="sr-only"
                         />
                       </label>
                       <input

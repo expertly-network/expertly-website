@@ -9,9 +9,10 @@ import { ProfileClient } from './ProfileClient';
 // (thrown from the page body, after loading.tsx has already flushed, it would still be a 200).
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await props.params;
-  const sessionUser = await getSessionUser();
+  // getMemberServer is cache()d and resolves to null when signed out, so both start at once and the
+  // page body below reuses the same results.
+  const [sessionUser, member] = await Promise.all([getSessionUser(), getMemberServer(params.slug)]);
   if (!sessionUser) return { title: 'Member profile — GrowXQ' };
-  const member = await getMemberServer(params.slug);
   if (!member) notFound();
   return {
     title: `${member.name} — GrowXQ`,
@@ -21,12 +22,10 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
 
 export default async function MemberProfilePage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const sessionUser = await getSessionUser();
+  const [sessionUser, member] = await Promise.all([getSessionUser(), getMemberServer(params.slug)]);
   if (!sessionUser) {
     return <ProfileAuthWall />;
   }
-
-  const member = await getMemberServer(params.slug);
   if (!member) {
     notFound();
   }

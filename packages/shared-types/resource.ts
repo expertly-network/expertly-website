@@ -86,6 +86,11 @@ export interface CreateCollectionRequest {
   sortOrder?: number;
   isActive?: boolean;
 }
+/**
+ * `kind` is immutable: a different value is `400 COLLECTION_KIND_IMMUTABLE` (the same value is a
+ * no-op). It should be `Partial<Omit<CreateCollectionRequest, 'kind'>>`, but the backend DTO /
+ * service / mapping and the frontend editor still pass `kind` through — tighten together.
+ */
 export type UpdateCollectionRequest = Partial<CreateCollectionRequest>;
 export interface AdminCollectionDto extends Required<CreateCollectionRequest> {
   slug: string;

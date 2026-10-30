@@ -6,12 +6,13 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { WriteCard } from '@/components/articles/WriteCard';
 import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
 import { generateArticleDraft, getFollowUpQuestions, refineArticleDraft } from '@/lib/api/articles';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS, countArticleWords } from '@/lib/articles/word-count';
 import type { AiDraftArticleResponse } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
 import { ExternalLink } from '@/components/shared/ExternalLink';
+import { AI_DRAFT_PROSE } from '@/lib/articles/prose';
 
 type SubStep = 1 | 2 | 3;
 
@@ -88,6 +89,16 @@ function WizardNextButton({ onClick, children }: { onClick: () => void; children
     </button>
   );
 }
+
+// The AI endpoints' error codes (apps/backend/src/ai/ai.service.ts) → user-facing copy. These are
+// 5xx, so without an entry they'd fall back to the generic message.
+const AI_ERRORS: Record<string, string> = {
+  AI_NOT_CONFIGURED: 'AI drafting isn’t available right now. You can still write your article manually.',
+  AI_TIMEOUT: 'GrowXQ AI took too long to respond. Please try again.',
+  AI_PROVIDER_ERROR: 'GrowXQ AI couldn’t complete that request. Please try again in a moment.',
+  SOURCE_FILE_INVALID_TYPE: 'One of your source files isn’t a supported type.',
+  SOURCE_FILE_TOO_LARGE: 'One of your source files is too large.',
+};
 
 // Basics + 3 core questions -> adaptive follow-ups (skipped if none) -> finishing touches ->
 // generate -> inline draft -> refine.
@@ -196,7 +207,7 @@ export function AiDraftWizard({
       setReviewedCountries(result.countries ?? []);
       setReviewedState(result.state ?? '');
     } catch (err) {
-      setGenError(err instanceof ApiError ? err.message : 'Could not generate a draft right now — try again.');
+      setGenError(apiErrorMessage(err, 'Could not generate a draft right now — try again.', AI_ERRORS));
     } finally {
       setGenerating(false);
     }
@@ -218,7 +229,7 @@ export function AiDraftWizard({
       setDraft(result);
       if (!notesOverride) setRefinementNotes('');
     } catch (err) {
-      setGenError(err instanceof ApiError ? err.message : 'Could not apply that refinement — try again.');
+      setGenError(apiErrorMessage(err, 'Could not apply that refinement — try again.', AI_ERRORS));
     } finally {
       setRefining(false);
     }
@@ -245,10 +256,7 @@ export function AiDraftWizard({
           </div>
           <h3 className="mb-3.5 text-xl font-semibold tracking-[-0.02em] text-ink">{draft.title}</h3>
           {/* Safe — draft.body is already sanitized by the backend. */}
-          <div
-            className="prose-article text-sm leading-[1.7] text-ink-2 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:text-ink [&_u]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:rounded [&_code]:bg-bg-card [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_a]:text-accent [&_a]:underline"
-            dangerouslySetInnerHTML={{ __html: draft.body }}
-          />
+          <div className={AI_DRAFT_PROSE} dangerouslySetInnerHTML={{ __html: draft.body }} />
           {draft.sources && draft.sources.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line pt-3.5">
               <span className="text-[11px] font-semibold text-ink-4">SOURCES</span>
@@ -328,8 +336,8 @@ export function AiDraftWizard({
         {genError && <ErrorBanner message={genError} />}
 
         {!wordsOk && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-700">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn-line bg-warn-soft px-4 py-3">
+            <p className="text-sm text-warn">
               This draft is {draftWords} words. Articles need {MIN_ARTICLE_WORDS}–{MAX_ARTICLE_WORDS} words — the same
               rule as writing it yourself.
             </p>
@@ -337,7 +345,7 @@ export function AiDraftWizard({
               type="button"
               onClick={() => rephrase(lengthFixNote)}
               disabled={refining}
-              className="rounded-[9px] border-[1.5px] border-amber-300 bg-bg-card px-4 py-2 text-[13px] font-semibold text-amber-700 transition-colors hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-[9px] border-[1.5px] border-amber-300 bg-bg-card px-4 py-2 text-[13px] font-semibold text-warn transition-colors hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {refining
                 ? 'Working…'
@@ -349,7 +357,7 @@ export function AiDraftWizard({
         )}
 
         <div className="flex items-center justify-end gap-3">
-          <span className={`text-xs ${wordsOk ? 'text-ink-3' : 'text-amber-700'}`}>{draftWords} words</span>
+          <span className={`text-xs ${wordsOk ? 'text-ink-3' : 'text-warn'}`}>{draftWords} words</span>
           <WriteSubmitButton
             onClick={() => {
               if (!canContinue) {
@@ -396,13 +404,13 @@ export function AiDraftWizard({
                 >
                   {n}
                 </div>
-                <label
+                <span
                   className={`whitespace-nowrap text-[11px] font-semibold ${
                     dotState === 'upcoming' ? 'text-ink-4' : dotState === 'active' ? 'text-ink' : 'text-ink-2'
                   }`}
                 >
                   {STEP_LABELS[n]}
-                </label>
+                </span>
               </div>
             </Fragment>
           );

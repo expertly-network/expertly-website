@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui';
 
@@ -270,8 +272,15 @@ export function StellarOrbitHero({
                             {/* Isolated on its own element so the animation doesn't conflict with a static transform. */}
                             <div style={{ animation: `${counterSpin} 40s linear infinite` }}>
                               {photoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={photoUrl} alt="" className="rounded-full object-cover" style={avatarStyle} />
+                                <Image
+                                  src={photoUrl}
+                                  unoptimized={mustHotlink(photoUrl)}
+                                  alt=""
+                                  width={dim * 2}
+                                  height={dim * 2}
+                                  className="rounded-full object-cover"
+                                  style={avatarStyle}
+                                />
                               ) : (
                                 <div
                                   className="rounded-full"

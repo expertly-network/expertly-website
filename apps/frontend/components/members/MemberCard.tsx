@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useState } from 'react';
 import Link from 'next/link';
 import { Badge, Button } from '@/components/ui';
@@ -40,12 +42,13 @@ export function MemberCard({
         className="grid grid-cols-[156px_1fr] gap-7 rounded-2xl border border-line bg-bg-card p-6 transition-colors hover:border-line-2 max-[560px]:grid-cols-1"
       >
         {member.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            loading="lazy"
-            decoding="async"
+          <Image
             src={member.photoUrl}
+            unoptimized={mustHotlink(member.photoUrl)}
             alt={member.name}
+            width={312}
+            height={392}
+            sizes="(max-width: 560px) 100vw, 156px"
             className="h-[196px] w-[156px] rounded-xl border border-line object-cover object-top max-[560px]:h-[160px] max-[560px]:w-full"
           />
         ) : (

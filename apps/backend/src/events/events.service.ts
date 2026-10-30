@@ -4,6 +4,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { assertPublishReady } from './publish-requirements';
 import { EventsRepository, type EventInsert, type EventUpdate } from './events.repository';
+import { withUniqueSlugRetry } from '../common/slugify';
 import { eventsToCsv, parseEventsCsv } from './events-csv';
 import { toEventColumns, validateEventRow, type ValidatedEventRow } from './import-events';
 
@@ -36,27 +37,29 @@ export class EventsService {
     const status = dto.status ?? 'draft';
     if (status === 'published') assertPublishReady(dto as unknown as Record<string, unknown>);
 
-    const slug = await this.eventsRepository.findUniqueSlug(dto.title);
-
-    return this.eventsRepository.insert({
-      slug,
-      title: dto.title,
-      description: dto.description,
-      short_description: dto.shortDescription ?? null,
-      cover_image_url: dto.coverImageUrl ?? null,
-      start_date: dto.startDate,
-      end_date: dto.endDate ?? null,
-      timezone: dto.timezone ?? null,
-      event_type: dto.eventType ?? null,
-      event_format: dto.eventFormat ?? null,
-      country: dto.country ?? null,
-      city: dto.city ?? null,
-      venue_name: dto.venueName ?? null,
-      is_free: dto.isFree ?? false,
-      registration_url: dto.registrationUrl ?? null,
-      organiser_name: dto.organiserName ?? null,
-      status: dto.status ?? 'draft',
-    });
+    return withUniqueSlugRetry(
+      () => this.eventsRepository.findUniqueSlug(dto.title),
+      (slug) =>
+        this.eventsRepository.insert({
+          slug,
+          title: dto.title,
+          description: dto.description,
+          short_description: dto.shortDescription ?? null,
+          cover_image_url: dto.coverImageUrl ?? null,
+          start_date: dto.startDate,
+          end_date: dto.endDate ?? null,
+          timezone: dto.timezone ?? null,
+          event_type: dto.eventType ?? null,
+          event_format: dto.eventFormat ?? null,
+          country: dto.country ?? null,
+          city: dto.city ?? null,
+          venue_name: dto.venueName ?? null,
+          is_free: dto.isFree ?? false,
+          registration_url: dto.registrationUrl ?? null,
+          organiser_name: dto.organiserName ?? null,
+          status: dto.status ?? 'draft',
+        })
+    );
   }
 
   async update(id: string, dto: UpdateEventDto): Promise<EventDto> {
@@ -164,14 +167,15 @@ export class EventsService {
     const results: ImportEventsRowResultDto[] = [];
 
     if (toCreate.length > 0) {
-      const usedSlugs = new Set<string>();
-      const inserts: EventInsert[] = [];
-      for (const row of toCreate) {
-        const slug = await this.eventsRepository.findUniqueSlug(row.title, usedSlugs);
-        inserts.push({ ...toEventColumns(row), slug });
-      }
-
-      const created = await this.eventsRepository.bulkInsert(inserts);
+      // Slugs for every new row in one batched lookup; regenerated together if the insert loses a
+      // slug race to a concurrent create.
+      const created = await withUniqueSlugRetry(
+        () => this.eventsRepository.findUniqueSlugs(toCreate.map((row) => row.title)),
+        (slugs) =>
+          this.eventsRepository.bulkInsert(
+            toCreate.map((row, index): EventInsert => ({ ...toEventColumns(row), slug: slugs[index] }))
+          )
+      );
       created.forEach((event, index) => {
         results.push({ row: toCreate[index].rowNumber, action: 'created', id: event.id, title: event.title });
       });

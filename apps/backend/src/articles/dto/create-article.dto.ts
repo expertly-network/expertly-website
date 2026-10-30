@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsIn,
@@ -10,10 +11,14 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { ALL_COUNTRIES } from '../../ai/countries';
 import type { ArticleCreationMode, ArticleStatus } from '@shared/article';
 import { MAX_ARTICLE_BODY_LENGTH } from '../word-count';
 
 const ARTICLE_STATUSES: ArticleStatus[] = ['draft', 'published'];
+// Practice areas one article may be filed under (the AI tagger picks 1-3). Countries are capped at
+// the full country list — an article can legitimately apply to many (e.g. every EU state).
+export const MAX_ARTICLE_SERVICES = 20;
 const CREATION_MODES: ArticleCreationMode[] = ['manual', 'ai'];
 
 export class CreateArticleDto {
@@ -34,6 +39,7 @@ export class CreateArticleDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_ARTICLE_SERVICES)
   @IsUUID('4', { each: true })
   serviceIds!: string[];
 
@@ -44,11 +50,14 @@ export class CreateArticleDto {
   // Free-form country names, not ids.
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(ALL_COUNTRIES.length)
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
   countries!: string[];
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   state?: string;
 
   // 'published' means submit; the actual resulting status depends on the review mode.

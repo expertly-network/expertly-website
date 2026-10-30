@@ -108,10 +108,10 @@ export class SearchFeedbackResponse {
   @ApiProperty() ok!: boolean;
 }
 
-/** 429 body. */
+/** 429 body — the standard error shape (`ApiErrorResponse`) with `code: 'RATE_LIMITED'`. */
 export class SearchRateLimitError {
   @ApiProperty() statusCode!: number;
-  @ApiProperty() error!: string;
+  @ApiProperty({ example: 'RATE_LIMITED' }) code!: string;
   @ApiProperty() message!: string;
   @ApiProperty() retryAfterSeconds!: number;
 }

@@ -9,7 +9,7 @@ export function ArticlesHeroSearch() {
       scope="articles"
       placeholder="Transfer pricing insights for 2026"
       leading={<span aria-hidden="true" className="h-2 w-2 flex-none rounded-full bg-accent" />}
-      className="mt-8 max-w-xl rounded-input border border-line-2 bg-bg-card py-2 pl-4 pr-2 transition-colors focus-within:border-ink hover:border-line"
+      className="mt-8 max-w-xl rounded-input border border-line-2 bg-bg-card py-2 pl-4 pr-2 transition-colors focus-within:border-ink focus-within:ring-[3px] focus-within:ring-ink/[0.08] hover:border-line"
     />
   );
 }

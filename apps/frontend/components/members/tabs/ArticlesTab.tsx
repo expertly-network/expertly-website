@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getArticles } from '@/lib/api/articles';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { WriteArticleCtaButton } from '@/components/articles/WriteArticleCtaButton';
 import type { ArticleListItemDto } from '@shared/article';
 
@@ -19,7 +19,7 @@ export function ArticlesTab({ authorId, isOwnProfile }: { authorId: string; isOw
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : 'Failed to load articles.');
+          setError(apiErrorMessage(err, 'Failed to load articles.'));
         }
       });
     return () => {

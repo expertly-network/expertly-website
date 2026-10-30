@@ -41,7 +41,13 @@ export function ProfileClient({
         {/* w-full: stacked (flex-col + items-start) the column would otherwise size to the tab
             bar's natural width and overflow a 375px screen instead of letting the tabs scroll. */}
         <div className="w-full min-w-0 flex-1">
-          <ProfileTabs member={member} edits={edits} isOwnProfile={isOwnProfile} onEdit={setEditingSection} />
+          <ProfileTabs
+            member={member}
+            edits={edits}
+            isOwnProfile={isOwnProfile}
+            onEdit={setEditingSection}
+            onRequestConsultation={isOwnProfile ? undefined : () => setRequestModalOpen(true)}
+          />
         </div>
         <ProfileSidebar
           member={member}

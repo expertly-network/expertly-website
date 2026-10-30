@@ -36,4 +36,5 @@ exporting the DTOs for that resource's endpoints (e.g. `MemberDto`, `MemberListR
 `CreateMemberRequest`). Re-exported from `index.ts`.
 
 A backend session finalizing a new endpoint's contract (per `CLAUDE.md`'s backend/frontend split)
-adds the corresponding file here.
+adds the corresponding file here. `errors.ts` holds `ApiErrorResponse`, the one error body every
+endpoint returns (`apps/backend/src/common/http-exception.filter.ts`).

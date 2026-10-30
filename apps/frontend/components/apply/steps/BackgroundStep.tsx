@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
+import { FIELD_FOCUS, FIELD_FOCUS_ERROR } from '@/components/ui/field-styles';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
@@ -266,10 +267,13 @@ export function BackgroundStep({
 
             <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-ink-2">Start date</label>
-                <div className="flex gap-2">
+                <span id={`workExperiences.${i}.startLabel`} className="text-xs font-medium text-ink-2">
+                  Start date
+                </span>
+                <div role="group" aria-labelledby={`workExperiences.${i}.startLabel`} className="flex gap-2">
                   <select
-                    className="min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink outline-none"
+                    aria-label="Start month"
+                    className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink ${FIELD_FOCUS}`}
                     value={work.startMonth ?? ''}
                     onChange={(e) => updateWork(i, { startMonth: Number(e.target.value) || undefined })}
                   >
@@ -282,8 +286,12 @@ export function BackgroundStep({
                   </select>
                   <select
                     id={`workExperiences.${i}.startYear`}
-                    className={`min-w-0 flex-1 rounded-input border px-2 py-3 text-sm text-ink outline-none ${
-                      errors[`workExperiences.${i}.startYear`] ? 'border-error' : 'border-line'
+                    aria-label="Start year"
+                    aria-invalid={errors[`workExperiences.${i}.startYear`] ? true : undefined}
+                    className={`min-w-0 flex-1 rounded-input border px-2 py-3 text-sm text-ink ${
+                      errors[`workExperiences.${i}.startYear`]
+                        ? `border-error ${FIELD_FOCUS_ERROR}`
+                        : `border-line ${FIELD_FOCUS}`
                     }`}
                     value={work.startYear || ''}
                     onChange={(e) => updateWork(i, { startYear: Number(e.target.value) })}
@@ -299,11 +307,14 @@ export function BackgroundStep({
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-ink-2">End date</label>
-                <div className="flex gap-2">
+                <span id={`workExperiences.${i}.endLabel`} className="text-xs font-medium text-ink-2">
+                  End date
+                </span>
+                <div role="group" aria-labelledby={`workExperiences.${i}.endLabel`} className="flex gap-2">
                   <select
                     disabled={work.isCurrent}
-                    className="min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink outline-none disabled:opacity-40"
+                    aria-label="End month"
+                    className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
                     value={work.endMonth ?? ''}
                     onChange={(e) => updateWork(i, { endMonth: Number(e.target.value) || undefined })}
                   >
@@ -316,7 +327,8 @@ export function BackgroundStep({
                   </select>
                   <select
                     disabled={work.isCurrent}
-                    className="min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink outline-none disabled:opacity-40"
+                    aria-label="End year"
+                    className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
                     value={work.endYear ?? ''}
                     onChange={(e) => updateWork(i, { endYear: Number(e.target.value) || undefined })}
                   >
@@ -335,7 +347,7 @@ export function BackgroundStep({
               </span>
             )}
             {!dateErrors[i] && dateWarnings[i] && (
-              <span className="mt-2 block text-xs text-amber-700">{dateWarnings[i]}</span>
+              <span className="mt-2 block text-xs text-warn">{dateWarnings[i]}</span>
             )}
 
             <label className="mt-4 flex items-center gap-2 text-sm text-ink-2">

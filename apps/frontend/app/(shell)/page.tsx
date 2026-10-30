@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getMembersServer, getCategoriesServer, getArticlesServer, getEventsServer } from '@/lib/api/server';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { StellarOrbitHero } from '@/components/home/StellarOrbitHero';
@@ -88,10 +89,13 @@ const FAQ_CLIENTS = [
   },
 ];
 
-// Each section loads independently, so one failing service doesn't blank the whole page.
-async function loadHomeData() {
-  const [membersResult, categoriesResult, articlesResult, eventsResult] = await Promise.allSettled([
-    getMembersServer(
+// Each data-backed section is its own async Server Component inside a Suspense boundary, so the
+// page streams: the hero (which needs the featured members for its avatar orbit) renders first,
+// and the categories / articles / events sections fill in as each request returns. A failing
+// request hides only its own section, never the whole page.
+async function loadFeaturedMembers(): Promise<MemberListItemDto[]> {
+  try {
+    return await getMembersServer(
       buildMembersQueryString({
         sort: 'featured',
         serviceId: [],
@@ -100,22 +104,107 @@ async function loadHomeData() {
         // Covers the hero orbit's 17 avatar slots.
         pageSize: 20,
       })
-    ),
-    getCategoriesServer(),
-    getArticlesServer({ pageSize: 5 }),
-    getEventsServer(),
-  ]);
+    );
+  } catch {
+    return [];
+  }
+}
 
-  const members: MemberListItemDto[] = membersResult.status === 'fulfilled' ? membersResult.value : [];
-  const categories: CategoryDto[] = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
-  const articles: ArticleListItemDto[] = articlesResult.status === 'fulfilled' ? articlesResult.value.items : [];
-  const events: EventDto[] = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
+// Stand-in for a split (copy + panel) section while its data streams in.
+function SectionSkeleton({ dark = false }: { dark?: boolean }) {
+  return (
+    <section className={`border-b border-line py-24 ${dark ? 'bg-ink' : ''}`} aria-busy="true">
+      <PageContainer className="grid animate-pulse gap-12 lg:grid-cols-2 lg:items-center">
+        <div className="flex flex-col gap-4">
+          <div className={`h-3 w-28 rounded ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
+          <div className={`h-10 w-4/5 rounded-md ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
+          <div className={`h-4 w-full rounded-md ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
+          <div className={`h-4 w-2/3 rounded-md ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
+        </div>
+        <div className={`h-56 rounded-3xl ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
+      </PageContainer>
+    </section>
+  );
+}
 
-  return { members, categories, articles, events };
+async function CategoriesSection() {
+  let categories: CategoryDto[];
+  try {
+    categories = await getCategoriesServer();
+  } catch {
+    return null;
+  }
+  if (categories.length === 0) return null;
+  return (
+    <section className="border-b border-line py-24">
+      <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
+        <div>
+          <Eyebrow>Coverage</Eyebrow>
+          <h2 className="mt-4 text-section-title text-ink">
+            <span className="text-accent">Specialists</span> across every corner of finance &amp; law.
+          </h2>
+          <p className="mt-5 text-lede text-ink-3">
+            From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find a verified expert for the
+            exact matter in front of you, in the jurisdiction that counts, not a generalist who&apos;s close enough.
+          </p>
+          <Button href="/members" className="mt-7">
+            Explore all categories
+          </Button>
+        </div>
+        <div className="overflow-hidden rounded-3xl bg-bg-alt py-6">
+          <CategoriesMarquee categories={categories} />
+        </div>
+      </PageContainer>
+    </section>
+  );
+}
+
+async function LatestArticlesSection() {
+  let articles: ArticleListItemDto[];
+  try {
+    articles = (await getArticlesServer({ pageSize: 5 })).items;
+  } catch {
+    return null;
+  }
+  if (articles.length === 0) return null;
+  return (
+    <section className="border-b border-line py-24">
+      <PageContainer>
+        <div className="flex items-end justify-between">
+          <div>
+            <Eyebrow>Knowledge base</Eyebrow>
+            <h2 className="mt-4 text-section-title text-ink">
+              Latest <span className="text-accent">articles</span>
+            </h2>
+            <p className="mt-4 max-w-xl text-lede text-ink-3">
+              Thoughtful perspectives from people working through the same challenges, regulations, transactions, and
+              decisions you face every day.
+            </p>
+          </div>
+          <Button href="/articles" variant="secondary">
+            View all
+          </Button>
+        </div>
+        <div className="mt-8">
+          <LatestArticles articles={articles} />
+        </div>
+      </PageContainer>
+    </section>
+  );
+}
+
+async function EventsSection() {
+  let events: EventDto[];
+  try {
+    events = await getEventsServer();
+  } catch {
+    events = [];
+  }
+  return <EventsTeaser events={events} />;
 }
 
 export default async function HomePage() {
-  const [{ members, categories, articles, events }, user] = await Promise.all([loadHomeData(), getSessionUser()]);
+  const [members, user] = await Promise.all([loadFeaturedMembers(), getSessionUser()]);
   const showApply = canApplyForMembership(user);
 
   const heroAvatarUrls = members
@@ -155,29 +244,9 @@ export default async function HomePage() {
       )}
 
       {/* Categories — split layout, panel on the right */}
-      {categories.length > 0 && (
-        <section className="border-b border-line py-24">
-          <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
-            <div>
-              <Eyebrow>Coverage</Eyebrow>
-              <h2 className="mt-4 text-section-title text-ink">
-                <span className="text-accent">Specialists</span> across every corner of finance &amp; law.
-              </h2>
-              <p className="mt-5 text-lede text-ink-3">
-                From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find a verified expert for
-                the exact matter in front of you, in the jurisdiction that counts, not a generalist who&apos;s close
-                enough.
-              </p>
-              <Button href="/members" className="mt-7">
-                Explore all categories
-              </Button>
-            </div>
-            <div className="overflow-hidden rounded-3xl bg-bg-alt py-6">
-              <CategoriesMarquee categories={categories} />
-            </div>
-          </PageContainer>
-        </section>
-      )}
+      <Suspense fallback={<SectionSkeleton />}>
+        <CategoriesSection />
+      </Suspense>
 
       {/* Firms band */}
       {members.length > 0 && (
@@ -199,32 +268,13 @@ export default async function HomePage() {
       )}
 
       {/* Latest articles */}
-      {articles.length > 0 && (
-        <section className="border-b border-line py-24">
-          <PageContainer>
-            <div className="flex items-end justify-between">
-              <div>
-                <Eyebrow>Knowledge base</Eyebrow>
-                <h2 className="mt-4 text-section-title text-ink">
-                  Latest <span className="text-accent">articles</span>
-                </h2>
-                <p className="mt-4 max-w-xl text-lede text-ink-3">
-                  Thoughtful perspectives from people working through the same challenges, regulations, transactions,
-                  and decisions you face every day.
-                </p>
-              </div>
-              <Button href="/articles" variant="secondary">
-                View all
-              </Button>
-            </div>
-            <div className="mt-8">
-              <LatestArticles articles={articles} />
-            </div>
-          </PageContainer>
-        </section>
-      )}
+      <Suspense fallback={<SectionSkeleton />}>
+        <LatestArticlesSection />
+      </Suspense>
 
-      <EventsTeaser events={events} />
+      <Suspense fallback={<SectionSkeleton />}>
+        <EventsSection />
+      </Suspense>
 
       <Testimonials />
 

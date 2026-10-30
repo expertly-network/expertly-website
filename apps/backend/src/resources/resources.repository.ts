@@ -1,4 +1,4 @@
-import { generateUniqueSlug } from '../common/slugify';
+import { generateUniqueSlug, isSlugUniqueViolation, SlugTakenException } from '../common/slugify';
 import { Injectable, InternalServerErrorException, ConflictException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
@@ -9,8 +9,11 @@ export type TemplateRow = Database['public']['Tables']['templates']['Row'];
 // Public reads never select file_path: the private object path only exists server-side for
 // minting a signed download link, and in admin reads.
 export type TemplatePublicRow = Omit<TemplateRow, 'file_path'>;
-function check(error: { code?: string } | null) {
+function check(error: { code?: string; message?: string; details?: string } | null) {
   if (!error) return;
+  // A slug race on insert: SlugTakenException (same 409 body) so callers can regenerate and retry.
+  if (isSlugUniqueViolation(error))
+    throw new SlugTakenException('RESOURCE_SLUG_TAKEN', 'Resource slug already exists.');
   if (error.code === '23505')
     throw new ConflictException({ code: 'RESOURCE_SLUG_TAKEN', message: 'Resource slug already exists.' });
   if (['23514', '23502', '22P02', '23503'].includes(error.code || ''))
@@ -118,6 +121,22 @@ export class ResourcesRepository {
     check(error);
     return (data ?? []) as unknown as PerkRow[];
   }
+  // Single-row public reads: same rows the lists would yield, without loading the whole table.
+  async findActivePerkBySlug(slug: string): Promise<PerkRow | null> {
+    const { data, error } = await this.perks()
+      .select(PERK_COLUMNS)
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .maybeSingle();
+    check(error);
+    return data as unknown as PerkRow | null;
+  }
+  async findActivePerksByIds(ids: string[]): Promise<PerkRow[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.perks().select(PERK_COLUMNS).in('id', ids).eq('is_active', true);
+    check(error);
+    return (data ?? []) as unknown as PerkRow[];
+  }
   async createPerk(body: Database['public']['Tables']['perks']['Insert']): Promise<PerkRow | null> {
     const { data, error } = await this.perks().insert(body).select(PERK_COLUMNS).maybeSingle();
     check(error);
@@ -137,6 +156,21 @@ export class ResourcesRepository {
   }
   async listLearnings(): Promise<LearningRow[]> {
     const { data, error } = await this.learnings().select(LEARNING_COLUMNS).order('sort_order').order('id');
+    check(error);
+    return (data ?? []) as unknown as LearningRow[];
+  }
+  async findActiveLearningById(id: string): Promise<LearningRow | null> {
+    const { data, error } = await this.learnings()
+      .select(LEARNING_COLUMNS)
+      .eq('id', id)
+      .eq('is_active', true)
+      .maybeSingle();
+    check(error);
+    return data as unknown as LearningRow | null;
+  }
+  async findActiveLearningsByIds(ids: string[]): Promise<LearningRow[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.learnings().select(LEARNING_COLUMNS).in('id', ids).eq('is_active', true);
     check(error);
     return (data ?? []) as unknown as LearningRow[];
   }
@@ -164,6 +198,24 @@ export class ResourcesRepository {
     const { data, error } = await this.collections().select(COLLECTION_COLUMNS).order('sort_order').order('id');
     check(error);
     return (data ?? []) as unknown as CollectionRow[];
+  }
+  async findActiveCollectionById(id: string): Promise<CollectionRow | null> {
+    const { data, error } = await this.collections()
+      .select(COLLECTION_COLUMNS)
+      .eq('id', id)
+      .eq('is_active', true)
+      .maybeSingle();
+    check(error);
+    return data as unknown as CollectionRow | null;
+  }
+  // Only what decides which learnings are free (the first item of each active playlist).
+  async listActivePlaylistItemIds(): Promise<Pick<CollectionRow, 'kind' | 'is_active' | 'item_ids'>[]> {
+    const { data, error } = await this.collections()
+      .select('kind,is_active,item_ids')
+      .eq('kind', 'learning_playlist')
+      .eq('is_active', true);
+    check(error);
+    return (data ?? []) as unknown as Pick<CollectionRow, 'kind' | 'is_active' | 'item_ids'>[];
   }
   async createCollection(body: Database['public']['Tables']['collections']['Insert']): Promise<CollectionRow | null> {
     const { data, error } = await this.collections().insert(body).select(COLLECTION_COLUMNS).maybeSingle();
@@ -202,6 +254,21 @@ export class ResourcesRepository {
       .eq('is_active', true)
       .order('sort_order')
       .order('id');
+    check(error);
+    return (data ?? []) as unknown as TemplatePublicRow[];
+  }
+  async findActiveTemplateById(id: string): Promise<TemplatePublicRow | null> {
+    const { data, error } = await this.templates()
+      .select(TEMPLATE_PUBLIC_COLUMNS)
+      .eq('id', id)
+      .eq('is_active', true)
+      .maybeSingle();
+    check(error);
+    return data as unknown as TemplatePublicRow | null;
+  }
+  async findActiveTemplatesByIds(ids: string[]): Promise<TemplatePublicRow[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.templates().select(TEMPLATE_PUBLIC_COLUMNS).in('id', ids).eq('is_active', true);
     check(error);
     return (data ?? []) as unknown as TemplatePublicRow[];
   }

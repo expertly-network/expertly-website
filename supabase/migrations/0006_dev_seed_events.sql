@@ -2,7 +2,7 @@
 -- DEV-ONLY SEED DATA — 34 events (published), for locally testing GET /v1/events and the
 -- homepage's Upcoming Events section against real data.
 --
--- Same status as 01_members.sql: not part of the pre-production single-schema
+-- Same status as 0005_dev_seed_members.sql: not part of the pre-production single-schema
 -- convention (supabase/migrations/README.md) — a deliberate one-off exception, apply/tear
 -- down manually, never against production.
 --
@@ -10,7 +10,7 @@
 -- window.EXPERTLY_EVENTS (the design prototype's own seed data) — dates are the same
 -- month/day, mapped onto 2026 (this app's "today"), not invented.
 --
--- Apply: `psql "$DATABASE_URL" -f supabase/seed/dev/02_events.sql`
+-- Apply: `psql "$DATABASE_URL" -f supabase/migrations/0006_dev_seed_events.sql`
 -- Idempotent: re-running is safe — `on conflict (slug) do nothing`.
 -- ============================================================================
 

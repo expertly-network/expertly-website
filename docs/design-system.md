@@ -54,6 +54,12 @@ the fold, even on a page with little content.
   `text-profile-label`) use Geist too, at normal letter spacing. They were Archivo with wide
   (0.08–0.14em) tracking until Oct 2026; that letter-spaced label style was removed site-wide
   at the client's request. Don't reintroduce positive `tracking-[…em]` on labels.
+- **Cormorant Garamond** (brand serif, H1/H2 marketing headlines — see "Editorial brand refresh"
+  below) — self-hosted via `next/font/local` in `app/layout.tsx` as one variable (wght 300–700)
+  **woff2**, `public/fonts/brand/CormorantGaramond.woff2`, subset to Latin + Latin-1 + general
+  punctuation, ₹, €, ™ (64KB vs the 1.2MB TTF), exposed as `--font-brand-serif`. If a headline
+  needs a glyph outside that subset, re-subset the font rather than adding a font-provider request
+  (the CSP's `font-src` is `'self' data:` only). The profile PDF embeds its own static TTF.
 - Base body: 16px / line-height 1.5 / letter-spacing -0.005em (set once on `body` in
   `globals.css`; don't override per-component unless intentionally using a different scale token).
 
@@ -76,6 +82,14 @@ the fold, even on a page with little content.
 | `ok` | `#0E9E6E` | Success / verified state |
 | `error` | `#DC2626` | Error / destructive state — form validation messages, delete confirmations, required-field indicators, admin reject actions. 4.83:1 on `bg`, passes AA. This was missing until now; the design repo's prototype hardcoded two different reds (`#e53935` and `#dc2626`) for the same meaning across different pages — `#dc2626` is the one carried forward since it's the one that actually passes contrast. |
 | `nav-green` | `#0B3A2D` | The **footer**'s background (`theme.css`'s `.footer--minimal { background: var(--nav-green) }`) — confirmed directly, this one's genuinely correct. It is *not* the sidebar's color though: `design/static_html`'s `.d1-sidebar` (used app-wide) is `bg-ink`, a distinct near-black — an earlier pass here wrongly generalized "nav-green isn't used anywhere real" from that sidebar finding to the footer too. See `Sidebar`/`Footer` below. |
+
+**Tokens defined directly in `tailwind.config.ts`** (not CSS variables — fixed values):
+
+| Token | Value | Use for |
+|---|---|---|
+| `warn` / `warn-soft` / `warn-line` | `#b45309` / `#fffbeb` / `#fde68a` (amber-700/50/200) | Warning and pending-review state — date-overlap warnings, "pending verification" chips, the `Badge` `warning` variant (`text-warn bg-warn-soft border-warn-line`). Use these, not raw `amber-*`. |
+| `shadow-panel` | `0 2px 12px rgba(0,0,0,0.06)` | Soft elevation for the member profile's header card, tab bar and tab panel |
+| `bg-ink-sheen` | `linear-gradient(135deg, var(--ink), #1a1a1c)` | The write flow's dark submit button (`WriteSubmitButton`) |
 
 The design repo has two more full palettes (`navy`/`sage`, a `data-theme` switcher in the
 prototype) — **not ported**, out of scope. If theming becomes a real requirement, they're a
@@ -190,12 +204,29 @@ form, and the application wizard before this existed).
 | `Select` | A labeled `<select>` | Same label pattern as `Input`; pass `<option>`s as children. |
 | `Textarea` | A labeled multi-line field | Same label pattern, plus an optional `hint` line below it. |
 | `Card` | A bordered surface/panel | `rounded-card border border-line bg-bg-card`; `padding="lg"` (default, collapses on mobile — also the homepage testimonial cards' size, measured at design's own 36px, close enough to `lg`'s 40px to reuse rather than add a 5th variant), `"md"`, `"xl"` (56px — design's `.dual-card`, a genuinely bigger card like the homepage's two-way-in split cards), or `"sm"` (20px — design's `.mp-sidebar-card`, for cards in a narrow ~288px column such as the member profile sidebar, where `lg`'s 40px leaves too little content width). Real variants, not one-off className padding overrides, which fight the existing padding utility at unpredictable specificity. |
-| `Badge` | A pill/chip/tag | `variant`: `neutral` (bg-bg-alt), `emphasis` (bg-ink), `brand` (accent-tinted) — the same three chip treatments documented above — plus `success` (`ok`-tinted), `danger` (`error`-tinted), `warning` (amber-50/amber-700, same pair as the pending-verification chip below), `info` (sky-50/sky-700) for status-style indicators (e.g. an application's `approved`/`rejected`/`draft`/`submitted` state) that need a distinct hue per state rather than one flat neutral chip. `surface` (white bg-bg-card + hairline shadow) is for chips sitting on a tinted background — e.g. the accent-tinted first row in `EventRow` — where `neutral`/`brand` fills disappear. |
+| `Badge` | A pill/chip/tag | `variant`: `neutral` (bg-bg-alt), `emphasis` (bg-ink), `brand` (accent-tinted) — the same three chip treatments documented above — plus `success` (`ok`-tinted), `danger` (`error`-tinted), `warning` (`warn-soft`/`warn` tokens, same pair as the pending-verification chip), `info` (sky-50/sky-700) for status-style indicators (e.g. an application's `approved`/`rejected`/`draft`/`submitted` state) that need a distinct hue per state rather than one flat neutral chip. `surface` (white bg-bg-card + hairline shadow) is for chips sitting on a tinted background — e.g. the accent-tinted first row in `EventRow` — where `neutral`/`brand` fills disappear. |
 | `FilterPopover` | Multi/single-select filter control with optional in-list search (directory filters) | `components/ui/FilterPopover.tsx` — native `<select>` (see `Select`) can't do multi-select or in-list search |
 | `Eyebrow` | Small-caps label above a section heading | `components/ui/Eyebrow.tsx` — renders the 22×2px accent dash before the label that `design/static_html`'s `.eyebrow::before` has on every section eyebrow (previously missing app-wide — plain text was used instead). `dark` prop dims the label text to `white/55` for dark-surface sections (e.g. Firms Band) — the dash itself always stays accent-colored either way, matching the source. |
 | `Modal` | Centered dialog overlay (e.g. the member self-edit forms) | `components/ui/Modal.tsx` — closes on Escape/backdrop click, locks body scroll while open |
 | `Sidebar` | The app-wide left nav (desktop, ≥1024px) | `components/layout/Sidebar.tsx` — `bg-ink`, collapsed to a 56px icon rail by default, hover-expands to 248px as a floating overlay (`box-shadow`, doesn't push page content — matches `design/static_html`'s `.d1-sidebar`/`.d1-shell.revealed`, reimplemented as pure CSS `group`/`group-hover:` instead of the source's JS listener). `AppShell`'s content offset (`pl-14`) matches the *collapsed* width, not the hover-expanded one. `SidebarNav`/`SidebarFooter` take a `variant: 'rail' \| 'full'` prop — `'full'` (always-expanded, no hover) is what `MobileDrawer` reuses below 1024px. |
 | `PageContainer` | Page content width — wraps every section's inner content | `components/layout/PageContainer.tsx` — `mx-auto max-w-[1520px] px-8 max-[720px]:px-5`, matching `design/static_html`'s `.container-wide` exactly. **The single source of truth for content width** — every page had drifted to a different hand-rolled `max-w-[Npx]` (1150/1200/1360/1520) before this existed, which is what made the article detail page visibly narrower than the rest of the site. Always use this instead of writing `mx-auto max-w-[...] px-...` again; pass extra layout classes (`grid`, `gap-*`, etc.) via `className`. Deliberately narrow single-column reading content (the guest article excerpt preview, the post-application confirmation screen) is a different, intentional design decision, not this component. |
+
+**Shared class/utility modules** (not components, but the same "one place" rule):
+
+| Module | Use for |
+|---|---|
+| `components/ui/field-styles.ts` | `FIELD_FOCUS` / `FIELD_FOCUS_ERROR` / `FIELD_FOCUS_WITHIN` — the focus ring `Input`/`Select`/`Textarea` use, for the few native controls that can't be one of those (split month/year selects, a country-code select fused to a phone input, a bare search input). Never hand-roll a focus style. |
+| `lib/articles/prose.ts` | Typography for sanitized article HTML: `ARTICLE_PROSE` (published page + full-page preview), `AI_DRAFT_PROSE`, `AI_GENERATION_PROSE`, `EDITOR_PROSE` (Tiptap). Every article renderer uses one of these, so the page and its previews can't drift. Tailwind scans this file — keep class names complete literals, never built dynamically. |
+| `lib/images.ts` | `mustHotlink(src)`. **Every `next/image` whose `src` comes from data** (member photos — OAuth avatars, seed URLs — article covers, resource images) **must pass `unoptimized={mustHotlink(src)}`**: next/image only proxies hosts in `next.config.js` `images.remotePatterns` (Supabase Storage public objects, the testimonial placeholders) and throws at render time for any other host. Unsplash is deliberately hotlinked (its API guidelines require it). |
+| `lib/errors/api-error-message.ts` | `apiErrorMessage(err, fallback, byCode)` — the user-facing message for a failed API call. **UI branches on `error.code`** (stable, `docs/rest-api.md` "Errors"), never on status or message text: per-call `byCode` copy first, then shared copy for session/suspension/deactivation/rate-limit codes, then the backend's own 4xx message; a 5xx always shows `fallback` (5xx messages are generic by contract). |
+
+**Content-Security-Policy:** `apps/frontend/middleware.ts` sets a per-request **nonce-based CSP**
+(`script-src 'self' 'nonce-…' 'strict-dynamic'`, plus `connect-src` pinned to the API and Supabase
+origins, `frame-src` to `youtube-nocookie.com`, `font-src 'self' data:`, `form-action` to self +
+Supabase; `img-src` allows any `https:`). Inline `<script>`s must carry the nonce (read from the
+`x-nonce` header, as `app/layout.tsx` does). **Adding any third-party host the browser talks to** —
+a script, analytics, an embed/iframe, a font provider, a fetch/WebSocket target — **requires
+updating the matching directive in `middleware.ts`** in the same change, or it's silently blocked.
 
 **The rule, same as for tokens:** if a page needs a button/card/badge/field, use these — don't
 write the Tailwind classes inline again. If the shape you need doesn't fit any variant here,

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService } from '../auth/supabase.service';
 import type { ArticleSource, DocType, EventSource, MemberSource, SearchCard } from './card.types';
@@ -11,6 +11,11 @@ import type {
   Plan,
   SearchResult,
 } from './search.types';
+
+// A failed search-table read/write (500 SEARCH_DB_ERROR).
+function searchDbError(message: string): InternalServerErrorException {
+  return new InternalServerErrorException({ code: 'SEARCH_DB_ERROR', message });
+}
 
 export interface PendingEmbeddingRow {
   id: number;
@@ -95,11 +100,10 @@ interface MemberServiceRow {
 }
 
 /**
- * All Supabase access for search. The search_* tables/functions are not in the generated
- * database.types.ts yet, so everything goes through one untyped client accessor and the
- * hand-written row interfaces above.
- * TODO(types): after the schema is folded in and `pnpm gen:types` is re-run, switch to the typed
- * client and drop the casts in `client()`.
+ * All Supabase access for search. The search_* tables/functions are in database.types.ts, but
+ * this class still goes through one untyped client accessor and the hand-written row interfaces
+ * above: rpc() and readRows() take the function/table name as a runtime string, and Plan/Applied
+ * aren't `Json`-typed. TODO(types): give rpc() a `keyof Functions` signature and drop `client()`.
  */
 @Injectable()
 export class SearchRepository {
@@ -113,10 +117,11 @@ export class SearchRepository {
     return this.client().from('search_documents');
   }
 
-  // Raw Errors on purpose: DB detail feeds search_outbox.last_error; HttpExceptionFilter makes them a 500.
+  // The message keeps the DB detail on purpose: it feeds search_outbox.last_error and the logs.
+  // HttpExceptionFilter never returns a 5xx message to the client.
   private async rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
     const { data, error } = await this.client().rpc(fn, args);
-    if (error) throw new Error(`${fn} failed: ${error.message}`);
+    if (error) throw searchDbError(`${fn} failed: ${error.message}`);
     return data as T;
   }
 
@@ -158,10 +163,10 @@ export class SearchRepository {
         .select('service_id, custom_label, services!inner(name, categories!inner(name))')
         .eq('member_id', profileId),
     ]);
-    if (profileRes.error) throw new Error(`member_profiles read failed: ${profileRes.error.message}`);
+    if (profileRes.error) throw searchDbError(`member_profiles read failed: ${profileRes.error.message}`);
     if (!profileRes.data) return null;
-    if (personRes.error) throw new Error(`profiles read failed: ${personRes.error.message}`);
-    if (linksRes.error) throw new Error(`member_services read failed: ${linksRes.error.message}`);
+    if (personRes.error) throw searchDbError(`profiles read failed: ${personRes.error.message}`);
+    if (linksRes.error) throw searchDbError(`member_services read failed: ${linksRes.error.message}`);
     const profile = profileRes.data;
     const person = personRes.data;
     const links = linksRes.data;
@@ -188,7 +193,7 @@ export class SearchRepository {
       .select(ARTICLE_COLUMNS.join(', '))
       .eq('id', id)
       .maybeSingle();
-    if (error) throw new Error(`articles read failed: ${error.message}`);
+    if (error) throw searchDbError(`articles read failed: ${error.message}`);
     if (!data) return null;
     const article = data as unknown as ArticleSource['article'] & { author_id: string };
 
@@ -199,8 +204,8 @@ export class SearchRepository {
         ? this.client().from('services').select('name').in('id', article.service_ids)
         : Promise.resolve({ data: [] as { name: string }[], error: null }),
     ]);
-    if (authorRes.error) throw new Error(`profiles read failed: ${authorRes.error.message}`);
-    if (servicesRes.error) throw new Error(`services read failed: ${servicesRes.error.message}`);
+    if (authorRes.error) throw searchDbError(`profiles read failed: ${authorRes.error.message}`);
+    if (servicesRes.error) throw searchDbError(`services read failed: ${servicesRes.error.message}`);
     const author = authorRes.data;
     const serviceNames = ((servicesRes.data ?? []) as { name: string }[]).map((s) => s.name);
     return { article, author: (author as ArticleSource['author']) ?? null, serviceNames };
@@ -212,7 +217,7 @@ export class SearchRepository {
       .select(EVENT_COLUMNS.join(', '))
       .eq('id', id)
       .maybeSingle();
-    if (error) throw new Error(`events read failed: ${error.message}`);
+    if (error) throw searchDbError(`events read failed: ${error.message}`);
     return (data as unknown as EventSource) ?? null;
   }
 
@@ -242,12 +247,12 @@ export class SearchRepository {
       },
       { onConflict: 'doc_type,source_id,chunk_index' }
     );
-    if (error) throw new Error(`search_documents upsert failed: ${error.message}`);
+    if (error) throw searchDbError(`search_documents upsert failed: ${error.message}`);
   }
 
   async deleteDocument(docType: DocType, sourceId: string): Promise<void> {
     const { error } = await this.documents().delete().eq('doc_type', docType).eq('source_id', sourceId);
-    if (error) throw new Error(`search_documents delete failed: ${error.message}`);
+    if (error) throw searchDbError(`search_documents delete failed: ${error.message}`);
   }
 
   // ---- outbox -------------------------------------------------------------------------
@@ -388,14 +393,14 @@ export class SearchRepository {
 
   private async readRows<T>(table: string, columns: string, idColumn: string, ids: string[]): Promise<T[]> {
     const { data, error } = await this.client().from(table).select(columns).in(idColumn, ids);
-    if (error) throw new Error(`${table} read failed: ${error.message}`);
+    if (error) throw searchDbError(`${table} read failed: ${error.message}`);
     return (data ?? []) as unknown as T[];
   }
 
   /** Card text for the judge, keyed `${doc_type}:${source_id}`. */
   async cardContents(sourceIds: string[]): Promise<Map<string, string>> {
     const { data, error } = await this.documents().select('doc_type, source_id, content').in('source_id', sourceIds);
-    if (error) throw new Error(`search_documents read failed: ${error.message}`);
+    if (error) throw searchDbError(`search_documents read failed: ${error.message}`);
     const cards = new Map<string, string>();
     for (const c of (data ?? []) as { doc_type: string; source_id: string; content: string }[]) {
       cards.set(`${c.doc_type}:${c.source_id}`, c.content);
@@ -412,7 +417,7 @@ export class SearchRepository {
       .delete()
       .lt('processed_at', before.toISOString())
       .select('id');
-    if (error) throw new Error(`search_outbox cleanup failed: ${error.message}`);
+    if (error) throw searchDbError(`search_outbox cleanup failed: ${error.message}`);
     return (data ?? []).length;
   }
 
@@ -423,7 +428,7 @@ export class SearchRepository {
       .delete()
       .lt('created_at', before.toISOString())
       .select('id');
-    if (error) throw new Error(`search_query_log cleanup failed: ${error.message}`);
+    if (error) throw searchDbError(`search_query_log cleanup failed: ${error.message}`);
     return (data ?? []).length;
   }
 
@@ -455,7 +460,7 @@ export class SearchRepository {
       })
       .select('id')
       .single();
-    if (error) throw new Error(`search_query_log insert failed: ${error.message}`);
+    if (error) throw searchDbError(`search_query_log insert failed: ${error.message}`);
     return (data as { id: string } | null)?.id ?? null;
   }
 

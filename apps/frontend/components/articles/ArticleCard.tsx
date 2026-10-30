@@ -1,7 +1,9 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui';
 import { formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
+import { mustHotlink } from '@/lib/images';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -19,14 +21,16 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
       href={`/articles/${article.slug}`}
       className="flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        loading="lazy"
-        decoding="async"
-        src={article.coverImageUrl}
-        alt=""
-        className="h-[180px] w-full object-cover"
-      />
+      <div className="relative h-[180px] w-full bg-bg-alt">
+        <Image
+          src={article.coverImageUrl}
+          unoptimized={mustHotlink(article.coverImageUrl)}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          className="object-cover"
+        />
+      </div>
 
       <div className="flex flex-1 flex-col p-5">
         {/* Service on its own line so a long name never wraps the badge onto two lines;
@@ -64,12 +68,11 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
 
         <div className="mt-auto flex items-center gap-2.5 pt-5">
           {article.authorPhotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              loading="lazy"
-              decoding="async"
+            <Image
               src={article.authorPhotoUrl}
               alt=""
+              width={32}
+              height={32}
               className="h-8 w-8 flex-none rounded-full object-cover"
             />
           ) : (

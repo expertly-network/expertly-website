@@ -4,6 +4,7 @@ import { Badge, Card } from '@/components/ui';
 import { AiGenerationStatusBadge } from '@/components/admin/AiGenerationStatusBadge';
 import type { AdminAiGenerationDetailDto, ArticleStatus } from '@shared/article';
 import { ExternalLink } from '@/components/shared/ExternalLink';
+import { AI_GENERATION_PROSE } from '@/lib/articles/prose';
 
 const DATETIME_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -22,8 +23,7 @@ const ARTICLE_STATUS_LABEL: Record<ArticleStatus, string> = {
 
 // Same compact prose styling as the wizard's own "AI DRAFT" preview (AiDraftWizard), plus
 // tables — the member can ask the AI to include one ("include a table if relevant").
-const DRAFT_BODY_CLASSES =
-  'prose-article text-sm leading-[1.7] text-ink-2 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-ink [&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:font-semibold [&_h3]:text-ink [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:text-ink [&_u]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:rounded [&_code]:bg-bg-alt [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_a]:text-accent [&_a]:underline [&_table]:my-4 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_th]:border [&_th]:border-line [&_th]:bg-bg-alt [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-ink [&_td]:border [&_td]:border-line [&_td]:px-3 [&_td]:py-2';
+const DRAFT_BODY_CLASSES = AI_GENERATION_PROSE;
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (

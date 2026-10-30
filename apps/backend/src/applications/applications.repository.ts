@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
-import { generateUniqueSlug } from '../common/slugify';
+import { generateUniqueSlug, isSlugUniqueViolation, SlugTakenException } from '../common/slugify';
 import type { Database } from '../supabase/database.types';
 import type {
   AdminApplicationListItemDto,
@@ -287,6 +287,9 @@ export class ApplicationsRepository {
 
   async insertMemberProfile(row: MemberProfileInsert): Promise<void> {
     const { error } = await this.memberProfiles().insert(row);
+    // A slug race on insert: SlugTakenException so the approval regenerates and retries.
+    if (isSlugUniqueViolation(error))
+      throw new SlugTakenException('MEMBER_SLUG_TAKEN', 'Member profile slug already exists.');
     if (error) throw new InternalServerErrorException('Failed to provision member profile.');
   }
 

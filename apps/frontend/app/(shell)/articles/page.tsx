@@ -11,18 +11,24 @@ export const metadata = {
   description: 'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
 };
 
+function canWriteArticles(role: string | undefined): boolean {
+  return role === 'member' || role === 'admin';
+}
+
 export default async function ArticlesPage(props: { searchParams: Promise<{ tab?: string; saved?: string }> }) {
   const searchParams = await props.searchParams;
-  const [firstPage, categories, profile] = await Promise.all([
-    getArticlesServer({ page: 1, pageSize: ARTICLES_PAGE_SIZE }),
-    getCategoriesServer(),
-    getSessionUser(),
-  ]);
   // Only a vetted member (or admin) can author an article — matches
   // @Roles('member') on POST /v1/articles; a signed-out visitor or a `client`
   // who hasn't been approved yet never sees the entry point (or the My Articles tab).
-  const canWrite = profile?.role === 'member' || profile?.role === 'admin';
-  const myArticles = canWrite ? await getMyArticlesServer() : [];
+  // "My articles" is chained off the session, so all four requests run concurrently.
+  const profilePromise = getSessionUser();
+  const [firstPage, categories, profile, myArticles] = await Promise.all([
+    getArticlesServer({ page: 1, pageSize: ARTICLES_PAGE_SIZE }),
+    getCategoriesServer(),
+    profilePromise,
+    profilePromise.then((p) => (canWriteArticles(p?.role) ? getMyArticlesServer() : [])),
+  ]);
+  const canWrite = canWriteArticles(profile?.role);
 
   return (
     <div>

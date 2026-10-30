@@ -1,7 +1,9 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, Button, Card } from '@/components/ui';
 import { SignInButton } from '@/components/auth/SignInLink';
 import type { ArticleListItemDto } from '@shared/article';
+import { mustHotlink } from '@/lib/images';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -14,8 +16,15 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
   return (
     <div>
       <div className="relative h-[320px] w-full overflow-hidden max-[640px]:h-[220px]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={article.coverImageUrl} alt="" className="h-full w-full object-cover" />
+        <Image
+          src={article.coverImageUrl}
+          unoptimized={mustHotlink(article.coverImageUrl)}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 mx-auto flex max-w-[1150px] items-center gap-3 px-8 pb-6 max-[640px]:px-5">
           <Link href="/articles" className="text-sm font-medium text-white/80 hover:text-white">

@@ -4,6 +4,7 @@ import type { MemberDto } from '@shared/member';
 import { displayHost, externalHref, formatMonthYear, formatRate } from '@/lib/members/format';
 import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
 import { toTextBlocks } from '@/lib/text/text-blocks';
+import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
 
 // The downloadable member profile — a single-column, read-top-to-bottom document rather than
 // the web page's tabbed layout. Rendered by @react-pdf/renderer, which draws to PDF primitives
@@ -441,6 +442,8 @@ export function MemberProfilePdf({
             <View style={s.summaryDivider} />
             <View style={s.summaryCol}>
               <Text style={s.label}>Contact</Text>
+              {/* Same notice as the Contact tab when the API withheld the direct contact fields. */}
+              {!isContactVisible(member) && <Text style={s.notes}>{CONTACT_HIDDEN_MESSAGE}</Text>}
               {member.contactEmail && (
                 <ContactLine label="Email" value={member.contactEmail} href={`mailto:${member.contactEmail}`} />
               )}

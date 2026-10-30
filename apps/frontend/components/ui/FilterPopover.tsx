@@ -25,6 +25,7 @@ export function FilterPopover({
   fullWidth = false,
   prefix,
   clearable = true,
+  labelledBy,
 }: {
   label: string;
   options: FilterPopoverOption[];
@@ -43,6 +44,8 @@ export function FilterPopover({
    * filter" fill — so they don't read as a removable filter.
    */
   clearable?: boolean;
+  /** Id of a visible field label (MultiSelect's) — announced before the trigger's own text. */
+  labelledBy?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -52,6 +55,7 @@ export function FilterPopover({
   const searchRef = useRef<HTMLInputElement>(null);
   const optionRefs = useRef<(HTMLLabelElement | null)[]>([]);
   const listId = useId();
+  const triggerId = useId();
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -197,7 +201,9 @@ export function FilterPopover({
       >
         <button
           ref={triggerRef}
+          id={triggerId}
           type="button"
+          aria-labelledby={labelledBy ? `${labelledBy} ${triggerId}` : undefined}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={open ? listId : undefined}

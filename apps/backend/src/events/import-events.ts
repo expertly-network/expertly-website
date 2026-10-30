@@ -1,4 +1,12 @@
-import { isURL } from 'class-validator';
+import { isISO8601, isTimeZone, isURL } from 'class-validator';
+import {
+  EVENT_DESCRIPTION_MAX,
+  EVENT_LABEL_MAX,
+  EVENT_SHORT_DESCRIPTION_MAX,
+  EVENT_TITLE_MAX,
+  EVENT_URL_MAX,
+  EVENT_URL_OPTIONS,
+} from './dto/create-event.dto';
 import type { EventFormat, EventStatus } from '@shared/event';
 import { missingPublishFields } from './publish-requirements';
 import type { ParsedEventCsvRow } from './events-csv';
@@ -57,10 +65,12 @@ export function validateEventRow(row: ParsedEventCsvRow): { row: ValidatedEventR
   if (!startDate) errors.push(`${prefix} Start date is required.`);
 
   const coverImageUrl = nullableCell(row.cells, 'coverImageUrl');
-  if (coverImageUrl && !isURL(coverImageUrl)) errors.push(`${prefix} Cover image URL is not a valid URL.`);
+  if (coverImageUrl && !isURL(coverImageUrl, EVENT_URL_OPTIONS))
+    errors.push(`${prefix} Cover image URL is not a valid URL.`);
 
   const registrationUrl = nullableCell(row.cells, 'registrationUrl');
-  if (registrationUrl && !isURL(registrationUrl)) errors.push(`${prefix} Registration URL is not a valid URL.`);
+  if (registrationUrl && !isURL(registrationUrl, EVENT_URL_OPTIONS))
+    errors.push(`${prefix} Registration URL is not a valid URL.`);
 
   const eventFormatRaw = nullableCell(row.cells, 'eventFormat');
   if (eventFormatRaw && !EVENT_FORMATS.includes(eventFormatRaw as EventFormat)) {
@@ -95,6 +105,28 @@ export function validateEventRow(row: ParsedEventCsvRow): { row: ValidatedEventR
     organiserName: nullableCell(row.cells, 'organiserName'),
     status,
   };
+
+  // Same bounds/format rules as Create/UpdateEventDto (a CSV row never goes through the DTO).
+  if (startDate && !isISO8601(startDate)) errors.push(`${prefix} Start date must be an ISO 8601 date.`);
+  if (fields.endDate && !isISO8601(fields.endDate)) errors.push(`${prefix} End date must be an ISO 8601 date.`);
+  if (fields.timezone && !isTimeZone(fields.timezone)) {
+    errors.push(`${prefix} Timezone must be an IANA time zone (e.g. Europe/London).`);
+  }
+  const maxLengths: [string, string | null, number][] = [
+    ['Title', title, EVENT_TITLE_MAX],
+    ['Description', description, EVENT_DESCRIPTION_MAX],
+    ['Short description', fields.shortDescription, EVENT_SHORT_DESCRIPTION_MAX],
+    ['Cover image URL', coverImageUrl, EVENT_URL_MAX],
+    ['Registration URL', registrationUrl, EVENT_URL_MAX],
+    ['Event type', fields.eventType, 100],
+    ['Country', fields.country, 100],
+    ['City', fields.city, 100],
+    ['Venue name', fields.venueName, EVENT_LABEL_MAX],
+    ['Organiser name', fields.organiserName, EVENT_LABEL_MAX],
+  ];
+  for (const [label, value, max] of maxLengths) {
+    if (value && value.length > max) errors.push(`${prefix} ${label} must be at most ${max} characters.`);
+  }
 
   if (status === 'published') {
     errors.push(...missingPublishFields({ title, ...fields }).map((message) => `${prefix} ${message}`));

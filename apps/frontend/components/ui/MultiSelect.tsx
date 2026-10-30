@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { FilterPopover, type FilterPopoverOption } from '@/components/ui/FilterPopover';
 
 // Built on top of FilterPopover rather than a second dropdown implementation.
@@ -26,6 +26,7 @@ export function MultiSelect({
   markRequired?: boolean;
 }) {
   const [customValue, setCustomValue] = useState('');
+  const labelId = useId();
 
   function addCustom() {
     const value = customValue.trim();
@@ -44,7 +45,8 @@ export function MultiSelect({
 
   return (
     <div className="flex flex-col">
-      <label className="mb-2 block text-[13px] font-semibold text-ink">
+      {/* A span, not a <label>: the control is a popover trigger button, tied via aria-labelledby. */}
+      <span id={labelId} className="mb-2 block text-[13px] font-semibold text-ink">
         {label}
         {markRequired && (
           <span aria-hidden="true" className="text-error">
@@ -52,8 +54,9 @@ export function MultiSelect({
             *
           </span>
         )}
-      </label>
+      </span>
       <FilterPopover
+        labelledBy={labelId}
         label={placeholder ?? label}
         options={options}
         selected={selected}
@@ -72,6 +75,7 @@ export function MultiSelect({
                   }
                 }}
                 placeholder="Type your own, press Enter…"
+                aria-label={`Add your own ${label.toLowerCase()}`}
                 className="min-w-0 flex-1 rounded-input border border-line-2 px-2.5 py-1.5 text-sm outline-none focus:border-accent"
               />
             </div>
@@ -90,7 +94,7 @@ export function MultiSelect({
                 type="button"
                 aria-label={`Remove ${labelFor(value)}`}
                 onClick={() => remove(value)}
-                className="flex h-[15px] w-[15px] items-center justify-center rounded-full text-[12px] leading-none text-ink-4 hover:bg-line-2 hover:text-ink"
+                className="flex h-[15px] w-[15px] items-center justify-center rounded-full text-xs leading-none text-ink-4 hover:bg-line-2 hover:text-ink"
               >
                 ✕
               </button>

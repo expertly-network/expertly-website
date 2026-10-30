@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button, Card, Input, Select, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { createEvent, updateEvent } from '@/lib/api/events';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { CreateEventRequest, EventDto, EventFormat } from '@shared/event';
 
 // Suggestions only — event_type is free text, not an enum.
@@ -138,7 +138,7 @@ export function EventForm({ event }: { event?: EventDto }) {
       router.push('/admin/events');
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save this event.');
+      setError(apiErrorMessage(err, 'Failed to save this event.'));
       setBusy(null);
     }
   }

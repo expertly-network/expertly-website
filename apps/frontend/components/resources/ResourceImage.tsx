@@ -16,6 +16,7 @@ export function ResourceImage({
 }) {
   const [failed, setFailed] = useState(false);
   return src && !failed ? (
+    // unoptimized: admin-entered resource images may live on any https host, not only Storage.
     <Image
       unoptimized
       src={src}

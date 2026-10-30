@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsIn,
@@ -10,8 +11,10 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { ALL_COUNTRIES } from '../../ai/countries';
 import type { ArticleStatus } from '@shared/article';
 import { MAX_ARTICLE_BODY_LENGTH } from '../word-count';
+import { MAX_ARTICLE_SERVICES } from './create-article.dto';
 
 const ARTICLE_STATUSES: ArticleStatus[] = ['draft', 'published'];
 
@@ -36,6 +39,7 @@ export class UpdateArticleDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_ARTICLE_SERVICES)
   @IsUUID('4', { each: true })
   serviceIds?: string[];
 
@@ -46,11 +50,14 @@ export class UpdateArticleDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(ALL_COUNTRIES.length)
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
   countries?: string[];
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   state?: string;
 
   // 'published' means (re)submit. Only the owner or an admin may change it.

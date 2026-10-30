@@ -155,7 +155,7 @@ export class AiDraftGenerationsRepository {
   ): Promise<string[]> {
     const uploaded: string[] = [];
     for (const [index, file] of files.entries()) {
-      const path = `${authorId}/${generationId}/${index}-${file.filename}`;
+      const path = `${authorId}/${generationId}/${index}-${safeStorageFileName(file.filename)}`;
       try {
         const { error } = await this.supabase.db.storage
           .from('ai-draft-sources')
@@ -174,4 +174,16 @@ export class AiDraftGenerationsRepository {
     }
     return uploaded;
   }
+}
+
+// The multipart filename is the client's word: it must never become a path segment as-is (`../`,
+// `%2e%2e`, slashes, control chars). Same character rule as members.service requestUpload(),
+// capped in length and with no leading dots.
+const MAX_STORAGE_FILE_NAME_LENGTH = 100;
+function safeStorageFileName(raw: string): string {
+  const cleaned = raw
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/^\.+/, '')
+    .slice(-MAX_STORAGE_FILE_NAME_LENGTH);
+  return cleaned.replace(/^\.+/, '') || 'file';
 }

@@ -10,7 +10,7 @@
 -- a production database.
 --
 -- Apply: paste into the Supabase SQL Editor (or `psql "$DATABASE_URL" -f
--- supabase/seed/dev/01_members.sql`) against your dev project.
+-- supabase/migrations/0005_dev_seed_members.sql`) against your dev project.
 --
 -- What this does:
 --   1. Inserts 50 rows into auth.users — minimal, non-loginable fakes (no

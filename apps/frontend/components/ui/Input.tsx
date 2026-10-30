@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -11,7 +11,10 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export function Input({ label, labelRight, id, error, markRequired, className, ...inputProps }: InputProps) {
-  const fieldId = id ?? inputProps.name;
+  // Falls back to a generated id so the <label> is always tied to the control, even when a call
+  // site passes neither `id` nor `name`.
+  const generatedId = useId();
+  const fieldId = id ?? inputProps.name ?? generatedId;
 
   return (
     <div className="flex flex-col gap-1.5">

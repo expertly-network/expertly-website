@@ -24,6 +24,7 @@ import { PeerReferenceDto } from './peer-reference.dto';
 export const WORK_EXPERIENCES_MAX = 15;
 export const EDUCATIONS_MAX = 5;
 import { ServicePreferenceDto } from './service-preference.dto';
+import { EMAIL_MAX, NAME_MAX, PHONE_MAX, PLACE_MAX, URL_MAX } from './field-limits';
 
 const REGIONS: ApplicationRegion[] = [
   'asia_pacific',
@@ -41,22 +42,27 @@ const BILLING_PERIODS: BillingPeriod[] = ['annual'];
 export class UpdateApplicationDto {
   @IsOptional()
   @IsString()
+  @MaxLength(NAME_MAX)
   firstName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(NAME_MAX)
   lastName?: string;
 
   @IsOptional()
   @IsEmail()
+  @MaxLength(EMAIL_MAX)
   contactEmail?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   phoneCountryCode?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PHONE_MAX)
   phone?: string;
 
   @IsOptional()
@@ -65,18 +71,22 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(PLACE_MAX)
   country?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PLACE_MAX)
   state?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PLACE_MAX)
   city?: string;
 
   @IsOptional()
   @IsUrl()
+  @MaxLength(URL_MAX)
   linkedinUrl?: string;
 
   @IsOptional()
@@ -127,6 +137,7 @@ export class UpdateApplicationDto {
   // Must be greater than rateMinCents.
   @IsOptional()
   @IsInt()
+  @Min(0)
   rateMaxCents?: number;
 
   @IsOptional()
@@ -135,6 +146,7 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   couponCode?: string;
 
   @IsOptional()
@@ -143,10 +155,12 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   termsVersionAgreed?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   privacyVersionAgreed?: string;
 
   @IsOptional()

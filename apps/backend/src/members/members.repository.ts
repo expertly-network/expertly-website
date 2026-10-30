@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
@@ -211,13 +210,29 @@ export class MembersRepository {
     return this.supabase.db.from('profiles');
   }
 
+  private consultationRequests() {
+    return this.supabase.db.from('consultation_requests');
+  }
+
+  // Whether `requesterId` has ever sent `memberId` a consultation request (any status) — one of
+  // the rules that reveal a member's contact details (MembersService.canSeeContact).
+  async hasConsultationWith(requesterId: string, memberId: string): Promise<boolean> {
+    const { data, error } = await this.consultationRequests()
+      .select('id')
+      .eq('requester_id', requesterId)
+      .eq('member_id', memberId)
+      .limit(1);
+    if (error) throw new InternalServerErrorException('Failed to check consultation history.');
+    return (data ?? []).length > 0;
+  }
+
   // One directory page as profile ids, in display order — see member_directory_ids()
-  // (supabase/migrations/0003_functions.sql). The function isn't in the generated types yet.
+  // (supabase/migrations/0003_functions.sql).
   async findDirectoryPageIds(
     filters: MemberDirectoryFilters,
     page: { limit: number; offset: number }
   ): Promise<string[]> {
-    const { data, error } = await (this.supabase.db as unknown as SupabaseClient).rpc('member_directory_ids', {
+    const { data, error } = await this.supabase.db.rpc('member_directory_ids', {
       p_q: filters.q ?? null,
       p_service_ids: filters.serviceIds?.length ? filters.serviceIds : null,
       p_category_id: filters.categoryId ?? null,
@@ -229,7 +244,7 @@ export class MembersRepository {
       p_offset: page.offset,
     });
     if (error) throw new InternalServerErrorException('Failed to load members.');
-    return ((data ?? []) as { profile_id: string }[]).map((r) => r.profile_id);
+    return (data ?? []).map((r) => r.profile_id);
   }
 
   // The rows for one directory page (≤ 50 ids), returned in the given order.
@@ -435,6 +450,15 @@ export class MembersRepository {
     }
   }
 
+  // Size of a member-proofs object from its storage metadata, without downloading it. Falls back
+  // to a 1-byte ranged read (Content-Range carries the total) when the metadata has no size.
+  async findProofFileSize(path: string): Promise<number> {
+    const { data, error } = await this.supabase.db.storage.from('member-proofs').info(path);
+    if (error || !data) throw new InternalServerErrorException('Failed to read uploaded file.');
+    if (typeof data.size === 'number' && Number.isFinite(data.size)) return data.size;
+    return (await this.readProofFileHead(path, 1)).size;
+  }
+
   async downloadProofFile(path: string): Promise<Buffer> {
     const { data, error } = await this.supabase.db.storage.from('member-proofs').download(path);
     if (error || !data) throw new InternalServerErrorException('Failed to read uploaded file.');
@@ -550,7 +574,10 @@ export class MembersRepository {
     const serviceIds = [...new Set((links ?? []).map((l) => l.service_id as string))];
     const serviceById = new Map<string, { name: string; categoryId: string }>();
     if (serviceIds.length > 0) {
-      const { data: services } = await this.services().select('id, name, category_id').in('id', serviceIds);
+      const { data: services, error: servicesError } = await this.services()
+        .select('id, name, category_id')
+        .in('id', serviceIds);
+      if (servicesError) throw new InternalServerErrorException('Failed to load member services.');
       for (const s of services ?? [])
         serviceById.set(s.id as string, { name: s.name as string, categoryId: s.category_id as string });
     }
@@ -558,7 +585,10 @@ export class MembersRepository {
     const categoryIds = [...new Set([...serviceById.values()].map((s) => s.categoryId))];
     const categoryNameById = new Map<string, string>();
     if (categoryIds.length > 0) {
-      const { data: categories } = await this.categories().select('id, name').in('id', categoryIds);
+      const { data: categories, error: categoriesError } = await this.categories()
+        .select('id, name')
+        .in('id', categoryIds);
+      if (categoriesError) throw new InternalServerErrorException('Failed to load service categories.');
       for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
     }
 

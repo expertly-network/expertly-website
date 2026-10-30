@@ -2,6 +2,7 @@ import { ResourcesModule } from './resources/resources.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AppRepository } from './app.repository';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ServicesModule } from './services/services.module';
@@ -28,6 +29,6 @@ import { SearchModule } from './search/search.module';
     SearchModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, AppRepository],
 })
 export class AppModule {}

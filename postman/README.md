@@ -1,6 +1,6 @@
 # GrowXQ Postman collection
 
-`GrowXQ.postman_collection.json` covers every route in `apps/backend` (68 requests). Structure
+`GrowXQ.postman_collection.json` covers every route in `apps/backend` (104 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
@@ -23,9 +23,13 @@ Every request is named `METHOD /route — why` (e.g. `POST /admin/categories —
 so the exact route is readable in the sidebar without opening the request — Postman's own
 method-color tag is not relied on for this.
 
-Plus an unauthenticated `Health & Account` folder (all non-admin smoke tests; `GET /admin/ping`
+Plus a `Health & Account` folder (`GET /health` liveness, `GET /health/ready` readiness, `GET /hello`, the `me` routes and `GET /member/ping` — all non-admin smoke tests; `GET /admin/ping`
 lives in `Admin` instead, same rule as above) and an `Auth (Supabase)` folder that mints a real JWT
 so the whole thing is runnable without the frontend.
+
+Every API request ships a **disabled** `X-Request-Id` header (`{{$guid}}`): enable it to send
+your own id, which the API echoes in the `X-Request-Id` response header and its log lines (it
+generates one otherwise). Keep that header on any request you add.
 
 ## Setup (one-time)
 

@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AdminAccessService } from '../auth/admin-access.service';
+import { env } from '../config/env';
+import { withUniqueSlugRetry } from '../common/slugify';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
   AdminArticleListItemDto,
@@ -47,9 +49,12 @@ type ArticlesReviewMode = 'instant' | 'editorial';
 export class ArticlesService {
   private readonly logger = new Logger(ArticlesService.name);
 
-  // Defaults to 'instant' when ARTICLES_REVIEW_MODE is unset.
-  private readonly reviewMode: ArticlesReviewMode =
-    process.env.ARTICLES_REVIEW_MODE === 'editorial' ? 'editorial' : 'instant';
+  // Validated at boot (src/config/env.ts); defaults to 'instant' when ARTICLES_REVIEW_MODE is unset.
+  private readonly reviewMode: ArticlesReviewMode = env().ARTICLES_REVIEW_MODE;
+
+  // Article ids with a summary call running (per API instance), so overlapping saves don't each
+  // pay for one.
+  private readonly summariesInFlight = new Set<string>();
 
   constructor(
     private readonly articlesRepository: ArticlesRepository,
@@ -66,12 +71,14 @@ export class ArticlesService {
   async findOne(idOrSlug: string, user: AuthenticatedUser): Promise<ArticleDto> {
     const row = await this.articlesRepository.findByIdOrSlugOrThrow(idOrSlug);
 
-    if (
-      row.status !== 'published' &&
-      row.author_id !== user.id &&
-      !(await this.adminAccess.hasFreshPermission(user, 'manageArticles'))
-    ) {
-      throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
+    // Someone else's article is visible only when published by a still-listed author (active,
+    // not deleted, member profile not deactivated) — the same rule the list and preview apply.
+    // A manageArticles admin sees everything.
+    if (row.author_id !== user.id) {
+      const visible = row.status === 'published' && (await this.articlesRepository.isAuthorListed(row.author_id));
+      if (!visible && !(await this.adminAccess.hasFreshPermission(user, 'manageArticles'))) {
+        throw new NotFoundException({ code: 'ARTICLE_NOT_FOUND', message: 'Article not found.' });
+      }
     }
 
     const [serviceDetails, authors] = await Promise.all([
@@ -117,26 +124,30 @@ export class ArticlesService {
     if (status !== 'draft') assertWordCount(body);
     await this.assertActiveServiceIds(dto.serviceIds, dto.customServiceLabels);
     const aiGenerationId = dto.aiGenerationId ? await this.resolveOwnAiGenerationId(dto.aiGenerationId, user.id) : null;
-    const slug = await this.articlesRepository.findUniqueSlug(dto.title);
+    // Retries with a fresh slug when the insert loses a slug race (the repository must surface a
+    // 23505 on slug as SlugTakenException for the retry to engage).
+    const row = await withUniqueSlugRetry(
+      () => this.articlesRepository.findUniqueSlug(dto.title),
+      (slug) =>
+        this.articlesRepository.insert({
+          slug,
+          author_id: user.id,
+          status,
+          title: dto.title,
+          body,
+          excerpt: deriveExcerpt(body),
+          read_time_minutes: deriveReadTimeMinutes(body),
+          cover_image_url: dto.coverImageUrl,
+          service_ids: dto.serviceIds,
+          custom_service_labels: dto.customServiceLabels ?? {},
+          countries: dto.countries,
+          state: dto.state ?? null,
+          creation_mode: aiGenerationId ? 'ai' : (dto.creationMode ?? 'manual'),
+          ai_generation_id: aiGenerationId,
+        })
+    );
 
-    const row = await this.articlesRepository.insert({
-      slug,
-      author_id: user.id,
-      status,
-      title: dto.title,
-      body,
-      excerpt: deriveExcerpt(body),
-      read_time_minutes: deriveReadTimeMinutes(body),
-      cover_image_url: dto.coverImageUrl,
-      service_ids: dto.serviceIds,
-      custom_service_labels: dto.customServiceLabels ?? {},
-      countries: dto.countries,
-      state: dto.state ?? null,
-      creation_mode: aiGenerationId ? 'ai' : (dto.creationMode ?? 'manual'),
-      ai_generation_id: aiGenerationId,
-    });
-
-    this.generateSummaryIfNeeded(row);
+    this.generateSummaryIfNeeded(row, { becamePublished: true, textChanged: false });
     const [serviceDetails, authors] = await Promise.all([
       this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([user.id]),
@@ -153,11 +164,15 @@ export class ArticlesService {
     // Editorial mode: an author editing the content of an already-published article sends it
     // back for review — otherwise approval could be bypassed by publishing something harmless
     // and editing it afterwards. (Admins editing someone else's article keep its status.)
+    // "Content" is everything the public article page/card renders: title, body, cover, services
+    // (customServiceLabels only ever change together with serviceIds) and countries. `state` is
+    // stored but not shown publicly, so it doesn't count.
     const changesContent =
       dto.title !== undefined ||
       dto.body !== undefined ||
       dto.coverImageUrl !== undefined ||
-      dto.serviceIds !== undefined;
+      dto.serviceIds !== undefined ||
+      dto.countries !== undefined;
     if (
       resultingStatus === undefined &&
       existing.status === 'published' &&
@@ -193,7 +208,9 @@ export class ArticlesService {
 
     const row = await this.articlesRepository.updateById(id, patch);
 
-    this.generateSummaryIfNeeded(row);
+    const textChanged =
+      (dto.title !== undefined && dto.title !== existing.title) || (body !== undefined && body !== existing.body);
+    this.generateSummaryIfNeeded(row, { becamePublished: existing.status !== 'published', textChanged });
     const [serviceDetails, authors] = await Promise.all([
       this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([row.author_id]),
@@ -258,7 +275,7 @@ export class ArticlesService {
       });
     }
 
-    this.generateSummaryIfNeeded(row);
+    this.generateSummaryIfNeeded(row, { becamePublished: true, textChanged: false });
     const [serviceDetails, authors] = await Promise.all([
       this.resolveServiceDetails(row.service_ids),
       this.resolveAuthors([row.author_id]),
@@ -280,11 +297,17 @@ export class ArticlesService {
     return rows.map((row) => toListDto(row, serviceDetails, authors));
   }
 
-  // Generates an AI summary the first time an article is published. Not awaited — errors are
-  // logged and otherwise ignored.
-  private generateSummaryIfNeeded(row: ArticleRow): void {
-    if (row.status !== 'published' || row.ai_summary !== null) return;
+  // Generates the AI summary (a paid LLM call) only on an event that warrants one: the article
+  // just became published without a summary, or a published article's title/body changed (the old
+  // summary is stale). A PATCH that touches neither never triggers a call, even while ai_summary
+  // is still null after an earlier failure. One call per article at a time. Not awaited — errors
+  // are logged and otherwise ignored.
+  private generateSummaryIfNeeded(row: ArticleRow, change: { becamePublished: boolean; textChanged: boolean }): void {
+    if (row.status !== 'published') return;
+    const needed = (change.becamePublished && row.ai_summary === null) || change.textChanged;
+    if (!needed || this.summariesInFlight.has(row.id)) return;
 
+    this.summariesInFlight.add(row.id);
     void this.aiService
       .summarizeArticle(row.title, row.body)
       .then((summary) => this.articlesRepository.updateAiSummary(row.id, summary))
@@ -293,7 +316,8 @@ export class ArticlesService {
           `AI summary generation failed for article ${row.id}`,
           error instanceof Error ? error.stack : error
         );
-      });
+      })
+      .finally(() => this.summariesInFlight.delete(row.id));
   }
 
   // A generation id that belongs to someone else is a client error. One that doesn't exist at

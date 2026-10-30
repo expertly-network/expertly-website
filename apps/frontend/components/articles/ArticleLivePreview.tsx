@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
 import { getCoverImageSuggestions } from '@/lib/api/articles';
+import { ARTICLE_PROSE } from '@/lib/articles/prose';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -131,6 +132,7 @@ export function ArticleLivePreview({
 
       <div className="animate-[anvIn_0.4s_cubic-bezier(0.22,1,0.36,1)_both] overflow-hidden rounded-[22px] border border-line bg-bg-card shadow-[0_1px_2px_rgba(0,0,0,0.02),0_32px_64px_-32px_rgba(0,0,0,0.2)]">
         <div className="relative h-[170px] overflow-hidden bg-ink min-[760px]:h-[220px]">
+          {/* Raw <img>: an Unsplash suggestion, hotlinked as Unsplash requires (lib/images.ts). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={coverImageUrl} alt="" className="h-full w-full object-cover opacity-60" />
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(11,11,12,0.88)_0%,rgba(11,11,12,0.25)_55%,transparent_100%)]" />
@@ -167,10 +169,7 @@ export function ArticleLivePreview({
             )}
           </div>
 
-          <div
-            className="prose-article mt-8 text-[16px] leading-[1.75] tracking-[-0.003em] text-ink-2 [&_blockquote]:my-6 [&_blockquote]:rounded-r-[10px] [&_blockquote]:border-l-[3px] [&_blockquote]:border-accent [&_blockquote]:bg-bg-alt [&_blockquote]:px-[22px] [&_blockquote]:py-[18px] [&_blockquote]:font-serif [&_blockquote]:text-[17px] [&_blockquote]:italic [&_blockquote]:leading-[1.5] [&_blockquote]:text-ink [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-[clamp(17px,1.8vw,22px)] [&_h2]:font-medium [&_h2]:leading-[1.2] [&_h2]:tracking-[-0.02em] [&_h2]:text-ink [&_h3]:mb-2.5 [&_h3]:mt-6 [&_h3]:text-[16px] [&_h3]:font-medium [&_h3]:tracking-[-0.01em] [&_h3]:text-ink [&_li]:relative [&_li]:pl-[15px] [&_ol]:my-0 [&_ol]:mb-5 [&_ol]:flex [&_ol]:list-decimal [&_ol]:flex-col [&_ol]:gap-2 [&_ol]:pl-5 [&_p]:mb-5 [&_p:last-child]:mb-0 [&_strong]:text-ink [&_ul]:my-0 [&_ul]:mb-5 [&_ul]:flex [&_ul]:list-none [&_ul]:flex-col [&_ul]:gap-2 [&_ul_li]:before:absolute [&_ul_li]:before:left-0 [&_ul_li]:before:top-[10px] [&_ul_li]:before:h-[5px] [&_ul_li]:before:w-[5px] [&_ul_li]:before:flex-none [&_ul_li]:before:rounded-full [&_ul_li]:before:bg-accent [&_a]:text-accent [&_a]:underline [&_code]:rounded [&_code]:bg-bg-alt [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[14px] [&_pre]:my-5 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-ink [&_pre]:p-4 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit"
-            dangerouslySetInnerHTML={{ __html: body }}
-          />
+          <div className={`${ARTICLE_PROSE} mt-8`} dangerouslySetInnerHTML={{ __html: body }} />
         </div>
       </div>
 

@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { Badge, Button, Modal, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ConsultationMessageThread } from '@/components/consultations/ConsultationMessageThread';
 import { ConsultationRating } from '@/components/consultations/ConsultationRating';
 import { updateConsultationStatus } from '@/lib/api/consultations';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ConsultationRequestDto, ConsultationStatus } from '@shared/consultation-request';
 
 const REASON_MIN_LENGTH = 10;
@@ -40,13 +42,13 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'num
 
 function Avatar({ src, alt }: { src: string | null | undefined; alt: string }) {
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
-      <img
-        loading="lazy"
-        decoding="async"
+      <Image
         src={src}
+        unoptimized={mustHotlink(src)}
         alt={alt}
+        width={48}
+        height={48}
         className="h-12 w-12 flex-none rounded-full border border-line object-cover"
       />
     );
@@ -121,7 +123,7 @@ export function ConsultationCard(props: ConsultationCardProps) {
       setReasonAction(null);
       setReason('');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to update this request.');
+      setError(apiErrorMessage(err, 'Failed to update this request.'));
     } finally {
       setBusy(false);
     }

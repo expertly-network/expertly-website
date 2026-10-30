@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import Link from 'next/link';
 import { MARQUEE_TILE_HEIGHT, Marquee } from '@/components/home/Marquee';
 import type { MemberListItemDto } from '@shared/member';
@@ -20,12 +22,12 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
           className={`flex w-[280px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
         >
           {m.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              loading="lazy"
-              decoding="async"
+            <Image
               src={m.photoUrl}
+              unoptimized={mustHotlink(m.photoUrl)}
               alt=""
+              width={48}
+              height={48}
               className="h-12 w-12 flex-none rounded-full object-cover"
             />
           ) : (

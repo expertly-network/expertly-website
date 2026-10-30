@@ -189,7 +189,10 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-[1fr_296px] items-stretch gap-6">
+        {/* The side panel sits beside the month grid only from lg up; between 860px and lg it stacks
+            below, so the 7 day columns keep their full width. Below 860px the grid is swapped for
+            the stacked UpcomingEvents list (7 columns can't fit event names at phone widths). */}
+        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[1fr_296px]">
           <div className="min-w-0 overflow-hidden">
             <div className="grid grid-cols-7 border-b-2 border-ink-2">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (

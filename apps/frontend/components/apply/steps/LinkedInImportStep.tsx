@@ -8,7 +8,7 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportingLoader } from '@/components/apply/ImportingLoader';
 import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
 import { importLinkedIn, importLinkedInPhoto } from '@/lib/api/applications';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { hasLinkedInIdentity, linkLinkedInIdentity } from '@/lib/auth/linkedin';
 import { LINKEDIN_DATA_USE_URL } from '@/lib/legal';
 
@@ -162,7 +162,14 @@ export function LinkedInImportStep({
       pendingAdvanceRef.current = { ...patch, importedFields };
       setImportDone(true);
     } catch (err) {
-      setImportError(err instanceof ApiError ? err.message : 'Failed to import from LinkedIn — please try again.');
+      setImportError(
+        apiErrorMessage(err, 'Failed to import from LinkedIn — please try again.', {
+          URL_INVALID: 'That doesn’t look like a LinkedIn profile URL. Please check it and try again.',
+          LINKEDIN_IMPORT_TIMEOUT: 'LinkedIn took too long to respond. Please try again, or fill the form in manually.',
+          LINKEDIN_IMPORT_FAILED:
+            'We couldn’t import that LinkedIn profile. Please try again, or fill the form in manually.',
+        })
+      );
       setImporting(false);
     }
   }

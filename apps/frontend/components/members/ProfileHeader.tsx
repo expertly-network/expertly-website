@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import Link from 'next/link';
 import { useState } from 'react';
 import type { MemberDto } from '@shared/member';
@@ -144,7 +146,7 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
         Back to Members
       </Link>
 
-      <div className="overflow-hidden rounded-card border border-line bg-bg-card shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+      <div className="overflow-hidden rounded-card border border-line bg-bg-card shadow-panel">
         <div className="relative h-[112px] overflow-hidden bg-ink">
           <div
             aria-hidden="true"
@@ -165,10 +167,13 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
           <div className="relative z-[2] -mt-16 flex items-end justify-between">
             <div className="relative flex-none">
               {member.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={member.photoUrl}
+                  unoptimized={mustHotlink(member.photoUrl)}
                   alt={member.name}
+                  width={144}
+                  height={144}
+                  priority
                   className="h-36 w-36 rounded-2xl border-4 border-bg-card object-cover object-top shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
                 />
               ) : (
@@ -180,7 +185,13 @@ export function ProfileHeader({ member, isOwnProfile = false }: { member: Member
               {member.isVerified && (
                 <div className="absolute -bottom-1.5 -right-1.5 z-[3] flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-card bg-accent">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path d="M3 8l4 4 6-7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M3 8l4 4 6-7"
+                      className="stroke-white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
               )}

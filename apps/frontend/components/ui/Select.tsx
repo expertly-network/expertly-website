@@ -1,4 +1,4 @@
-import type { ReactNode, SelectHTMLAttributes } from 'react';
+import { useId, type ReactNode, type SelectHTMLAttributes } from 'react';
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
@@ -10,7 +10,10 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export function Select({ label, id, children, error, markRequired, ...selectProps }: SelectProps) {
-  const fieldId = id ?? selectProps.name;
+  // Falls back to a generated id so the <label> is always tied to the control, even when a call
+  // site passes neither `id` nor `name`.
+  const generatedId = useId();
+  const fieldId = id ?? selectProps.name ?? generatedId;
 
   return (
     <div className="flex flex-col gap-1.5">

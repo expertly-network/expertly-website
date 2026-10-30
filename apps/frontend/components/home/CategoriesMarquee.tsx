@@ -1,6 +1,8 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { MARQUEE_TILE_HEIGHT, Marquee } from '@/components/home/Marquee';
 import type { CategoryDto } from '@shared/category';
+import { mustHotlink } from '@/lib/images';
 
 // Member count per category isn't in the contract yet — flagged, not faked. Same tile size as
 // FeaturedMembers (280px × MARQUEE_TILE_HEIGHT); falls back to a
@@ -21,12 +23,12 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
           className={`flex w-[280px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
         >
           {c.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              loading="lazy"
-              decoding="async"
+            <Image
               src={c.imageUrl}
+              unoptimized={mustHotlink(c.imageUrl)}
               alt=""
+              width={64}
+              height={64}
               className="h-16 w-16 flex-none rounded-xl object-cover"
             />
           ) : (

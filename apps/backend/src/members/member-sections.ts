@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import type { EngagementVerificationMethod, MemberEditSection } from '@shared/member';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst, type WorkSpan } from '../common/work-history';
-import { isHttpUrl } from '../common/http-url';
+import { isHttpUrl, MAX_URL_LENGTH } from '../common/http-url';
 
 export type SectionItem = Record<string, unknown>;
 
@@ -38,6 +38,103 @@ const VERIFICATION_METHODS: readonly EngagementVerificationMethod[] = [
 ];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Length caps per field kind. Short text matches the edit modal's text inputs (maxLength 300),
+// long text its textareas (2000); bio gets more room.
+const MAX_SHORT_TEXT = 300;
+const MAX_LONG_TEXT = 2000;
+const MAX_BIO_LENGTH = 5000;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PHONE_LENGTH = 50;
+
+type FieldKind = 'short' | 'long' | 'bio' | 'url' | 'email' | 'phone' | 'number' | 'boolean' | 'raw';
+
+const FIELD_MAX_LENGTH: Partial<Record<FieldKind, number>> = {
+  short: MAX_SHORT_TEXT,
+  long: MAX_LONG_TEXT,
+  bio: MAX_BIO_LENGTH,
+  url: MAX_URL_LENGTH,
+  email: MAX_EMAIL_LENGTH,
+  phone: MAX_PHONE_LENGTH,
+};
+
+// Every key a submitted payload (or payload item) may carry, per section — mirrors the *EditPayload
+// types in packages/shared-types/member.ts. Anything else (isVerified, client-side keys, extra
+// junk) is dropped before the payload is stored. 'raw' keys get their own validation below.
+const SECTION_FIELDS: Record<MemberEditSection, Record<string, FieldKind>> = {
+  headline_bio: { headline: 'short', bio: 'bio' },
+  contact: { contactEmail: 'email', workEmail: 'email', contactPhone: 'phone', linkedinUrl: 'url', website: 'url' },
+  engagements: {
+    id: 'short',
+    title: 'short',
+    organization: 'short',
+    clientName: 'short',
+    clientEmail: 'email',
+    verificationMethods: 'raw',
+    verificationMethodOther: 'raw',
+    year: 'number',
+    url: 'url',
+    proofAttachments: 'raw',
+  },
+  education: { id: 'short', degree: 'short', institution: 'short', field: 'short', endYear: 'number' },
+  work_experiences: {
+    id: 'short',
+    title: 'short',
+    company: 'short',
+    startMonth: 'number',
+    startYear: 'number',
+    endMonth: 'number',
+    endYear: 'number',
+    isCurrent: 'boolean',
+    description: 'long',
+  },
+  key_clients: { id: 'short', name: 'short', logoUrl: 'url', logoUploadPath: 'short', proofAttachments: 'raw' },
+  testimonials: {
+    id: 'short',
+    quote: 'long',
+    clientName: 'short',
+    clientTitle: 'short',
+    clientCompany: 'short',
+    serviceName: 'short',
+    occurredOn: 'short',
+    clientEmail: 'email',
+    proofAttachments: 'raw',
+  },
+  awards: {
+    id: 'short',
+    title: 'short',
+    issuingBody: 'short',
+    year: 'number',
+    description: 'long',
+    proofAttachments: 'raw',
+  },
+};
+
+// Keeps only the section's known keys and checks each value's type and length. Null/undefined
+// pass (required fields are checked by the per-section validators).
+function pickKnownFields(section: MemberEditSection, value: SectionItem): SectionItem {
+  const fields = SECTION_FIELDS[section];
+  const out: SectionItem = {};
+  for (const [key, kind] of Object.entries(fields)) {
+    if (!(key in value)) continue;
+    const v = value[key];
+    out[key] = v;
+    if (v == null || kind === 'raw') continue;
+    if (kind === 'number' && typeof v !== 'number') {
+      throw badRequest('PAYLOAD_ITEM_INVALID', `${section}.${key} must be a number or null.`);
+    }
+    if (kind === 'boolean' && typeof v !== 'boolean') {
+      throw badRequest('PAYLOAD_ITEM_INVALID', `${section}.${key} must be a boolean.`);
+    }
+    const max = FIELD_MAX_LENGTH[kind];
+    if (max !== undefined) {
+      if (typeof v !== 'string')
+        throw badRequest('PAYLOAD_ITEM_INVALID', `${section}.${key} must be a string or null.`);
+      if (v.length > max) throw badRequest('FIELD_TOO_LONG', `${section}.${key} can be at most ${max} characters.`);
+    }
+  }
+  return out;
+}
 
 export function badRequest(code: string, message: string): BadRequestException {
   return new BadRequestException({ code, message });
@@ -111,10 +208,26 @@ function validateProofAttachments(section: string, value: unknown): void {
         `${section} item proofAttachments entries require type ('file'|'link'), url, and label.`
       );
     }
+    if ((attachment.url as string).length > MAX_URL_LENGTH || (attachment.label as string).length > MAX_SHORT_TEXT) {
+      throw badRequest('FIELD_TOO_LONG', `${section} proof attachment url or label is too long.`);
+    }
     if (attachment.type === 'link' && !isHttpUrl(attachment.url)) {
       throw badRequest('URL_INVALID', `${section} proof links must be http(s) web addresses.`);
     }
   }
+}
+
+// Proof attachment entries keep only { type, url, label } (validated by validateProofAttachments).
+function pickProofAttachments(item: SectionItem): SectionItem {
+  if (!Array.isArray(item.proofAttachments)) return item;
+  return {
+    ...item,
+    proofAttachments: (item.proofAttachments as { type: unknown; url: unknown; label: unknown }[]).map((a) => ({
+      type: a.type,
+      url: a.url,
+      label: a.label,
+    })),
+  };
 }
 
 // Optional URL field on an item or payload: absent/empty is fine, anything else must be http(s).
@@ -195,30 +308,32 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
     if (typeof p?.headline !== 'string' || typeof p?.bio !== 'string') {
       throw badRequest('HEADLINE_BIO_INVALID', 'headline_bio payload requires headline and bio strings.');
     }
-    return payload;
+    return pickKnownFields(section, payload as SectionItem);
   }
   if (section === 'contact') {
     validateContact(payload);
-    return payload;
+    return pickKnownFields(section, payload as SectionItem);
   }
   if (!Array.isArray(payload)) {
     throw badRequest('PAYLOAD_NOT_ARRAY', `${section} payload must be an array.`);
   }
-  const items = payload as SectionItem[];
-  if (items.length > MAX_SECTION_ITEMS) {
+  if (payload.length > MAX_SECTION_ITEMS) {
     throw badRequest('PAYLOAD_TOO_MANY_ITEMS', `${section} can have at most ${MAX_SECTION_ITEMS} items.`);
   }
-  for (const item of items) {
+  for (const item of payload as unknown[]) {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) {
       throw badRequest('PAYLOAD_ITEM_INVALID', `${section} payload items must be objects.`);
     }
-    if (item.id !== undefined && typeof item.id !== 'string') {
+    if ((item as SectionItem).id !== undefined && typeof (item as SectionItem).id !== 'string') {
       throw badRequest('PAYLOAD_ITEM_INVALID', `${section} item id must be a string when present.`);
     }
   }
+  // From here on only the section's known keys exist (see SECTION_FIELDS).
+  const items = (payload as SectionItem[]).map((item) => pickKnownFields(section, item));
 
   if ((PER_ITEM_PROOF_SECTIONS as readonly string[]).includes(section)) {
     for (const item of items) validateProofAttachments(section, item.proofAttachments);
+    items.forEach((item, i) => (items[i] = pickProofAttachments(item)));
   }
   if (section === 'engagements') items.forEach(validateEngagement);
   if (section === 'testimonials') items.forEach(validateTestimonial);
@@ -240,5 +355,5 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
     assertValidWorkHistory(items as unknown as WorkSpan[]);
     return sortWorkHistoryNewestFirst(items as unknown as (WorkSpan & SectionItem)[]);
   }
-  return payload;
+  return items;
 }

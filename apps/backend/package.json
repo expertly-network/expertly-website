@@ -12,7 +12,8 @@
     "worker": "nest build && node scripts/postbuild.mjs && node dist/apps/backend/src/worker.js",
     "start:worker": "node dist/apps/backend/src/worker.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"{src,scripts}/**/*.ts\"",
+    "test": "vitest run",
+    "lint": "eslint \"{src,scripts,test}/**/*.ts\"",
     "gen:types": "npx --yes supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" > src/supabase/database.types.ts"
   },
   "dependencies": {
@@ -46,12 +47,15 @@
     "@eslint/js": "^9.39.5",
     "@growxq/shared-types": "workspace:*",
     "@nestjs/cli": "^11.0.24",
+    "@swc/core": "^1.16.20",
     "@types/node": "^20.19.43",
     "@types/sanitize-html": "^2.16.2",
     "eslint": "^9.39.5",
     "fastify": "^5.12.7",
     "tsc-alias": "^1.9.9",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.1",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.0.5"
   }
 }

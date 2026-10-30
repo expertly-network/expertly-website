@@ -1,19 +1,5 @@
 import type { MemberKeyClient } from '@shared/member';
-
-// Cycled by index, same palette design/static_html/member-profile.html uses for a Key Client's
-// fallback initial-letter icon when it has no logoUrl.
-const CLIENT_ICON_COLORS = [
-  '#0A66C2',
-  '#F97316',
-  '#00A682',
-  '#7C3AED',
-  '#DC2626',
-  '#0891B2',
-  '#B45309',
-  '#1D4ED8',
-  '#9333EA',
-  '#DB2777',
-];
+import { CLIENT_ICON_COLORS } from '@/lib/members/key-client-colors';
 
 // A row only scrolls once it holds at least this many logos; fewer sit still, each shown once.
 export const MARQUEE_MIN_LOGOS = 6;
@@ -25,6 +11,8 @@ function ClientCard({ client, colorIndex, hidden }: { client: MemberKeyClient; c
       className="flex min-w-[160px] flex-none items-center gap-3 rounded-panel border border-line bg-bg-card py-2.5 pl-2.5 pr-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-shadow hover:border-line-2 hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)]"
     >
       {client.logoUrl ? (
+        // Raw <img>: a key-client logo may be a member-entered URL on any host (not only Storage),
+        // which next/image's remotePatterns can't allow.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           loading="lazy"
@@ -60,8 +48,8 @@ function ClientRow({ label, clients, offset }: { label: string; clients: MemberK
         <div
           className="group relative overflow-hidden"
           style={{
-            maskImage: 'linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%)',
+            maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
           }}
         >
           <ul

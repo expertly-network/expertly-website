@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { apiErrorFromResponse } from '@/lib/api/errors';
 import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
@@ -32,13 +33,14 @@ const PUBLIC_LIST_REVALIDATE_SECONDS = 60;
 
 // Bearer token for the current request's session, or null when signed out. Reads the cookie
 // session (getSession) — the backend verifies the JWT itself, so this needs no extra round trip.
-async function sessionToken(): Promise<string | null> {
+// cache()d so a page making several API calls reads the cookie session once.
+export const sessionToken = cache(async (): Promise<string | null> => {
   const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
   return session?.access_token ?? null;
-}
+});
 
 interface ServerGetOptions<E> {
   /** Returned without calling the API when the route needs a session and there isn't one. */
@@ -50,7 +52,7 @@ interface ServerGetOptions<E> {
 }
 
 // Authenticated, per-viewer GET — never cached.
-async function authedGet<T, E>(path: string, options: ServerGetOptions<E>): Promise<T | E> {
+export async function authedGet<T, E>(path: string, options: ServerGetOptions<E>): Promise<T | E> {
   const token = await sessionToken();
   if (!token) return options.signedOut;
 
@@ -78,6 +80,15 @@ async function publicGet(path: string, errorMessage: string): Promise<Response |
 async function publicList<T>(path: string, errorMessage: string): Promise<T[]> {
   const res = await publicGet(path, errorMessage);
   return res ? ((await res.json()) as T[]) : [];
+}
+
+// A list whose content depends on who's asking (e.g. resources: locked vs unlocked codes/URLs).
+// Signed in: sent with the viewer's token and never cached. Signed out: every anonymous visitor
+// gets the same response, so it's cached like the other public lists. A 404 is an empty list.
+export async function viewerDependentList<T>(path: string, errorMessage: string): Promise<T[]> {
+  const token = await sessionToken();
+  if (!token) return publicList<T>(path, errorMessage);
+  return authedGet<T[], T[]>(path, { signedOut: [], emptyOn: [404], errorMessage });
 }
 
 // Returns the caller's current application, or null if none exists.
@@ -136,14 +147,16 @@ export function getMembersServer(queryString: string): Promise<MemberListItemDto
   return publicList<MemberListItemDto>(`/members${queryString}`, 'Failed to load members.');
 }
 
-// Returns a member's full profile by slug, or null if signed out or not found.
-export function getMemberServer(slug: string): Promise<MemberDto | null> {
-  return authedGet<MemberDto, null>(`/members/${encodeURIComponent(slug)}`, {
-    signedOut: null,
-    emptyOn: [404],
-    errorMessage: 'Failed to load member profile.',
-  });
-}
+// Returns a member's full profile by slug, or null if signed out or not found. cache()d per request:
+// generateMetadata, the page, and the article author sidebar all ask for the same profile.
+export const getMemberServer = cache(
+  (slug: string): Promise<MemberDto | null> =>
+    authedGet<MemberDto, null>(`/members/${encodeURIComponent(slug)}`, {
+      signedOut: null,
+      emptyOn: [404],
+      errorMessage: 'Failed to load member profile.',
+    })
+);
 
 // The signed-in member's own profile handle, or null when there's no session / no member profile.
 export function getMyMemberProfileServer(): Promise<MyMemberProfileDto | null> {
@@ -183,11 +196,12 @@ export async function getArticlesServer(
   return { items, total: Number.isFinite(total) ? total : items.length };
 }
 
-// Public teaser (no body) of one published article by UUID or slug; null if there's none.
-export async function getArticlePreviewServer(idOrSlug: string): Promise<ArticleListItemDto | null> {
+// Public teaser (no body) of one published article by UUID or slug; null if there's none. cache()d
+// per request — generateMetadata and the page both read it.
+export const getArticlePreviewServer = cache(async (idOrSlug: string): Promise<ArticleListItemDto | null> => {
   const res = await publicGet(`/articles/${encodeURIComponent(idOrSlug)}/preview`, 'Failed to load article.');
   return res ? ((await res.json()) as ArticleListItemDto) : null;
-}
+});
 
 // Returns the caller's own articles regardless of status.
 export function getMyArticlesServer(): Promise<ArticleListItemDto[]> {
@@ -225,13 +239,15 @@ export function getAdminAiGenerationServer(id: string): Promise<AdminAiGeneratio
 }
 
 // Returns a single article's full detail (by UUID or slug), or null if signed out or not found.
-export function getArticleServer(idOrSlug: string): Promise<ArticleDto | null> {
-  return authedGet<ArticleDto, null>(`/articles/${encodeURIComponent(idOrSlug)}`, {
-    signedOut: null,
-    emptyOn: [401, 404],
-    errorMessage: 'Failed to load article.',
-  });
-}
+// cache()d per request — generateMetadata and the page both read it.
+export const getArticleServer = cache(
+  (idOrSlug: string): Promise<ArticleDto | null> =>
+    authedGet<ArticleDto, null>(`/articles/${encodeURIComponent(idOrSlug)}`, {
+      signedOut: null,
+      emptyOn: [401, 404],
+      errorMessage: 'Failed to load article.',
+    })
+);
 
 // Returns events, upcoming-only by default.
 export function getEventsServer(params: { upcoming?: boolean } = {}): Promise<EventDto[]> {

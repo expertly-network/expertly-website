@@ -1,12 +1,23 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { verifySupabaseToken } from '../verify-token';
+import { SupabaseService } from '../supabase.service';
+import type { AuthenticatedUser } from '../types/auth.types';
+import { verifySupabaseTokenClaims, type VerifiedToken } from '../verify-token';
+import { StatusFallbackRepository } from './status-fallback.repository';
 
 /** Verifies the request's bearer token and attaches the resulting user to the request. */
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  // Constructed here rather than registered in AuthModule: it serves this guard alone.
+  private readonly statusFallback: StatusFallbackRepository;
+
+  constructor(
+    private readonly reflector: Reflector,
+    supabase: SupabaseService
+  ) {
+    this.statusFallback = new StatusFallbackRepository(supabase);
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -21,11 +32,13 @@ export class SupabaseAuthGuard implements CanActivate {
       throw new UnauthorizedException({ code: 'SESSION_MISSING', message: 'Missing bearer token.' });
     }
 
+    let verified: VerifiedToken;
     try {
-      request.user = await verifySupabaseToken(token);
+      verified = await verifySupabaseTokenClaims(token);
     } catch {
       throw new UnauthorizedException({ code: 'SESSION_INVALID', message: 'Invalid or expired session.' });
     }
+    request.user = verified.missingStatusClaims ? await this.withFreshStatus(verified.user) : verified.user;
 
     // Suspended/deleted accounts lose every authenticated route (claim-based, so it applies from
     // the user's next token refresh; admin routes re-check profiles.status fresh anyway).
@@ -34,6 +47,14 @@ export class SupabaseAuthGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  // A token minted before the hook emitted the status claims: read both statuses fresh rather
+  // than assume active. A failed lookup is treated as not active.
+  private async withFreshStatus(user: AuthenticatedUser): Promise<AuthenticatedUser> {
+    const fresh = await this.statusFallback.findStatus(user.id);
+    if (!fresh) return { ...user, status: 'suspended' };
+    return { ...user, status: fresh.status, memberStatus: user.role === 'member' ? fresh.memberStatus : null };
   }
 }
 

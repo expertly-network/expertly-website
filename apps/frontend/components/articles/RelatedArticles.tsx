@@ -1,6 +1,8 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Card } from '@/components/ui';
 import type { ArticleListItemDto } from '@shared/article';
+import { mustHotlink } from '@/lib/images';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -34,12 +36,12 @@ export function RelatedArticles({
         {related.map((article) => (
           <li key={article.id}>
             <Link href={`/articles/${article.slug}`} className="flex gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                loading="lazy"
-                decoding="async"
+              <Image
                 src={article.coverImageUrl}
+                unoptimized={mustHotlink(article.coverImageUrl)}
                 alt=""
+                width={56}
+                height={56}
                 className="h-14 w-14 flex-none rounded-lg object-cover"
               />
               <div className="min-w-0">

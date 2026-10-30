@@ -38,10 +38,29 @@ by the global `HttpExceptionFilter` (`apps/backend/src/common/http-exception.fil
 - `code` is stable and machine-readable — clients branch on it, never on `message`. Endpoint-
   specific codes are listed under each endpoint; anything without one gets the status default:
   `BAD_REQUEST`, `VALIDATION_FAILED` (DTO validation — `message` is then an array of strings),
-  `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`,
-  `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`.
-- `429` responses also carry `retryAfterSeconds`.
-- A `5xx` never includes a database or provider message (it's logged server-side instead).
+  `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`,
+  `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`,
+  `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT` (any other status: `HTTP_<status>`).
+- `429` responses also carry `retryAfterSeconds`. A few endpoints add documented extras (e.g.
+  `retryAfter` on `409 CONSULTATION_PENDING_EXISTS`, `resetAt` on `429 CONSULTATION_RATE_LIMITED`). Typed as `ApiErrorResponse` in
+  `packages/shared-types/errors.ts`.
+- **A `5xx` `message` is never the exception's own text** (2026-10-30) — the original is only
+  logged, with the request id. Codes with a fixed client-safe sentence: `AI_NOT_CONFIGURED`,
+  `AI_PROVIDER_ERROR`, `AI_TIMEOUT`, `COVER_IMAGES_NOT_CONFIGURED`, `COVER_IMAGES_PROVIDER_ERROR`,
+  `LINKEDIN_IMPORT_FAILED`, `DATABASE_UNAVAILABLE`; any other 5xx gets its status's generic sentence
+  (`502` "Upstream service error.", `503` "Service temporarily unavailable.", `504` "Upstream
+  service timed out.", else "Internal server error."). `4xx` messages are unchanged.
+- Slug races: a create that loses a concurrent insert of the same slug regenerates the slug and
+  retries (3 attempts); only then `409` `ARTICLE_SLUG_TAKEN` / `MEMBER_SLUG_TAKEN` (application
+  approval) / `EVENT_SLUG_TAKEN` / `RESOURCE_SLUG_TAKEN`.
+- Internal-only `500` codes (no client action, listed for completeness): `SEARCH_DB_ERROR` (AI
+  search tables).
+
+**Request ids** (2026-10-30): every response carries `X-Request-Id` — the caller's own
+`X-Request-Id` header echoed back when it matches `^[A-Za-z0-9._-]{1,64}$`, otherwise a fresh
+UUID. It appears on the API's access-log and 5xx log lines (method, path without query string,
+status, duration — never headers or bodies; `/v1/health*` isn't logged). Not in CORS
+`exposedHeaders` (only `X-Total-Count` is), so browser JS can't read it.
 
 Status rules also apply where there's no `@Roles` gate: on the optional-auth resource routes
 (perks, learnings, templates) a suspended account is served as a guest and a deactivated member as
@@ -56,8 +75,12 @@ files per edit (`400 UPLOAD_LIMIT_EXCEEDED`); only newly attached files are type
 (files already on the live profile were accepted earlier). An application holds at most 10
 documents (`400 APPLICATION_DOCUMENT_LIMIT`).
 
-Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_INVALID`;
-`403 ACCOUNT_SUSPENDED` (the token's `app_status` claim isn't `active`); `403 ROLE_REQUIRED`;
+Auth codes every protected route can return: `401 SESSION_MISSING` / `SESSION_INVALID` (also,
+since 2026-10-30, a token not signed ES256/RS256 or without `role: "authenticated"`);
+`403 ACCOUNT_SUSPENDED` (the token's `app_status` claim isn't `active` — a token without
+`app_status`/`app_member_status` claims has its status read fresh from `profiles`/`member_profiles`
+instead of being assumed active, and a failed lookup is also `ACCOUNT_SUSPENDED`; the optional-auth
+resource routes treat such a token as a guest / deactivated member); `403 ROLE_REQUIRED`;
 `403 MEMBER_DEACTIVATED` (member-only route, the caller's member profile is deactivated);
 `403 ADMIN_NOT_CONFIRMED` (admin route, fresh `profiles` check failed); `403 PERMISSION_REQUIRED` (admin route, the admin's sub-role lacks the permission).
 
@@ -81,6 +104,7 @@ requests/minute. Tighter, shared buckets on the expensive or abusable routes:
 | `linkedin-import` | `POST /v1/applications/me/linkedin-import` | 5/hour, 10/day |
 | `cover-images` | `GET /v1/articles/cover-images` | 20/min, 200/hour |
 | `coupon` | `POST /v1/applications/me/coupon-preview` | 10/min, 30/hour |
+| `application-save` | `POST /v1/applications/me` | 20/min, 60/hour, 200/day |
 | `upload` | application uploads + LinkedIn photo, `POST /v1/members/:id/uploads` | 20/min, 200/day |
 | `write` | create article, member edit, consultation + message, recommendation | 20/min, 300/day |
 
@@ -119,8 +143,10 @@ categories today.
 **🛡️ Admin CRUD** (`manageTaxonomy` permission): `GET/POST/PATCH/DELETE
 /v1/admin/categories[/:id]` and `POST /v1/admin/categories/:categoryId/services`,
 `PATCH`/`DELETE /v1/admin/services/:id`. Deleting a category with services, or a service still
-referenced by a member/article/application, returns `409` (`CATEGORY_HAS_SERVICES` /
-`SERVICE_IN_USE`) rather than cascading.
+referenced by a member/article/application, returns `409` (`CATEGORY_NOT_EMPTY` /
+`SERVICE_IN_USE`) rather than cascading; an unknown id is `404 CATEGORY_NOT_FOUND` /
+`SERVICE_NOT_FOUND`. Bounds (2026-10-30, `400 VALIDATION_FAILED`): category/service `name` ≤ 100;
+category `imageUrl` http(s) only, ≤ 2048.
 
 The wizard persists to the backend as the applicant moves through it — there is no
 frontend-only-until-submit state anymore (see `docs/superpowers/specs/2026-08-23-member-application-form-design.md`
@@ -141,6 +167,9 @@ Submitting (`status: 'submitted'`) also requires a LinkedIn identity linked to t
 (`docs/auth.md` Part 1b) — checked server-side since 2026-10-29: `400 LINKEDIN_NOT_CONNECTED`.
 Draft writes are conditional on the row still being a draft: a save that races a submit or a
 decision gets `409 APPLICATION_LOCKED` instead of overwriting validated fields.
+Rate-limited on its own `application-save` bucket (20/min, 60/hour, 200/day — a submit with a wrong
+coupon answers `COUPON_INVALID`, so without it this route would be a coupon oracle sidestepping
+the coupon-preview limit; the wizard saves once per step change).
 
 **Behavior:**
 - No application yet, or the caller's most recent one is `rejected` → creates a **new** `draft`
@@ -189,6 +218,15 @@ wizard step to resume on, pure UX convenience, not validated).
   and crash approval later — see the admin section below).
 - `bio` — up to 2000 characters (raised from 500 on 2026-09-26 — the old limit was silently
   truncating a normal-length professional bio mid-sentence).
+- Field bounds (2026-10-30, `400 VALIDATION_FAILED`): `firstName`/`lastName` ≤ 100,
+  `phoneCountryCode` ≤ 10, `phone` ≤ 40, `country`/`state`/`city` ≤ 100, `contactEmail` ≤ 254,
+  `linkedinUrl` ≤ 2048, `couponCode` ≤ 50, `termsVersionAgreed`/`privacyVersionAgreed` ≤ 50,
+  `rateMinCents`/`rateMaxCents` ≥ 0. `workExperiences[]`: `title`/`company` ≤ 200, `city` ≤ 100,
+  `companyUrl` ≤ 2048, `startYear`/`endYear` 1900–2100. `educations[]`: `institution`/`degree`/
+  `fieldOfStudy` ≤ 200, years 1900–2100. `peerReferences[]`: `name`/`relationship` ≤ 100, `email`
+  ≤ 254, `phone` ≤ 40. `servicePreferences[].customLabel` ≤ 100.
+- `linkedinUrl` and every `workExperiences[].companyUrl` must be **http(s)** (2026-10-30 —
+  `@IsUrl` alone admitted e.g. `ftp://`): `400 URL_INVALID` otherwise.
 - `region` — **no longer accepted from the client at all** (accepted-but-ignored if sent; the DTO
   field is kept only for backward compatibility with older callers). Always derived server-side
   from `country` via a small fixed map (`apps/backend/src/applications/constants/country-region.ts`)
@@ -212,7 +250,7 @@ permanent public URL built from the Storage path at read time — see the upload
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
 already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
 invalid coupon, `rateMax <= rateMin`, or — only when `status: 'submitted'` — incomplete required
-fields, named in the message). Codes: `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_LOCKED` / `APPLICATION_ALREADY_OPEN` · `400 RATE_RANGE_INVALID`, `COUPON_INVALID`, `SERVICE_PREFERENCES_DUPLICATE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `APPLICATION_INCOMPLETE`.
+fields, named in the message). Codes: `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_LOCKED` / `APPLICATION_ALREADY_OPEN` · `400 RATE_RANGE_INVALID`, `COUPON_INVALID`, `SERVICE_PREFERENCES_DUPLICATE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `APPLICATION_INCOMPLETE`, `URL_INVALID`, `WORK_HISTORY_END_BEFORE_START`, `VALIDATION_FAILED` · `429 RATE_LIMITED`.
 
 ### 🔒 `GET /v1/applications/me`
 
@@ -232,8 +270,11 @@ frontend merges the result into its wizard state and saves it through `POST /v1/
 like any manually-entered edit, so there's exactly one write path regardless of how the data
 originated. Backed by `N8nLinkedInImportProvider` unconditionally as of 2026-09-26 — the mock
 fallback (`MockLinkedInImportProvider`, used when `LINKEDIN_IMPORT_WEBHOOK_URL` was unset) has been
-deleted; a missing webhook URL now throws `502 Bad Gateway` ("LinkedIn import is not configured.")
-at call time instead of silently returning fake profile data. See
+deleted; a missing webhook URL now fails at call time instead of silently returning fake profile
+data. **Errors (2026-10-30):** `502 LINKEDIN_IMPORT_FAILED` (not configured, webhook unreachable,
+non-2xx, or an unparseable body — `message` is the fixed "LinkedIn import failed — try again or fill
+in the form manually."); `408 LINKEDIN_IMPORT_TIMEOUT` when the scrape (including reading its body)
+exceeds 100s; `403 APPLICATION_CLIENTS_ONLY`; `429 RATE_LIMITED` (`linkedin-import` bucket). See
 `docs/superpowers/specs/2026-08-25-linkedin-import-real-provider-design.md` for the n8n
 request/response contract and field-mapping rules.
 
@@ -279,7 +320,8 @@ submission path uses, so the review step can show the real discounted price live
 is typed instead of a hardcoded label that never reflected it. Doesn't touch or require a draft
 application to exist.
 
-**Request:** `CouponPreviewRequest` — `{ billingPeriod: 'annual', couponCode?: string }`.
+**Request:** `CouponPreviewRequest` — `{ billingPeriod: 'annual', couponCode?: string }`
+(`couponCode` ≤ 50).
 **Response `200`:** `CouponPreviewResponse` — `{ valid, listPriceCents, discountAmountCents,
 amountDueCents }`. `valid: false` (with `discountAmountCents: 0`) when a non-empty `couponCode`
 doesn't match a known code — not an error response, so the frontend can render "invalid code"
@@ -305,9 +347,18 @@ while the caller has a `draft` application.
 from the stored path; each `documents[].url` is a signed URL valid for 15 minutes, minted fresh on
 every read (a document whose object is missing from Storage is omitted). **Errors:** `400` no draft to attach to,
 oversized file, or a MIME mismatch (including a renamed file whose magic bytes don't match its
-extension/declared content-type). Codes: `400 FILE_REQUIRED`, `VALIDATION_FAILED` (bad `kind`), `FILE_TOO_LARGE`, `FILE_INVALID_TYPE`, `APPLICATION_NOT_DRAFT` · `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_ALREADY_OPEN`.
+extension/declared content-type). Codes: `400 FILE_REQUIRED`, `VALIDATION_FAILED` (bad/missing `kind`, or an unknown extra field —
+validated with the global pipe's whitelist + `forbidNonWhitelisted`; `message` is an array, since
+2026-10-30), `FILE_TOO_LARGE`, `FILE_INVALID_TYPE`, `APPLICATION_NOT_DRAFT` · `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_ALREADY_OPEN`.
 
 ## Membership applications — admin
+
+### 🛡️ `manageApplications` `GET /v1/admin/applications`
+
+The review queue (`apps/frontend/app/(shell)/admin/applications/`): applications in every status
+(the admin table filters client-side), newest first, capped at 500 rows (see "List sizes").
+Optional `?status=` (one of the application statuses, else `400`) narrows it server-side. Items are
+`AdminApplicationListItemDto` (`packages/shared-types/membership-application.ts`).
 
 ### 🛡️ `manageApplications` `GET /v1/admin/applications/:id`
 
@@ -397,7 +448,7 @@ returns — the queue is small and already fully loaded per request either way. 
 
 **Errors:** `401`/`403` per the 🛡️ badge · `404` no such application · `409` application isn't
 `submitted`/`under_review` · `400` rejecting without a `rejectionReason`, approving without a
-valid `approvedServiceId`. Codes: `404 APPLICATION_NOT_FOUND` · `409 APPLICATION_NOT_REVIEWABLE` / `APPLICATION_ALREADY_REVIEWED` · `400 REJECTION_REASON_REQUIRED`, `APPROVED_SERVICE_REQUIRED`, `APPROVED_SERVICE_INVALID`.
+valid `approvedServiceId`. Codes: `404 APPLICATION_NOT_FOUND` · `409 APPLICATION_NOT_REVIEWABLE` / `APPLICATION_ALREADY_REVIEWED` / `MEMBER_SLUG_TAKEN` (approval lost the member-slug race 3 times — retried with a fresh slug first) · `400 REJECTION_REASON_REQUIRED`, `APPROVED_SERVICE_REQUIRED`, `APPROVED_SERVICE_INVALID`, `VALIDATION_FAILED` (2026-10-30: `rejectionReason` ≤ 2000; `approvedServiceId` must be a UUID).
 
 ## Membership applications — not built yet (explicitly deferred)
 
@@ -432,8 +483,10 @@ Generated once, server-side, by `ArticlesService.generateSummaryIfNeeded()` (`Ai
 summarizeArticle`) the first time an article transitions to `status: 'published'` — fired async
 and never awaited by the publish/approve request, so it never blocks or fails that response; on
 an AI failure the field is just left `null` and the error is logged, no retry. Uses the same
-`AI_PROVIDER`/`AI_MODEL` config as `POST /v1/articles/ai-draft`. Not regenerated on later edits to
-an already-published article. Seed data (`supabase/seed/dev/03_articles.sql`) still
+`AI_PROVIDER`/`AI_MODEL` config as `POST /v1/articles/ai-draft`. Since 2026-10-30 it's
+(re)generated only when an article becomes published without one, or a published article's
+`title`/`body` actually changes (the old summary is stale) — a `PATCH` touching neither never makes
+an LLM call, even while `aiSummary` is still `null`; one call per article at a time. Seed data (`supabase/migrations/0007_dev_seed_articles.sql`) still
 pre-populates it for dev fixtures so the callout has something to show without waiting on a real
 model call. Additive, no version bump.
 
@@ -469,6 +522,10 @@ excerpt, cover, author, services…, no `body`), by UUID or slug. Backs the sign
 which used to fetch the whole list just to find one entry. **Errors:** `404` no published article
 with that id/slug (drafts, pending and rejected articles are indistinguishable from missing). Codes: `404 ARTICLE_NOT_FOUND`.
 
+**Unlisted authors (2026-10-30):** this preview, `GET /v1/articles` (rows and `X-Total-Count`) and
+the signed-in detail route exclude articles whose author's account isn't active / is deleted, or
+whose member profile is deactivated. Admin-authored articles (no member profile) are unaffected.
+
 ### 🔒 `GET /v1/articles/me`
 
 The caller's own articles, any status (`draft` included). Empty array if none — not a `404`, since
@@ -487,7 +544,9 @@ decision, not something the static prototype itself enforces**; see
 
 If the article's `status` is `draft`, only its own author or an `admin` can read it — everyone else
 gets **`404`, not `403`**, so a non-owner can't distinguish "doesn't exist" from "exists but isn't
-published yet."
+published yet." Since 2026-10-30 someone else's article is readable only when it's `published`
+**and** its author is still listed (account active and not deleted, member profile not
+deactivated) — same rule as the list and preview — unless the caller has fresh `manageArticles`.
 
 **Response `200`:** `ArticleDto`. **Errors:** `401` no/invalid token · `404` not found, or a draft
 the caller can't see. Codes: `404 ARTICLE_NOT_FOUND`.
@@ -508,8 +567,7 @@ not from taxonomy context, so this endpoint doesn't need the member to have pick
 
 **Response `201`:** `AiFollowUpQuestionsResponse` — `{ questions: string[] }`, 0 to 10 items. An
 empty array is a valid, expected result — not every brief needs follow-ups. **Errors:** `401` ·
-`403` client account · `400` validation · `503` AI drafting not configured or the provider call
-failed (same causes as `ai-draft`).
+`403` client account · `400` validation · `503 AI_NOT_CONFIGURED` (no `AI_PROVIDER`/`AI_MODEL`/matching key) · `502 AI_PROVIDER_ERROR` (the provider call failed) · `504 AI_TIMEOUT` (it hit its timeout) — 2026-10-30, previously a code-less `503`; `message` is the fixed sentence from "Errors" · `429 RATE_LIMITED` (`ai` bucket).
 
 ### `member` `POST /v1/articles/ai-draft`
 
@@ -573,9 +631,9 @@ returned name against those same lists and resolves matched service names to rea
 `serviceIds`/`countries` are empty arrays (not an error) if nothing matched, `state` is `null` if
 none was clearly implied (free text, not validated against a list — same posture as the manual
 write flow). **Errors:** `401` · `403` client account · `400` validation (missing/invalid
-`payload`, unsupported source file type) · `503` AI drafting not configured
-(`AI_PROVIDER`/`AI_MODEL`/matching API key unset) or the provider call itself failed — manual
-article writing is unaffected either way. Every attempt (success or failure) is also recorded,
+`payload`, unknown keys in it — whitelist + `forbidNonWhitelisted` like the global pipe, `message`
+an array — or valid JSON that isn't an object, unsupported source file type) · `503 AI_NOT_CONFIGURED` (no `AI_PROVIDER`/`AI_MODEL`/matching key) · `502 AI_PROVIDER_ERROR` (the provider call failed) · `504 AI_TIMEOUT` (it hit its timeout) — 2026-10-30, previously a code-less `503`; `message` is the fixed sentence from "Errors" · `429 RATE_LIMITED` (`ai-draft`
+bucket) — manual article writing is unaffected either way. Every attempt (success or failure) is also recorded,
 fire-and-forget, into `ai_draft_generations` (logging the **inferred** `serviceIds`/`countries`/
 `state`, not client input — there is no client input for these anymore) — see
 `docs/database-erd.md`. Codes: `400 AI_DRAFT_PAYLOAD_MISSING`, `AI_DRAFT_PAYLOAD_INVALID`, `SOURCE_FILE_TOO_LARGE`, `SOURCE_FILE_INVALID_TYPE` · `413 PAYLOAD_TOO_LARGE`.
@@ -606,8 +664,7 @@ render, before any service is selected), the backend samples 3 random active ser
 rather than requiring a selection first.
 
 **Response `201`:** `SuggestTopicsResponse` — `{ topics: string[] }`, up to 6 ideas. **Errors:**
-`401` · `403` client account · `503` AI drafting not configured or the provider call failed (same
-causes as `ai-draft`).
+`401` · `403` client account · `503 AI_NOT_CONFIGURED` (no `AI_PROVIDER`/`AI_MODEL`/matching key) · `502 AI_PROVIDER_ERROR` (the provider call failed) · `504 AI_TIMEOUT` (it hit its timeout) — 2026-10-30, previously a code-less `503`; `message` is the fixed sentence from "Errors" · `429 RATE_LIMITED` (`ai` bucket).
 
 ### `member` `GET /v1/articles/cover-images`
 
@@ -621,8 +678,9 @@ has an image before any practice area is chosen.
 
 **Response `200`:** `CoverImageSuggestionsResponse` — `{ images: string[] }`, up to 5 URLs. The
 frontend cycles through these client-side for "Try another image" rather than re-querying on every
-click. **Errors:** `401` · `403` client account · `503` `UNSPLASH_ACCESS_KEY` not set or the
-Unsplash call failed.
+click. **Errors:** `401` · `403` client account · `503 COVER_IMAGES_NOT_CONFIGURED`
+(`UNSPLASH_ACCESS_KEY` not set) · `502 COVER_IMAGES_PROVIDER_ERROR` (the Unsplash call failed) —
+2026-10-30, previously code-less `503`s · `429 RATE_LIMITED` (`cover-images` bucket).
 
 ### `member` `POST /v1/articles`
 
@@ -659,7 +717,10 @@ check — "member or admin" fits the ranked model directly.
 
 **Response `201`:** `ArticleDto`. **Errors:** `401` no/invalid token · `403` client account · `400`
 validation failure (malformed body, word count out of range, invalid/inactive service id, empty
-`countries`). Codes: `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `AI_GENERATION_NOT_OWNER`.
+`countries`). Codes: `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `CUSTOM_SERVICE_LABEL_INVALID` (a `customServiceLabels` value that isn't text ≤ 100 chars, or more than 20 labels), `AI_GENERATION_NOT_OWNER`, `VALIDATION_FAILED` · `409 ARTICLE_SLUG_TAKEN` (lost the slug race 3 times — each loss regenerates the slug and retries) · `429 RATE_LIMITED` (`write` bucket).
+
+Bounds (2026-10-30, `400 VALIDATION_FAILED`, same on `PATCH`): `serviceIds` ≤ 20; `countries` ≤ 250
+entries (the full country list), each ≤ 100; `state` ≤ 100.
 
 ### 🔒 `PATCH /v1/articles/:id`
 
@@ -674,8 +735,13 @@ reject only happens via `GET`/`PATCH /v1/admin/articles` below, in `editorial` r
 `serviceIds`, `countries` re-validated the same way as `POST` if present; `excerpt`/
 `readTimeMinutes` re-derived if `body` changes.
 
+**Editorial mode:** an author editing the content of their already-published article sends it back
+to `pending_review` — content is `title`, `body`, `coverImageUrl`, `serviceIds` and (since
+2026-10-30) `countries`; `state` isn't rendered publicly, so it doesn't count. An admin editing
+someone else's article keeps its status.
+
 **Response `200`:** `ArticleDto`. **Errors:** `401` · `403` not the owner and not admin · `404` not
-found · `400` validation failure. Codes: `404 ARTICLE_NOT_FOUND` · `403 ARTICLE_NOT_OWNER` · `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`.
+found · `400` validation failure. Codes: `404 ARTICLE_NOT_FOUND` · `403 ARTICLE_NOT_OWNER` · `400 ARTICLE_WORD_COUNT_OUT_OF_RANGE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `CUSTOM_SERVICE_LABEL_INVALID`, `VALIDATION_FAILED`.
 
 ### 🔒 `DELETE /v1/articles/:id`
 
@@ -815,8 +881,16 @@ draft-or-publish choice, so this only matters as a safety net. A draft only need
 `description`, `startDate` (the DTO's unconditional requireds) — see **Publish requirements**
 below for what else is enforced when `status: 'published'`.
 
+**Field rules (2026-10-30, `400 VALIDATION_FAILED`, same on `PATCH` and per CSV row):** `title` ≤
+200, `description` ≤ 20000, `shortDescription` ≤ 500, `eventType`/`country`/`city` ≤ 100,
+`venueName`/`organiserName` ≤ 200; `coverImageUrl`/`registrationUrl` ≤ 2048 and **http(s) only**
+(a scheme-less `www.example.com` is still accepted); `startDate`/`endDate` must be ISO 8601
+(`@IsDateString`); `timezone` must be an IANA zone (`@IsTimeZone`, e.g. `Asia/Kolkata`), ≤ 64.
+
 **Response `201`:** `EventDto`. **Errors:** `401` no/invalid token · `403` not admin or missing
-`manageEvents` · `400` validation failure (including publish requirements, see below).
+`manageEvents` · `400` validation failure (including publish requirements, see below) · `409
+EVENT_SLUG_TAKEN` (lost the slug race 3 times — each loss regenerates the slug and retries). Codes:
+`400 VALIDATION_FAILED` · `409 EVENT_SLUG_TAKEN`.
 
 ### 🛡️ `manageEvents` `PATCH /v1/admin/events/:id`
 
@@ -903,7 +977,7 @@ not by any specific row in it.
 
 **Errors:** `401` · `403` · `404`/`403`/`401` not applicable beyond the controller-level guard ·
 `400` no file / wrong extension / empty file / unparseable CSV / missing required column / zero
-data rows / any row validation failure (see above). Codes: `400 FILE_REQUIRED`, `FILE_EMPTY`, `CSV_INVALID`, `CSV_NO_ROWS`.
+data rows / any row validation failure (see above, incl. the field rules under `POST`). Codes: `400 FILE_REQUIRED`, `FILE_EMPTY`, `CSV_INVALID`, `CSV_NO_ROWS` · `409 EVENT_SLUG_TAKEN` (the batch's new slugs are regenerated together and retried, 3 attempts).
 
 **Known limitation — not a single DB transaction:** rows are fully validated before any write, so a
 write-phase failure only happens on a rare infra error (not a data problem), and at this table's
@@ -969,7 +1043,7 @@ Tenure/rate display strings
 `bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
 `line-clamp-2`, matching the design's own approach, so no separate excerpt field was added.
 
-### 👤 `GET /v1/members/me/profile`
+### _member_ `GET /v1/members/me/profile`
 
 *Added 2026-10-23.* The signed-in member's own profile handle — **Response `200`:**
 `MyMemberProfileDto` (`{ id, slug }`, `packages/shared-types/member.ts`). `404` when the caller has
@@ -994,6 +1068,14 @@ browser's address bar, and the UUID remains the key every other table references
 Full profile — all `member_profiles` columns (incl. `workEmail`, added 2026-10-10), all 8 child arrays, `memberServices`. List items carry `isVerified`; `proofAttachments` appear on items **only for the owner/admins**. Work history is returned newest-first. **Requires
 sign-in** (any authenticated role) — a deliberate product decision, not something the static
 prototype itself consistently enforces; see `docs/database-erd.md`'s "Design decisions" note.
+
+**Contact details (2026-10-30, product decision):** `contactEmail`, `workEmail`, `contactPhone` and
+`linkedinUrl` are returned only to the profile owner, an admin with fresh `manageMembers`, a
+`member` whose own member profile is active (`app_member_status` claim, resolved fresh from the DB
+when the claim is absent), and a `client` with any `consultation_requests` row to this member (any
+status). Everyone else gets `null` for those four. `website`/`firmWebsite` stay public. New field
+`contactVisible: boolean` — `true` when the four were included, so the UI can tell "hidden from you"
+apart from "not provided". Same rule on the `PATCH /v1/members/:id` response.
 
 A member's own published articles are **not** embedded here — fetch
 `GET /v1/articles?authorId=:id` separately (see that endpoint's note above). `memberServices`
@@ -1079,7 +1161,21 @@ the public bucket as a "logo".
 
 **Response `201`:** `MemberProfileEditDto`. **Errors:** `401` · `403` not this member · `400`
 validation failure (payload shape doesn't match `section`, a malformed `proofAttachments` entry, or
-a file path that isn't the member's own). Codes: `403 MEMBER_NOT_OWNER` · `400 UPLOAD_NOT_OWNED`.
+a file path that isn't the member's own). Codes: `403 MEMBER_NOT_OWNER` · `400 UPLOAD_NOT_OWNED`,
+`FIELD_TOO_LONG`, `PAYLOAD_ITEM_INVALID`, `PAYLOAD_TOO_MANY_ITEMS`, `UPLOAD_LIMIT_EXCEEDED` · `429
+RATE_LIMITED` (`write` bucket).
+
+**Payload hardening (2026-10-30):** unknown keys in a section payload or item are **stripped** (not
+rejected) down to the `*EditPayload` shapes in `packages/shared-types/member.ts` — `isVerified` and
+anything else unknown is dropped; `proofAttachments` entries keep only `{ type, url, label }`. Length
+caps → `400 FIELD_TOO_LONG`: short text (`title`, `organization`, `clientName`, `company`, `degree`,
+`institution`, `field`, `name`, `issuingBody`, `clientTitle`, `clientCompany`, `serviceName`,
+`occurredOn`, `id`, `logoUploadPath`, `headline`) ≤ 300; `description`/`quote` ≤ 2000; `bio` ≤ 5000;
+URLs ≤ 2048; emails ≤ 254; `contactPhone` ≤ 50; proof attachment `url` ≤ 2048 / `label` ≤ 300. A text
+field that isn't a string/null, a number field (`year`, `endYear`, `startYear`, `startMonth`,
+`endMonth`) that isn't a number/null, or a non-boolean `isCurrent` → `400 PAYLOAD_ITEM_INVALID`.
+`key_clients`: on approval an item without a new `logoUploadPath` keeps the **live** item's
+`logoUrl` (none for a new item) — a client-supplied `logoUrl` is ignored.
 
 ### 🔒 `GET /v1/members/:id/edits`
 
@@ -1088,7 +1184,7 @@ Owner-only, same posture as `GET /v1/articles/me`.
 
 **Response `200`:** `MemberProfileEditDto[]`.
 
-### 🔑 `PATCH /v1/members/:id`
+### _member_ `PATCH /v1/members/:id`
 
 Added 2026-10-21. The member updates their **directly-editable** fields — any combination in one
 request, at least one (`400 NOTHING_TO_UPDATE`). Owner-only (`:id` must be the caller — `403`
@@ -1111,7 +1207,10 @@ consolidated here the same day, before any external consumer — not a `/v2`-wor
 All validation runs before anything is written — a rejected photo leaves availability unchanged.
 
 **Response `200`:** the updated `MemberDto` (same shape as `GET /v1/members/:slug` for the owner).
-**Errors:** `400` validation · `403` not your profile · `404` no member profile. Codes: `403 MEMBER_NOT_OWNER` · `404 MEMBER_NOT_FOUND` · `400 UPLOAD_NOT_OWNED`.
+The photo's size is checked from storage metadata **before** it's downloaded (2026-10-30), so an
+oversized object fails with `PHOTO_TOO_LARGE` without being read into memory.
+
+**Errors:** `400` validation · `403` not your profile · `404` no member profile. Codes: `403 MEMBER_NOT_OWNER` · `404 MEMBER_NOT_FOUND` · `400 UPLOAD_NOT_OWNED`, `PHOTO_INVALID_TYPE`, `PHOTO_TOO_LARGE`, `NOTHING_TO_UPDATE`, `VALIDATION_FAILED`.
 
 ### 🛡️ `manageMembers` `GET /v1/admin/members`
 
@@ -1200,7 +1299,7 @@ the client — reject the edit with a reason instead.
 
 **Response `200`:** `MemberProfileEditDto`. **Errors:** `400` (codes above), or
 an invalid key-client logo · `409` if the edit is no longer `pending` (already reviewed, or
-replaced by a newer submission). Codes: `404 MEMBER_EDIT_NOT_FOUND`, `MEMBER_NOT_FOUND` · `409 MEMBER_EDIT_ALREADY_REVIEWED` · `400 LOGO_INVALID_TYPE`, `LOGO_TOO_LARGE`, `MEMBER_EDIT_SECTION_INVALID`.
+replaced by a newer submission). Codes: `404 MEMBER_EDIT_NOT_FOUND`, `MEMBER_NOT_FOUND` · `409 MEMBER_EDIT_ALREADY_REVIEWED` · `400 LOGO_INVALID_TYPE`, `LOGO_TOO_LARGE` (since 2026-10-30 checked from storage metadata before the logo is downloaded), `MEMBER_EDIT_SECTION_INVALID`.
 
 ### 🔒 `GET /v1/members/:id/recommendations`
 
@@ -1210,7 +1309,7 @@ non-hidden recommendations newest first; the recipient and admins also receive h
 { id, slug, name, initials, photoUrl }, body, isHidden, createdAt }`. **Errors:** `404` unknown or
 non-active member (the owner can still read their own). Codes: `404 RECOMMENDATION_RECIPIENT_NOT_FOUND`.
 
-### 🔑 `POST /v1/members/:id/recommendations`
+### _member_ `POST /v1/members/:id/recommendations`
 
 `@Roles('member')`. The caller must be an **active member** writing for **another active member**.
 **Request:** `{ body: string }` (10–2000 chars, trimmed, plain text). Published immediately.
@@ -1219,7 +1318,7 @@ non-active member (the owner can still read their own). Codes: `404 RECOMMENDATI
 `404` `RECOMMENDATION_RECIPIENT_NOT_FOUND` (not an active member) · `409`
 `RECOMMENDATION_ALREADY_EXISTS` (one per author/recipient pair).
 
-### 🔑 `PATCH /v1/members/:id/recommendations/:recommendationId`
+### _member_ `PATCH /v1/members/:id/recommendations/:recommendationId`
 
 `@Roles('member')`, only the **recommended member** (`:id` must equal the caller). **Request:**
 `{ isHidden: boolean }` — hide/unhide. **Response `200`:** `MemberRecommendationDto`. **Errors:**
@@ -1345,13 +1444,15 @@ only caller). A request carries one of two shapes, never both:
   list, so a bare status flip with no explanation isn't enough context.
 - **Rating — the requester only.** `rating`, integer 1–5, once the member has marked the request
   **completed** (a `declined` request can't be rated — there was no conversation). This replaces
-  the now-closed message composer on the requester's side.
+  the now-closed message composer on the requester's side. **Set once** (2026-10-30): a second
+  rating is `409 RATING_ALREADY_SET` (checked up front and atomically — `rating is null` on the
+  UPDATE).
 
 **Request:** `UpdateConsultationRequest` (all fields optional). **Response `200`:** `ConsultationRequestDto`.
 **Errors:** `401` · `403` wrong participant for the fields sent (decision by a non-member, rating by a
 non-requester) · `404` not found · `409` already decided / not `completed` for a rating · `400`
 validation, or `NOTHING_TO_UPDATE` (empty body), `MIXED_UPDATE` (decision and rating together),
-`DECISION_INCOMPLETE` (`status` without `responseMessage` or vice versa). Codes: `404 CONSULTATION_NOT_FOUND` · `403 CONSULTATION_NOT_PARTICIPANT` · `409 CONSULTATION_ALREADY_DECIDED`, `CONSULTATION_NOT_COMPLETED`.
+`DECISION_INCOMPLETE` (`status` without `responseMessage` or vice versa). Codes: `404 CONSULTATION_NOT_FOUND` · `403 CONSULTATION_NOT_PARTICIPANT`, `MEMBER_DEACTIVATED` · `409 CONSULTATION_ALREADY_DECIDED`, `CONSULTATION_NOT_COMPLETED`, `RATING_ALREADY_SET`.
 
 ### 🔒 `GET /v1/consultations/:id/messages`
 
@@ -1420,7 +1521,7 @@ notes about relaxed filters) — it never names anything that isn't in `results`
 the judge's internal candidate numbers. (Until 2026-10-20 the judge wrote the answer itself, which
 could mention candidates that were filtered out afterwards.)
 
-### 🔒 `POST /v1/search`
+### 🔑 `POST /v1/search`
 
 Signed in, any role. Responses are plain camelCase DTOs (no envelope), like every other route.
 
@@ -1452,7 +1553,11 @@ Signed in, any role. Responses are plain camelCase DTOs (no envelope), like ever
 
 **Privacy:** member contact details (email, phone, LinkedIn) never reach OpenAI or the client. Card
 text is redacted before it is stored/embedded, and the answer and results are scrubbed again on
-the way out.
+the way out. Since 2026-10-30 card text also skips `companyUrl`/`website`/`linkedinUrl` and any
+contact/email/phone jsonb keys, and redaction also removes local-format phone numbers and
+`wa.me`/WhatsApp links. Internal failures: the search tables → `500 SEARCH_DB_ERROR`; the OpenAI
+client → `503 AI_NOT_CONFIGURED` / `502 AI_PROVIDER_ERROR` — but `POST /v1/search` still degrades
+(see `degraded`) rather than failing for planner/embedding/judge errors.
 
 **Feedback** — same route, `action: 'feedback'`:
 
@@ -1518,6 +1623,37 @@ when the caller never set a phone number (the common case for OAuth signups) —
 a signed-in caller always gets a `200` with possibly-null fields.
 
 **Response `200`:** `MyContactResponse` — `{ phoneCountryCode: string | null; phone: string | null }`.
+
+## Health & smoke tests
+
+Backing `apps/backend/src/app.controller.ts` and `apps/backend/src/auth/auth.controller.ts`. Not
+rate-limited beyond the default; `/v1/health*` isn't access-logged.
+
+### 🌐 `GET /v1/health`
+
+Liveness — answers without touching the database. **Response `200`:** `{ status: 'ok', uptime:
+number }` (process uptime in seconds).
+
+### 🌐 `GET /v1/health/ready`
+
+Readiness (added 2026-10-30) — a HEAD select of one `profiles.id` through the service-role client,
+3s timeout. Use this one for a container/Coolify health check. **Response `200`:** `{ status: 'ok'
+}`. **Errors:** `503 DATABASE_UNAVAILABLE` ("Service temporarily unavailable.") when the database
+doesn't answer in time.
+
+### 🌐 `GET /v1/hello`
+
+Connectivity smoke test. **Response `200`:** `{ message: string, timestamp: string }` (ISO 8601).
+
+### `member` `GET /v1/member/ping`
+
+Role-gate smoke test (`@Roles('member')` — admins pass too). **Response `200`:** `{ ok: true, as:
+Role }`. **Errors:** the auth codes above (`403 ROLE_REQUIRED`, `MEMBER_DEACTIVATED`).
+
+### `admin` `GET /v1/admin/ping`
+
+Admin-gate smoke test (`@Roles('admin')`, freshly re-checked). **Response `200`:** `{ ok: true, as:
+'admin' }`. **Errors:** `403 ROLE_REQUIRED`, `ADMIN_NOT_CONFIRMED`.
 
 ## Perks & Learnings (US-14, backend implemented 2026-10-29)
 
@@ -1594,15 +1730,19 @@ No token: **401**. Clients/members or admins without `manageResources`: **403**.
 RolesGuard and AdminPermissionGuard re-check the active admin profile and permission in the DB.
 Admin DTOs expose both perk tiers and playback URLs for content management. Slugs are generated
 server-side from perk name / collection title; edits preserve them. Supplying `slug`, IDs,
-timestamps, or unknown fields is rejected. Slug uniqueness conflicts return **409** (`RESOURCE_SLUG_TAKEN`); other rejected data **400** `RESOURCE_INVALID`.
+timestamps, or unknown fields is rejected. A create that loses a slug race regenerates the slug and
+retries (3 attempts, 2026-10-30); only then **409** (`RESOURCE_SLUG_TAKEN`); other rejected data **400** `RESOURCE_INVALID`.
 
 Required create fields:
 
 - Perk: `name`, `category`, HTTPS `websiteUrl`. Default `offerStatus=coming_soon`.
 - Learning: `title`, HTTPS `videoUrl`, positive integer `durationMinutes`, `category`, `level`.
   Defaults: `videoProvider=youtube`, `access=auto`. YouTube URLs require a valid 11-character video
-  ID on youtube.com/youtu.be/youtube-nocookie.com. `file` allows HTTPS hosted video URLs.
-- Collection: `kind`, `title`. Default empty `itemIds` and `audiences`. `kind` is immutable.
+  ID on youtube.com/youtu.be/youtube-nocookie.com (**400** `LEARNING_YOUTUBE_URL_REQUIRED`). `file`
+  allows HTTPS hosted video URLs.
+- Collection: `kind`, `title`. Default empty `itemIds` and `audiences`. `kind` is immutable: a PATCH
+  with a different `kind` is **400** `COLLECTION_KIND_IMMUTABLE` (the same value is accepted as a no-op;
+  `UpdateCollectionRequest` should omit it).
 
 All resources support `isActive` (default true), non-negative `sortOrder` (default 0). Perks and
 learnings also support `isFeatured` (default false). Optional strings/arrays and nullable fields
@@ -1623,7 +1763,7 @@ its ID from all collections via the existing database trigger in the same deleti
 
 Thumbnails must be our resource-assets copies, never YouTube thumbnail URLs (which reveal the
 locked video ID). Accept bucket-relative `learnings/...` paths or HTTPS URLs in our resource-assets
-bucket. Asset content must not embed confidential codes/playback links. No upload endpoint is
+bucket — an HTTPS thumbnail outside it is **400** `LEARNING_THUMBNAIL_INVALID`. Asset content must not embed confidential codes/playback links. No upload endpoint is
 added here; use the existing re-runnable resource upload script / provisioned assets.
 
 ### Templates (added 2026-10-30)

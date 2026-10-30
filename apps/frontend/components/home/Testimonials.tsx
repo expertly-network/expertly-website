@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import { mustHotlink } from '@/lib/images';
 import { useState } from 'react';
 import { Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -102,12 +104,12 @@ export function Testimonials() {
               <blockquote className="text-lede text-ink-2">&ldquo;{t.quote}&rdquo;</blockquote>
               {/* Anchors attribution to the bottom so every card's photo/name row lines up. */}
               <figcaption className="mt-auto flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  loading="lazy"
-                  decoding="async"
+                <Image
                   src={t.photo}
+                  unoptimized={mustHotlink(t.photo)}
                   alt=""
+                  width={40}
+                  height={40}
                   className="h-10 w-10 flex-none rounded-full object-cover"
                 />
                 <div className="min-w-0">

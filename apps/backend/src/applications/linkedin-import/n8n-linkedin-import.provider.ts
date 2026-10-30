@@ -129,6 +129,16 @@ function mapEducation(raw: RawEducation[] | undefined): EducationInput[] {
     .slice(0, EDUCATIONS_MAX);
 }
 
+function isAbort(err: unknown): boolean {
+  return err instanceof Error && err.name === 'AbortError';
+}
+
+// Every non-timeout failure (unconfigured, unreachable, non-2xx, bad body) is one client-facing
+// code; the specific cause is logged.
+function importFailed(): BadGatewayException {
+  return new BadGatewayException({ code: 'LINKEDIN_IMPORT_FAILED', message: 'LinkedIn import failed.' });
+}
+
 @Injectable()
 export class N8nLinkedInImportProvider implements LinkedInImportProvider {
   private readonly logger = new Logger(N8nLinkedInImportProvider.name);
@@ -136,54 +146,61 @@ export class N8nLinkedInImportProvider implements LinkedInImportProvider {
   async importProfile(linkedinUrl: string): Promise<LinkedInImportResponse> {
     const webhookUrl = process.env.LINKEDIN_IMPORT_WEBHOOK_URL;
     if (!webhookUrl) {
-      throw new BadGatewayException('LinkedIn import is not configured.');
+      this.logger.error('LinkedIn import refused: LINKEDIN_IMPORT_WEBHOOK_URL is not set');
+      throw importFailed();
     }
 
     const raw = await this.fetchProfile(webhookUrl, linkedinUrl);
     return this.toResponse(raw);
   }
 
+  // One timeout covers the whole exchange, body included: n8n can send headers and then stall
+  // while streaming the scrape result.
   private async fetchProfile(webhookUrl: string, linkedinUrl: string): Promise<RawLinkedInProfile | undefined> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    let res: Response;
     try {
-      res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatInput: linkedinUrl, sessionId: randomUUID() }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        this.logger.error(`LinkedIn import timed out for ${linkedinUrl}`);
-        throw new RequestTimeoutException({
-          code: 'LINKEDIN_IMPORT_TIMEOUT',
-          message: 'LinkedIn import timed out.',
+      let res: Response;
+      try {
+        res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatInput: linkedinUrl, sessionId: randomUUID() }),
+          signal: controller.signal,
         });
+      } catch (err) {
+        if (isAbort(err)) throw this.timedOut(linkedinUrl);
+        this.logger.error(
+          `Failed to reach LinkedIn import service: ${err instanceof Error ? err.message : String(err)}`
+        );
+        throw importFailed();
       }
-      this.logger.error(`Failed to reach LinkedIn import service: ${err instanceof Error ? err.message : String(err)}`);
-      throw new BadGatewayException('Failed to reach LinkedIn import service.');
+
+      if (!res.ok) {
+        this.logger.error(`LinkedIn import service returned ${res.status} ${res.statusText}`);
+        throw importFailed();
+      }
+
+      let data: unknown;
+      try {
+        data = await res.json();
+      } catch (err) {
+        if (isAbort(err)) throw this.timedOut(linkedinUrl);
+        this.logger.error('LinkedIn import service returned an invalid response body.');
+        throw importFailed();
+      }
+
+      // Response may be a bare object or a single-element array.
+      return (Array.isArray(data) ? data[0] : data) as RawLinkedInProfile | undefined;
     } finally {
       clearTimeout(timeout);
     }
+  }
 
-    if (!res.ok) {
-      this.logger.error(`LinkedIn import service returned ${res.status} ${res.statusText}`);
-      throw new BadGatewayException('LinkedIn import service returned an error.');
-    }
-
-    let data: unknown;
-    try {
-      data = await res.json();
-    } catch {
-      this.logger.error('LinkedIn import service returned an invalid response body.');
-      throw new BadGatewayException('LinkedIn import service returned an invalid response.');
-    }
-
-    // Response may be a bare object or a single-element array.
-    return (Array.isArray(data) ? data[0] : data) as RawLinkedInProfile | undefined;
+  private timedOut(linkedinUrl: string): RequestTimeoutException {
+    this.logger.error(`LinkedIn import timed out for ${linkedinUrl}`);
+    return new RequestTimeoutException({ code: 'LINKEDIN_IMPORT_TIMEOUT', message: 'LinkedIn import timed out.' });
   }
 
   private toResponse(raw: RawLinkedInProfile | undefined): LinkedInImportResponse {

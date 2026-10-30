@@ -4,7 +4,7 @@
 export function SectionBadge({ status }: { status: 'pending' | 'verified' | null }) {
   if (status === 'pending') {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+      <span className="inline-flex items-center rounded-full bg-warn-soft px-2.5 py-1 text-[11px] font-semibold text-warn">
         Pending verification
       </span>
     );

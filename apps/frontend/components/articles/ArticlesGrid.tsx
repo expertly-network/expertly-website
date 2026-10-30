@@ -6,7 +6,7 @@ import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { ArticleCard } from '@/components/articles/ArticleCard';
 import { getArticles } from '@/lib/api/articles';
 import { ARTICLES_PAGE_SIZE } from '@/lib/api/articles-query';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ArticleListItemDto } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
 
@@ -61,7 +61,7 @@ export function ArticlesGrid({
         setArticles([]);
         setTotal(0);
       }
-      setFailed({ page: nextPage, mode, message: err instanceof ApiError ? err.message : 'Failed to load articles.' });
+      setFailed({ page: nextPage, mode, message: apiErrorMessage(err, 'Failed to load articles.') });
     } finally {
       if (id === requestId.current) setStatus('idle');
     }

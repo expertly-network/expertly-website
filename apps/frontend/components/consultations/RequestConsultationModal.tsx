@@ -6,9 +6,20 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { checkConsultationEligibility, createConsultation } from '@/lib/api/consultations';
 import { getMyContact } from '@/lib/api/account';
 import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 // Reused as-is from the membership application form — same compound country-code + number
 // field, same data source, rather than inventing a second phone-input convention.
 import { PHONE_COUNTRY_CODES } from '@/components/apply/types';
+
+// The backend's error codes for POST /v1/consultations (consultations.service.ts).
+const CREATE_ERRORS: Record<string, string> = {
+  CONSULTATION_SELF: 'You can’t request a consultation with yourself.',
+  CONSULTATION_SERVICE_REQUIRED: 'Please select a service, or describe it under “Other”.',
+  CONSULTATION_MEMBER_NOT_FOUND: 'This member isn’t taking consultation requests right now.',
+  CONSULTATION_SERVICE_NOT_OFFERED: 'This member no longer offers that service. Please pick another.',
+  CONSULTATION_PENDING_EXISTS: 'You already have a pending request with this member.',
+  CONSULTATION_RATE_LIMITED: 'You’ve reached the limit on consultation requests for now. Please try again later.',
+};
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTHER_VALUE = '__other__';
@@ -199,10 +210,10 @@ export function RequestConsultationModal({
       });
       setSent(true);
     } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 401) {
+      if (err instanceof ApiError && (err.code === 'SESSION_MISSING' || err.code === 'SESSION_INVALID')) {
         setNeedsSignIn(true);
       } else {
-        setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+        setError(apiErrorMessage(err, 'Something went wrong. Please try again.', CREATE_ERRORS));
       }
     } finally {
       setSubmitting(false);
@@ -219,7 +230,7 @@ export function RequestConsultationModal({
         </div>
       ) : blockedReason ? (
         <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warn-soft text-warn">
             <svg
               width="24"
               height="24"
@@ -333,6 +344,7 @@ export function RequestConsultationModal({
                 </select>
                 <input
                   type="tel"
+                  aria-label="Mobile number"
                   placeholder="212 555 0148"
                   className="min-w-0 flex-1 bg-transparent px-3.5 py-3 text-sm text-ink placeholder:text-ink-4 outline-none"
                   value={phoneNumber}

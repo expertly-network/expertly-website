@@ -133,6 +133,7 @@ export function ImageCropper({
           }}
         >
           {src && (
+            // Raw <img>: a blob: object URL of the picked file, measured by the cropper — nothing to optimize.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               ref={imgRef}
@@ -161,7 +162,7 @@ export function ImageCropper({
           className="mt-4 w-full"
         />
         {subject === 'photo' && natural && VIEWPORT / scale < LOW_RES_EDGE && (
-          <p className="mt-2 text-xs text-amber-700">
+          <p className="mt-2 text-xs text-warn">
             This photo is low resolution and may look blurry on your profile. A larger image (at least {LOW_RES_EDGE}×
             {LOW_RES_EDGE}px) works best{zoom > 1 ? ', or zoom out a little' : ''}.
           </p>

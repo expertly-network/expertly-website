@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -11,6 +12,8 @@ import { ArticleNewsletterCard } from '@/components/articles/ArticleNewsletterCa
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Badge, Button } from '@/components/ui';
 import type { ArticleDto, ArticleListItemDto } from '@shared/article';
+import { mustHotlink } from '@/lib/images';
+import { ARTICLE_PROSE } from '@/lib/articles/prose';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -121,8 +124,15 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
   return (
     <div>
       <div className="relative h-[320px] w-full overflow-hidden max-[640px]:h-[220px]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={article.coverImageUrl} alt="" className="h-full w-full object-cover" />
+        <Image
+          src={article.coverImageUrl}
+          unoptimized={mustHotlink(article.coverImageUrl)}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         <PageContainer className="absolute inset-x-0 bottom-0 flex items-center gap-3 pb-6">
           <Link href="/articles" className="text-sm font-medium text-white/80 hover:text-white">
@@ -222,7 +232,7 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
             )}
 
             <div
-              className="prose-article mt-8 text-[16px] leading-[1.75] tracking-[-0.003em] text-ink-2 [&_blockquote]:my-6 [&_blockquote]:rounded-r-[10px] [&_blockquote]:border-l-[3px] [&_blockquote]:border-accent [&_blockquote]:bg-bg-alt [&_blockquote]:px-[22px] [&_blockquote]:py-[18px] [&_blockquote]:font-serif [&_blockquote]:text-[17px] [&_blockquote]:italic [&_blockquote]:leading-[1.5] [&_blockquote]:text-ink [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-[clamp(17px,1.8vw,22px)] [&_h2]:font-medium [&_h2]:leading-[1.2] [&_h2]:tracking-[-0.02em] [&_h2]:text-ink [&_h3]:mb-2.5 [&_h3]:mt-6 [&_h3]:text-[16px] [&_h3]:font-medium [&_h3]:tracking-[-0.01em] [&_h3]:text-ink [&_li]:relative [&_li]:pl-[15px] [&_ol]:my-0 [&_ol]:mb-5 [&_ol]:flex [&_ol]:list-decimal [&_ol]:flex-col [&_ol]:gap-2 [&_ol]:pl-5 [&_p]:mb-5 [&_p:last-child]:mb-0 [&_strong]:text-ink [&_ul]:my-0 [&_ul]:mb-5 [&_ul]:flex [&_ul]:list-none [&_ul]:flex-col [&_ul]:gap-2 [&_ul_li]:before:absolute [&_ul_li]:before:left-0 [&_ul_li]:before:top-[10px] [&_ul_li]:before:h-[5px] [&_ul_li]:before:w-[5px] [&_ul_li]:before:flex-none [&_ul_li]:before:rounded-full [&_ul_li]:before:bg-accent [&_a]:text-accent [&_a]:underline [&_code]:rounded [&_code]:bg-bg-alt [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[14px] [&_pre]:my-5 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-ink [&_pre]:p-4 [&_pre]:text-bg-card [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit"
+              className={`${ARTICLE_PROSE} mt-8`}
               // Safe — article.body is sanitized server-side before storage.
               dangerouslySetInnerHTML={{ __html: article.body }}
             />

@@ -36,7 +36,7 @@ trigger as successful the whole time, masking the real problem.
 
 | App | Healthcheck path | Notes |
 |---|---|---|
-| `expertly-backend` | `/v1/health` | `AppController.getHealth()` — note the `/v1` global prefix; `/health` alone 404s |
+| `expertly-backend` | `/v1/health/ready` | `AppController.getReadiness()` — **readiness**: 200 only when the database answers, `503 DATABASE_UNAVAILABLE` otherwise, so a container that booted but can't reach Supabase never takes traffic. `/v1/health` is the plain **liveness** check (200 whenever the process is up, no DB call) — use it for manual "is it running" curls. Note the `/v1` global prefix; `/health` alone 404s |
 | `expertly-frontend` | `/api/health` | `app/api/health/route.ts` — deliberately independent of `app/page.tsx` and every other route |
 
 This is a one-time setting in each app's Coolify **Healthcheck** page — not something CI or this
@@ -101,13 +101,15 @@ Environment variables for the worker app:
 |---|---|
 | `APP_ENTRY` | `worker` (see "Entry point" above) |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | same values as the API; service-role key only ever on the backend |
-| `OPENAI_API_KEY` | required (embeddings) |
+| `OPENAI_API_KEY` | **required** — the worker refuses to boot without it (embeddings run on every tick) |
 | `OPENAI_EMBED_MODEL` | `text-embedding-3-small` (must stay 768-dimensional; the model is part of `embedding_model` on every card) |
 | `OPENAI_CHAT_MODEL` | `gpt-4.1-mini`. The worker does not call chat models; set it anyway so both apps share one env list (the **API** needs it) |
 
 The API app additionally needs `OPENAI_API_KEY` for `POST /v1/search` (`OPENAI_CHAT_MODEL` /
 `OPENAI_EMBED_MODEL` default to the values above when unset). It must **not** set `APP_ENTRY` (the
-API process runs no loops).
+API process runs no loops). Both entry points validate their environment at boot
+(`apps/backend/src/config/env.ts`) and exit with the list of offending variable **names** (never
+values) — see "Backend environment" below.
 
 Redeploys: the worker app carries the Coolify tag `autodeploy`, so the CI "Trigger Coolify
 redeploy" step (which deploys by tag — see below) redeploys it with the API on every push to
@@ -117,16 +119,24 @@ environment. The worker logs to stdout; look for `Search worker running.` and th
 
 ## CI/CD pipeline
 
-`.github/workflows/ci.yml`, on every push to `main`:
+`.github/workflows/ci.yml`, on every pull request to `main` and every push to `main`:
 
-1. **Lint, Typecheck & Build** (`pnpm lint` → `pnpm typecheck` → `pnpm build` via Turborepo) — the
+1. **Lint, Typecheck & Build** — `pnpm install --frozen-lockfile` → `pnpm audit --prod
+   --audit-level=high` (fails on a known high/critical advisory in a shipped dependency) →
+   `pnpm format:check` → `pnpm lint` → `pnpm typecheck` → `pnpm test` (Turbo runs `test` in every
+   package that defines a `test` script; a package without one is skipped) → `pnpm build`. The
    merge gate.
-2. **Build & Push Docker Images** (only runs if step 1 passes, and only on `push` to `main`, not
-   on PRs) — builds both Dockerfiles for `linux/amd64` and pushes
-   `ghcr.io/expertly-network/growxq-{backend,frontend}:latest`, authenticated with the
+2. **Build (& Push on main) Docker Images** (only if step 1 passes) — builds both Dockerfiles for
+   `linux/amd64` on **every PR too**, so a broken Dockerfile fails review rather than the deploy;
+   only a push to `main` logs in and pushes, as both
+   `ghcr.io/expertly-network/growxq-{backend,frontend}:latest` and `:<commit sha>` (the sha tag is
+   the exact build to roll back to — point the Coolify app at it). Authenticated with the
    workflow's own `GITHUB_TOKEN` (no PAT needed — GHCR under the repo's own org needs nothing
-   extra). Frontend build-args (`NEXT_PUBLIC_*`) come from repo secrets — see below.
-3. **Trigger Coolify redeploy** — the last step of the same job. Since Coolify's apps here are
+   extra). Frontend build-args (`NEXT_PUBLIC_*`) come from repo secrets — see below; a PR build
+   (incl. from a fork, which gets no secrets) uses placeholders, a `main` build never does.
+3. **Trigger Coolify redeploy** — the last step of the same job, `main` pushes only. The token is
+   passed to the shell as the `COOLIFY_API_TOKEN` env var (`-H "Authorization: Bearer
+   $COOLIFY_API_TOKEN"`), never interpolated into the script text. Since Coolify's apps here are
    prebuilt-image resources rather than git-triggered builds, Coolify's own git-source webhooks
    (GitHub/GitLab/etc., visible under each app's *Webhooks* settings page) don't apply — those
    exist for apps Coolify builds from a repo checkout. Instead this step `curl`s Coolify's generic
@@ -148,8 +158,14 @@ environment. The worker logs to stdout; look for `Search worker running.` and th
    actual re-pull/restart — the CI step showed green but the running container kept serving a
    build from well before that push. `force=true` always re-pulls and restarts.
 
-So: push to `main` → lint/typecheck/build gate → both images rebuilt and pushed → Coolify
+So: push to `main` → audit/lint/typecheck/test/build gate → both images rebuilt and pushed → Coolify
 redeploys every `autodeploy`-tagged app with the new images. Fully automatic, no manual "Redeploy" click needed.
+
+Every third-party action is pinned to a full commit SHA with its version in a trailing comment
+(`uses: actions/checkout@<sha> # v4.4.0`) — a moved or compromised tag can't change what runs. To
+upgrade one, resolve the new tag to its commit (`git ls-remote https://github.com/<owner>/<repo>
+'refs/tags/<tag>*'` — for an annotated tag use the `^{}` line) and update both the SHA and the
+comment.
 
 ### Required GitHub Actions secrets (repo `expertly-network/expertly-website`)
 
@@ -160,10 +176,10 @@ redeploys every `autodeploy`-tagged app with the new images. Fully automatic, no
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Frontend build-arg — baked into the client bundle (public-by-design, safe to bake in) |
 | `COOLIFY_API_TOKEN` | Bearer token for the deploy-trigger step. Created under Coolify → **Keys & Tokens → API Tokens**, scoped to the `Deploy` permission only (least privilege — it can't read/write anything else). **Expires 2027-08-18** — needs manual rotation before then, since an expired token fails the deploy step silently-ish (the `curl` will just 401). |
 
-The three `NEXT_PUBLIC_*` secrets must be set for the frontend to work: the Dockerfile has a
-fallback default for the API URL only, so an unset Supabase URL/key still builds successfully but
-fails at container **runtime** with `Error: Your project's URL and Key are required to create a
-Supabase client!`.
+The three `NEXT_PUBLIC_*` secrets must be set for the frontend to work. `next build` fails when
+`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` are missing or any `NEXT_PUBLIC_*` URL
+variable isn't a valid URL (`validateBuildEnv()` in `apps/frontend/next.config.js`), so a missing
+secret now fails the CI image build instead of shipping a frontend that breaks at runtime.
 
 ## Requirements
 
@@ -185,7 +201,7 @@ not a log of past issues.
 |---|---|---|
 | Host | `127.0.0.1` | `127.0.0.1` |
 | Port | `3000` | `4000` |
-| Path | `/` | `/v1/health` |
+| Path | `/api/health` | `/v1/health/ready` |
 | Method | `GET` | `GET` |
 | Scheme | `HTTP` | `HTTP` |
 | Expected code | `200` | `200` |
@@ -194,17 +210,52 @@ not a log of past issues.
 | Retries | `10` | `10` |
 | Start period | `20s` | `20s` |
 
-### Server-side origin resolution
+### Backend environment
 
-Any server-side code that needs "the current public URL" (OAuth callbacks, absolute redirects,
-etc.) must derive it from forwarded headers, never from `request.url`/`req.url`:
-```ts
-const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
-const proto = request.headers.get('x-forwarded-proto') ?? 'https';
-const origin = `${proto}://${host}`;
-```
-Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
-`apps/frontend/lib/api/base-url.server.ts`.
+Validated at boot by `apps/backend/src/config/env.ts` — a missing or malformed variable stops the
+process with the variable's name in the log (an empty `KEY=` counts as unset). Mirror of that file:
+
+| Variable | API | Worker | Notes |
+|---|---|---|---|
+| `SUPABASE_URL` | required | required | http(s) URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | required | required | backend only, never on the frontend |
+| `NODE_ENV` | optional | optional | `development` (default) / `production` / `test` |
+| `CORS_ORIGINS` | **required when `NODE_ENV=production`** | — | comma-separated http(s) origins, e.g. `https://expertly.network,https://www.expertly.network,https://dev.expertly.network`. There is no "any origin" fallback: production without it doesn't boot |
+| `PORT` | optional (`4000`) | — | 1–65535 |
+| `OPENAI_API_KEY` | optional at boot; needed for `POST /v1/search` and for AI drafting with `AI_PROVIDER=openai` | **required** | |
+| `OPENAI_EMBED_MODEL`, `OPENAI_CHAT_MODEL` | optional | optional | defaults in `search.config.ts` |
+| `AI_PROVIDER`, `AI_MODEL` | optional | optional | `openai` / `anthropic` / `google`; unset disables AI drafting (its endpoints 503) |
+| `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` | optional | optional | for the matching `AI_PROVIDER` |
+| `SWAGGER_ENABLED` | optional | — | `true` / `false`; docs at `/api` are off by default in production |
+| `ARTICLES_REVIEW_MODE` | optional (`instant`) | — | `instant` / `editorial` |
+| `UNSPLASH_ACCESS_KEY` | optional | — | |
+| `LINKEDIN_IMPORT_WEBHOOK_URL` | optional | — | http(s) URL |
+| `CONSULTATION_REQUEST_LIMIT`, `CONSULTATION_REQUEST_WINDOW_DAYS`, `CONSULTATION_PENDING_COOLDOWN_DAYS` | optional | — | positive integers; an invalid value fails boot rather than silently using the default |
+
+Every API response carries an `X-Request-Id` header (a caller-supplied one is kept if it looks like
+an id, otherwise one is generated); the same id is on that request's log lines — ask for it in a
+bug report and grep the Coolify logs for it.
+
+### Frontend environment
+
+| Variable | When | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | build (`--build-arg`) | `next build` fails if missing or not a valid URL |
+| `NEXT_PUBLIC_API_URL` | build | fallback for `API_URL` |
+| `API_URL` | runtime (Coolify env) | the backend's public base URL — see "One environment" above |
+| `NEXT_PUBLIC_SITE_URL` | **runtime, required in production** | this deployment's public origin, e.g. `https://dev.expertly.network`. Read at runtime (`getSiteUrl()` in `apps/frontend/lib/env.ts`), so it does not need to be a build arg; set it per Coolify app |
+
+**Server-side origin resolution.** Any server-side code that needs "our own public URL" (the OAuth
+callback's redirect, absolute links) uses `getSiteUrl()` — never `request.url` (the container's
+bind address behind Traefik) and never the `Host` / `X-Forwarded-Host` headers, which a client can
+set to bounce a freshly signed-in user to a host it controls (open redirect). Reference:
+`apps/frontend/app/auth/callback/route.ts`. A missing `NEXT_PUBLIC_SITE_URL` in production makes the
+callback fail loudly instead of guessing.
+
+**Content-Security-Policy.** Built per request in `apps/frontend/middleware.ts` with a script nonce
+(the static security headers stay in `next.config.js`). Adding a third-party script, iframe,
+font/image host or API origin the browser talks to means updating the CSP directives in
+`middleware.ts` — otherwise the browser silently blocks it (check the console for CSP violations).
 
 ### Supabase Auth → URL Configuration
 
@@ -216,34 +267,56 @@ Reference implementations: `apps/frontend/app/auth/callback/route.ts`,
 
 - `expertly.network` → `A` record → `91.108.104.17` (apex domain — must be `A`, not `ALIAS`)
 
-## Security hardening rollout (2026-10-29) — one-time steps
+## Security & audit rollout (Oct 2026) — one-time steps
 
-**Order matters: step 1 (the SQL patch) before deploying the new backend.** The new API calls the
-`member_directory_ids` function and the private `application-documents` bucket that the patch
-creates — deployed first, `GET /v1/members` returns 500 and document uploads fail until the patch
-runs. Node ≥ 22.12 is required (the Docker images use `node:22-alpine`, which is current).
+**Order matters: step 1 (database) before deploying the new backend.** The new API calls the
+`member_directory_ids` function and the private `application-documents` bucket — deployed first,
+`GET /v1/members` returns 500 and document uploads fail until the database is updated. Node ≥ 22.12
+is required (the Docker images use `node:22-alpine`, which is current).
 
-1. **Database** — run `supabase/patches/2026-10-29_security_hardening.sql` once in the Supabase SQL
-   Editor (idempotent). It removes direct Storage write access, adds bucket size/type limits, creates
-   the private `application-documents` bucket, updates the token hook (new `app_status` /
-   `app_member_status` claims — the hook is replaced in place, no dashboard re-registration), and
-   revokes the browser roles' direct table access.
+1. **Database** — the changes are folded into `supabase/migrations/0001`–`0004` (pre-production
+   convention, no patch files). Bring an existing database up to date with a one-off, idempotent
+   catch-up script run once in the SQL Editor (one transaction, `lock_timeout` 5 s — re-run if it
+   times out), or rebuild it from the migrations. Needs pgvector ≥ 0.8.0
+   (`select extversion from pg_extension where extname = 'vector';` — Supabase ships 0.8.x). The
+   resulting schema:
+   - removes direct Storage write access (backend-only writes), adds bucket size/type limits
+     (`resource-assets` no longer takes `image/svg+xml` — replace `perks/logos/cleartax.svg` with a
+     PNG before the bucket is ever restored into a fresh project), creates the private
+     `application-documents` bucket;
+   - updates the token hook (new `app_status` / `app_member_status` claims — replaced in place, no
+     dashboard re-registration) and revokes the browser roles' direct table access;
+   - lets `search_hybrid`'s vector channel use the HNSW index (`hnsw.ef_search = 100`,
+     `hnsw.iterative_scan = relaxed_order`), adds `member_directory_ids` with trigram-indexed
+     free-text matching;
+   - hardens `handle_new_user` (`search_path = ''`; a signup with no email, or an email already on
+     another profile, fails with a descriptive error in the Auth logs);
+   - adds `updated_at` triggers on `categories`/`services`, CHECK constraints, composite/trigram/FK
+     indexes, drops two unused indexes, rewrites RLS policies to `to authenticated` +
+     `(select auth.uid())`.
 2. **Move existing vetting documents** out of the public bucket (from `apps/backend`, with the
    backend `.env`): `node --env-file=.env scripts/migrate-application-documents.mjs --dry-run`, then
-   the same without `--dry-run`.
+   the same without `--dry-run`. `--dry-run` simulates the whole run (plan, copy checks, row
+   rewrites, deletions) without writing anything — read its output first. The script copies every
+   document into the private bucket and verifies each copy before rewriting any row; any
+   download/upload error other than a genuine "object not found" **aborts** the run before
+   anything is rewritten or deleted. A public copy is deleted only once no application row
+   references it and a private copy of the same size is verified. Legacy objects shared by two
+   applications of the same applicant (same `document-<n>` key) go to the row whose size matches,
+   else the newest application. Idempotent — re-run after fixing whatever aborted it.
 3. **Backend env** (Coolify → backend app → Environment):
    - `CORS_ORIGINS` — comma-separated frontend origins, e.g.
-     `https://expertly.network,https://www.expertly.network,https://dev.expertly.network`. Unset means
-     "any origin" (logged as a warning in production).
+     `https://expertly.network,https://www.expertly.network,https://dev.expertly.network`.
+     **Required in production** — the API refuses to boot without it (see "Backend environment").
    - `SWAGGER_ENABLED=true` only if the interactive API docs at `/api` should stay reachable in
      production (off by default when `NODE_ENV=production`).
 4. **Verify, then clean up** (SQL Editor):
    - `select policyname from pg_policies where schemaname = 'storage';` → expect **zero rows** (a
-     policy added by hand in the dashboard isn't removed by the patch).
-   - `select count(*) from auth.users where email like '%@expertlyseed.test';` — until 2026-10-29
-     the dev seeds lived in `supabase/migrations/`, so a database built with `db push` may hold the
-     50 fake members / 34 fake events. If non-zero on a real environment, run the teardown blocks at
-     the end of `supabase/seed/dev/01_members.sql` and `02_events.sql`.
+     policy added by hand in the dashboard isn't removed by the update).
+   - `select count(*) from auth.users where email like '%@expertlyseed.test';` — the dev seeds
+     (`0005`–`0007`) live in `supabase/migrations/`, so a database built with `db push` holds the
+     50 fake members / 34 fake events. If non-zero on a real (production) environment, run the
+     teardown blocks at the end of `0005_dev_seed_members.sql` and `0006_dev_seed_events.sql`.
    - Smoke-test AI search once (it exercises pgvector + the revoked function grants).
 5. **Supabase Auth settings** (dashboard → Authentication), each one closes a takeover path:
    - **Confirm email: ON.** With auto-confirm, anyone can sign up with a member's email address
@@ -265,6 +338,23 @@ runs. Node ≥ 22.12 is required (the Docker images use `node:22-alpine`, which 
    "Rate limits"). Add a Traefik `rateLimit` middleware (or Cloudflare rule) on the **frontend**
    domains, keyed by client IP — e.g. `average: 20`, `burst: 60` per second.
 
+### Verify the database update
+
+`select proconfig from pg_proc where proname = 'search_hybrid';` lists the two
+   `hnsw.*` settings; `select conname from pg_constraint where not convalidated;` → zero rows
+   (or fix the reported rows); smoke-test AI search and the member directory search box.
+
+### New database functions need an explicit GRANT
+
+`0004_tables.sql` runs `alter default privileges for role postgres revoke
+execute on functions from public` (globally) and from `anon`/`authenticated` (in `public`), and
+grant `execute` on new functions to `service_role` only. So any function added later is callable by
+the backend and nothing else: a function GoTrue must call (like `custom_access_token_hook`, run as
+`supabase_auth_admin`) or one meant for the browser key needs an explicit
+`grant execute on function … to <role>` in the same migration — otherwise it fails with
+`permission denied for function` (for an auth hook: every login 500s). Trigger functions need no
+grant.
+
 ## Manual operations reference
 
 - **Force a redeploy without a code change**: Coolify UI → app → **Actions → Redeploy**, or
@@ -283,7 +373,7 @@ runs. Node ≥ 22.12 is required (the Docker images use `node:22-alpine`, which 
   curl https://expertly.network
   curl https://dev.expertly.network
   curl https://api.expertly.network/v1/health
-  curl https://dev-api.expertly.network/v1/health
+  curl https://dev-api.expertly.network/v1/health/ready   # 503 DATABASE_UNAVAILABLE = can't reach the DB
   ```
 
 ## GrowXQ rebrand — migration checklist (Oct 2026)
@@ -306,7 +396,8 @@ moved by hand. Until it is, the live facts elsewhere in this file (Coolify app n
 5. Supabase → Authentication → URL Configuration: Site URL → the new domain; add
    `https://<new domain>/auth/callback` (and the dev one) to the Redirect URLs allow-list.
    Supabase email templates (confirm signup, reset password) — replace any "Expertly" wording.
-6. `NEXT_PUBLIC_SITE_URL` (frontend) → the new domain, for Open Graph link previews.
+6. `NEXT_PUBLIC_SITE_URL` (frontend, runtime env) → the new domain. Required in production: OAuth
+   callbacks redirect only to it (and Open Graph link previews use it).
 7. LinkedIn: the footer still links to `linkedin.com/company/expertly-network` until a GrowXQ
    company page exists; the LinkedIn OAuth app's name/logo is set in the LinkedIn developer portal.
 8. Mailbox: the site now shows `contact@growxq.com` (contact, event suggestions, suspended-account

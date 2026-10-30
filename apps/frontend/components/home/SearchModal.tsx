@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { searchDirectory, sendSearchFeedback } from '@/lib/api/search';
 import { createClient } from '@/lib/supabase/client';
 import type {
@@ -193,19 +194,23 @@ export function SearchModal({
       setStatus('done');
     } catch (err) {
       if (controller.signal.aborted) return;
-      if (err instanceof ApiError && err.statusCode === 401) {
+      const code = err instanceof ApiError ? err.code : undefined;
+      if (code === 'SESSION_MISSING' || code === 'SESSION_INVALID') {
         setSignedIn(false);
         setStatus('idle');
         return;
       }
-      if (err instanceof ApiError && err.statusCode === 429) {
+      if (err instanceof ApiError && code === 'RATE_LIMITED') {
         const seconds = err.retryAfterSeconds ?? 30;
         setWaitSeconds(seconds);
         setErrorMessage(`You're searching a little fast. Please wait ${seconds} seconds and try again.`);
-      } else if (err instanceof ApiError && err.statusCode === 400) {
-        setErrorMessage(err.message);
       } else {
-        setErrorMessage('Search is unavailable right now. Please try again in a moment.');
+        setErrorMessage(
+          apiErrorMessage(err, 'Search is unavailable right now. Please try again in a moment.', {
+            SEARCH_QUERY_LENGTH: 'Please ask a question between 2 and 500 characters.',
+            VALIDATION_FAILED: 'That search couldn’t be run. Please rephrase your question and try again.',
+          })
+        );
       }
       setStatus('error');
     }
@@ -315,7 +320,7 @@ export function SearchModal({
       >
         <form
           onSubmit={submit}
-          className="flex flex-shrink-0 items-center gap-2.5 border-b border-line px-4 py-3 sm:px-[18px] sm:py-4"
+          className="flex flex-shrink-0 items-center gap-2.5 border-b border-line px-4 py-3 focus-within:shadow-[inset_0_-2px_0_var(--accent)] sm:px-[18px] sm:py-4"
         >
           <span aria-hidden="true" className="flex-none text-ink-3">
             ⌕

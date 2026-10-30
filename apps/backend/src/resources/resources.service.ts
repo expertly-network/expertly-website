@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { ProfilesRepository } from '../auth/profiles.repository';
 import { randomUUID } from 'node:crypto';
 import { sniffFileType } from '../common/sniff-file-type';
+import { withUniqueSlugRetry } from '../common/slugify';
 import {
   ResourcesRepository,
   type PerkRow,
@@ -168,7 +169,7 @@ export class ResourcesService {
       lockReason: member ? null : role ? 'membership' : 'sign_in',
     };
   }
-  private freeIds(collections: CollectionRow[]): Set<string> {
+  private freeIds(collections: Pick<CollectionRow, 'is_active' | 'kind' | 'item_ids'>[]): Set<string> {
     return new Set(
       collections
         .filter((c) => c.is_active && c.kind === 'learning_playlist' && c.item_ids.length)
@@ -181,10 +182,12 @@ export class ResourcesService {
       query
     );
   }
+  // Single-row lookups below apply exactly the list endpoints' visibility (active only) and
+  // per-role shaping, one row at a time instead of loading the whole table.
   async getPerk(slug: string, role?: Role): Promise<PerkDto> {
-    const item = (await this.listPerks(role)).find((r) => r.slug === slug);
-    if (!item) throw new NotFoundException({ code: 'PERK_NOT_FOUND', message: 'Perk not found.' });
-    return item;
+    const row = await this.repository.findActivePerkBySlug(slug);
+    if (!row) throw new NotFoundException({ code: 'PERK_NOT_FOUND', message: 'Perk not found.' });
+    return this.perk(row, role);
   }
   async listLearnings(role?: Role, query: ResourceQueryDto = {}): Promise<LearningDto[]> {
     const [rows, collections] = await Promise.all([this.repository.listLearnings(), this.repository.listCollections()]);
@@ -195,9 +198,12 @@ export class ResourcesService {
     );
   }
   async getLearning(id: string, role?: Role): Promise<LearningDto> {
-    const item = (await this.listLearnings(role)).find((r) => r.id === id);
-    if (!item) throw new NotFoundException({ code: 'LEARNING_NOT_FOUND', message: 'Learning not found.' });
-    return item;
+    const row = await this.repository.findActiveLearningById(id);
+    if (!row) throw new NotFoundException({ code: 'LEARNING_NOT_FOUND', message: 'Learning not found.' });
+    // Free-ness only matters for access 'auto'; skip the playlist read otherwise.
+    const free =
+      row.access === 'auto' ? this.freeIds(await this.repository.listActivePlaylistItemIds()) : new Set<string>();
+    return this.learning(row, role, free);
   }
   async listCollections(role?: Role, query: ResourceQueryDto = {}): Promise<CollectionDto[]> {
     const [collections, perks, learnings, templates] = await Promise.all([
@@ -236,13 +242,40 @@ export class ResourcesService {
     );
   }
   async getCollection(id: string, role?: Role): Promise<CollectionDto> {
-    const item = (await this.listCollections(role)).find((c) => c.id === id);
-    if (!item)
+    const c = await this.repository.findActiveCollectionById(id);
+    if (!c)
       throw new NotFoundException({
         code: 'COLLECTION_NOT_FOUND',
         message: 'Collection not found.',
       });
-    return item;
+    // Only the collection's own items, with the same active-only rule and shaping as listCollections.
+    const source: (PerkDto | LearningDto | TemplateDto)[] =
+      c.kind === 'perk_stack'
+        ? (await this.repository.findActivePerksByIds(c.item_ids)).map((p) => this.perk(p, role))
+        : c.kind === 'template_kit'
+          ? (await this.repository.findActiveTemplatesByIds(c.item_ids)).map((t) => this.template(t, role))
+          : await (async () => {
+              const [learnings, playlists] = await Promise.all([
+                this.repository.findActiveLearningsByIds(c.item_ids),
+                this.repository.listActivePlaylistItemIds(),
+              ]);
+              const free = this.freeIds(playlists);
+              return learnings.map((l) => this.learning(l, role, free));
+            })();
+    const byId = new Map(source.map((item) => [item.id, item]));
+    const items = c.item_ids.flatMap((itemId) => (byId.has(itemId) ? [byId.get(itemId)!] : []));
+    return {
+      id: c.id,
+      kind: c.kind as CollectionDto['kind'],
+      slug: c.slug,
+      title: c.title,
+      description: c.description,
+      audiences: c.audiences as CollectionDto['audiences'],
+      coverImageUrl: this.asset(c.cover_image_url),
+      sortOrder: c.sort_order,
+      itemIds: items.map((i) => i.id),
+      items,
+    };
   }
   async adminPerks() {
     return (await this.repository.listPerks()).map(mapPerk);
@@ -344,7 +377,10 @@ export class ResourcesService {
   }
   async createPerk(dto: CreatePerkRequest) {
     this.validatePerk(dto);
-    const row = await this.repository.createPerk(perkInsert(dto, await this.repository.perkSlug(dto.name)));
+    const row = await withUniqueSlugRetry(
+      () => this.repository.perkSlug(dto.name),
+      (slug) => this.repository.createPerk(perkInsert(dto, slug))
+    );
     if (!row) throw new NotFoundException();
     return mapPerk(row);
   }
@@ -388,8 +424,9 @@ export class ResourcesService {
   }
   async createCollection(dto: CreateCollectionRequest) {
     await this.validateCollection(dto);
-    const row = await this.repository.createCollection(
-      collectionInsert(dto, await this.repository.collectionSlug(dto.title))
+    const row = await withUniqueSlugRetry(
+      () => this.repository.collectionSlug(dto.title),
+      (slug) => this.repository.createCollection(collectionInsert(dto, slug))
     );
     if (!row) throw new NotFoundException();
     return mapCollection(row);
@@ -424,9 +461,9 @@ export class ResourcesService {
     );
   }
   async getTemplate(id: string, role?: Role): Promise<TemplateDto> {
-    const item = (await this.listTemplates(role)).find((t) => t.id === id);
-    if (!item) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
-    return item;
+    const row = await this.repository.findActiveTemplateById(id);
+    if (!row) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: 'Template not found.' });
+    return this.template(row, role);
   }
   // The controller's @Roles('member') reads the role from the JWT, which can lag a membership
   // change by up to the token's lifetime. A download hands out the paid file itself, so the role
@@ -520,8 +557,9 @@ export class ResourcesService {
   }
   async createTemplate(dto: CreateTemplateRequest) {
     await this.assertTemplateFile(dto);
-    const row = await this.repository.createTemplate(
-      templateInsert(dto, await this.repository.templateSlug(dto.title))
+    const row = await withUniqueSlugRetry(
+      () => this.repository.templateSlug(dto.title),
+      (slug) => this.repository.createTemplate(templateInsert(dto, slug))
     );
     if (!row) throw new NotFoundException();
     return mapTemplate(row);

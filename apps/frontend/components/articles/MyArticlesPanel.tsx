@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,9 +8,10 @@ import { WriteArticleCtaButton } from '@/components/articles/WriteArticleCtaButt
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { Button } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
-import { ApiError } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { deleteArticle, updateArticle } from '@/lib/api/articles';
 import type { ArticleListItemDto, ArticleStatus } from '@shared/article';
+import { mustHotlink } from '@/lib/images';
 
 type PendingAction = { kind: 'delete' | 'unpublish'; article: ArticleListItemDto };
 
@@ -43,7 +45,7 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
       setPending(null);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
+      setError(apiErrorMessage(err, 'Something went wrong — please try again.'));
     } finally {
       setBusy(false);
     }
@@ -89,19 +91,19 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
             >
               <Link href={`/articles/${article.slug}`} className="flex flex-1 flex-col">
-                <div className="relative">
+                <div className="relative h-[140px] w-full bg-bg-alt">
                   <span
                     className={`absolute left-3 top-3 z-[2] rounded-full px-2.5 py-1 text-[10px] font-bold text-bg-card ${badge.className}`}
                   >
                     {badge.label.toUpperCase()}
                   </span>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    loading="lazy"
-                    decoding="async"
+                  <Image
                     src={article.coverImageUrl}
+                    unoptimized={mustHotlink(article.coverImageUrl)}
                     alt=""
-                    className="h-[140px] w-full object-cover"
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                    className="object-cover"
                   />
                 </div>
                 <div className="flex flex-1 flex-col p-5">
