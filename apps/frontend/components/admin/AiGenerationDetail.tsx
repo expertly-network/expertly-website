@@ -5,14 +5,7 @@ import { AiGenerationStatusBadge } from '@/components/admin/AiGenerationStatusBa
 import type { AdminAiGenerationDetailDto, ArticleStatus } from '@shared/article';
 import { ExternalLink } from '@/components/shared/ExternalLink';
 import { AI_GENERATION_PROSE } from '@/lib/articles/prose';
-
-const DATETIME_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
+import { formatDateTime } from '@/lib/dates';
 
 const ARTICLE_STATUS_LABEL: Record<ArticleStatus, string> = {
   draft: 'Draft',
@@ -234,7 +227,7 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
           </div>
           <div className="mt-3 divide-y divide-line">
             <MetaRow label="Member">{generation.authorName}</MetaRow>
-            <MetaRow label="Generated">{DATETIME_FORMAT.format(new Date(generation.createdAt))}</MetaRow>
+            <MetaRow label="Generated">{formatDateTime(new Date(generation.createdAt))}</MetaRow>
             <MetaRow label="Provider">{generation.provider ?? '—'}</MetaRow>
             <MetaRow label="Model">
               <span className="font-mono text-xs">{generation.model ?? '—'}</span>

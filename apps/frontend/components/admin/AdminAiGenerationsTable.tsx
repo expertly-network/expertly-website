@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Input } from '@/components/ui';
 import { AiGenerationStatusBadge } from '@/components/admin/AiGenerationStatusBadge';
 import type { AdminAiGenerationListItemDto, AiGenerationStatus } from '@shared/article';
+import { formatDate, formatTime } from '@/lib/dates';
 
 type Filter = 'all' | 'saved' | AiGenerationStatus;
 
@@ -14,9 +15,6 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'success', label: 'Generated' },
   { key: 'failed', label: 'Failed' },
 ];
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-const TIME_FORMAT = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
 
 function matchesFilter(g: AdminAiGenerationListItemDto, filter: Filter): boolean {
   if (filter === 'all') return true;
@@ -119,8 +117,8 @@ export function AdminAiGenerationsTable({ generations }: { generations: AdminAiG
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-ink-3">{g.model ?? '—'}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-xs text-ink-3">
-                      {DATE_FORMAT.format(new Date(g.createdAt)).toUpperCase()}
-                      <div className="mt-0.5">{TIME_FORMAT.format(new Date(g.createdAt))}</div>
+                      {formatDate(new Date(g.createdAt))}
+                      <div className="mt-0.5">{formatTime(new Date(g.createdAt))}</div>
                     </td>
                     <td className="px-6 py-4">
                       <AiGenerationStatusBadge status={g.status} />
@@ -144,7 +142,7 @@ export function AdminAiGenerationsTable({ generations }: { generations: AdminAiG
                   </div>
                   <div className="mt-1 text-xs text-ink-3">by {g.authorName}</div>
                   <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
-                    <span>{DATE_FORMAT.format(new Date(g.createdAt)).toUpperCase()}</span>
+                    <span>{formatDate(new Date(g.createdAt))}</span>
                     <span>{g.article ? 'Saved as article' : 'Not saved'}</span>
                     {g.model && <span className="font-mono">{g.model}</span>}
                   </div>

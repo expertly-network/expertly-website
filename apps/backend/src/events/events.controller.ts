@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { EventsService } from './events.service';
 import { EventDto } from '@shared/event';
+import { ListEventsQueryDto } from './dto/list-events-query.dto';
 
 @Controller('events')
 export class EventsController {
@@ -9,7 +10,7 @@ export class EventsController {
 
   @Public()
   @Get()
-  list(@Query('upcoming') upcoming?: string): Promise<EventDto[]> {
-    return upcoming === 'false' ? this.eventsService.listAll() : this.eventsService.listUpcoming();
+  list(@Query() query: ListEventsQueryDto): Promise<EventDto[]> {
+    return query.upcoming === 'false' ? this.eventsService.listAll(query.from) : this.eventsService.listUpcoming();
   }
 }

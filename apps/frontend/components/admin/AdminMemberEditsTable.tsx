@@ -6,8 +6,7 @@ import { useMemo, useState } from 'react';
 import { Badge, Button, Input, Select } from '@/components/ui';
 import { SECTION_TITLES } from '@/components/members/edit/sectionFieldConfig';
 import type { MemberEditSection, MemberProfileEditDto } from '@shared/member';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+import { formatDate } from '@/lib/dates';
 
 type QueueFilter = 'pending' | 'reviewed' | 'all';
 
@@ -179,9 +178,9 @@ export function AdminMemberEditsTable({ edits }: { edits: MemberProfileEditDto[]
                       <StatusCell row={row} />
                     </td>
                     <td className="px-6 py-4 text-xs text-ink-3">
-                      {row.waitingSince ? DATE_FORMAT.format(new Date(row.waitingSince)) : '—'}
+                      {row.waitingSince ? formatDate(new Date(row.waitingSince)) : '—'}
                     </td>
-                    <td className="px-6 py-4 text-xs text-ink-3">{DATE_FORMAT.format(new Date(row.lastActivity))}</td>
+                    <td className="px-6 py-4 text-xs text-ink-3">{formatDate(new Date(row.lastActivity))}</td>
                     <td className="px-6 py-4 text-right">
                       <Button
                         href={`/admin/member-edits/${row.memberId}`}
@@ -216,8 +215,8 @@ export function AdminMemberEditsTable({ edits }: { edits: MemberProfileEditDto[]
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <span className="text-xs text-ink-3">
                     {row.waitingSince
-                      ? `Waiting since ${DATE_FORMAT.format(new Date(row.waitingSince))}`
-                      : `Last activity ${DATE_FORMAT.format(new Date(row.lastActivity))}`}
+                      ? `Waiting since ${formatDate(new Date(row.waitingSince))}`
+                      : `Last activity ${formatDate(new Date(row.lastActivity))}`}
                   </span>
                   <Button
                     href={`/admin/member-edits/${row.memberId}`}

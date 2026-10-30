@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { mustHotlink } from '@/lib/images';
 import Link from 'next/link';
 import type { MemberListItemDto } from '@shared/member';
+import { formatMonthYear } from '@/lib/dates';
 export function MemberSection({
   title,
   members,
@@ -48,7 +49,7 @@ export function MemberSection({
                       ? `Joined ${days} days ago`
                       : days < 30
                         ? `Joined ${Math.floor(days / 7)} ${days < 14 ? 'week' : 'weeks'} ago`
-                        : `Joined ${new Date(joined!).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
+                        : `Joined ${formatMonthYear(joined!, { utc: true })}`;
             return (
               <Link
                 key={member.id}

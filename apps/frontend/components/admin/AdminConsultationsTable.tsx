@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Badge, Input } from '@/components/ui';
 import type { ConsultationRequestDto, ConsultationStatus } from '@shared/consultation-request';
+import { formatDate } from '@/lib/dates';
 
 type Filter = 'all' | ConsultationStatus;
 
@@ -25,8 +26,6 @@ const STATUS_LABEL: Record<ConsultationStatus, string> = {
   completed: 'Completed',
   declined: 'Declined',
 };
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
 // Admin oversight, deliberately minimal — who requested what, to which member, and its status.
 // No contact info, no message body, no conversation, no actions: the member is the one who owns
@@ -108,9 +107,7 @@ export function AdminConsultationsTable({ initialRequests }: { initialRequests: 
                       <span className="text-ink-2">{r.memberName ?? '—'}</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-xs text-ink-3">
-                    {DATE_FORMAT.format(new Date(r.createdAt)).toUpperCase()}
-                  </td>
+                  <td className="px-6 py-4 text-xs text-ink-3">{formatDate(new Date(r.createdAt))}</td>
                   <td className="px-6 py-4">
                     <Badge variant={STATUS_BADGE_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                   </td>

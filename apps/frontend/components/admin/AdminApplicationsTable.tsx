@@ -5,8 +5,7 @@ import { Button, Input, Select } from '@/components/ui';
 import { ApplicationStatusBadge, STATUS_LABEL } from '@/components/shared/ApplicationReview';
 import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
 import { ExternalLink } from '@/components/shared/ExternalLink';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+import { formatDate } from '@/lib/dates';
 
 type SortKey = 'name' | 'location' | 'service' | 'category' | 'experience' | 'created' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -248,9 +247,7 @@ export function AdminApplicationsTable({
                   <td className="px-6 py-4 text-sm text-ink-2">
                     {application.yearsOfExperience != null ? `${application.yearsOfExperience} yrs` : '—'}
                   </td>
-                  <td className="px-6 py-4 text-xs text-ink-3">
-                    {DATE_FORMAT.format(new Date(application.createdAt))}
-                  </td>
+                  <td className="px-6 py-4 text-xs text-ink-3">{formatDate(new Date(application.createdAt))}</td>
                   <td className="px-6 py-4 text-sm text-ink-2">
                     <ApplicationStatusBadge status={application.status} />
                     {application.rejectionReason && (

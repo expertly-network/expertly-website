@@ -6,13 +6,7 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { listConsultationMessages, postConsultationMessage } from '@/lib/api/consultations';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ConsultationMessageDto } from '@shared/consultation-request';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
+import { formatDateTime } from '@/lib/dates';
 
 // Lazy-loaded, collapsible back-and-forth thread on a consultation request. Either participant
 // (requester or member) can read/post while the request is pending; once decided, `locked` hides
@@ -110,7 +104,7 @@ export function ConsultationMessageThread({
                       {m.body}
                     </div>
                     <span className="mt-1 text-[11px] text-ink-4">
-                      {mine ? 'You' : m.senderName} &middot; {DATE_FORMAT.format(new Date(m.createdAt))}
+                      {mine ? 'You' : m.senderName} &middot; {formatDateTime(new Date(m.createdAt))}
                     </span>
                   </div>
                 );

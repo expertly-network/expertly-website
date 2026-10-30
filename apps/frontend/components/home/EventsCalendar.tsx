@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { SignInLink } from '@/components/auth/SignInLink';
 import { UpcomingEvents } from '@/components/home/UpcomingEvents';
 import type { EventDto } from '@shared/event';
+import { isOnlineEvent } from '@/lib/events/format';
 
 const MONTH_NAMES = [
   'January',
@@ -74,12 +75,26 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
   const yr = view.getFullYear();
   const mo = view.getMonth();
 
+  // The phone-width list (no month grid there) shows what's next, not the past events the grid
+  // greys out.
+  const upcoming = useMemo(
+    () => events.filter((e) => startOfDay(new Date(e.endDate ?? e.startDate)) >= today),
+    [events, today]
+  );
+
   const calEvents: CalEvent[] = useMemo(
     () =>
       events.map((e) => {
         const sd = startOfDay(new Date(e.startDate));
         const ed = e.endDate ? startOfDay(new Date(e.endDate)) : sd;
-        return { id: e.id, title: e.title, cc: countryCode(e.country), sd, ed, isPast: ed < today };
+        return {
+          id: e.id,
+          title: e.title,
+          cc: isOnlineEvent(e) ? 'Online' : countryCode(e.country),
+          sd,
+          ed,
+          isPast: ed < today,
+        };
       }),
     [events, today]
   );
@@ -237,7 +252,7 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                         <>
                           {ev.cc && (
                             <span
-                              className={`flex-none font-mono text-[8px] font-extrabold ${ev.isPast ? 'text-ink-3' : 'text-accent'}`}
+                              className={`flex-none font-mono text-[8px] font-extrabold ${ev.isPast ? 'text-ink-4' : 'text-accent'}`}
                             >
                               {ev.cc}
                             </span>
@@ -256,7 +271,7 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
                         <span
                           key={ev.id}
                           title={ev.title}
-                          className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] border-ink-4 bg-[color-mix(in_oklab,var(--ink-4)_10%,var(--bg))] px-2.5 text-left opacity-45"
+                          className="flex cursor-default items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] border-line-2 bg-bg-alt px-2.5 text-left"
                           style={style}
                         >
                           {content}
@@ -334,7 +349,7 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
       </div>
 
       <div className="min-[860px]:hidden">
-        <UpcomingEvents events={events} />
+        <UpcomingEvents events={upcoming} />
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { formatDate } from '@/lib/dates';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
 
 // Leading = + - @ (or tab/CR) would make a spreadsheet treat the cell as a formula — prefix a quote.
@@ -23,14 +24,14 @@ export function downloadTranscript(requests: ConsultationRequestDto[], side: 're
           r.message,
           r.requesterContactEmail,
           r.requesterPhone,
-          new Date(r.createdAt).toLocaleDateString('en-US'),
+          formatDate(r.createdAt),
           r.status,
         ]
       : [
           r.memberName ?? '',
           r.memberFirmName ?? '',
           r.message,
-          new Date(r.createdAt).toLocaleDateString('en-US'),
+          formatDate(r.createdAt),
           r.status,
           r.responseMessage ?? '',
         ]

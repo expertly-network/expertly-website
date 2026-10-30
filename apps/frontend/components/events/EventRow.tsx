@@ -2,25 +2,8 @@ import type { ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
 import type { EventDto } from '@shared/event';
 import { externalHref } from '@/lib/members/format';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' });
-
-const FORMAT_LABEL: Record<NonNullable<EventDto['eventFormat']>, string> = {
-  in_person: 'In Person',
-  hybrid: 'Hybrid',
-  virtual: 'Virtual',
-};
-
-function formatDateRange(startDate: string, endDate: string | null): string {
-  const start = new Date(startDate);
-  if (!endDate) return DATE_FORMAT.format(start);
-  const end = new Date(endDate);
-  if (start.toDateString() === end.toDateString()) return DATE_FORMAT.format(start);
-  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
-  return sameMonth
-    ? `${new Intl.DateTimeFormat('en-US', { month: 'long' }).format(start)} ${start.getDate()}–${end.getDate()}`
-    : `${DATE_FORMAT.format(start)} – ${DATE_FORMAT.format(end)}`;
-}
+import { formatDayRange } from '@/lib/dates';
+import { formatEventFormat, isOnlineEvent } from '@/lib/events/format';
 
 // adminBadge/adminActions let the admin list show a status badge and swap in edit/delete actions.
 export function EventRow({
@@ -34,7 +17,8 @@ export function EventRow({
   adminBadge?: ReactNode;
   adminActions?: ReactNode;
 }) {
-  const location = [event.city, event.country].filter(Boolean).join(', ');
+  const online = isOnlineEvent(event);
+  const location = online ? '' : [event.city, event.country].filter(Boolean).join(', ');
 
   const registrationHref = externalHref(event.registrationUrl);
   const registerAction = registrationHref ? (
@@ -67,7 +51,7 @@ export function EventRow({
       <div>
         <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Date</span>
         <span className="text-[17px] font-medium leading-[1.2] tracking-[-0.02em] text-ink">
-          {formatDateRange(event.startDate, event.endDate)}
+          {formatDayRange(event.startDate, event.endDate)}
         </span>
       </div>
 
@@ -76,7 +60,7 @@ export function EventRow({
           {event.eventType && <Badge variant={isMonthFirst ? 'surface' : 'neutral'}>{event.eventType}</Badge>}
           {event.eventFormat && (
             <Badge variant={isMonthFirst ? 'surface' : event.eventFormat === 'in_person' ? 'neutral' : 'brand'}>
-              {FORMAT_LABEL[event.eventFormat]}
+              {formatEventFormat(event.eventFormat)}
             </Badge>
           )}
           {adminBadge}
@@ -89,12 +73,20 @@ export function EventRow({
         )}
       </div>
 
-      {location && (
+      {online ? (
+        <div>
+          <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Location</span>
+          <div className="text-[13px] font-medium text-ink-2">Online</div>
+        </div>
+      ) : location ? (
         <div>
           <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Location</span>
           <div className="text-[13px] font-medium text-ink-2">{event.city}</div>
           <div className="mt-0.5 font-mono text-[11px] text-ink-4">{event.country}</div>
         </div>
+      ) : (
+        // Keeps the four-column grid aligned when an event has no location at all.
+        <div aria-hidden="true" className="max-[900px]:hidden" />
       )}
 
       {adminActions ?? registerAction}

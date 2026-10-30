@@ -1,5 +1,7 @@
+import { formatDate } from '@/lib/dates';
+
 export function formatArticleDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
+  return formatDate(iso);
 }
 
 export function formatReadTime(minutes: number): string {

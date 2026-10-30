@@ -14,12 +14,7 @@ import { Badge, Button } from '@/components/ui';
 import type { ArticleDto, ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
 import { ARTICLE_PROSE } from '@/lib/articles/prose';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-});
+import { formatDate } from '@/lib/dates';
 
 // Only the author/admin can open a non-published article (the API 404s everyone else), so this
 // banner is what tells them it isn't public — and why there's nothing to share yet.
@@ -162,7 +157,7 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
                     <line x1="8" y1="2" x2="8" y2="6" />
                     <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
-                  {DATE_FORMAT.format(new Date(article.createdAt))}
+                  {formatDate(new Date(article.createdAt))}
                 </span>
                 <span className="flex items-center gap-1.5 text-caption text-ink-3">
                   <svg {...META_ICON_PROPS}>

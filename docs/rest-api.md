@@ -840,9 +840,13 @@ missing.
 **Query params:** `upcoming` (optional, default `true`). `true`/omitted preserves the original
 homepage-only behaviour exactly (`status='published'` and not-yet-ended, soonest-first — see
 `EventsService.listUpcoming()`'s comment for the start-of-UTC-day comparison rationale).
-`upcoming=false` returns every `published` event regardless of date, ascending by `start_date` —
-backs the standalone `/events` page's month-grouped browse list, which groups everything
-chronologically rather than splitting past/upcoming.
+`upcoming=false` returns `published` events past and upcoming, ascending by `start_date`, capped at
+500 rows. Optional `from` (ISO date, e.g. `2026-08-01`; only with `upcoming=false`) keeps only events
+still running on or after that date, so a caller asks for the window it shows and the cap trims the
+far future rather than the part on screen. The homepage calendar sends the first day of the month two
+months back (past events show greyed out); the `/events` browse list sends twelve months back and
+filters by its date-range picker client-side. Unknown values → `400 VALIDATION_FAILED`
+(`upcoming` must be `true`/`false`, `from` an ISO date).
 
 **Response `200`:** `EventDto[]`.
 

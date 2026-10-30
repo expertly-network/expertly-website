@@ -1,3 +1,5 @@
+import { formatMonthYear as formatMonthYearDate } from '@/lib/dates';
+
 // Client-side display formatting for numeric rate/tenure fields.
 export function formatTenure(years: number): string {
   return `${years}y`;
@@ -90,12 +92,12 @@ export function displayHost(url: string): string {
     .replace(/\/$/, '');
 }
 
-// Testimonial `occurredOn` (ISO date) -> "Mar 2024".
+// Testimonial `occurredOn` (ISO date) -> "March 2024".
 export function formatMonthYear(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return formatMonthYearDate(d, { utc: true });
 }
 
 export function initialsOf(name: string): string {

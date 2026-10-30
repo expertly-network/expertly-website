@@ -15,7 +15,7 @@ export const metadata = {
 };
 
 export default async function EventsPage() {
-  const [events, user] = await Promise.all([getEventsServer({ upcoming: false }), getSessionUser()]);
+  const [events, user] = await Promise.all([getEventsServer({ upcoming: false, monthsBack: 12 }), getSessionUser()]);
 
   return (
     <div>

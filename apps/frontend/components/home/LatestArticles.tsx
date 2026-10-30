@@ -78,20 +78,20 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
           return (
             <Link key={a.id} href={`/articles/${a.slug}`} className="flex gap-4 py-4">
               <div className="font-mono text-sm text-ink-4">0{i + 2}</div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  {a.services[0] && <Badge variant="neutral">{a.services[0].name}</Badge>}
-                  <span className="font-mono text-[10px] text-ink-3">
+              <div className="min-w-0 flex-1">
+                <h4 className="text-title text-ink">{a.title}</h4>
+                {/* Author on the left, read time · date in the row's otherwise empty right side. */}
+                <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <AuthorAvatar article={a} size={36} />
+                    <div className="min-w-0 leading-tight">
+                      <div className="text-caption text-ink-2">{a.authorName}</div>
+                      {designation && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>}
+                    </div>
+                  </div>
+                  <span className="shrink-0 font-mono text-[11px] text-ink-3">
                     {formatReadTime(a.readTimeMinutes)} · {formatArticleDate(a.createdAt)}
                   </span>
-                </div>
-                <h4 className="mt-1.5 text-title text-ink">{a.title}</h4>
-                <div className="mt-2.5 flex items-center gap-2.5">
-                  <AuthorAvatar article={a} size={36} />
-                  <div className="leading-tight">
-                    <div className="text-caption text-ink-2">{a.authorName}</div>
-                    {designation && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>}
-                  </div>
                 </div>
               </div>
             </Link>

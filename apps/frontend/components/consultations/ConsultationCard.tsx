@@ -10,6 +10,7 @@ import { ConsultationRating } from '@/components/consultations/ConsultationRatin
 import { updateConsultationStatus } from '@/lib/api/consultations';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ConsultationRequestDto, ConsultationStatus } from '@shared/consultation-request';
+import { formatDate } from '@/lib/dates';
 
 const REASON_MIN_LENGTH = 10;
 
@@ -37,8 +38,6 @@ const STATUS_LABEL: Record<ConsultationStatus, string> = {
   completed: 'Completed',
   declined: 'Declined',
 };
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 function Avatar({ src, alt }: { src: string | null | undefined; alt: string }) {
   if (src) {
@@ -212,7 +211,7 @@ export function ConsultationCard(props: ConsultationCardProps) {
                   <line x1="8" y1="2" x2="8" y2="6" />
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
-                {DATE_FORMAT.format(new Date(request.createdAt))}
+                {formatDate(new Date(request.createdAt))}
               </span>
             </div>
           </div>

@@ -4,6 +4,8 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export type { BadgeVariant } from './Badge';
 export { FilterPopover } from './FilterPopover';
+export { DateRangePicker, startOfDay } from './DateRangePicker';
+export type { DateRange, DateRangePreset } from './DateRangePicker';
 export type { FilterPopoverOption } from './FilterPopover';
 export { MultiSelect } from './MultiSelect';
 export { Input } from './Input';

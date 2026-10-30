@@ -17,6 +17,8 @@ import { Badge, Button, Card, Eyebrow } from '@/components/ui';
 import { cache, Suspense, type ReactNode } from 'react';
 import { MemberSection } from '@/components/dashboard/MemberSection';
 import type { Profile } from '@/lib/auth/types';
+import { formatDayOfMonth, formatMonth } from '@/lib/dates';
+import { isOnlineEvent } from '@/lib/events/format';
 
 export const metadata = { title: 'Member dashboard — GrowXQ' };
 
@@ -286,26 +288,16 @@ async function UpcomingEventsPanel() {
         <div className="divide-y divide-line">
           {events.value.slice(0, 3).map((e) => (
             <Link key={e.id} href={`/events#event-${e.id}`} className="flex gap-3 py-4">
-              <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-bg-alt text-xs text-ink-3">
-                <span>
-                  {new Date(e.startDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    timeZone: e.timezone || 'UTC',
-                  })}
-                </span>
+              <span className="flex h-12 min-w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-bg-alt px-2 text-xs text-ink-3">
+                <span>{formatMonth(e.startDate, { timeZone: e.timezone, utc: true })}</span>
                 <strong className="text-lg text-ink">
-                  {new Date(e.startDate).toLocaleDateString('en-US', {
-                    day: 'numeric',
-                    timeZone: e.timezone || 'UTC',
-                  })}
+                  {formatDayOfMonth(e.startDate, { timeZone: e.timezone, utc: true })}
                 </strong>
               </span>
               <div>
                 <h3 className="text-sm font-medium hover:text-accent">{e.title}</h3>
                 <p className="mt-1 text-xs text-ink-3">
-                  {e.eventFormat === 'virtual'
-                    ? 'Virtual'
-                    : [e.city, e.country].filter(Boolean).join(', ') || 'View event details'}
+                  {isOnlineEvent(e) ? 'Online' : [e.city, e.country].filter(Boolean).join(', ') || 'View event details'}
                 </p>
               </div>
             </Link>

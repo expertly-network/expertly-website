@@ -52,12 +52,12 @@ export class EventsRepository {
     return data as unknown as EventDto[];
   }
 
-  async findAllPublished(): Promise<EventDto[]> {
-    const { data, error } = await this.events()
-      .select(EVENT_COLUMNS.join(', '))
-      .eq('status', 'published')
-      .order('start_date', { ascending: true })
-      .limit(MAX_LIST_ROWS);
+  // Past and upcoming, oldest first. `sinceIso` keeps only events still running on or after it,
+  // so the MAX_LIST_ROWS cap trims the far future of the caller's window, not the part it shows.
+  async findAllPublished(sinceIso?: string): Promise<EventDto[]> {
+    let query = this.events().select(EVENT_COLUMNS.join(', ')).eq('status', 'published');
+    if (sinceIso) query = query.or(`end_date.gte.${sinceIso},and(end_date.is.null,start_date.gte.${sinceIso})`);
+    const { data, error } = await query.order('start_date', { ascending: true }).limit(MAX_LIST_ROWS);
 
     if (error) throw new InternalServerErrorException('Failed to load events.');
     return data as unknown as EventDto[];

@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
 import type { MemberDto } from '@shared/member';
-import { displayHost, externalHref, formatMonthYear, formatRate } from '@/lib/members/format';
+import { displayHost, externalHref, formatMonthYear } from '@/lib/members/format';
 import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
 import { toTextBlocks } from '@/lib/text/text-blocks';
 import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
+import { formatDate } from '@/lib/dates';
 
 // The downloadable member profile — a single-column, read-top-to-bottom document rather than
 // the web page's tabbed layout. Rendered by @react-pdf/renderer, which draws to PDF primitives
@@ -117,7 +118,7 @@ const s = StyleSheet.create({
   qr: { width: 76, height: 76 },
   qrCaption: { fontSize: 7, color: C.ink4, marginTop: 3, textAlign: 'center' },
 
-  // Fee / availability / contact summary
+  // Availability / contact summary
   summary: {
     flexDirection: 'row',
     marginTop: 18,
@@ -129,7 +130,6 @@ const s = StyleSheet.create({
   summaryCol: { flex: 1, padding: 12 },
   summaryDivider: { width: 1, backgroundColor: C.line },
   label: { fontSize: 8, fontWeight: 700, color: C.ink3, marginBottom: 4 },
-  fee: { fontSize: 14, fontWeight: 700, color: C.ink },
   availability: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   availabilityText: { fontSize: 8.5 },
   availabilityDot: { width: 5, height: 5, borderRadius: 2.5 },
@@ -372,7 +372,7 @@ export function MemberProfilePdf({
     .filter(Boolean)
     .join('   ·   ');
   const isSeasoned = member.memberTier === 'seasoned_professional';
-  const generatedOn = generatedAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  const generatedOn = formatDate(generatedAt);
 
   return (
     <Document
@@ -426,11 +426,11 @@ export function MemberProfilePdf({
             </View>
           </View>
 
-          {/* Fee / availability | contact */}
+          {/* Availability | contact. The consultation fee is deliberately left out of the PDF (a
+              shareable document) — it stays on the profile page only. */}
           <View style={s.summary} wrap={false}>
             <View style={s.summaryCol}>
-              <Text style={s.label}>Consultation fee</Text>
-              <Text style={s.fee}>{formatRate(member.rateMinCents, member.rateMaxCents, member.rateCurrency)}</Text>
+              <Text style={s.label}>Availability</Text>
               <View style={s.availability}>
                 <View style={[s.availabilityDot, { backgroundColor: member.isAvailable ? C.accent : C.ink4 }]} />
                 <Text style={[s.availabilityText, { color: member.isAvailable ? C.accent : C.ink3 }]}>

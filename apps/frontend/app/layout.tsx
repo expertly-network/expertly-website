@@ -39,7 +39,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${GeistSans.variable} ${brandSerif.variable}`}>
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: apiUrlScript }} />
+        {/* Browsers hide a nonce from the DOM after load (so injected code can't read it), which
+            React's dev hydration check would report as a mismatch. */}
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: apiUrlScript }} />
       </head>
       <body className="bg-bg text-ink font-sans">{children}</body>
     </html>

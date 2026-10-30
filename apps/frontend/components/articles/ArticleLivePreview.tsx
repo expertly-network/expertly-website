@@ -2,12 +2,7 @@ import { useState } from 'react';
 import { WriteSubmitButton } from '@/components/articles/WriteSubmitButton';
 import { getCoverImageSuggestions } from '@/lib/api/articles';
 import { ARTICLE_PROSE } from '@/lib/articles/prose';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-});
+import { formatDate } from '@/lib/dates';
 
 const CLOCK_ICON = (
   <svg
@@ -161,7 +156,7 @@ export function ArticleLivePreview({
           <div className="mt-4 flex flex-wrap items-center gap-[18px] border-b border-line pb-[18px]">
             <span className="flex items-center gap-1.5 text-caption text-ink-3">
               {CLOCK_ICON}
-              {DATE_FORMAT.format(new Date())}
+              {formatDate(new Date())}
             </span>
             <span className="flex items-center gap-1.5 text-caption text-ink-3">{authorName}</span>
             {countries.length > 0 && (

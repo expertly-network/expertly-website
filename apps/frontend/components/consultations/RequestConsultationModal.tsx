@@ -10,6 +10,7 @@ import { apiErrorMessage } from '@/lib/errors/api-error-message';
 // Reused as-is from the membership application form — same compound country-code + number
 // field, same data source, rather than inventing a second phone-input convention.
 import { PHONE_COUNTRY_CODES } from '@/components/apply/types';
+import { formatDateTime } from '@/lib/dates';
 
 // The backend's error codes for POST /v1/consultations (consultations.service.ts).
 const CREATE_ERRORS: Record<string, string> = {
@@ -26,13 +27,6 @@ const OTHER_VALUE = '__other__';
 const MIN_MESSAGE_LENGTH = 100;
 // Includes time, not just the date — a rate-limit reset can be hours away on the same day, not
 // just another calendar day out like the pending-cooldown case usually is.
-const RETRY_DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
 
 // A saved dial code (e.g. "+1") doesn't uniquely identify a country — several share one — so
 // reversing it for prefill needs a tiebreak. Only the one case we've actually seen cause visible
@@ -251,9 +245,8 @@ export function RequestConsultationModal({
               <p className="text-title text-ink">Request Already Pending</p>
               <p className="text-sm text-ink-3">
                 You already have a pending request with {memberName}. They haven&apos;t responded yet — you can send a
-                new one once they do, or after{' '}
-                {blockedRetryAfter && RETRY_DATE_FORMAT.format(new Date(blockedRetryAfter))} if they haven&apos;t by
-                then.
+                new one once they do, or after {blockedRetryAfter && formatDateTime(new Date(blockedRetryAfter))} if
+                they haven&apos;t by then.
               </p>
             </>
           ) : (
@@ -261,7 +254,7 @@ export function RequestConsultationModal({
               <p className="text-title text-ink">Too Many Requests Today</p>
               <p className="text-sm text-ink-3">
                 You&apos;ve reached the limit on consultation requests for now. You can send another after{' '}
-                {blockedRetryAfter && RETRY_DATE_FORMAT.format(new Date(blockedRetryAfter))}.
+                {blockedRetryAfter && formatDateTime(new Date(blockedRetryAfter))}.
               </p>
             </>
           )}

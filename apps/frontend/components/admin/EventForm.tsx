@@ -14,7 +14,7 @@ const EVENT_TYPE_SUGGESTIONS = ['Tax', 'Legal', 'Audit', 'AI & Tech', 'Fintech',
 const FORMAT_OPTIONS: { value: EventFormat; label: string }[] = [
   { value: 'in_person', label: 'In Person' },
   { value: 'hybrid', label: 'Hybrid' },
-  { value: 'virtual', label: 'Virtual' },
+  { value: 'virtual', label: 'Online' },
 ];
 
 function toDateInputValue(iso: string | null | undefined): string {

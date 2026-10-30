@@ -27,8 +27,7 @@ import type {
   ReviewMemberEditItemRequest,
 } from '@shared/member';
 import { externalHref } from '@/lib/members/format';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+import { formatDate } from '@/lib/dates';
 
 // Sections where each item carries its own proof; education / work_experiences share one
 // edit-level proof for the whole batch.
@@ -517,7 +516,7 @@ function PendingEditCard({
         <div>
           <h3 className="text-title text-ink">{SECTION_TITLES[edit.section]}</h3>
           <p className="mt-1 text-caption text-ink-3">
-            Submitted {DATE_FORMAT.format(new Date(edit.submittedAt))} ·{' '}
+            Submitted {formatDate(new Date(edit.submittedAt))} ·{' '}
             {changes === 0 ? 'no visible changes' : `${changes} ${changes === 1 ? 'change' : 'changes'}`}
           </p>
         </div>
@@ -722,8 +721,8 @@ export function MemberEditsReview({ detail }: { detail: AdminMemberEditsDetailDt
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-ink">{SECTION_TITLES[edit.section]}</div>
                         <div className="text-xs text-ink-3">
-                          Submitted {DATE_FORMAT.format(new Date(edit.submittedAt))}
-                          {edit.reviewedAt && ` · decided ${DATE_FORMAT.format(new Date(edit.reviewedAt))}`}
+                          Submitted {formatDate(new Date(edit.submittedAt))}
+                          {edit.reviewedAt && ` · decided ${formatDate(new Date(edit.reviewedAt))}`}
                         </div>
                         {edit.reviewNote && <p className="mt-1 text-sm text-ink-2">{edit.reviewNote}</p>}
                         <ItemOutcomes edit={edit} />

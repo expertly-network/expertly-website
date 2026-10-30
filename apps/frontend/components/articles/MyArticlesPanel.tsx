@@ -12,14 +12,9 @@ import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { deleteArticle, updateArticle } from '@/lib/api/articles';
 import type { ArticleListItemDto, ArticleStatus } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
+import { formatDate } from '@/lib/dates';
 
 type PendingAction = { kind: 'delete' | 'unpublish'; article: ArticleListItemDto };
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-});
 
 // Own articles regardless of status, each with a status badge overlaid on the cover image.
 const STATUS_BADGE: Record<ArticleStatus, { label: string; className: string }> = {
@@ -107,7 +102,7 @@ export function MyArticlesPanel({ articles }: { articles: ArticleListItemDto[] }
                   />
                 </div>
                 <div className="flex flex-1 flex-col p-5">
-                  <span className="mb-2 text-xs text-ink-3">{DATE_FORMAT.format(new Date(article.createdAt))}</span>
+                  <span className="mb-2 text-xs text-ink-3">{formatDate(new Date(article.createdAt))}</span>
                   <h3 className="line-clamp-2 text-title text-ink">{article.title}</h3>
                   {article.status === 'rejected' && article.rejectionReason && (
                     <p className="mt-2 text-xs text-error">{article.rejectionReason}</p>

@@ -3,12 +3,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui';
 import type { ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-});
+import { formatDate } from '@/lib/dates';
 
 // Same service first, backfilled with other published articles, capped at 4. The page passes an
 // already-picked handful (see loadRelated in articles/[slug]/page.tsx), not the full list.
@@ -47,7 +42,7 @@ export function RelatedArticles({
               <div className="min-w-0">
                 <p className="line-clamp-2 text-sm font-medium text-ink">{article.title}</p>
                 <p className="mt-1 text-xs text-ink-3">
-                  {DATE_FORMAT.format(new Date(article.createdAt))} · {article.readTimeMinutes} min
+                  {formatDate(new Date(article.createdAt))} · {article.readTimeMinutes} min
                 </p>
               </div>
             </Link>

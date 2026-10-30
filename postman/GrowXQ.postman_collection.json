@@ -1152,10 +1152,16 @@
                   "value": "true",
                   "description": "true (default) | false",
                   "disabled": false
+                },
+                {
+                  "key": "from",
+                  "value": "2026-08-01",
+                  "description": "Optional, with upcoming=false: ISO date window start",
+                  "disabled": true
                 }
               ]
             },
-            "description": "🌐 Public. `upcoming=true` (default): homepage list, soonest-first. `upcoming=false`: every published event, chronological — backs the standalone /events browse page.",
+            "description": "🌐 Public. `upcoming=true` (default): not-yet-ended events, soonest first — dashboard panel. `upcoming=false`: past and upcoming, oldest first, capped at 500; add `from=YYYY-MM-DD` to keep only events still running on or after that date (homepage calendar: two months back; /events page: twelve months back). Bad `upcoming`/`from` → 400 VALIDATION_FAILED.",
             "auth": {
               "type": "noauth"
             }

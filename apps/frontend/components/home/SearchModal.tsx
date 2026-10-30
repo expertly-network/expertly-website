@@ -16,6 +16,7 @@ import type {
   SearchResult,
   SearchScope,
 } from '@shared/search';
+import { formatDate } from '@/lib/dates';
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 500;
@@ -34,9 +35,7 @@ function initialsOf(name: string): string {
 
 function formatEventDate(iso: string): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return Number.isNaN(d.getTime()) ? '' : formatDate(d, { utc: true });
 }
 
 const MATCH_LABEL: Record<'strong' | 'good' | 'possible', string> = {

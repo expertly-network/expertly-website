@@ -196,7 +196,9 @@ async function LatestArticlesSection() {
 async function EventsSection() {
   let events: EventDto[];
   try {
-    events = await getEventsServer();
+    // Past events too (from two months back): the calendar shows them greyed out alongside
+    // what's coming up.
+    events = await getEventsServer({ upcoming: false, monthsBack: 2 });
   } catch {
     events = [];
   }

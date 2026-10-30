@@ -7,8 +7,7 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { reviewArticle } from '@/lib/api/articles';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { AdminArticleListItemDto } from '@shared/article';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+import { formatDate } from '@/lib/dates';
 
 function AdminArticleRow({
   article,
@@ -72,7 +71,7 @@ function AdminArticleRow({
       </td>
       <td className="px-6 py-4 text-sm text-ink-2">{article.services.map((s) => s.name).join(', ') || '—'}</td>
       <td className="px-6 py-4 text-sm text-ink-2">{article.countries.join(', ') || '—'}</td>
-      <td className="px-6 py-4 text-xs text-ink-3">{DATE_FORMAT.format(new Date(article.createdAt)).toUpperCase()}</td>
+      <td className="px-6 py-4 text-xs text-ink-3">{formatDate(new Date(article.createdAt))}</td>
       <td className="px-6 py-4">
         {!rejecting ? (
           <div className="flex gap-2">

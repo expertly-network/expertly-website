@@ -4,12 +4,7 @@ import { Badge } from '@/components/ui';
 import { formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-});
+import { formatDate } from '@/lib/dates';
 
 // Cover image, service badge, title, countries, then an author row with date + read time.
 export function ArticleCard({ article }: { article: ArticleListItemDto }) {
@@ -89,7 +84,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
             {designation && <div className="truncate text-[10px] text-ink-4">{designation}</div>}
           </div>
           <span className="ml-auto flex-none pl-2 text-right text-xs leading-tight text-ink-3">
-            {DATE_FORMAT.format(new Date(article.createdAt))}
+            {formatDate(new Date(article.createdAt))}
             <br />
             {article.readTimeMinutes} min read
           </span>

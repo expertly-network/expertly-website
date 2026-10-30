@@ -20,8 +20,9 @@ export class EventsService {
   }
 
   // Every published event, soonest first.
-  async listAll(): Promise<EventDto[]> {
-    return this.eventsRepository.findAllPublished();
+  // Past and upcoming; with `from`, only events still running on or after that date.
+  async listAll(from?: string): Promise<EventDto[]> {
+    return this.eventsRepository.findAllPublished(from ? new Date(from).toISOString() : undefined);
   }
 
   // Every event regardless of status.

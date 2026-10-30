@@ -249,10 +249,21 @@ export const getArticleServer = cache(
     })
 );
 
-// Returns events, upcoming-only by default.
-export function getEventsServer(params: { upcoming?: boolean } = {}): Promise<EventDto[]> {
-  const qs = params.upcoming === false ? '?upcoming=false' : '';
-  return publicList<EventDto>(`/events${qs}`, 'Failed to load events.');
+// Returns events, upcoming-only by default. With `upcoming: false`, past ones too — `monthsBack`
+// narrows that to events still running on or after the first day of the month that many months
+// ago (the API caps the list, so a caller asks for the window it actually shows).
+export function getEventsServer(params: { upcoming?: boolean; monthsBack?: number } = {}): Promise<EventDto[]> {
+  const qs = new URLSearchParams();
+  if (params.upcoming === false) {
+    qs.set('upcoming', 'false');
+    if (params.monthsBack !== undefined) {
+      const now = new Date();
+      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - params.monthsBack, 1));
+      qs.set('from', from.toISOString().slice(0, 10));
+    }
+  }
+  const query = qs.toString();
+  return publicList<EventDto>(`/events${query ? `?${query}` : ''}`, 'Failed to load events.');
 }
 
 // Returns every event for the admin list, regardless of status.
