@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0009 — Templates launch content (US-14): 12 GrowXQ starter templates (Word / Excel /
+-- 0006 — Templates launch content (US-14): 12 GrowXQ starter templates (Word / Excel /
 -- PowerPoint) and 3 template kits. Real, usable starter drafts — every file is marked as a
 -- template to adapt, not professional advice. All templates are members-only.
 --

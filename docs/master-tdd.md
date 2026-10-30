@@ -73,7 +73,7 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | `events` | ⚠️ Partially built — public `GET /v1/events` plus admin CRUD (`/v1/admin/events`); public suggestion-queue submission not built | `events/` |
 | `consultation_requests` | ⚠️ Backend built, frontend not | `consultations/` |
 | `peer_connect_matches`, `peer_connect_member_preferences` | 🧱 Schema only | none — see Section 6 |
-| Perks / learnings / collections | ✅ Backend + frontend; templates deferred | `0004_tables.sql`, `0008_seed_resources.sql` |
+| Perks / learnings / collections | ✅ Backend + frontend; templates deferred | `0004_tables.sql`, `0005_seed_resources.sql` |
 | Newsletter subscriptions, signup-source tracking | 📋 Roadmap — no schema yet | none |
 | Notifications (any kind) | 🔭 Beyond-roadmap — no schema | none |
 | Vector embeddings / AI search | ✅ Built | `search_documents`, `search_outbox`, `search_query_log` (see `docs/database-erd.md` "AI search") |

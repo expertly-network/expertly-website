@@ -315,10 +315,9 @@ is required (the Docker images use `node:22-alpine`, which is current).
 4. **Verify, then clean up** (SQL Editor):
    - `select policyname from pg_policies where schemaname = 'storage';` → expect **zero rows** (a
      policy added by hand in the dashboard isn't removed by the update).
-   - `select count(*) from auth.users where email like '%@expertlyseed.test';` — the dev seeds
-     (`0005`–`0007`) live in `supabase/migrations/`, so a database built with `db push` holds the
-     50 fake members / 34 fake events. If non-zero on a real (production) environment, run the
-     teardown blocks at the end of `0005_dev_seed_members.sql` and `0006_dev_seed_events.sql`.
+   - `select count(*) from auth.users where email like '%@expertlyseed.test';` → expect **0**.
+     The old dev-fixture seeds (removed from the repo 2026-10-31; still in git history) created
+     50 fake members / 34 fake events with that email domain — delete them if a database has any.
    - Smoke-test AI search once (it exercises pgvector + the revoked function grants).
 5. **Supabase Auth settings** (dashboard → Authentication), each one closes a takeover path:
    - **Confirm email: ON.** With auto-confirm, anyone can sign up with a member's email address

@@ -40,7 +40,7 @@ function validateBuildEnv() {
 
 // next/image may optimize images from these hosts only: Supabase Storage public objects (avatars,
 // logos, uploaded covers, resource assets) and randomuser.me (homepage testimonial placeholder
-// photos, dev seed avatars). Unsplash images are rendered `unoptimized` (hotlinked — lib/images.ts),
+// photos). Unsplash images are rendered `unoptimized` (hotlinked — lib/images.ts),
 // and admin-entered arbitrary resource image URLs go through ResourceImage, also unoptimized.
 function remotePatterns() {
   const patterns = [{ protocol: 'https', hostname: 'randomuser.me', pathname: '/api/portraits/**' }];

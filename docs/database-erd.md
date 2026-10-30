@@ -60,7 +60,7 @@ existing user, so this only happens if that linking was skipped). The raise abor
   filters in code) and `learnings_search_idx` (no query reads `learnings.search_tsv` yet — the
   column is kept for the planned library search; add the GIN index with it).
 - **Storage:** the public `resource-assets` bucket no longer allows `image/svg+xml` (an SVG can
-  carry script). The one existing SVG (`perks/logos/cleartax.svg`, from `0008`) predates this.
+  carry script). The one existing SVG (`perks/logos/cleartax.svg`, from `0005`) predates this.
 
 ## Membership applications (`supabase/migrations/0001_extensions.sql`–`0004_tables.sql`)
 
@@ -899,15 +899,15 @@ and the requester rates the conversation (`rating` on `consultation_requests`) i
 ## Perks, Learnings & Collections — US-14
 
 Implemented schema: `0004_tables.sql` (already applied in dev before this API session).
-Seed: `0008_seed_resources.sql`: 21 coming-soon perks, 20 videos, 5 learning playlists and
-5 perk stacks; `0009_seed_templates.sql`: 12 members-only templates and 3 template kits. Seeded images are bucket-relative resource-assets paths. All 62 images live in
+Seed: `0005_seed_resources.sql`: 21 coming-soon perks, 20 videos, 5 learning playlists and
+5 perk stacks; `0006_seed_templates.sql`: 12 members-only templates and 3 template kits. Seeded images are bucket-relative resource-assets paths. All 62 images live in
 Supabase Storage; the API expands those paths into public URLs. Local source copies and
 upload helpers are deliberately not kept in the repo (`supabase/seed-assets/` is gitignored). No new schema migration was needed to complete the API.
 
 Storage content is managed separately from source code. A fresh Supabase project must restore
 or copy the `resource-assets` bucket from a Storage backup, preserving the object paths used by
-`0008_seed_resources.sql`. Running SQL seeds alone does not restore image objects, and the same applies to the
-private `template-files` bucket behind `0009_seed_templates.sql`. Maintain that
+`0005_seed_resources.sql`. Running SQL seeds alone does not restore image objects, and the same applies to the
+private `template-files` bucket behind `0006_seed_templates.sql`. Maintain that
 backup outside the Git repository; do not use the development bucket as the only backup.
 
 - **perks**: UUID PK; unique slug; product name/category/tagline/description/products; public

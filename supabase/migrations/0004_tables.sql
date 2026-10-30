@@ -1522,7 +1522,7 @@ revoke all on table public.perks, public.learnings, public.collections from anon
 -- Storage — resource-assets bucket: perk logos/covers and learning thumbnails. Public: nothing
 -- here is sensitive (thumbnails are our own copies keyed by learning id, never the YouTube id).
 -- No image/svg+xml: an SVG is a document that can carry script, served from a public URL. (The
--- one existing SVG, perks/logos/cleartax.svg from 0008, predates this; replace it with a PNG
+-- one existing SVG, perks/logos/cleartax.svg from 0005, predates this; replace it with a PNG
 -- before restoring this bucket into a fresh project.)
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('resource-assets', 'resource-assets', true, 5242880,   -- 5 MB; uploaded by admins

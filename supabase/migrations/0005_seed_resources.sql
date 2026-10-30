@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0008 — Perks & Learnings launch content (US-14). Real content, not a dev fixture: the 21
+-- 0005 — Perks & Learnings launch content (US-14). Real content, not a dev fixture: the 21
 -- recommended products, 20 curated videos, 5 learning playlists and 5 perk starter stacks,
 -- taken from the team's Perks/Learnings prototypes. Every offer starts 'coming_soon' with no
 -- codes; admins add offers per tier via PATCH /v1/admin/perks/:id once each deal is signed.

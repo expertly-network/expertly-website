@@ -486,9 +486,7 @@ an AI failure the field is just left `null` and the error is logged, no retry. U
 `AI_PROVIDER`/`AI_MODEL` config as `POST /v1/articles/ai-draft`. Since 2026-10-30 it's
 (re)generated only when an article becomes published without one, or a published article's
 `title`/`body` actually changes (the old summary is stale) — a `PATCH` touching neither never makes
-an LLM call, even while `aiSummary` is still `null`; one call per article at a time. Seed data (`supabase/migrations/0007_dev_seed_articles.sql`) still
-pre-populates it for dev fixtures so the callout has something to show without waiting on a real
-model call. Additive, no version bump.
+an LLM call, even while `aiSummary` is still `null`; one call per article at a time. Additive, no version bump.
 
 ### 🌐 `GET /v1/articles`
 

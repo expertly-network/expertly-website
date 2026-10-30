@@ -34,18 +34,14 @@ creates later; tables, triggers, RLS and grants in `0004`). The browser roles (`
 `authenticated`) get no table, sequence or function privileges at all except `select` on
 `profiles` (own row via RLS) — see "Least privilege for the browser key" at the end of `0004`.
 
-**Rebuilding a dev database from scratch** (fresh Supabase project): run `0001`–`0004`, then the
-dev seeds `0005`–`0007` (members, events, articles — the seed inserts fire the search triggers, so
-the outbox fills itself), then `0008`/`0009` (re-runnable — `on conflict (id) do nothing`); start
-the worker so it builds the cards and then embeds them (`pnpm worker`).
+**Rebuilding a database from scratch** (fresh Supabase project): run `0001`–`0004`, then the
+content seeds `0005`/`0006` (re-runnable — `on conflict (id) do nothing`); start the worker so it
+builds the search cards and then embeds them (`pnpm worker`). Cards are derived data — nothing about
+search needs to be restored from a dump. There are no dev-fixture seeds: everything in this folder
+is safe to apply to production.
 
-**`0005`–`0007` are dev-only seeds** (50 fake, publicly listed members, 34 fake events, 9
-articles). They stay in this folder by choice, so don't point `supabase db push` at a production
-project while they're here — and never apply them to production by hand.
-Cards are derived data — nothing about search needs to be restored from a dump.
-
-**Content seeds** (real launch content, not dev fixtures): `0008_seed_resources.sql` (perks,
-learning videos, playlists, stacks) and `0009_seed_templates.sql` (templates, template kits).
+**Content seeds** (real launch content, not dev fixtures): `0005_seed_resources.sql` (perks,
+learning videos, playlists, stacks) and `0006_seed_templates.sql` (templates, template kits).
 Their image/document columns hold Storage object paths, so the public `resource-assets` and
 private `template-files` buckets must be restored from a Storage backup (same object paths).
 
