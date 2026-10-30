@@ -43,19 +43,51 @@ function runtimeEnv(name: string): string | undefined {
 
 const DEV_SITE_URL = 'http://localhost:3000';
 
-/**
- * This app's own public origin (no trailing slash), e.g. https://growxq.com. Server/middleware only.
- * Used wherever a redirect or absolute URL must point at *our* host — never derived from the
- * request's Host / X-Forwarded-Host headers, which the client controls. Required in production;
- * read at runtime first (Coolify env var) and from the build-time value otherwise.
- */
-export function getSiteUrl(): string {
-  const value = runtimeEnv('NEXT_PUBLIC_SITE_URL') ?? process.env.NEXT_PUBLIC_SITE_URL;
-  if (value) return stripTrailingSlash(value);
+// NEXT_PUBLIC_SITE_URL is this app's public origin — or, when one container serves several domains
+// (e.g. https://expertly.network,https://dev.expertly.network), a comma-separated list of them,
+// canonical first. Required in production; read at runtime first (Coolify env var), then the
+// build-time value.
+function siteOrigins(): string[] {
+  const raw = runtimeEnv('NEXT_PUBLIC_SITE_URL') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const origins = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => stripTrailingSlash(entry));
+  if (origins.length > 0) return origins;
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Missing required environment variable NEXT_PUBLIC_SITE_URL (the public site origin).');
   }
-  return DEV_SITE_URL;
+  return [DEV_SITE_URL];
+}
+
+/**
+ * This app's canonical public origin (no trailing slash), e.g. https://growxq.com. Server/middleware
+ * only. Used wherever an absolute URL must point at *our* host.
+ */
+export function getSiteUrl(): string {
+  return siteOrigins()[0];
+}
+
+/**
+ * The configured origin whose host matches `requestHost` (the request's Host / X-Forwarded-Host),
+ * else the canonical one. A client controls that header, so it can only ever select one of our own
+ * configured origins — never redirect anywhere else.
+ */
+export function resolveSiteUrl(requestHost: string | null | undefined): string {
+  const origins = siteOrigins();
+  const host = requestHost?.split(',')[0]?.trim().toLowerCase();
+  if (host) {
+    const match = origins.find((origin) => {
+      try {
+        return new URL(origin).host.toLowerCase() === host;
+      } catch {
+        return false;
+      }
+    });
+    if (match) return match;
+  }
+  return origins[0];
 }
 
 /** getSiteUrl() for non-security uses (metadata), which degrade instead of failing the request. */

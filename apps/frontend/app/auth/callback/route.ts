@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { safeReturnTo } from '@/lib/auth/return-to';
-import { getSiteUrl } from '@/lib/env';
+import { resolveSiteUrl } from '@/lib/env';
 
 // PKCE code-exchange endpoint for the OAuth flow — exchanges the provider's `?code=` for a
 // session and sets the session cookies.
@@ -11,10 +11,12 @@ export async function GET(request: Request) {
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const intent = searchParams.get('intent');
 
-  // The configured public origin — never the Host / X-Forwarded-Host headers, which a client can
-  // set to bounce a freshly signed-in user to a host it controls (open redirect). The server's
-  // own bind address (request.url) isn't the public host behind the proxy either.
-  const origin = getSiteUrl();
+  // One of the configured public origins (NEXT_PUBLIC_SITE_URL) — the one this request arrived on,
+  // so the session cookies just set on that host stay with the user. The Host / X-Forwarded-Host
+  // headers only choose among those origins; anything else falls back to the canonical one, so a
+  // client can't bounce a freshly signed-in user to a host it controls (open redirect). The
+  // server's own bind address (request.url) isn't the public host behind the proxy either.
+  const origin = resolveSiteUrl(request.headers.get('x-forwarded-host') ?? request.headers.get('host'));
 
   if (code) {
     const supabase = await createClient();

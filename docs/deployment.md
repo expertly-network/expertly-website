@@ -243,12 +243,14 @@ bug report and grep the Coolify logs for it.
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | build (`--build-arg`) | `next build` fails if missing or not a valid URL |
 | `NEXT_PUBLIC_API_URL` | build | fallback for `API_URL` |
 | `API_URL` | runtime (Coolify env) | the backend's public base URL — see "One environment" above |
-| `NEXT_PUBLIC_SITE_URL` | **runtime, required in production** | this deployment's public origin, e.g. `https://dev.expertly.network`. Read at runtime (`getSiteUrl()` in `apps/frontend/lib/env.ts`), so it does not need to be a build arg; set it per Coolify app |
+| `NEXT_PUBLIC_SITE_URL` | **runtime, required in production** | the frontend's public origin(s), comma-separated, canonical first — every domain routed to the container, e.g. `https://expertly.network,https://www.expertly.network,https://dev.expertly.network,https://www.dev.expertly.network`. Read at runtime (`apps/frontend/lib/env.ts`), so it does not need to be a build arg |
 
 **Server-side origin resolution.** Any server-side code that needs "our own public URL" (the OAuth
-callback's redirect, absolute links) uses `getSiteUrl()` — never `request.url` (the container's
-bind address behind Traefik) and never the `Host` / `X-Forwarded-Host` headers, which a client can
-set to bounce a freshly signed-in user to a host it controls (open redirect). Reference:
+callback's redirect, absolute links) uses `getSiteUrl()` (canonical origin) or `resolveSiteUrl(host)` — never `request.url` (the
+container's bind address behind Traefik) and never a raw `Host` / `X-Forwarded-Host` header, which a
+client can set to bounce a freshly signed-in user to a host it controls (open redirect).
+`resolveSiteUrl` only uses the header to *choose among* the configured origins, so a user who signs
+in on `dev.expertly.network` comes back to that host (where their session cookies were set). Reference:
 `apps/frontend/app/auth/callback/route.ts`. A missing `NEXT_PUBLIC_SITE_URL` in production makes the
 callback fail loudly instead of guessing.
 
@@ -396,8 +398,8 @@ moved by hand. Until it is, the live facts elsewhere in this file (Coolify app n
 5. Supabase → Authentication → URL Configuration: Site URL → the new domain; add
    `https://<new domain>/auth/callback` (and the dev one) to the Redirect URLs allow-list.
    Supabase email templates (confirm signup, reset password) — replace any "Expertly" wording.
-6. `NEXT_PUBLIC_SITE_URL` (frontend, runtime env) → the new domain. Required in production: OAuth
-   callbacks redirect only to it (and Open Graph link previews use it).
+6. `NEXT_PUBLIC_SITE_URL` (frontend, runtime env) → the new domain(s), canonical first. Required in
+   production: OAuth callbacks redirect only to these origins (and Open Graph link previews use the first).
 7. LinkedIn: the footer still links to `linkedin.com/company/expertly-network` until a GrowXQ
    company page exists; the LinkedIn OAuth app's name/logo is set in the LinkedIn developer portal.
 8. Mailbox: the site now shows `contact@growxq.com` (contact, event suggestions, suspended-account

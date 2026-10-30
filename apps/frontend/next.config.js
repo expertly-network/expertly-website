@@ -23,10 +23,14 @@ function validateBuildEnv() {
   for (const name of ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_SITE_URL']) {
     const value = process.env[name];
     if (!value) continue;
-    try {
-      new URL(value);
-    } catch {
-      problems.push(`${name} is not a valid URL ("${value}")`);
+    // NEXT_PUBLIC_SITE_URL may list several origins, comma-separated (lib/env.ts).
+    const entries = name === 'NEXT_PUBLIC_SITE_URL' ? value.split(',').map((v) => v.trim()) : [value];
+    for (const entry of entries) {
+      try {
+        new URL(entry);
+      } catch {
+        problems.push(`${name} is not a valid URL ("${entry}")`);
+      }
     }
   }
   if (problems.length) {
