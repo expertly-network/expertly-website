@@ -1,0 +1,6 @@
+# Bulk formatting commits — skipped by `git blame` when configured:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub applies this file automatically.)
+
+# Prettier pass (2026-10-30)
+91a5e89fcfe889b7aa40ece525b3a71d417625a8
