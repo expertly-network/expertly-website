@@ -441,7 +441,7 @@ backend module read from it — see the drift note below.
 | `is_free` | boolean, default `false` | |
 | `registration_url` | text, nullable | |
 | `organiser_name` | text, nullable | |
-| `category_ids` | uuid[], default `{}` | Topic tags → `categories.id` (no FK, validated in `EventsService`; GIN index). Inferred from title/description when an event is created/imported without them (`apps/backend/src/events/event-categories.ts`); the events already in the database were tagged the same way on 2026-10-31 (1,257 of 1,649 matched). |
+| `category_ids` | uuid[], default `{}` | Topic tags → `categories.id` (no FK, validated in `EventsService`; GIN index). Inferred from title/description when an event is created/imported without them (`apps/backend/src/events/event-categories.ts`); the events already in the database were tagged the same way on 2026-10-31, and again on 2026-11-01 after a direct bulk import that bypassed the API (5,964 of 7,005 matched). |
 | `status` | enum `draft`\|`published` | RLS only exposes `published` rows to `select` |
 | `created_at`, `updated_at` | timestamptz | |
 
