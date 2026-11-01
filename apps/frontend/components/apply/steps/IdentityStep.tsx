@@ -42,6 +42,10 @@ export function IdentityStep({
     if (!form.firstName.trim()) e.firstName = 'First name is required.';
     if (!form.lastName.trim()) e.lastName = 'Last name is required.';
     if (!form.contactEmail.trim()) e.contactEmail = 'Contact email is required.';
+    // Same rule the backend applies at submit: 6-15 digits, whatever the spacing/punctuation.
+    const phoneDigits = form.phone.replace(/\D/g, '').length;
+    if (phoneDigits === 0) e.phone = 'Phone number is required.';
+    else if (phoneDigits < 6 || phoneDigits > 15) e.phone = 'Enter a valid phone number.';
     if (!form.country) e.country = 'Country is required.';
     if (!form.linkedinUrl.trim()) e.linkedinUrl = 'LinkedIn URL is required.';
     if (!form.bio.trim()) e.bio = 'Professional bio is required.';
@@ -182,9 +186,13 @@ export function IdentityStep({
           />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="phone" className="text-xs font-medium text-ink-2">
-              WhatsApp / Phone <span className="font-normal text-ink-3">(optional)</span>
+              WhatsApp / Phone
             </label>
-            <div className={`flex overflow-hidden rounded-input border border-line ${FIELD_FOCUS_WITHIN}`}>
+            <div
+              className={`flex overflow-hidden rounded-input border ${
+                errors.phone ? 'border-error' : `border-line ${FIELD_FOCUS_WITHIN}`
+              }`}
+            >
               <select
                 aria-label="Phone country code"
                 className="max-w-[9.5rem] border-r border-line bg-bg-alt px-2 text-xs text-ink outline-none"
@@ -200,12 +208,25 @@ export function IdentityStep({
               <input
                 id="phone"
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel-national"
+                required
+                aria-invalid={errors.phone ? true : undefined}
+                aria-describedby={errors.phone ? 'phone-error' : undefined}
                 placeholder="7700 900 000"
                 className="min-w-0 flex-1 bg-transparent px-3.5 py-3 text-sm text-ink outline-none"
                 value={form.phone}
-                onChange={(e) => update({ phone: e.target.value })}
+                onChange={(e) => {
+                  update({ phone: e.target.value });
+                  clearError('phone');
+                }}
               />
             </div>
+            {errors.phone && (
+              <span id="phone-error" className="text-xs text-error">
+                {errors.phone}
+              </span>
+            )}
           </div>
         </div>
 

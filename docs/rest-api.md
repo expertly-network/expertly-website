@@ -202,12 +202,20 @@ the coupon-preview limit; the wizard saves once per step change).
   `servicePreferences` non-empty, **`workExperiences` must include one entry with
   `isCurrent: true` and a non-empty `company`** (added 2026-09-27 — this becomes the approved
   member's `firm_name`, so it can't be silently absent), `peerReferences` exactly 2 entries (added
-  2026-08-31 per client feedback), `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
+  2026-08-31 per client feedback), **`phone` with 6–15 digits** (required as of 2026-11-01),
+  **every entry complete** (2026-11-01): `workExperiences[]` `title`+`company`, `educations[]`
+  `institution`+`degree`, `peerReferences[]` `name`+`relationship`+a valid `email`,
+  `rateMaxCents > rateMinCents`, `backgroundCheckConsent: true`,
   terms/privacy versions present) — missing/invalid fields are named in the `400` response body,
   not just a generic rejection. On success: computes `selectedTier`, `listPriceCents`,
   `discountAmountCents`, `amountDueCents`, `paymentStatus` exactly as the old endpoint did (see
   below), and transitions the row to `submitted`.
-- Omitted/`'draft'` `status` → just saves progress, stays `draft`.
+- Omitted/`'draft'` `status` → just saves progress, stays `draft`. **Drafts may hold half-filled
+  entries** (2026-11-01): `workExperiences[]` `title`/`company`, `educations[]`
+  `institution`/`degree` and `peerReferences[]` `name`/`relationship`/`email` accept `""` — the
+  wizard saves the whole form on every step (Back included), so an unfinished card on a later step
+  must not block saving an earlier one. Types, length bounds, `startYear`, URLs and a non-empty
+  `email`'s format are still validated on every save; completeness is checked at submit.
 
 **Trade-off, deliberate:** this creates on first call and updates on repeat calls under one POST
 URL — not strict REST idempotency. Accepted for a singleton-per-user resource; see the spec doc
@@ -219,8 +227,10 @@ wizard step to resume on, pure UX convenience, not validated).
 
 - `billingPeriod` — annual only as of 2026-08-31 (`BillingPeriod` is now a single-member
   `'annual'` union); `'monthly'` is rejected by validation, not silently accepted.
-- `peerReferences` — up to 2 entries while a draft, exactly 2 required to submit; each is
-  `{ name, relationship, email, phone? }`.
+- `peerReferences` — not required at all while the backend's `SITE_LAUNCHED=false` (founding-cohort
+  pre-launch; the wizard hides the section). Otherwise up to 2 entries while a draft, exactly 2 required to submit; each is
+  `{ name, relationship, email, phone? }` (blanks allowed in a draft, all three required to submit).
+- `phone` — optional while a draft, required to submit (6–15 digits, any spacing/punctuation).
 - `servicePreferences[].serviceId` is validated against a live, `is_active` `services` query
   whenever a call actually includes `servicePreferences` — the DB has no FK to catch an invalid id
   (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field (a

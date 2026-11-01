@@ -26,6 +26,8 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 import { CouponPreviewDto } from './dto/coupon-preview.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
+import { incompleteEntryFields } from './application-completeness';
+import { env } from '../config/env';
 import { deriveRegion } from './constants/country-region';
 import { findLocationMismatch } from './location-check';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/work-history';
@@ -717,7 +719,6 @@ export class ApplicationsService {
       isCurrent?: boolean;
     }[];
     const educations = (row.educations ?? []) as unknown[];
-    const peerReferences = (row.peer_references ?? []) as unknown[];
     const servicePreferences = (row.service_preferences ?? []) as unknown[];
     if (workExperiences.length < 1) missing.push('workExperiences');
     else {
@@ -735,8 +736,9 @@ export class ApplicationsService {
       }
     }
     if (educations.length < 1) missing.push('educations');
-    if (peerReferences.length !== 2) missing.push('peerReferences (exactly 2 required)');
     if (servicePreferences.length < 1) missing.push('servicePreferences');
+    // Peer references aren't collected during the founding-cohort pre-launch.
+    missing.push(...incompleteEntryFields(row, { requirePeerReferences: env().SITE_LAUNCHED !== 'false' }));
     if (row.background_check_consent !== true) missing.push('backgroundCheckConsent must be true');
     if (!row.terms_version_agreed) missing.push('termsVersionAgreed');
     if (!row.privacy_version_agreed) missing.push('privacyVersionAgreed');

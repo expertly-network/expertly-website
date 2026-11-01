@@ -11,6 +11,7 @@ import { ServicesRatesStep } from '@/components/apply/steps/ServicesRatesStep';
 import { ReviewSubmitStep } from '@/components/apply/steps/ReviewSubmitStep';
 import { INITIAL_WIZARD_STATE, fromDto, toUpdateRequest, type WizardFormState } from '@/components/apply/types';
 import { importLinkedInPhoto, saveApplication } from '@/lib/api/applications';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { ApiError } from '@/lib/api/client';
 import { hasLinkedInIdentity } from '@/lib/auth/linkedin';
 import type { CategoryDto } from '@shared/category';
@@ -21,13 +22,27 @@ const TOTAL_STEPS = 5;
 // Initial state for a resumed draft (or a fresh application when there's none). The account's own
 // login email is the default contact email — it applies equally to an applicant who signed up with
 // email/password and one who came through LinkedIn.
-function initialForm(application: ApplicationDto | null, accountEmail: string): WizardFormState {
+// The backend's validation messages name raw fields ("peerReferences.0.email must be an email") —
+// never shown to an applicant. Each step validates its own fields before Next, so these only
+// surface for something left unfinished on another step.
+const SAVE_ERROR_COPY = {
+  VALIDATION_FAILED: 'Some details look incomplete or invalid. Please check each step and try again.',
+  APPLICATION_INCOMPLETE: 'A few required details are still missing. Please check each step, then submit again.',
+};
+
+function initialForm(
+  application: ApplicationDto | null,
+  accountEmail: string,
+  linkCoupon: string | null
+): WizardFormState {
   const form: WizardFormState = {
     ...INITIAL_WIZARD_STATE,
     ...(application ? fromDto(application) : {}),
     importedFields: new Set<string>(),
   };
   if (!form.contactEmail && accountEmail) form.contactEmail = accountEmail;
+  // A code the applicant already typed wins; otherwise the one their invite link carried.
+  if (!form.couponCode && linkCoupon) form.couponCode = linkCoupon;
   return form;
 }
 
@@ -39,14 +54,20 @@ export function ApplicationWizard({
   initialApplication,
   accountEmail,
   categories,
+  linkCoupon = null,
+  collectReferences = true,
 }: {
   initialApplication: ApplicationDto | null;
   accountEmail: string;
   categories: CategoryDto[];
+  /** From a `?coupon=` link, remembered across sign-up — pre-filled and auto-applied at review. */
+  linkCoupon?: string | null;
+  /** False during the founding-cohort pre-launch (SITE_LAUNCHED=false): no peer references step. */
+  collectReferences?: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(initialApplication?.currentStep || 1);
-  const [form, setForm] = useState<WizardFormState>(() => initialForm(initialApplication, accountEmail));
+  const [form, setForm] = useState<WizardFormState>(() => initialForm(initialApplication, accountEmail, linkCoupon));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -115,7 +136,7 @@ export function ApplicationWizard({
       setStep(targetStep);
       scrollTop();
     } catch (err) {
-      setSaveError(err instanceof ApiError ? err.message : 'Failed to save — please try again.');
+      setSaveError(apiErrorMessage(err, 'Failed to save — please try again.', SAVE_ERROR_COPY));
     } finally {
       setSaving(false);
     }
@@ -136,10 +157,10 @@ export function ApplicationWizard({
     } catch (err) {
       if (err instanceof ApiError && err.code === 'APPLICATION_LOCKED') {
         setSaveError('You already have an application in progress.');
-      } else if (err instanceof ApiError) {
-        setSaveError(err.message);
       } else {
-        setSaveError('Something went wrong submitting your application. Please try again.');
+        setSaveError(
+          apiErrorMessage(err, 'Something went wrong submitting your application. Please try again.', SAVE_ERROR_COPY)
+        );
       }
       setSaving(false);
     }
@@ -180,6 +201,7 @@ export function ApplicationWizard({
               saveError={saveError}
               onBack={() => goBack(2)}
               onNext={() => handleAdvance(4)}
+              collectReferences={collectReferences}
             />
           )}
           {step === 4 && (
@@ -203,6 +225,7 @@ export function ApplicationWizard({
               onBack={() => goBack(4)}
               onEditStep={goBack}
               onSubmit={handleSubmit}
+              collectReferences={collectReferences}
             />
           )}
         </div>

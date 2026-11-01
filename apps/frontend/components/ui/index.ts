@@ -8,6 +8,8 @@ export { DateRangePicker, startOfDay } from './DateRangePicker';
 export type { DateRange, DateRangePreset } from './DateRangePicker';
 export type { FilterPopoverOption } from './FilterPopover';
 export { MultiSelect } from './MultiSelect';
+export { Combobox } from './Combobox';
+export type { ComboboxOption } from './Combobox';
 export { Input } from './Input';
 export { Select } from './Select';
 export { Textarea } from './Textarea';

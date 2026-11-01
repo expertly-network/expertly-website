@@ -16,3 +16,16 @@ const PRELAUNCH_PREFIXES = [
 export function isOpenBeforeLaunch(pathname: string): boolean {
   return pathname === '/' || PRELAUNCH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
+
+// The founding-cohort coupon (backend: applications/constants/coupons.ts — a full first-year
+// waiver). The teaser's CTA carries it as `?coupon=`; middleware remembers any such code in a
+// cookie so it survives the sign-up / login / OAuth hops, and the wizard pre-fills it.
+export const FOUNDING_COUPON_CODE = 'LAUNCH100';
+export const COUPON_COOKIE = 'growxq_coupon';
+export const COUPON_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+
+/** The code, upper-cased, if it looks like one — anything else is ignored (the backend validates). */
+export function cleanCouponCode(raw: string | null | undefined): string | null {
+  const code = raw?.trim().toUpperCase();
+  return code && /^[A-Z0-9_-]{1,40}$/.test(code) ? code : null;
+}

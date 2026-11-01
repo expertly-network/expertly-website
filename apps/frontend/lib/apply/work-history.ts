@@ -59,3 +59,16 @@ export function findOverlaps(items: WorkSpan[], now: Date = new Date()): number[
   }
   return result;
 }
+
+// Whole years from the earliest started role to today — career length, so gaps still count (how
+// senior professionals state seniority: "20 years in tax"). Only cards with a title or company
+// count: a blank card's start year defaults to this year. Null when there's nothing to go on.
+export function careerYears(
+  items: (WorkSpan & { title?: string; company?: string })[],
+  now: Date = new Date()
+): number | null {
+  const starts = items.filter((w) => isDated(w) && (w.title?.trim() || w.company?.trim())).map((w) => startOf(w));
+  if (starts.length === 0) return null;
+  const months = now.getFullYear() * 12 + now.getMonth() - Math.min(...starts);
+  return Math.min(Math.max(Math.floor(months / 12), 0), 60);
+}

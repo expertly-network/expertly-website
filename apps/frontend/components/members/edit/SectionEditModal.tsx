@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Modal, Input, Textarea, Button } from '@/components/ui';
 import { ImageCropper } from '@/components/ui/ImageCropper';
+import { WarningNote } from '@/components/ui/WarningNote';
 import { sortWorkHistory, workHistoryErrors, workHistoryWarnings } from '@/lib/members/work-history-check';
 import {
   EMPTY_ROW,
@@ -423,7 +424,7 @@ export function SectionEditModal({
                       {dateErrors[i]}
                     </p>
                   )}
-                  {!dateErrors[i] && dateWarnings[i] && <p className="text-xs text-warn">{dateWarnings[i]}</p>}
+                  {!dateErrors[i] && dateWarnings[i] && <WarningNote>{dateWarnings[i]}</WarningNote>}
                 </div>
                 {config.shape === 'clients' && (
                   <div className="mt-3">

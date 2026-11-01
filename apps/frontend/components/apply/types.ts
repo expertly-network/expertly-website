@@ -24,6 +24,8 @@ export interface WizardFormState {
   city: string;
   bio: string;
   yearsOfExperience: string;
+  /** Frontend-only: the value was worked out from the roles (careerYears) and still tracks them. */
+  yearsOfExperienceCalculated: boolean;
   workExperiences: WorkExperienceInput[];
   educations: EducationInput[];
   /** Always exactly 2 entries. */
@@ -74,7 +76,9 @@ export function toUpdateRequest(
     ),
     educations: nonEmptyOrUndefined(form.educations.filter((e) => e.institution.trim() || e.degree.trim())),
     // Filters out blank template entries.
-    peerReferences: nonEmptyOrUndefined(form.peerReferences.filter((r) => r.name.trim() || r.email.trim())),
+    peerReferences: nonEmptyOrUndefined(
+      form.peerReferences.filter((r) => r.name.trim() || r.relationship.trim() || r.email.trim())
+    ),
     servicePreferences: form.servicePreferences,
     rateMinCents: form.rateMinDollars ? Math.round(Number(form.rateMinDollars) * 100) : undefined,
     rateMaxCents: form.rateMaxDollars ? Math.round(Number(form.rateMaxDollars) * 100) : undefined,
@@ -107,8 +111,8 @@ export function fromDto(app: ApplicationDto): Partial<WizardFormState> {
     yearsOfExperience: app.yearsOfExperience != null ? String(app.yearsOfExperience) : '',
     workExperiences: app.workExperiences.length > 0 ? app.workExperiences : [{ ...EMPTY_WORK_EXPERIENCE }],
     educations: app.educations.length > 0 ? app.educations : [{ ...EMPTY_EDUCATION }],
-    peerReferences:
-      app.peerReferences.length === 2 ? app.peerReferences : [{ ...EMPTY_PEER_REFERENCE }, { ...EMPTY_PEER_REFERENCE }],
+    // Always two cards; a draft may have saved just one (possibly half-filled) — keep it.
+    peerReferences: [0, 1].map((i) => app.peerReferences[i] ?? { ...EMPTY_PEER_REFERENCE }),
     servicePreferences: app.servicePreferences.map((p) => ({
       serviceId: p.serviceId,
       priority: p.priority,
@@ -160,6 +164,7 @@ export const INITIAL_WIZARD_STATE: WizardFormState = {
   city: '',
   bio: '',
   yearsOfExperience: '',
+  yearsOfExperienceCalculated: false,
   workExperiences: [{ ...EMPTY_WORK_EXPERIENCE }],
   educations: [{ ...EMPTY_EDUCATION }],
   peerReferences: [{ ...EMPTY_PEER_REFERENCE }, { ...EMPTY_PEER_REFERENCE }],

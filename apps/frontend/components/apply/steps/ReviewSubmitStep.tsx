@@ -88,6 +88,7 @@ export function ReviewSubmitStep({
   onBack,
   onEditStep,
   onSubmit,
+  collectReferences = true,
 }: {
   form: WizardFormState;
   update: (patch: Partial<WizardFormState>) => void;
@@ -98,6 +99,8 @@ export function ReviewSubmitStep({
   /** Jumps to a wizard step (2 = Identity, 3 = Background, 4 = Services) keeping entered data. */
   onEditStep: (step: number) => void;
   onSubmit: () => void;
+  /** False during the founding-cohort pre-launch — no peer references to show. */
+  collectReferences?: boolean;
 }) {
   const [consentTerms, setConsentTerms] = useState(false);
   const [consentPrivacy, setConsentPrivacy] = useState(false);
@@ -113,6 +116,12 @@ export function ReviewSubmitStep({
 
   const services = categories.flatMap((c) => c.services);
   const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? id;
+  // "Tax › Direct Tax" — the same service name can sit under several categories, so the path is
+  // what tells the applicant which one they picked.
+  const servicePath = (id: string) => {
+    const category = categories.find((c) => c.services.some((s) => s.id === id));
+    return category ? `${category.serviceLineName} › ${category.name}` : '';
+  };
   const regionLabel = REGIONS.find((r) => r.value === form.region)?.label ?? form.region;
   const location = [form.city, form.state, form.country].filter(Boolean).join(', ');
 
@@ -159,6 +168,13 @@ export function ReviewSubmitStep({
       setCouponStatus('invalid');
     }
   }
+
+  // A code that's already there on arrival (from an invite link, or typed on an earlier visit)
+  // is applied straight away — the discounted price and the confetti, without an extra click.
+  useEffect(() => {
+    if (form.couponCode.trim()) void handleApplyCoupon();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleCouponCodeChange(value: string) {
     update({ couponCode: value });
@@ -260,15 +276,17 @@ export function ReviewSubmitStep({
                 .join(' · '),
             }))}
         />
-        <ReviewListRow
-          label="Peer references"
-          items={form.peerReferences
-            .filter((r) => r.name.trim())
-            .map((r) => ({
-              title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
-              detail: [r.email, r.phone].filter(Boolean).join(' · '),
-            }))}
-        />
+        {collectReferences && (
+          <ReviewListRow
+            label="Peer references"
+            items={form.peerReferences
+              .filter((r) => r.name.trim())
+              .map((r) => ({
+                title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
+                detail: [r.email, r.phone].filter(Boolean).join(' · '),
+              }))}
+          />
+        )}
         <SectionHeader title="Services & rates" onEdit={() => onEditStep(4)} />
         <ReviewListRow
           label="Services"
@@ -276,7 +294,7 @@ export function ReviewSubmitStep({
             .sort((a, b) => a.priority - b.priority)
             .map((p) => ({
               title: p.customLabel ? `${serviceName(p.serviceId)} (${p.customLabel})` : serviceName(p.serviceId),
-              detail: PRIORITY_LABEL[p.priority],
+              detail: [PRIORITY_LABEL[p.priority], servicePath(p.serviceId)].filter(Boolean).join(' · '),
             }))}
         />
         <ReviewRow label="Rate" value={`$${form.rateMinDollars} – $${form.rateMaxDollars} / hour`} />

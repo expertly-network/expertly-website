@@ -228,6 +228,7 @@ process with the variable's name in the log (an empty `KEY=` counts as unset). M
 | `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` | optional | optional | for the matching `AI_PROVIDER` |
 | `SWAGGER_ENABLED` | optional | — | `true` / `false`; docs at `/api` are off by default in production |
 | `ARTICLES_REVIEW_MODE` | optional (`instant`) | — | `instant` / `editorial` |
+| `SITE_LAUNCHED` | optional (launched) | — | `false` during the founding-cohort pre-launch: the application doesn't require peer references. **Set it together with the frontend's `SITE_LAUNCHED`** — a frontend at `false` with a backend left unset hides the references section but the backend still demands them at submit (`400 APPLICATION_INCOMPLETE`) |
 | `UNSPLASH_ACCESS_KEY` | optional | — | |
 | `LINKEDIN_IMPORT_WEBHOOK_URL` | optional | — | http(s) URL |
 | `CONSULTATION_REQUEST_LIMIT`, `CONSULTATION_REQUEST_WINDOW_DAYS`, `CONSULTATION_PENDING_COOLDOWN_DAYS` | optional | — | positive integers; an invalid value fails boot rather than silently using the default |

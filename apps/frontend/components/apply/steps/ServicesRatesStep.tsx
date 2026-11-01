@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
@@ -26,11 +26,17 @@ export function ServicesRatesStep({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-
   const allServices = categories.flatMap((c) => c.services);
-  const visibleServices =
-    categoryFilter === 'all' ? allServices : (categories.find((c) => c.id === categoryFilter)?.services ?? []);
+  // One flat list of every service, each carrying its full path ("Tax › Direct Tax") — the same
+  // service name under several categories shows up as distinct, searchable options instead of
+  // making the applicant pick a category first.
+  const serviceOptions: ComboboxOption[] = categories.flatMap((c) =>
+    c.services.map((s) => ({
+      value: s.id,
+      label: s.name,
+      context: `${c.serviceLineName} › ${c.name}`,
+    }))
+  );
 
   const prefs = form.servicePreferences;
   const setPreference = (priority: 1 | 2 | 3, serviceId: string) => {
@@ -48,7 +54,7 @@ export function ServicesRatesStep({
   // already chosen elsewhere prevents that at the source instead of erroring later.
   const optionsFor = (priority: 1 | 2 | 3) => {
     const takenElsewhere = new Set(prefs.filter((p) => p.priority !== priority && p.serviceId).map((p) => p.serviceId));
-    return visibleServices.filter((s) => !takenElsewhere.has(s.id));
+    return serviceOptions.filter((o) => !takenElsewhere.has(o.value));
   };
   const setCustomLabel = (priority: 1 | 2 | 3, customLabel: string) => {
     update({
@@ -92,46 +98,24 @@ export function ServicesRatesStep({
       <div className="mt-7">
         <span className="mb-3 block text-mono-label text-ink-3">SERVICE PREFERENCES — RANK YOUR TOP 3</span>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setCategoryFilter('all')}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              categoryFilter === 'all' ? 'border-ink bg-ink text-bg' : 'border-line text-ink-3 hover:border-ink-3'
-            }`}
-          >
-            All
-          </button>
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setCategoryFilter(c.id)}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                categoryFilter === c.id ? 'border-ink bg-ink text-bg' : 'border-line text-ink-3 hover:border-ink-3'
-              }`}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
+        <p className="-mt-1.5 mb-4 text-sm text-ink-3">
+          Search by service or practice area — the same service can sit under more than one category, so pick the one
+          that fits you best.
+        </p>
 
         <div className="flex flex-col gap-4">
-          <Select
+          <Combobox
             id="servicePreference1"
             label="1st Preference"
             value={preferenceFor(1)}
-            onChange={(e) => setPreference(1, e.target.value)}
+            onChange={(v) => setPreference(1, v)}
+            options={optionsFor(1)}
+            placeholder="Select service…"
+            searchPlaceholder="Search services, e.g. M&A tax"
+            emptyText="No services match — try a shorter search, or pick “Other”."
             error={errors.servicePreference1}
-            required
-          >
-            <option value="">Select service…</option>
-            {optionsFor(1).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
+            markRequired
+          />
           {preferenceFor(1) && isCustomService(preferenceFor(1)) && (
             <Input
               label="Describe this custom service"
@@ -141,22 +125,19 @@ export function ServicesRatesStep({
           )}
 
           <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-            <Select label="2nd Preference" value={preferenceFor(2)} onChange={(e) => setPreference(2, e.target.value)}>
-              <option value="">Select service…</option>
-              {optionsFor(2).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-            <Select label="3rd Preference" value={preferenceFor(3)} onChange={(e) => setPreference(3, e.target.value)}>
-              <option value="">Select service…</option>
-              {optionsFor(3).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+            {([2, 3] as const).map((priority) => (
+              <Combobox
+                key={priority}
+                label={priority === 2 ? '2nd Preference' : '3rd Preference'}
+                value={preferenceFor(priority)}
+                onChange={(v) => setPreference(priority, v)}
+                options={optionsFor(priority)}
+                placeholder="Select service…"
+                searchPlaceholder="Search services, e.g. M&A tax"
+                emptyText="No services match — try a shorter search, or pick “Other”."
+                clearable
+              />
+            ))}
           </div>
           {preferenceFor(2) && isCustomService(preferenceFor(2)) && (
             <Input

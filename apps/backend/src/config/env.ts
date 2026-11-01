@@ -58,6 +58,9 @@ const apiSchema = z.object({
   ),
   SWAGGER_ENABLED: z.enum(['true', 'false']).optional(),
   ARTICLES_REVIEW_MODE: z.enum(['instant', 'editorial']).default('instant'),
+  // Mirrors the frontend's SITE_LAUNCHED (set both together): 'false' = founding-cohort
+  // pre-launch, when the application doesn't collect peer references. Unset = launched.
+  SITE_LAUNCHED: z.enum(['true', 'false']).optional(),
   UNSPLASH_ACCESS_KEY: optionalString,
   LINKEDIN_IMPORT_WEBHOOK_URL: httpUrl.optional(),
   CONSULTATION_REQUEST_LIMIT: optionalPositiveInt,

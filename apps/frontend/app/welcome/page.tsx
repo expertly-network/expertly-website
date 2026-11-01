@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Wordmark } from '@/components/Logo';
 import { isSiteLaunched } from '@/lib/env';
+import { FOUNDING_COUPON_CODE } from '@/lib/launch';
 
 // The pre-launch teaser. middleware.ts serves it at `/` while SITE_LAUNCHED=false, so invitees see
 // this instead of the home page. It's written to the founding cohort: a held seat, what founding
@@ -66,7 +67,7 @@ function Eyebrow({ children }: { children: ReactNode }) {
 function FoundingSeatCta() {
   return (
     <Link
-      href="/apply"
+      href={`/apply?coupon=${FOUNDING_COUPON_CODE}`}
       className="inline-flex min-h-[56px] items-center gap-3 rounded px-8 text-[17px] font-semibold text-ink transition-[background-color,transform] duration-150 bg-accent hover:-translate-y-px hover:bg-[var(--wl-mint)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-[var(--wl-text)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
       Claim your founding seat <span aria-hidden="true">&rarr;</span>

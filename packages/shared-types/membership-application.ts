@@ -32,6 +32,8 @@ export type BillingPeriod = 'annual';
 // 'paid' is reserved for a future real payment gateway.
 export type PaymentStatus = 'pending' | 'waived' | 'paid';
 
+// Draft saves accept blank text fields (title/company here, institution/degree, name/relationship/
+// email below); submitting requires them — see docs/rest-api.md.
 export class WorkExperienceInput {
   @ApiProperty() title!: string;
   @ApiProperty() company!: string;

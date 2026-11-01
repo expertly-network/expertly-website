@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { SUPABASE_URL, getApiUrlRuntime, getSiteUrlOrDefault, isSiteLaunched } from '@/lib/env';
-import { isOpenBeforeLaunch } from '@/lib/launch';
+import { COUPON_COOKIE, COUPON_COOKIE_MAX_AGE, cleanCouponCode, isOpenBeforeLaunch } from '@/lib/launch';
 
 // Routes that require a signed-in user. Add more prefixes here as new protected
 // pages ship (e.g. '/peer-connect').
@@ -78,6 +78,18 @@ export async function middleware(request: NextRequest) {
   });
 
   const { pathname } = request.nextUrl;
+  // A `?coupon=` link (the founding teaser's CTA) — remembered so it survives the redirect to
+  // login/sign-up and an OAuth round trip, then pre-filled by /apply.
+  const linkCoupon = cleanCouponCode(request.nextUrl.searchParams.get('coupon'));
+  if (linkCoupon) {
+    response.cookies.set(COUPON_COOKIE, linkCoupon, {
+      path: '/',
+      maxAge: COUPON_COOKIE_MAX_AGE,
+      sameSite: 'lax',
+      httpOnly: true,
+      secure: !isDev,
+    });
+  }
   // Keep any cookies a refresh attempt cleared/rewrote (e.g. an expired session being removed).
   const withSessionCookies = (next: NextResponse) => {
     response.cookies.getAll().forEach((cookie) => next.cookies.set(cookie));

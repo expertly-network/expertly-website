@@ -105,6 +105,14 @@ of fields.
 - [x] Two peer references collected in the Background step (name, relationship, email, optional
       phone) — added 2026-08-31 per client feedback, not in the original `apply.html` design;
       exactly 2 required to submit
+- [x] WhatsApp / phone number is required (2026-11-01 — it was optional only because the
+      `apply.html` prototype labelled it so); 6–15 digits, checked on the Identity step and at submit
+- [x] Founding-cohort pre-launch (`SITE_LAUNCHED=false`, set on both frontend and backend): the
+      peer references section is hidden and not required to submit (2026-11-01)
+- [x] Overall years of experience is pre-filled from the roles (earliest start → today, whole
+      years) when empty, tagged "Calculated from your roles", until the applicant types their own
+- [x] Moving Back through the wizard never blocks a save: drafts keep half-filled work /
+      education / reference cards, and completeness is enforced at submit (2026-11-01)
 - [x] Membership plan is annual-only — the monthly toggle was removed 2026-08-31 per client
       feedback (`BillingPeriod` is now a single-value `'annual'` union end to end)
 
