@@ -107,8 +107,11 @@ of fields.
       exactly 2 required to submit
 - [x] WhatsApp / phone number is required (2026-11-01 — it was optional only because the
       `apply.html` prototype labelled it so); 6–15 digits, checked on the Identity step and at submit
-- [x] Founding-cohort pre-launch (`SITE_LAUNCHED=false`, set on both frontend and backend): the
-      peer references section is hidden and not required to submit (2026-11-01)
+- [x] Founding-cohort pre-launch (`SITE_LAUNCHED=false`, set on both frontend and backend): peer
+      references are optional (a started card must be complete) and a new application starts with
+      the founder pre-filled as Reference 1, editable; not required at submit (2026-11-01)
+- [x] Experience under 5 years shows a non-blocking warning on the Background step — membership
+      is 5+ years (5–12 Budding Professional, 12+ Seasoned; computed, adjustable at approval)
 - [x] Overall years of experience is pre-filled from the roles (earliest start → today, whole
       years) when empty, tagged "Calculated from your roles", until the applicant types their own
 - [x] Moving Back through the wizard never blocks a save: drafts keep half-filled work /

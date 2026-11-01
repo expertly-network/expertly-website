@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
 import type { MemberDto } from '@shared/member';
-import { displayHost, externalHref, formatMonthYear } from '@/lib/members/format';
+import { MEMBER_TIER_LABEL, displayHost, externalHref, formatMonthYear } from '@/lib/members/format';
 import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
 import { toTextBlocks } from '@/lib/text/text-blocks';
 import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
@@ -457,7 +457,7 @@ export function MemberProfilePdf({
                 )}
                 <View style={[s.chip, isSeasoned ? s.seasonedChip : s.memberChip]}>
                   <Text style={[s.chipText, isSeasoned ? s.seasonedText : s.memberText]}>
-                    {isSeasoned ? 'Seasoned Professional' : 'Member'}
+                    {MEMBER_TIER_LABEL[member.memberTier] ?? 'Member'}
                   </Text>
                 </View>
               </View>

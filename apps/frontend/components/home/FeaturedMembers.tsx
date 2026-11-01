@@ -36,7 +36,7 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 truncate text-[13.5px] font-medium text-ink">
+            <div className="flex items-center gap-1.5 truncate text-[13.5px] font-medium leading-5 text-ink">
               {m.name}
               {m.isVerified && (
                 <svg
@@ -59,19 +59,20 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
                 </svg>
               )}
             </div>
-            {/* Three fixed single lines — name, service · category, city, country — so a long
-                service name truncates instead of wrapping the tile to an uneven height. */}
+            {/* Four fixed single lines — name, service, category, then city/country — each truncating
+                so a long value never wraps the tile to an uneven height. */}
             {m.services[0] && (
-              <div className="mt-1.5 flex max-w-full" title={`${m.services[0].name} · ${m.services[0].categoryName}`}>
-                <span className="truncate rounded-full bg-bg-alt px-2 py-0.5 text-[11px] text-ink-3">
-                  <span className="font-medium text-ink-2">{m.services[0].name}</span>
-                  {' · '}
+              <>
+                <div className="mt-0.5 truncate text-[11px] leading-4 text-ink-2" title={m.services[0].name}>
+                  {m.services[0].name}
+                </div>
+                <div className="mt-0.5 truncate text-[11px] leading-4 text-ink-3" title={m.services[0].categoryName}>
                   {m.services[0].categoryName}
-                </span>
-              </div>
+                </div>
+              </>
             )}
             {/* Same pin as MemberCard's location line in the directory. */}
-            <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-ink-3">
+            <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-4 text-ink-3">
               <svg
                 width="11"
                 height="11"

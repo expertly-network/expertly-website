@@ -88,7 +88,6 @@ export function ReviewSubmitStep({
   onBack,
   onEditStep,
   onSubmit,
-  collectReferences = true,
 }: {
   form: WizardFormState;
   update: (patch: Partial<WizardFormState>) => void;
@@ -99,8 +98,6 @@ export function ReviewSubmitStep({
   /** Jumps to a wizard step (2 = Identity, 3 = Background, 4 = Services) keeping entered data. */
   onEditStep: (step: number) => void;
   onSubmit: () => void;
-  /** False during the founding-cohort pre-launch — no peer references to show. */
-  collectReferences?: boolean;
 }) {
   const [consentTerms, setConsentTerms] = useState(false);
   const [consentPrivacy, setConsentPrivacy] = useState(false);
@@ -276,17 +273,15 @@ export function ReviewSubmitStep({
                 .join(' · '),
             }))}
         />
-        {collectReferences && (
-          <ReviewListRow
-            label="Peer references"
-            items={form.peerReferences
-              .filter((r) => r.name.trim())
-              .map((r) => ({
-                title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
-                detail: [r.email, r.phone].filter(Boolean).join(' · '),
-              }))}
-          />
-        )}
+        <ReviewListRow
+          label="Peer references"
+          items={form.peerReferences
+            .filter((r) => r.name.trim())
+            .map((r) => ({
+              title: r.relationship ? `${r.name} — ${r.relationship}` : r.name,
+              detail: [r.email, r.phone].filter(Boolean).join(' · '),
+            }))}
+        />
         <SectionHeader title="Services & rates" onEdit={() => onEditStep(4)} />
         <ReviewListRow
           label="Services"

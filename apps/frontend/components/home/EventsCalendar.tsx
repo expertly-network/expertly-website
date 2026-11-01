@@ -256,15 +256,15 @@ export function EventsCalendar({ calendar, upcoming }: { calendar: EventCalendar
               style={{ background: 'color-mix(in oklab, var(--accent) 18%, transparent)' }}
             />
             <div className="relative z-[1] flex flex-1 flex-col justify-center gap-4 p-7">
-              <span className="font-mono text-[9px] font-bold text-accent">Stay informed</span>
-              <h3 className="text-[21px] font-semibold leading-tight tracking-[-0.02em] text-bg-card">
+              <span className="font-mono text-[9px] font-semibold text-accent">Stay informed</span>
+              <h3 className="text-[21px] font-medium leading-tight tracking-[-0.02em] text-bg-card">
                 Discover the right event for you, and make the best out of it.
               </h3>
               <p className="text-[13px] leading-relaxed text-white/50">
                 This is a curated list of all the leading networking events hosted across the industry. Join GrowXQ, to
                 discover the who, when, where and connect with the right network.
               </p>
-              <SignInLink className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-bold text-ink transition-colors hover:bg-accent-2">
+              <SignInLink className="mt-1.5 inline-flex w-fit items-center rounded-lg bg-bg-card px-[18px] py-[11px] font-mono text-xs font-semibold text-ink transition-colors hover:bg-accent-2">
                 Join for free →
               </SignInLink>
               <Link

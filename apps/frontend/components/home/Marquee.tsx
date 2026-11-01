@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 // Shared tile height for the homepage marquees (Featured Members, Coverage categories) so their
 // cards line up at the same size. Full class string so Tailwind's scanner picks it up.
-export const MARQUEE_TILE_HEIGHT = 'h-[97px]';
+export const MARQUEE_TILE_HEIGHT = 'h-[104px]';
 
 // Splits items into row buckets, each an infinitely-scrolling, alternating-direction track.
 //

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Button, Card } from '@/components/ui';
 
 // The right-hand sidebar cards shared by the browse pages (Members, Events), so they read the same:
-// a stats card (big green figure + short label per row) and the dark "apply" card.
+// a stats card (big green figure + short label per row) and the dark closing card ("apply" by default).
 
 export interface SidebarStat {
   num: string;
@@ -28,7 +28,9 @@ export function SidebarStatsCard({ title, intro, stats }: { title: string; intro
   );
 }
 
-export function SidebarJoinCard({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
+// The dark shell (ink background + soft green glow) for whichever card closes a sidebar, so the
+// last card is always the dark one whatever the visitor's role hides above it.
+export function SidebarDarkCard({ children }: { children: ReactNode }) {
   return (
     <Card padding="md" className="relative overflow-hidden bg-ink">
       <div
@@ -39,12 +41,20 @@ export function SidebarJoinCard({ eyebrow, title, body }: { eyebrow: string; tit
             'radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%)',
         }}
       />
-      <span className="relative font-mono text-[9px] font-bold uppercase text-white/40">{eyebrow}</span>
-      <h3 className="relative mt-2 text-title text-bg-card">{title}</h3>
-      <p className="relative mt-2 text-sm text-white/60">{body}</p>
-      <Button href="/apply" variant="secondary-dark" className="relative mt-4" fullWidth>
+      <div className="relative">{children}</div>
+    </Card>
+  );
+}
+
+export function SidebarJoinCard({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
+  return (
+    <SidebarDarkCard>
+      <span className="font-mono text-[9px] font-bold uppercase text-white/40">{eyebrow}</span>
+      <h3 className="mt-2 text-title text-bg-card">{title}</h3>
+      <p className="mt-2 text-sm text-white/60">{body}</p>
+      <Button href="/apply" variant="secondary-dark" className="mt-4" fullWidth>
         Apply for membership →
       </Button>
-    </Card>
+    </SidebarDarkCard>
   );
 }

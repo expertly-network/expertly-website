@@ -26,6 +26,7 @@ import { computeCompletionPct } from '@/lib/members/completion';
 import type { Profile } from '@/lib/auth/types';
 import { formatDate, formatDayOfMonth, formatMonth } from '@/lib/dates';
 import { isOnlineEvent, normalizeEventTitle } from '@/lib/events/format';
+import { MEMBER_TIER_LABEL } from '@/lib/members/format';
 
 export const metadata = { title: 'Dashboard — GrowXQ' };
 
@@ -449,7 +450,7 @@ async function MembershipCard() {
         <h2 className="text-title text-ink">Membership</h2>
         {member && (
           <span className="rounded-full border border-accent/30 bg-bg-card px-2.5 py-1 text-[11px] font-semibold text-accent-2">
-            {member.memberTier === 'seasoned_professional' ? 'Seasoned Professional' : 'Budding Entrepreneur'}
+            {MEMBER_TIER_LABEL[member.memberTier]}
           </span>
         )}
       </div>

@@ -22,13 +22,14 @@ export function AiSearchTeaser() {
             One query searches the entire network at once, no filters to fiddle with, no jargon required. Describe the
             matter and GrowXQ search surfaces the right people, the relevant reading, and the events worth your time.
           </p>
-          <ul className="mt-6 flex flex-col gap-3 text-[15px] text-ink-2">
+          <ul className="mt-6 flex flex-col gap-3 text-[15px] text-ink-3">
             <li className="flex items-start gap-3">
               <span aria-hidden="true" className="mt-0.5 flex-none text-accent">
                 ✓
               </span>
               <span>
-                <strong>Verified experts</strong>, matched by practice, jurisdiction &amp; rate
+                <span className="font-medium text-ink">Verified experts</span>, matched by practice, jurisdiction &amp;
+                rate
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -36,7 +37,7 @@ export function AiSearchTeaser() {
                 ✓
               </span>
               <span>
-                <strong>Articles &amp; insights</strong>, peer-reviewed analysis on point
+                <span className="font-medium text-ink">Articles &amp; insights</span>, peer-reviewed analysis on point
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -44,7 +45,7 @@ export function AiSearchTeaser() {
                 ✓
               </span>
               <span>
-                <strong>Upcoming events</strong>, conferences and meetings that fit
+                <span className="font-medium text-ink">Upcoming events</span>, conferences and meetings that fit
               </span>
             </li>
           </ul>

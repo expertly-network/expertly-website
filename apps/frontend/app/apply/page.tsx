@@ -44,7 +44,7 @@ export default async function ApplyPage() {
         accountEmail={profile.email}
         categories={categories}
         linkCoupon={linkCoupon}
-        collectReferences={isSiteLaunched()}
+        referencesRequired={isSiteLaunched()}
       />
     </main>
   );

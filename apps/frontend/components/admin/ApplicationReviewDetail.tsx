@@ -17,8 +17,8 @@ import { formatCents, formatDateRange } from '@/lib/apply/format';
 const PRIORITY_LABEL: Record<1 | 2 | 3, string> = { 1: '1st preference', 2: '2nd preference', 3: '3rd preference' };
 
 const TIER_OPTIONS: { value: 'budding_entrepreneur' | 'seasoned_professional'; label: string }[] = [
-  { value: 'budding_entrepreneur', label: 'Budding Entrepreneur' },
-  { value: 'seasoned_professional', label: 'Seasoned Professional' },
+  { value: 'budding_entrepreneur', label: 'Budding Professional (5–12 years)' },
+  { value: 'seasoned_professional', label: 'Seasoned Professional (12+ years)' },
 ];
 
 function todayIsoDate(): string {

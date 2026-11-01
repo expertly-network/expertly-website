@@ -12,6 +12,7 @@ import { ReviewSubmitStep } from '@/components/apply/steps/ReviewSubmitStep';
 import { INITIAL_WIZARD_STATE, fromDto, toUpdateRequest, type WizardFormState } from '@/components/apply/types';
 import { importLinkedInPhoto, saveApplication } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
+import { FOUNDING_DEFAULT_REFERENCE } from '@/lib/launch';
 import { ApiError } from '@/lib/api/client';
 import { hasLinkedInIdentity } from '@/lib/auth/linkedin';
 import type { CategoryDto } from '@shared/category';
@@ -33,7 +34,8 @@ const SAVE_ERROR_COPY = {
 function initialForm(
   application: ApplicationDto | null,
   accountEmail: string,
-  linkCoupon: string | null
+  linkCoupon: string | null,
+  referencesRequired: boolean
 ): WizardFormState {
   const form: WizardFormState = {
     ...INITIAL_WIZARD_STATE,
@@ -43,6 +45,11 @@ function initialForm(
   if (!form.contactEmail && accountEmail) form.contactEmail = accountEmail;
   // A code the applicant already typed wins; otherwise the one their invite link carried.
   if (!form.couponCode && linkCoupon) form.couponCode = linkCoupon;
+  // Pre-launch, a brand-new application starts with the founder as Reference 1 (optional, editable).
+  // Only for a new one — a resumed draft keeps whatever the applicant saved, including clearing it.
+  if (!application && !referencesRequired) {
+    form.peerReferences = [{ ...FOUNDING_DEFAULT_REFERENCE }, form.peerReferences[1]];
+  }
   return form;
 }
 
@@ -55,19 +62,21 @@ export function ApplicationWizard({
   accountEmail,
   categories,
   linkCoupon = null,
-  collectReferences = true,
+  referencesRequired = true,
 }: {
   initialApplication: ApplicationDto | null;
   accountEmail: string;
   categories: CategoryDto[];
   /** From a `?coupon=` link, remembered across sign-up — pre-filled and auto-applied at review. */
   linkCoupon?: string | null;
-  /** False during the founding-cohort pre-launch (SITE_LAUNCHED=false): no peer references step. */
-  collectReferences?: boolean;
+  /** False during the founding-cohort pre-launch (SITE_LAUNCHED=false): references are optional. */
+  referencesRequired?: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(initialApplication?.currentStep || 1);
-  const [form, setForm] = useState<WizardFormState>(() => initialForm(initialApplication, accountEmail, linkCoupon));
+  const [form, setForm] = useState<WizardFormState>(() =>
+    initialForm(initialApplication, accountEmail, linkCoupon, referencesRequired)
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -201,7 +210,7 @@ export function ApplicationWizard({
               saveError={saveError}
               onBack={() => goBack(2)}
               onNext={() => handleAdvance(4)}
-              collectReferences={collectReferences}
+              referencesRequired={referencesRequired}
             />
           )}
           {step === 4 && (
@@ -225,7 +234,6 @@ export function ApplicationWizard({
               onBack={() => goBack(4)}
               onEditStep={goBack}
               onSubmit={handleSubmit}
-              collectReferences={collectReferences}
             />
           )}
         </div>

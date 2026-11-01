@@ -1,5 +1,5 @@
 import { Button, Card } from '@/components/ui';
-import { SidebarJoinCard, SidebarStatsCard } from '@/components/shared/SidebarCards';
+import { SidebarDarkCard, SidebarJoinCard, SidebarStatsCard } from '@/components/shared/SidebarCards';
 import type { EventStatsResponse } from '@shared/event';
 
 // Same card set as the member directory's sidebar. "Suggest an event" is a mailto: link — there's
@@ -44,20 +44,8 @@ export function EventsSidebar({ stats, showApply = true }: { stats: EventStatsRe
         stats={figures}
       />
 
-      <Card padding="md">
-        <h3 className="text-title text-ink">Know of one we&apos;re missing?</h3>
-        <p className="mt-2 text-sm text-ink-3">
-          Running or attending something relevant? Send us the details and our team will review it for the calendar.
-        </p>
-        <Button
-          href="mailto:contact@growxq.com?subject=Event%20suggestion"
-          variant="secondary"
-          className="mt-4"
-          fullWidth
-        >
-          Suggest an event →
-        </Button>
-      </Card>
+      {/* The last card is always the dark one: this card takes that role when the apply card is hidden. */}
+      <SuggestEventCard dark={!showApply} />
 
       {showApply && (
         <SidebarJoinCard
@@ -68,4 +56,24 @@ export function EventsSidebar({ stats, showApply = true }: { stats: EventStatsRe
       )}
     </aside>
   );
+}
+
+function SuggestEventCard({ dark }: { dark: boolean }) {
+  const body = (
+    <>
+      <h3 className={`text-title ${dark ? 'text-bg-card' : 'text-ink'}`}>Know of one we&apos;re missing?</h3>
+      <p className={`mt-2 text-sm ${dark ? 'text-white/60' : 'text-ink-3'}`}>
+        Running or attending something relevant? Send us the details and our team will review it for the calendar.
+      </p>
+      <Button
+        href="mailto:contact@growxq.com?subject=Event%20suggestion"
+        variant={dark ? 'secondary-dark' : 'secondary'}
+        className="mt-4"
+        fullWidth
+      >
+        Suggest an event →
+      </Button>
+    </>
+  );
+  return dark ? <SidebarDarkCard>{body}</SidebarDarkCard> : <Card padding="md">{body}</Card>;
 }

@@ -29,3 +29,12 @@ export function cleanCouponCode(raw: string | null | undefined): string | null {
   const code = raw?.trim().toUpperCase();
   return code && /^[A-Z0-9_-]{1,40}$/.test(code) ? code : null;
 }
+
+// Pre-launch, peer references are optional and the first one starts filled in with the founder's
+// details (the founding cohort are people he invited); the applicant can edit or clear it.
+export const FOUNDING_DEFAULT_REFERENCE = {
+  name: 'Mukesh Kumar M',
+  relationship: 'Friend / Colleague',
+  email: 'mukeshlunawat@gmail.com',
+  phone: '+91 98844 61718',
+};

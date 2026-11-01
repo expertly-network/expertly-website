@@ -17,6 +17,7 @@ import { LatestArticles } from '@/components/home/LatestArticles';
 import { EventsTeaser } from '@/components/home/EventsTeaser';
 import { Testimonials } from '@/components/home/Testimonials';
 import { DualCta } from '@/components/home/DualCta';
+import { MembershipTiers } from '@/components/home/MembershipTiers';
 import { Newsletter } from '@/components/home/Newsletter';
 import { FaqGroup } from '@/components/home/Faq';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -36,7 +37,7 @@ export const metadata = {
 const FAQ_MEMBERSHIP = [
   {
     q: 'Who can join GrowXQ?',
-    a: 'GrowXQ is open to all practising finance and legal professionals across the world. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers to collaborate, share knowledge, and grow across borders - GrowXQ is the right place for you.',
+    a: "GrowXQ is open to practising finance and legal professionals across the world with at least five years of experience - applications below that are not accepted. Members with 5 to 12 years join as Budding Professionals and those with more than 12 as Seasoned Professionals; our team confirms the tier on the strength of each member's experience and work. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers, GrowXQ is the right place for you.",
   },
   {
     q: 'What types of professionals are on GrowXQ?',
@@ -291,6 +292,8 @@ export default async function HomePage() {
       <Testimonials />
 
       <DualCta />
+      {/* Who can join: the two tiers, the 5-year minimum, and how membership is verified */}
+      <MembershipTiers />
       <Newsletter />
 
       {/* FAQ */}

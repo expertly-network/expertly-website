@@ -24,6 +24,9 @@ import {
 const WORK_EXPERIENCES_MAX = 15;
 const EDUCATIONS_MAX = 5;
 
+// Below this, an application isn't approved (5–12 years is Budding Professional, more is Seasoned).
+const MIN_YEARS_OF_EXPERIENCE = 5;
+
 const YEARS = Array.from({ length: 67 }, (_, i) => new Date().getFullYear() - i);
 
 export function BackgroundStep({
@@ -33,7 +36,7 @@ export function BackgroundStep({
   saveError,
   onBack,
   onNext,
-  collectReferences = true,
+  referencesRequired = true,
 }: {
   form: WizardFormState;
   update: (patch: Partial<WizardFormState>) => void;
@@ -41,8 +44,9 @@ export function BackgroundStep({
   saveError?: string | null;
   onBack: () => void;
   onNext: () => void;
-  /** False during the founding-cohort pre-launch: the peer references section is hidden. */
-  collectReferences?: boolean;
+  /** False during the founding-cohort pre-launch: references are optional (a card is still checked
+   * once anything is typed into it). */
+  referencesRequired?: boolean;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -116,7 +120,8 @@ export function BackgroundStep({
       if (!edu.institution.trim()) e[`educations.${i}.institution`] = 'Institution is required.';
       else if (!edu.degree.trim()) e[`educations.${i}.degree`] = 'Degree is required.';
     });
-    (collectReferences ? form.peerReferences : []).forEach((r, i) => {
+    form.peerReferences.forEach((r, i) => {
+      if (!referencesRequired && !r.name.trim() && !r.relationship.trim() && !r.email.trim()) return;
       if (!r.name.trim()) e[`peerReferences.${i}.name`] = 'Reference name is required.';
       else if (!r.relationship.trim()) e[`peerReferences.${i}.relationship`] = 'Relationship is required.';
       else if (!r.email.trim()) e[`peerReferences.${i}.email`] = 'Reference email is required.';
@@ -220,6 +225,14 @@ export function BackgroundStep({
           />
         </div>
       </div>
+      {/* Heads-up only — the ops team decides, but under the minimum isn't approved, so say so
+          before they spend time on the rest of the form. */}
+      {form.yearsOfExperience !== '' && Number(form.yearsOfExperience) < MIN_YEARS_OF_EXPERIENCE && (
+        <WarningNote className="mt-3">
+          GrowXQ membership is for professionals with {MIN_YEARS_OF_EXPERIENCE} or more years of experience, and
+          applications below that aren&apos;t approved. If your figure is understated, adjust it above.
+        </WarningNote>
+      )}
 
       {errors.workExperiencesCurrent && (
         <div className="mt-3">
@@ -508,60 +521,62 @@ export function BackgroundStep({
         </button>
       )}
 
-      {/* Not collected during the founding-cohort pre-launch (SITE_LAUNCHED=false). */}
-      {collectReferences && (
-        <>
-          <div className="mt-8 flex items-baseline justify-between border-t border-line pt-6">
-            <span className="text-mono-label text-ink-3">PEER REFERENCES</span>
-            <span className="text-xs text-ink-3">2 required, as part of verification</span>
+      {/* Optional during the founding-cohort pre-launch (SITE_LAUNCHED=false). */}
+      <div className="mt-8 flex items-baseline justify-between border-t border-line pt-6">
+        <span className="text-mono-label text-ink-3">PEER REFERENCES</span>
+        <span className="text-xs text-ink-3">
+          {referencesRequired ? '2 required, as part of verification' : 'Optional'}
+        </span>
+      </div>
+      <p className="mt-1.5 text-sm text-ink-3">
+        {referencesRequired
+          ? 'Two professional peers we can contact to verify your background.'
+          : 'Professional peers we can contact to verify your background. We’ve added one to start you off — edit or clear it as you like.'}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        {form.peerReferences.map((reference, i) => (
+          <div key={i} className="rounded-2xl border border-line bg-bg-card p-6">
+            <span className="text-mono-label text-ink-3">Reference {String(i + 1).padStart(2, '0')}</span>
+
+            <div className="mt-3.5 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+              <Input
+                id={`peerReferences.${i}.name`}
+                label="Full name"
+                value={reference.name}
+                onChange={(e) => updateReference(i, { name: e.target.value })}
+                error={errors[`peerReferences.${i}.name`]}
+              />
+              <Input
+                id={`peerReferences.${i}.relationship`}
+                label="Relationship"
+                placeholder="e.g. Former manager"
+                value={reference.relationship}
+                onChange={(e) => updateReference(i, { relationship: e.target.value })}
+                error={errors[`peerReferences.${i}.relationship`]}
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+              <Input
+                id={`peerReferences.${i}.email`}
+                label="Email"
+                type="email"
+                value={reference.email}
+                onChange={(e) => updateReference(i, { email: e.target.value })}
+                error={errors[`peerReferences.${i}.email`]}
+              />
+              <Input
+                label="Phone"
+                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+                type="tel"
+                value={reference.phone ?? ''}
+                onChange={(e) => updateReference(i, { phone: e.target.value })}
+              />
+            </div>
           </div>
-          <p className="mt-1.5 text-sm text-ink-3">Two professional peers we can contact to verify your background.</p>
-
-          <div className="mt-4 flex flex-col gap-4">
-            {form.peerReferences.map((reference, i) => (
-              <div key={i} className="rounded-2xl border border-line bg-bg-card p-6">
-                <span className="text-mono-label text-ink-3">Reference {String(i + 1).padStart(2, '0')}</span>
-
-                <div className="mt-3.5 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-                  <Input
-                    id={`peerReferences.${i}.name`}
-                    label="Full name"
-                    value={reference.name}
-                    onChange={(e) => updateReference(i, { name: e.target.value })}
-                    error={errors[`peerReferences.${i}.name`]}
-                  />
-                  <Input
-                    id={`peerReferences.${i}.relationship`}
-                    label="Relationship"
-                    placeholder="e.g. Former manager"
-                    value={reference.relationship}
-                    onChange={(e) => updateReference(i, { relationship: e.target.value })}
-                    error={errors[`peerReferences.${i}.relationship`]}
-                  />
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-                  <Input
-                    id={`peerReferences.${i}.email`}
-                    label="Email"
-                    type="email"
-                    value={reference.email}
-                    onChange={(e) => updateReference(i, { email: e.target.value })}
-                    error={errors[`peerReferences.${i}.email`]}
-                  />
-                  <Input
-                    label="Phone"
-                    labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
-                    type="tel"
-                    value={reference.phone ?? ''}
-                    onChange={(e) => updateReference(i, { phone: e.target.value })}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+        ))}
+      </div>
 
       {saveError && (
         <div className="mt-6">

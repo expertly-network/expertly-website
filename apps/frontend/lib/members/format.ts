@@ -1,5 +1,14 @@
 import { formatMonthYear as formatMonthYearDate } from '@/lib/dates';
 
+// The tier badge beside a member's name (profile page and profile PDF). The stored value stays
+// `budding_entrepreneur` (an API enum); it has read "Budding Professional" since 2026-11-01.
+// Rule of thumb, set by the computed tier and adjustable by the admin at approval: 5–12 years is
+// Budding, more than 12 Seasoned (under 5 isn't accepted).
+export const MEMBER_TIER_LABEL = {
+  budding_entrepreneur: 'Budding Professional',
+  seasoned_professional: 'Seasoned Professional',
+} as const;
+
 // Client-side display formatting for numeric rate/tenure fields.
 export function formatTenure(years: number): string {
   return `${years}y`;
