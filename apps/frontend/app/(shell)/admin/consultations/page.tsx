@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getAdminConsultationsServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { AdminConsultationsTable } from '@/components/admin/AdminConsultationsTable';
 
 export const metadata = {
@@ -24,16 +24,11 @@ export default async function AdminConsultationsPage() {
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Admin</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">Consultations</h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">
-            Who requested what, and from which member, across every member. This is visibility only — no contact
-            details, message content, or actions; the member decides their own requests.
-          </p>
-        </PageContainer>
-      </section>
+      <PageHero
+        eyebrow="Admin"
+        title="Consultations"
+        lede="Who requested what, and from which member, across every member. This is visibility only — no contact details, message content, or actions; the member decides their own requests."
+      />
       <section className="py-12">
         <PageContainer>
           <AdminConsultationsTable initialRequests={requests} />

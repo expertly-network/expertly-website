@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getMyApplicationServer } from '@/lib/api/server';
 import { Logo } from '@/components/Logo';
+import { isSiteLaunched } from '@/lib/env';
 
 const STATUS_COPY: Record<string, { badge: string; title: string; description: string }> = {
   submitted: {
@@ -27,6 +28,13 @@ const STATUS_COPY: Record<string, { badge: string; title: string; description: s
   },
 };
 
+// Approved before the site opens: nothing to set up yet.
+const PRELAUNCH_APPROVED = {
+  badge: 'Approved',
+  title: 'You’re in',
+  description: 'Your membership is approved. We’ll email you the moment GrowXQ opens its doors.',
+};
+
 export default async function ApplicationSubmittedPage() {
   const profile = await getSessionUser();
   if (!profile) {
@@ -38,7 +46,10 @@ export default async function ApplicationSubmittedPage() {
     redirect('/apply');
   }
 
-  const copy = STATUS_COPY[application.status] ?? STATUS_COPY.submitted;
+  const copy =
+    application.status === 'approved' && !isSiteLaunched()
+      ? PRELAUNCH_APPROVED
+      : (STATUS_COPY[application.status] ?? STATUS_COPY.submitted);
   const isRejected = application.status === 'rejected';
 
   return (

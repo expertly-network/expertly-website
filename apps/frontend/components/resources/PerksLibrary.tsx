@@ -2,11 +2,11 @@
 import { useState } from 'react';
 import type { PerkDto, CollectionDto } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card, Input, Select } from '@/components/ui';
+import { Badge, Button, Card, Select } from '@/components/ui';
 import { ResourceHero } from './ResourceHero';
 import { ResourceImage } from './ResourceImage';
 import { ResourceDialog } from './ResourceDialog';
-import { externalHref } from '@/lib/members/format';
+import { PerkDrawer } from './PerkDrawer';
 
 export function PerksLibrary({
   perks,
@@ -61,18 +61,13 @@ export function PerksLibrary({
       <ResourceHero
         title="Member perks,"
         accent="negotiated for you."
-        search={
-          <Input
-            id="perk-search"
-            type="search"
-            label=""
-            aria-label="Find your next tool"
-            className="bg-bg-card"
-            placeholder="Search tools, products, GST, contracts…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        }
+        search={{
+          id: 'perk-search',
+          label: 'Find your next tool',
+          placeholder: 'Search tools, products, GST, contracts…',
+          value: q,
+          onChange: setQ,
+        }}
       >
         Discover the tax, legal, AI and productivity tools that make a better practice. Explore the products, compare
         your options, and find your next advantage.
@@ -243,87 +238,19 @@ export function PerksLibrary({
         </div>
       )}
       {selected && (
-        <ResourceDialog title={selected.name} onClose={() => setSelected(null)}>
-          {!signedIn ? (
-            // Guests can browse the cards, but product details, offers and links need a sign-in.
-            <div className="flex flex-col items-center gap-4 px-2 py-10 text-center">
-              <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-line bg-white p-2.5">
-                <ResourceImage src={selected.logoUrl} width={64} height={64} className="h-full w-full object-contain" />
-              </span>
-              <h3 className="text-title">You need to sign in to view this.</h3>
-              <p className="max-w-[420px] text-sm leading-relaxed text-ink-3">
-                Sign in or create a free account to see {selected.name}&apos;s details, offers and website link.
-              </p>
-              <Button href="/login?returnTo=/perks">Sign in</Button>
-            </div>
-          ) : (
-            <>
-              <ResourceImage
-                src={selected.coverImageUrl}
-                className="mb-5 aspect-[16/6] w-full rounded-xl object-cover"
-              />
-              <Badge variant="brand">{selected.category}</Badge>
-              <h3 className="my-3 text-title">{selected.tagline}</h3>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-ink-3">{selected.description}</p>
-              <div className="my-5 flex flex-wrap gap-2">
-                {selected.products.map((p) => (
-                  <Badge key={p}>{p}</Badge>
-                ))}
-              </div>
-              <Card padding="sm">
-                <p className="text-sm font-semibold">{status(selected)}</p>
-                {selected.canRedeem && (
-                  <>
-                    <p className="mt-3 whitespace-pre-line text-sm text-ink-3">{selected.offerTerms}</p>
-                    {selected.couponCode && (
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <code className="select-all rounded-lg bg-bg-alt px-4 py-3 text-sm">{selected.couponCode}</code>
-                        <Button size="sm" variant="secondary" onClick={() => copy(selected.couponCode!)}>
-                          Copy code
-                        </Button>
-                      </div>
-                    )}
-                    {externalHref(selected.offerUrl) && (
-                      <Button
-                        className="mt-4"
-                        href={externalHref(selected.offerUrl) ?? undefined}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Redeem offer ↗
-                      </Button>
-                    )}
-                    {selected.offerExpiresAt && (
-                      <p className="mt-3 text-xs text-ink-3">Valid through {selected.offerExpiresAt}</p>
-                    )}
-                  </>
-                )}
-                {selected.lockReason === 'sign_in' && (
-                  <Button className="mt-4" href="/login?returnTo=/perks">
-                    Sign in to see your offer
-                  </Button>
-                )}
-                {selected.lockReason === 'unavailable' && signedIn && (
-                  <Button className="mt-4" variant="secondary" href="/membership">
-                    Explore membership
-                  </Button>
-                )}
-                <p role="status" className="mt-2 text-xs text-ink-3">
-                  {notice}
-                </p>
-              </Card>
-              <Button
-                className="mt-5"
-                variant="ghost"
-                href={externalHref(selected.websiteUrl) ?? undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Visit product website ↗
-              </Button>
-            </>
-          )}
-        </ResourceDialog>
+        <PerkDrawer
+          perk={selected}
+          list={filtered.some((p) => p.id === selected.id) ? filtered : perks}
+          signedIn={signedIn}
+          status={status}
+          notice={notice}
+          onCopy={(code) => void copy(code)}
+          onSelect={(p) => {
+            setNotice('');
+            setSelected(p);
+          }}
+          onClose={() => setSelected(null)}
+        />
       )}
       {stack && (
         <ResourceDialog title={stack.title} onClose={() => setStack(null)}>

@@ -9,6 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { AI_BRIEF_LIMITS as L, WordCount } from './word-limits';
 
 // One answered follow-up question, as returned by ai-followup-questions and then answered by the
 // member. See AiDraftRequestDto.followUpAnswers below.
@@ -19,28 +20,37 @@ export class FollowUpAnswerDto {
 
   @IsString()
   @MaxLength(2000)
+  @WordCount(L.followUpAnswer.min, L.followUpAnswer.max)
   answer!: string;
 }
 
-// Parsed by hand from the multipart request's `payload` field. Source files arrive separately as
+// Parsed by hand from the multipart request's `payload` field. topic, notes and advice are
+// required with minimum word counts (see word-limits.ts). Source files arrive separately as
 // the multipart's file parts. No title/serviceIds/countries/state here — the AI infers all of
 // those (validated against the real taxonomy) and returns them alongside the draft; see
 // AiService.generateDraft and docs/superpowers/specs/2026-10-04-ai-inferred-article-taxonomy-design.md.
 export class AiDraftRequestDto {
-  @IsOptional()
+  /** What the article is about — a topic or working title. The AI still writes the final title. */
+  @IsString()
+  @MaxLength(200)
+  @WordCount(L.topic.min, L.topic.max)
+  topic!: string;
+
   @IsString()
   @MaxLength(4000)
-  notes?: string;
+  @WordCount(L.notes.min, L.notes.max)
+  notes!: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(4000)
+  @WordCount(L.recentDevelopments.min, L.recentDevelopments.max)
   recentDevelopments?: string;
 
-  @IsOptional()
   @IsString()
   @MaxLength(4000)
-  advice?: string;
+  @WordCount(L.advice.min, L.advice.max)
+  advice!: string;
 
   @IsOptional()
   @IsArray()

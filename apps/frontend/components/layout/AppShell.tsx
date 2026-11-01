@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileDrawer } from '@/components/layout/MobileDrawer';
 import { Footer } from '@/components/layout/Footer';
 import { HeroLogoHandoff } from '@/components/layout/HeroLogoHandoff';
+import { FloatingSearch } from '@/components/search/FloatingSearch';
 import type { Profile } from '@/lib/auth/types';
 
 export function AppShell({ user, children }: { user: Profile | null; children: ReactNode }) {
@@ -17,6 +18,7 @@ export function AppShell({ user, children }: { user: Profile | null; children: R
         <main className="min-h-[calc(100svh-59px)] flex-1 min-[1024px]:min-h-[100svh]">{children}</main>
         <Footer />
       </div>
+      <FloatingSearch />
     </div>
   );
 }

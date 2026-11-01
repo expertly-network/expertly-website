@@ -122,11 +122,11 @@ export class MembersService {
 
   // Filtering, text search, sorting and paging all happen in one SQL function
   // (member_directory_ids), so a page is always full and nothing grows with the data.
-  async list(query: ListMembersQueryDto): Promise<MemberListItemDto[]> {
+  async list(query: ListMembersQueryDto): Promise<{ items: MemberListItemDto[]; total: number }> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? MEMBER_LIST_DEFAULT_PAGE_SIZE;
 
-    const ids = await this.membersRepository.findDirectoryPageIds(
+    const { ids, total } = await this.membersRepository.findDirectoryPageIds(
       {
         q: query.q?.trim() || undefined,
         serviceIds: query.serviceId,
@@ -138,7 +138,7 @@ export class MembersService {
       },
       { limit: pageSize, offset: (page - 1) * pageSize }
     );
-    if (ids.length === 0) return [];
+    if (ids.length === 0) return { items: [], total };
     const rows = await this.membersRepository.findActiveByIdsInOrder(ids);
 
     const [profilesById, servicesByMember] = await Promise.all([
@@ -146,7 +146,7 @@ export class MembersService {
       this.membersRepository.findMemberServicesByMemberIds(rows.map((r) => r.profile_id)),
     ]);
 
-    return rows.map((row) => this.toListDto(row, profilesById, servicesByMember));
+    return { items: rows.map((row) => this.toListDto(row, profilesById, servicesByMember)), total };
   }
 
   async findMine(user: AuthenticatedUser): Promise<MyMemberProfileDto> {

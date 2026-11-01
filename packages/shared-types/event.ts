@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export type EventFormat = 'in_person' | 'virtual' | 'hybrid';
+export const EVENT_FORMATS = ['in_person', 'virtual', 'hybrid'] as const;
+export type EventFormat = (typeof EVENT_FORMATS)[number];
 export type EventStatus = 'draft' | 'published';
 
 // Matches supabase/migrations/0004_tables.sql's `events` table. No separate list-item type
@@ -24,6 +25,8 @@ export class EventDto {
   @ApiProperty() isFree!: boolean;
   @ApiProperty({ nullable: true, type: String }) registrationUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) organiserName!: string | null;
+  /** Topic categories (taxonomy level 2); names come from GET /v1/categories. */
+  @ApiProperty({ type: String, isArray: true }) categoryIds!: string[];
   @ApiProperty({ enum: ['draft', 'published'] }) status!: EventStatus;
   @ApiProperty() createdAt!: string;
   @ApiProperty() updatedAt!: string;
@@ -51,6 +54,8 @@ export class CreateEventRequest {
   @ApiPropertyOptional() isFree?: boolean;
   @ApiPropertyOptional({ nullable: true, type: String }) registrationUrl?: string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) organiserName?: string | null;
+  /** At most 5. Omitted on create → inferred from the title/description. */
+  @ApiPropertyOptional({ type: String, isArray: true }) categoryIds?: string[];
   /** Omit for `'draft'` — matches the `events.status` column's own default. The admin form
    * always sends an explicit draft-or-publish choice; this only matters as a safety net. */
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) status?: EventStatus;
@@ -79,4 +84,66 @@ export class ImportEventsResponse {
   @ApiProperty() updatedCount!: number;
   @ApiProperty() deletedCount!: number;
   @ApiProperty({ type: [ImportEventsRowResultDto] }) results!: ImportEventsRowResultDto[];
+}
+
+// GET /v1/events?upcoming=false — server-side filtered and paged (total matches in X-Total-Count).
+export const EVENTS_PAGE_SIZE_DEFAULT = 50;
+export const EVENTS_PAGE_SIZE_MAX = 1000;
+
+export interface ListEventsQuery {
+  upcoming?: 'true' | 'false';
+  /** ISO date (YYYY-MM-DD): events still running on or after it. */
+  from?: string;
+  /** ISO date (YYYY-MM-DD), inclusive: events starting on or before it. */
+  to?: string;
+  /**
+   * ISO date (YYYY-MM-DD): only events that start on or after it — unlike `from`, an event already
+   * running is excluded. Lets a per-month list show each event once, in the month it starts.
+   */
+  startFrom?: string;
+  country?: string[];
+  format?: EventFormat[];
+  /** Topic categories; any match. */
+  categoryId?: string[];
+  /** Service lines; events tagged with any category in them. */
+  serviceLineId?: string[];
+  /** Free-text keyword search over title, description, type, organiser, city and country. */
+  q?: string;
+  /** Event type labels, matched exactly (e.g. Seminar, Webinar). */
+  type?: string[];
+  page?: number;
+  pageSize?: number;
+}
+
+// GET /v1/events/calendar?from=&to= — the home page's month grid. Per UTC day: how many published
+// events run that day, and only the first few of them (lean fields, no description).
+export interface CalendarEventDto {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string | null;
+  country: string | null;
+  eventFormat: EventFormat | null;
+}
+
+export interface EventCalendarDay {
+  /** UTC date, YYYY-MM-DD. */
+  date: string;
+  /** Every published event running that day. */
+  count: number;
+  /** EVENT_CALENDAR_PER_DAY of them: events starting that day first (earliest first), then ongoing ones. */
+  events: CalendarEventDto[];
+}
+
+export const EVENT_CALENDAR_PER_DAY = 2;
+export const EVENT_CALENDAR_MAX_DAYS = 62;
+
+export interface EventCalendarResponse {
+  /** Only days with at least one event, ascending. */
+  days: EventCalendarDay[];
+}
+
+// GET /v1/events/days?from=&to= — UTC dates (YYYY-MM-DD) on which a published event runs.
+export interface EventDaysResponse {
+  days: string[];
 }

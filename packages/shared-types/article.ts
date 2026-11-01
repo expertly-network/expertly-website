@@ -62,6 +62,8 @@ export interface ListArticlesQuery {
   authorId?: string;
   /** Repeatable; matches articles tagged with ANY of the given services. */
   serviceId?: string[];
+  /** Repeatable; matches articles tagged with any service in these service lines (Tax, Legal, …). */
+  serviceLineId?: string[];
   /** Repeatable; matches articles tagged with ANY of the given countries. */
   country?: string[];
   /** Leaves one article out (e.g. the one being read, for "related articles"). */
@@ -100,10 +102,16 @@ export type UpdateArticleRequest = Partial<Omit<CreateArticleRequest, 'aiGenerat
 // country/countries, state, and title are no longer client-provided — the AI infers all of them
 // (validated against the real taxonomy) and returns them in AiDraftArticleResponse below.
 export interface AiDraftArticleRequest {
-  notes?: string;
+  /** Topic or working title, 3–25 words. The AI still writes the final title. */
+  topic: string;
+  /** 25–600 words. */
+  notes: string;
+  /** Optional, at most 400 words. */
   recentDevelopments?: string;
-  advice?: string;
-  /** Max 10. Only questions the member actually answered — blank answers are omitted client-side. */
+  /** 10–400 words. */
+  advice: string;
+  /** Max 10. Only questions the member actually answered — blank answers are omitted client-side.
+   * Each answer at most 250 words. */
   followUpAnswers?: { question: string; answer: string }[];
   /**
    * Max 10. The full question list ai-followup-questions returned (echoed back as-is, even the
@@ -152,6 +160,9 @@ export class AiDraftArticleResponse {
 // make the article meaningfully more specific/personal, and if so, asks only those (0-10).
 // Generates purely from the written brief — no service/country/state input (see ai-draft above).
 export interface AiFollowUpQuestionsRequest {
+  /** Topic or working title, 3–25 words. */
+  topic: string;
+  /** 25–600 words. */
   notes: string;
   recentDevelopments?: string;
   advice: string;
@@ -255,6 +266,8 @@ export class AiGenerationSourceFile {
 
 /** Everything the member gave the wizard for this attempt. */
 export class AiGenerationInputs {
+  /** Null for generations recorded before the topic field existed. */
+  @ApiProperty({ nullable: true, type: String }) topic!: string | null;
   @ApiProperty({ nullable: true, type: String }) notes!: string | null;
   @ApiProperty({ nullable: true, type: String }) recentDevelopments!: string | null;
   @ApiProperty({ nullable: true, type: String }) advice!: string | null;

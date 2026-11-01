@@ -59,6 +59,12 @@
       "description": "A real categories.id from GET /categories."
     },
     {
+      "key": "serviceLineId",
+      "value": "",
+      "type": "string",
+      "description": "A service line id from GET /service-lines."
+    },
+    {
       "key": "serviceId",
       "value": "00000000-0000-0000-0000-000000000002",
       "type": "string",
@@ -413,7 +419,36 @@
                 "categories"
               ]
             },
-            "description": "🌐 Public. Active category→service taxonomy for the wizard, directory filter, and article tagging.",
+            "description": "🌐 Public. Active category→service taxonomy for the wizard, directory filter, and article tagging.\n\nEach CategoryDto now also carries serviceLineId and serviceLineName (2026-10-31); ordered by service line, then sortOrder.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /service-lines — List service lines (Tax, Finance, Legal… with their categories)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-lines",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "service-lines"
+              ]
+            },
+            "description": "Public. The three-level taxonomy as a tree: ServiceLineDto[] = { id, name, sortOrder, categories: CategoryDto[] }. Lines in order; lines with no active categories are omitted.",
             "auth": {
               "type": "noauth"
             }
@@ -721,6 +756,12 @@
                   "value": "{{memberId}}",
                   "description": "Optional — a member's own published articles.",
                   "disabled": true
+                },
+                {
+                  "key": "serviceLineId",
+                  "value": "{{serviceLineId}}",
+                  "disabled": true,
+                  "description": "Repeatable. Articles tagged with any service in these service lines (from GET /service-lines)."
                 }
               ]
             },
@@ -878,10 +919,10 @@
                 "ai-followup-questions"
               ]
             },
-            "description": "member. Plain JSON (unlike ai-draft below — no files here). Analyzes the step-1 brief (notes/recentDevelopments/advice only — no service/country/state, those are AI-inferred later by ai-draft) and returns the minimum useful set of follow-up questions (0-10) — an empty array is a valid, expected result.\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai` bucket).",
+            "description": "member. Plain JSON (unlike ai-draft below — no files here). Analyzes the step-1 brief (notes/recentDevelopments/advice only — no service/country/state, those are AI-inferred later by ai-draft) and returns the minimum useful set of follow-up questions (0-10) — an empty array is a valid, expected result.\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai` bucket).\n\ntopic (3–25 words), notes (25–600 words) and advice (10–400 words) are required; recentDevelopments optional (≤400 words). A shorter brief returns 400 VALIDATION_FAILED.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"notes\": \"Focus on indirect tax exposure when expanding into the EU.\",\n  \"recentDevelopments\": \"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\n  \"advice\": \"Recommend proactive nexus studies before entering a new market.\"\n}",
+              "raw": "{\n  \"topic\": \"Indirect tax exposure when US companies expand into the EU\",\n  \"notes\": \"Most US founders treat EU expansion as a sales question and only look at VAT once an invoice is rejected. In my experience the bigger exposure is permanent establishment risk from local staff and the VAT registration thresholds that differ by member state.\",\n  \"recentDevelopments\": \"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\n  \"advice\": \"Run a nexus and VAT registration study before hiring locally or signing the first EU customer contract.\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -914,14 +955,14 @@
                 "ai-draft"
               ]
             },
-            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct. Response carries `generationId` — the id of this attempt's audit row; send it back as `aiGenerationId` on POST /articles so admins can trace the saved article to these inputs (GET /admin/ai-generations/{{aiGenerationId}}).\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai-draft` bucket: 3/min, 20/hour, 50/day). The `payload` field is validated with whitelist + forbidNonWhitelisted: unknown keys → `400 AI_DRAFT_PAYLOAD_INVALID` (`message` array); valid JSON that is not an object → `400 AI_DRAFT_PAYLOAD_INVALID`; missing → `AI_DRAFT_PAYLOAD_MISSING`.",
+            "description": "member. `multipart/form-data` — NOT JSON. The `payload` field carries the AiDraftArticleRequest shape as a JSON **string**; `files` are optional source documents (PDF, JPEG, PNG, WebP, or TXT — DOCX is not supported). PDF/image uploads are sent to the model as native documents; TXT is embedded as prompt text. Every uploaded file is persisted to Storage for traceability. No title/serviceIds/countries/state in the request — the model infers all four, picking services/countries only from the real active lists, and returns them in the response for the member to review/correct. Response carries `generationId` — the id of this attempt's audit row; send it back as `aiGenerationId` on POST /articles so admins can trace the saved article to these inputs (GET /admin/ai-generations/{{aiGenerationId}}).\n\nErrors (2026-10-30): `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `504 AI_TIMEOUT` (fixed client-safe `message` — branch on `code`). `429 RATE_LIMITED` (`ai-draft` bucket: 3/min, 20/hour, 50/day). The `payload` field is validated with whitelist + forbidNonWhitelisted: unknown keys → `400 AI_DRAFT_PAYLOAD_INVALID` (`message` array); valid JSON that is not an object → `400 AI_DRAFT_PAYLOAD_INVALID`; missing → `AI_DRAFT_PAYLOAD_MISSING`.\n\npayload requires topic (3–25 words), notes (25–600 words) and advice (10–400 words); recentDevelopments ≤400 words and each followUpAnswers[].answer ≤250 words. A shorter brief returns 400 AI_DRAFT_PAYLOAD_INVALID.",
             "body": {
               "mode": "formdata",
               "formdata": [
                 {
                   "key": "payload",
                   "type": "text",
-                  "value": "{\"notes\":\"Focus on indirect tax exposure when expanding into the EU.\",\"recentDevelopments\":\"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\"advice\":\"Recommend proactive nexus studies before entering a new market.\",\"followUpQuestionsAsked\":[\"Do your typical clients incorporate in Delaware or abroad first?\"],\"followUpAnswers\":[{\"question\":\"Do your typical clients incorporate in Delaware or abroad first?\",\"answer\":\"Delaware first, then set up an EU subsidiary once they have local revenue.\"}],\"sourceLinks\":[\"https://example.com/oecd-pillar-two-overview\"],\"includeVisual\":true,\"tone\":\"Professional, approachable\",\"extraInstructions\":\"Keep it under 1200 words and cite the OECD guidance.\"}"
+                  "value": "{\"topic\":\"Indirect tax exposure when US companies expand into the EU\",\"notes\":\"Most US founders treat EU expansion as a sales question and only look at VAT once an invoice is rejected. In my experience the bigger exposure is permanent establishment risk from local staff and the VAT registration thresholds that differ by member state.\",\"recentDevelopments\":\"New OECD Pillar Two minimum tax rules taking effect in 2026.\",\"advice\":\"Run a nexus and VAT registration study before hiring locally or signing the first EU customer contract.\",\"followUpQuestionsAsked\":[\"Do your typical clients incorporate in Delaware or abroad first?\"],\"followUpAnswers\":[{\"question\":\"Do your typical clients incorporate in Delaware or abroad first?\",\"answer\":\"Delaware first, then set up an EU subsidiary once they have local revenue.\"}],\"sourceLinks\":[\"https://example.com/oecd-pillar-two-overview\"],\"includeVisual\":true,\"tone\":\"Professional, approachable\",\"extraInstructions\":\"Keep it under 1200 words and cite the OECD guidance.\"}"
                 },
                 {
                   "key": "files",
@@ -1139,7 +1180,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/events?upcoming=true",
+              "raw": "{{baseUrl}}/events?upcoming=false&from=2026-10-31&to=2027-03-31&page=1&pageSize=50",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1149,19 +1190,145 @@
               "query": [
                 {
                   "key": "upcoming",
-                  "value": "true",
-                  "description": "true (default) | false",
-                  "disabled": false
+                  "value": "false"
                 },
                 {
                   "key": "from",
-                  "value": "2026-08-01",
-                  "description": "Optional, with upcoming=false: ISO date window start",
+                  "value": "2026-10-31"
+                },
+                {
+                  "key": "to",
+                  "value": "2027-03-31"
+                },
+                {
+                  "key": "startFrom",
+                  "value": "2026-12-01",
+                  "description": "Optional ISO date: only events starting on or after it (unlike `from`, excludes events already running).",
                   "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "tax webinars in Singapore",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "India",
+                  "disabled": true
+                },
+                {
+                  "key": "format",
+                  "value": "in_person",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "Webinar",
+                  "disabled": true
+                },
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}",
+                  "disabled": true,
+                  "description": "Repeatable. Events tagged with any of these categories."
+                },
+                {
+                  "key": "serviceLineId",
+                  "value": "{{serviceLineId}}",
+                  "disabled": true,
+                  "description": "Repeatable. Events tagged with any category in these service lines."
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "50"
                 }
               ]
             },
-            "description": "🌐 Public. `upcoming=true` (default): not-yet-ended events, soonest first — dashboard panel. `upcoming=false`: past and upcoming, oldest first, capped at 500; add `from=YYYY-MM-DD` to keep only events still running on or after that date (homepage calendar: two months back; /events page: twelve months back). Bad `upcoming`/`from` → 400 VALIDATION_FAILED.",
+            "description": "Public published events. upcoming=true (default) preserves the dashboard list. upcoming=false enables keyword search (q), startFrom (only events starting on/after a date — `from` also keeps events already running), categoryId / serviceLineId taxonomy filters, overlap date, country, format and type (repeatable event type label, e.g. Webinar) filters and paging. Returns EventDto[]; X-Total-Count carries all matches. Reversed dates: 400 EVENT_RANGE_INVALID.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /events/calendar — Home calendar: per-day counts + first two events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/calendar?from=2026-11-01&to=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "calendar"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                }
+              ]
+            },
+            "description": "Public. from/to are ISO dates, inclusive, at most 62 days apart (else 400 EVENT_RANGE_INVALID). Returns { days: [{ date, count, events }] } — per UTC day, how many published events run that day and only the first two (id, title, startDate, endDate, country, eventFormat).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /events/days — Published event days",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/days?from=2026-11-01&to=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "days"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                }
+              ]
+            },
+            "description": "Public sorted distinct UTC days for date-picker dots. Required inclusive from/to, at most 400 days. Returns {days: string[]}. Invalid span: 400 EVENT_RANGE_INVALID.",
             "auth": {
               "type": "noauth"
             }
@@ -1248,7 +1415,7 @@
                 }
               ]
             },
-            "description": "🌐 Public. Published/active members only. `pageSize` max 50; params are validated (`q` ≤100 chars, UUID `serviceId`/`categoryId`, integer rates, known `sort`) → `400 VALIDATION_FAILED` otherwise. `serviceId` + `categoryId` together: both must match.",
+            "description": "🌐 Public. Published/active members only. `pageSize` max 50; params are validated (`q` ≤100 chars, UUID `serviceId`/`categoryId`, integer rates, known `sort`) → `400 VALIDATION_FAILED` otherwise. `serviceId` + `categoryId` together: both must match. Response header `X-Total-Count` carries the total matches across all pages (for the page bar); a page past the end is `[]` with `X-Total-Count: 0`.",
             "auth": {
               "type": "noauth"
             }
@@ -2285,10 +2452,10 @@
                     "categories"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy.\n\nBounds (2026-10-30): `name` ≤100; `imageUrl` http(s) only, ≤2048 (`400 VALIDATION_FAILED`).",
+                "description": "🛡️ manageTaxonomy.\n\nBounds (2026-10-30): `name` ≤100; `imageUrl` http(s) only, ≤2048 (`400 VALIDATION_FAILED`).\n\nserviceLineId (optional UUID from GET /service-lines): the service line this category sits under. Omitted on create → \"Other\". Unknown id → 400 SERVICE_LINE_NOT_FOUND.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"imageUrl\": \"https://images.example.com/categories/tax-advisory.png\"\n}",
+                  "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"imageUrl\": \"https://images.example.com/categories/tax-advisory.png\",\n  \"serviceLineId\": \"{{serviceLineId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2326,10 +2493,10 @@
                     "{{categoryId}}"
                   ]
                 },
-                "description": "🛡️ manageTaxonomy. All fields optional.\n\nBounds (2026-10-30): `name` ≤100; `imageUrl` http(s), ≤2048. `404 CATEGORY_NOT_FOUND`.",
+                "description": "🛡️ manageTaxonomy. All fields optional.\n\nBounds (2026-10-30): `name` ≤100; `imageUrl` http(s), ≤2048. `404 CATEGORY_NOT_FOUND`.\n\nserviceLineId (optional UUID from GET /service-lines): the service line this category sits under. Omitted on create → \"Other\". Unknown id → 400 SERVICE_LINE_NOT_FOUND.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}",
+                  "raw": "{\n  \"name\": \"Tax Advisory\",\n  \"sortOrder\": 2,\n  \"isActive\": true,\n  \"serviceLineId\": \"{{serviceLineId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2827,7 +2994,7 @@
                     "import"
                   ]
                 },
-                "description": "🛡️ manageEvents. `.csv` only. Each row is the FULL desired state of one event (replace, not patch) and the whole file is a full sync: blank `id` → create; filled `id` matching an existing event → replace every column except `slug`; any existing event whose id is absent from the file → **deleted**. All-or-nothing — every row is validated before anything is written; one failing row means nothing is written (`400`, one `\"Row N: ...\"` message per failure). A file with zero data rows is rejected outright rather than deleting everything.\n\nEach row is checked against the same field rules as POST /admin/events (row-level `Row N: ...` messages). New slugs are regenerated together and retried 3 times on a slug race, then `409 EVENT_SLUG_TAKEN`. Codes: `400 FILE_REQUIRED`, `FILE_EMPTY`, `CSV_INVALID`, `CSV_NO_ROWS`.",
+                "description": "🛡️ manageEvents. `.csv` only. Each row is the FULL desired state of one event (replace, not patch) and the whole file is a full sync: blank `id` → create; filled `id` matching an existing event → replace every column except `slug`; any existing event whose id is absent from the file → **deleted**. All-or-nothing — every row is validated before anything is written; one failing row means nothing is written (`400`, one `\"Row N: ...\"` message per failure). A file with zero data rows is rejected outright rather than deleting everything.\n\nEach row is checked against the same field rules as POST /admin/events (row-level `Row N: ...` messages). New slugs are regenerated together and retried 3 times on a slug race, then `409 EVENT_SLUG_TAKEN`. Codes: `400 FILE_REQUIRED`, `FILE_EMPTY`, `CSV_INVALID`, `CSV_NO_ROWS`.\n\nOptional \"categories\" column: category names separated by \";\" (as the export writes them). Blank → inferred from title/description; unknown name → row error.",
                 "body": {
                   "mode": "formdata",
                   "formdata": [
@@ -2897,10 +3064,10 @@
                     "events"
                   ]
                 },
-                "description": "🛡️ manageEvents. Omitting `status` defaults to 'draft'. A draft only strictly needs title/description/startDate — the rest become required once `status` resolves to 'published' (see Publish requirements in docs/rest-api.md).\n\nField rules (2026-10-30, `400 VALIDATION_FAILED`): title ≤200, description ≤20000, shortDescription ≤500, eventType/country/city ≤100, venueName/organiserName ≤200; coverImageUrl/registrationUrl ≤2048 and http(s) only (scheme-less www.x.com still accepted); startDate/endDate ISO 8601; timezone an IANA zone (e.g. `Asia/Kolkata`), ≤64. Slug race retried 3 times, then `409 EVENT_SLUG_TAKEN`.",
+                "description": "🛡️ manageEvents. Omitting `status` defaults to 'draft'. A draft only strictly needs title/description/startDate — the rest become required once `status` resolves to 'published' (see Publish requirements in docs/rest-api.md).\n\nField rules (2026-10-30, `400 VALIDATION_FAILED`): title ≤200, description ≤20000, shortDescription ≤500, eventType/country/city ≤100, venueName/organiserName ≤200; coverImageUrl/registrationUrl ≤2048 and http(s) only (scheme-less www.x.com still accepted); startDate/endDate ISO 8601; timezone an IANA zone (e.g. `Asia/Kolkata`), ≤64. Slug race retried 3 times, then `409 EVENT_SLUG_TAKEN`.\n\ncategoryIds (optional, ≤5 category UUIDs): topic tags. Omit it to have them inferred from the title/description. Unknown id → 400 EVENT_CATEGORY_INVALID.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Cross-Border M&A Masterclass\",\n  \"description\": \"A half-day workshop covering deal structuring, due diligence, and post-merger integration for cross-border transactions.\",\n  \"shortDescription\": \"Hands-on workshop on cross-border M&A fundamentals.\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1507679799987-c73779587ccf\",\n  \"startDate\": \"2026-11-12T09:00:00.000Z\",\n  \"endDate\": \"2026-11-12T17:00:00.000Z\",\n  \"timezone\": \"America/New_York\",\n  \"eventType\": \"Workshop\",\n  \"eventFormat\": \"hybrid\",\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"venueName\": \"GrowXQ HQ\",\n  \"isFree\": false,\n  \"registrationUrl\": \"https://example.com/events/cross-border-ma-masterclass\",\n  \"organiserName\": \"GrowXQ Events Team\",\n  \"status\": \"published\"\n}",
+                  "raw": "{\n  \"title\": \"Cross-Border M&A Masterclass\",\n  \"description\": \"A half-day workshop covering deal structuring, due diligence, and post-merger integration for cross-border transactions.\",\n  \"shortDescription\": \"Hands-on workshop on cross-border M&A fundamentals.\",\n  \"coverImageUrl\": \"https://images.unsplash.com/photo-1507679799987-c73779587ccf\",\n  \"startDate\": \"2026-11-12T09:00:00.000Z\",\n  \"endDate\": \"2026-11-12T17:00:00.000Z\",\n  \"timezone\": \"America/New_York\",\n  \"eventType\": \"Workshop\",\n  \"eventFormat\": \"hybrid\",\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"venueName\": \"GrowXQ HQ\",\n  \"isFree\": false,\n  \"registrationUrl\": \"https://example.com/events/cross-border-ma-masterclass\",\n  \"organiserName\": \"GrowXQ Events Team\",\n  \"status\": \"published\",\n  \"categoryIds\": [\n    \"{{categoryId}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2938,7 +3105,7 @@
                     "{{eventId}}"
                   ]
                 },
-                "description": "🛡️ manageEvents. All fields optional. Every optional field also accepts explicit `null` to CLEAR it — omitting the key leaves it unchanged.\n\nField rules (2026-10-30, `400 VALIDATION_FAILED`): title ≤200, description ≤20000, shortDescription ≤500, eventType/country/city ≤100, venueName/organiserName ≤200; coverImageUrl/registrationUrl ≤2048 and http(s) only (scheme-less www.x.com still accepted); startDate/endDate ISO 8601; timezone an IANA zone (e.g. `Asia/Kolkata`), ≤64. `404 EVENT_NOT_FOUND`.",
+                "description": "🛡️ manageEvents. All fields optional. Every optional field also accepts explicit `null` to CLEAR it — omitting the key leaves it unchanged.\n\nField rules (2026-10-30, `400 VALIDATION_FAILED`): title ≤200, description ≤20000, shortDescription ≤500, eventType/country/city ≤100, venueName/organiserName ≤200; coverImageUrl/registrationUrl ≤2048 and http(s) only (scheme-less www.x.com still accepted); startDate/endDate ISO 8601; timezone an IANA zone (e.g. `Asia/Kolkata`), ≤64. `404 EVENT_NOT_FOUND`.\n\nTo change the topic tags, add \"categoryIds\": [\"{{categoryId}}\"] to the body (omitted = unchanged; [] clears them).",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"city\": \"Boston\",\n  \"venueName\": null\n}",

@@ -4,9 +4,10 @@ import { Badge, Button, Card } from '@/components/ui';
 import { SignInButton } from '@/components/auth/SignInLink';
 import type { ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
-import { formatDate } from '@/lib/dates';
+import { ArticleByline } from '@/components/articles/ArticleByline';
+import { ArticleAiSummary } from '@/components/articles/ArticleAiSummary';
 
-// A signed-out visitor sees a teaser (title + excerpt), not the full body.
+// A signed-out visitor sees a teaser (title, AI summary, excerpt), not the full body.
 export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
   return (
     <div>
@@ -25,7 +26,17 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
           <Link href="/articles" className="text-sm font-medium text-white/80 hover:text-white">
             ← Articles
           </Link>
-          {article.services[0] && <Badge variant="emphasis">{article.services[0].name}</Badge>}
+          {article.services[0] && (
+            <Link
+              href={`/articles?service=${encodeURIComponent(article.services[0].id)}`}
+              title={`More articles on ${article.services[0].name}`}
+              className="min-w-0 rounded-full hover:opacity-85"
+            >
+              <Badge variant="emphasis" className="max-w-full">
+                <span className="truncate">{article.services[0].name}</span>
+              </Badge>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -33,15 +44,9 @@ export function ArticlePreview({ article }: { article: ArticleListItemDto }) {
         <Card padding="lg">
           <h1 className="font-sans text-article-title text-ink">{article.title}</h1>
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 border-b border-line pb-5 text-sm text-ink-3">
-            <span>{formatDate(new Date(article.createdAt))}</span>
-            <span className="text-ink-4">·</span>
-            <span>{article.readTimeMinutes} min read</span>
-            <span className="text-ink-4">·</span>
-            <span>{article.authorName}</span>
-            <span className="text-ink-4">·</span>
-            <span>{article.countries.join(', ')}</span>
-          </div>
+          <ArticleByline article={article} showAuthor />
+
+          <ArticleAiSummary summary={article.aiSummary} className="mt-6" />
 
           <p className="mt-6 text-sm leading-relaxed text-ink-2">{article.excerpt}</p>
 

@@ -12,4 +12,6 @@ export { Input } from './Input';
 export { Select } from './Select';
 export { Textarea } from './Textarea';
 export { Modal } from './Modal';
+export { SideDrawer } from './SideDrawer';
 export { Eyebrow } from './Eyebrow';
+export { Pagination } from './Pagination';

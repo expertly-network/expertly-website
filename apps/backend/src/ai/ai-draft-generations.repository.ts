@@ -52,7 +52,12 @@ export interface AiDraftGenerationDetailRow extends AiDraftGenerationListRow {
   state: string | null;
   source_file_paths: string[];
   source_links: string[];
-  core_answers: { notes: string | null; recentDevelopments: string | null; advice: string | null };
+  core_answers: {
+    topic?: string | null;
+    notes: string | null;
+    recentDevelopments: string | null;
+    advice: string | null;
+  };
   followup_questions: string[];
   followup_answers: { question: string; answer: string }[];
   sources: { url: string; title: string }[];

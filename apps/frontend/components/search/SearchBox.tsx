@@ -3,6 +3,7 @@
 import { useState, type ReactNode, type Ref } from 'react';
 import { SearchModal } from '@/components/home/SearchModal';
 import type { SearchScope } from '@shared/search';
+import { HERO_SEARCH_BUTTON_CLASS, HERO_SEARCH_INPUT_CLASS } from '@/components/layout/PageHero';
 
 const MAX_QUERY_LENGTH = 500;
 
@@ -53,13 +54,9 @@ export function SearchBox({
           maxLength={MAX_QUERY_LENGTH}
           placeholder={placeholder}
           aria-label="Search GrowXQ"
-          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3 [&::-webkit-search-cancel-button]:hidden"
+          className={HERO_SEARCH_INPUT_CLASS}
         />
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="flex-none rounded-input bg-ink px-4 py-2 text-sm font-medium text-bg transition-colors hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <button type="submit" disabled={!canSubmit} className={HERO_SEARCH_BUTTON_CLASS}>
           {buttonLabel}
         </button>
       </form>

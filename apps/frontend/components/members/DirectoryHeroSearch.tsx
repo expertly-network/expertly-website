@@ -2,7 +2,12 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui';
+import {
+  HERO_SEARCH_BUTTON_CLASS,
+  HERO_SEARCH_CLASS,
+  HERO_SEARCH_INPUT_CLASS,
+  HeroSearchDot,
+} from '@/components/layout/PageHero';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
 
 // Submits the same q filter param the rest of the directory's URL-driven filter state uses.
@@ -24,11 +29,8 @@ export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex items-center gap-2 rounded-2xl bg-bg-card p-2 pl-4 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] focus-within:ring-[3px] focus-within:ring-accent"
-    >
-      <span aria-hidden="true" className="h-2 w-2 flex-none animate-pulse rounded-full bg-accent" />
+    <form onSubmit={onSubmit} role="search" className={HERO_SEARCH_CLASS}>
+      <HeroSearchDot />
       <label htmlFor="directory-search" className="sr-only">
         Search members
       </label>
@@ -37,11 +39,12 @@ export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search by name, practice, location, firm…"
-        className="w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-3"
+        type="search"
+        className={HERO_SEARCH_INPUT_CLASS}
       />
-      <Button type="submit" className="flex-none">
+      <button type="submit" className={HERO_SEARCH_BUTTON_CLASS}>
         Find →
-      </Button>
+      </button>
     </form>
   );
 }

@@ -353,6 +353,17 @@ begin
         insert into public.search_outbox (doc_type, source_id)
           select 'article', a.id from public.articles a where new.id = any(a.service_ids)
         on conflict (doc_type, source_id) where processed_at is null do nothing;
+      when 'categories' then
+        -- a category was renamed: re-index every member and article using any of its services
+        insert into public.search_outbox (doc_type, source_id)
+          select distinct 'member', ms.member_id
+          from public.member_services ms join public.services s on s.id = ms.service_id
+          where s.category_id = new.id
+        on conflict (doc_type, source_id) where processed_at is null do nothing;
+        insert into public.search_outbox (doc_type, source_id)
+          select 'article', a.id from public.articles a
+          where exists (select 1 from public.services s where s.category_id = new.id and s.id = any(a.service_ids))
+        on conflict (doc_type, source_id) where processed_at is null do nothing;
       else null;
     end case;
   exception when others then
@@ -447,6 +458,9 @@ revoke execute on function public.search_trg() from public, anon, authenticated;
 -- index beats a scan there.
 -- ============================================================================
 
+-- total_count is the full match count (the same on every row), for the directory's page bar.
+-- Dropped first: `create or replace` can't change a function's return columns.
+drop function if exists public.member_directory_ids(text, uuid[], uuid, text[], integer, integer, text, integer, integer);
 create or replace function public.member_directory_ids(
   p_q text default null,
   p_service_ids uuid[] default null,
@@ -458,7 +472,7 @@ create or replace function public.member_directory_ids(
   p_limit integer default 8,
   p_offset integer default 0
 )
-returns table (profile_id uuid)
+returns table (profile_id uuid, total_count bigint)
 language sql
 stable
 set search_path = public
@@ -501,7 +515,7 @@ as $$
       from member_services ms
      where ms.service_id in (select id from text_services)
   )
-  select mp.profile_id
+  select mp.profile_id, count(*) over () as total_count
     from member_profiles mp
     join profiles p on p.id = mp.profile_id, term
    where mp.status = 'active'

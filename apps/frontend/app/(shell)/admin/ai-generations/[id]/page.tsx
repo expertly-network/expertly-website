@@ -1,9 +1,8 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getAdminAiGenerationServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero, HeroBackLink } from '@/components/layout/PageHero';
 import { AiGenerationDetail } from '@/components/admin/AiGenerationDetail';
 
 export const metadata = {
@@ -28,25 +27,12 @@ export default async function AdminAiGenerationDetailPage(props: { params: Promi
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Link
-            href="/admin/ai-generations"
-            className="text-caption text-white/65 transition-colors hover:text-bg-card"
-          >
-            ← All AI generations
-          </Link>
-          <div className="mt-4">
-            <Eyebrow dark>Admin · AI generation</Eyebrow>
-          </div>
-          <h1 className="mt-2 break-words text-headline text-bg-card">
-            {generation.draftTitle ?? 'Failed generation'}
-          </h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">
-            Everything {generation.authorName} gave GrowXQ AI, and what it wrote back.
-          </p>
-        </PageContainer>
-      </section>
+      <PageHero
+        back={<HeroBackLink href="/admin/ai-generations">All AI generations</HeroBackLink>}
+        eyebrow="Admin · AI generation"
+        title={generation.draftTitle ?? 'Failed generation'}
+        lede={<>Everything {generation.authorName} gave GrowXQ AI, and what it wrote back.</>}
+      />
       <section className="py-12">
         <PageContainer>
           <AiGenerationDetail generation={generation} />

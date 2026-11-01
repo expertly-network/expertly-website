@@ -76,6 +76,7 @@ export function DateRangePicker({
   placeholder = 'Any dates',
   hasEvent,
   clearValue = { from: null, to: null },
+  onVisibleMonthsChange,
 }: {
   value: DateRange;
   onChange: (range: DateRange) => void;
@@ -87,6 +88,8 @@ export function DateRangePicker({
   hasEvent?: (day: Date) => boolean;
   /** What "Clear" resets to — e.g. the list's default "Upcoming" range rather than all dates. */
   clearValue?: DateRange;
+  /** Called with the first and last day on screen while open — e.g. to load `hasEvent` data. */
+  onVisibleMonthsChange?: (first: Date, last: Date) => void;
 }) {
   const [open, setOpen] = useState(false);
   // The range being picked: a start without an end means "now pick the end date".
@@ -106,8 +109,17 @@ export function DateRangePicker({
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  // While open, report the two months on screen (first day of the first to last day of the second).
+  useEffect(() => {
+    if (!open || !onVisibleMonthsChange) return;
+    onVisibleMonthsChange(month, new Date(month.getFullYear(), month.getMonth() + 2, 0));
+  }, [open, month, onVisibleMonthsChange]);
+
   function openPanel() {
-    setPending(value);
+    // A complete from–to range opens as-is, ready to be re-picked. An open-ended one (e.g. the
+    // default "Upcoming" = from today) starts blank: otherwise its implied start would turn the
+    // first click into the end date, and the start could never be chosen.
+    setPending(value.from && value.to ? value : { from: null, to: null });
     setHover(null);
     setMonth(addMonths(value.from ?? today, 0));
     setOpen(true);

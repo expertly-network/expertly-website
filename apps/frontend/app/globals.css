@@ -31,12 +31,16 @@
   --cta-hover: var(--accent-2);
 }
 
-/* Editorial type is limited to headings; controls and body copy retain Geist. */
-@layer base {
-  h1, h2 {
-    font-family: var(--font-brand-serif), Georgia, 'Times New Roman', serif;
-    font-weight: 400;
-    font-optical-sizing: auto;
+/* Geist is the default for all product text, including headings. Marketing headings opt
+   into Cormorant Garamond with font-brand; the logo retains its own brand treatment. */
+
+/* SideDrawer (components/ui/SideDrawer.tsx) slides in from the right. */
+@keyframes drawerIn {
+  from {
+    transform: translateX(102%);
+  }
+  to {
+    transform: none;
   }
 }
 
@@ -128,7 +132,12 @@ body {
   inset: 0;
   border-radius: 9999px;
   padding: 1px;
-  background: linear-gradient(180deg, transparent 0%, color-mix(in oklab, var(--accent) 85%, transparent) 43%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent) 85%, transparent) 43%,
+    transparent 100%
+  );
   -webkit-mask:
     linear-gradient(var(--bg-card) 0 0) content-box,
     linear-gradient(var(--bg-card) 0 0);
@@ -184,6 +193,56 @@ html.in-hero .hero-logo-handoff {
 }
 
 /* Infinite horizontal marquee, used by the Featured Members / Practice Areas / Firms sections. */
+/* Membership page mock panels (components/membership/BenefitMocks.tsx): rows cascade in, hold,
+   then fade before the loop restarts; mb-type types out the search line. Each row sets its own
+   animation-delay. */
+@keyframes mb-row {
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  18%,
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.mb-row {
+  opacity: 0;
+  animation: mb-row 7s ease-in-out infinite;
+}
+@keyframes mb-type {
+  0%,
+  6% {
+    width: 0;
+  }
+  40%,
+  100% {
+    width: 100%;
+  }
+}
+.mb-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: mb-type 7s steps(46, end) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mb-row,
+  .mb-type {
+    animation: none;
+    opacity: 1;
+    width: auto;
+  }
+}
+
 @keyframes marquee-scroll {
   from {
     transform: translateX(0);
@@ -213,4 +272,7 @@ html.in-hero .hero-logo-handoff {
 }
 
 /* Preserve existing heading sizes, with the editorial font weight. */
-h1, h2 { font-weight: 500 !important; }
+h1,
+h2 {
+  font-weight: 500 !important;
+}

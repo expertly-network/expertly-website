@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,8 +19,14 @@ export class MembersController {
   // 🌐 Public — the member directory, one page at a time (pageSize ≤ 50).
   @Public()
   @Get()
-  list(@Query() query: ListMembersQueryDto): Promise<MemberListItemDto[]> {
-    return this.membersService.list(query);
+  async list(
+    @Query() query: ListMembersQueryDto,
+    @Res({ passthrough: true }) reply: FastifyReply
+  ): Promise<MemberListItemDto[]> {
+    const { items, total } = await this.membersService.list(query);
+    // Total matches across all pages (as GET /v1/events does); the body stays a plain array.
+    reply.header('X-Total-Count', String(total));
+    return items;
   }
 
   // 👤 Member — the caller's own profile id + slug. Two segments, so it never collides with a

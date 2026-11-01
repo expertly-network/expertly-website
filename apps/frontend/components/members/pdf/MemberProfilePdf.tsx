@@ -32,7 +32,7 @@ export const PDF_HEADING_FONT_FAMILY = 'Cormorant Garamond';
 const s = StyleSheet.create({
   page: {
     fontFamily: PDF_FONT_FAMILY,
-    fontSize: 9.5,
+    fontSize: 10,
     color: C.ink2,
     paddingTop: 44 + 22, // band height + breathing room, so page 2+ clears the fixed band
     paddingBottom: 56,
@@ -85,9 +85,8 @@ const s = StyleSheet.create({
   // Explicit lineHeight: the page's 1.45 isn't applied to this line box, so the badge row below
   // started inside the name's descenders.
   name: {
-    fontFamily: PDF_HEADING_FONT_FAMILY,
     fontSize: 20,
-    fontWeight: 400,
+    fontWeight: 600,
     color: C.ink,
     letterSpacing: -0.3,
     lineHeight: 1.25,
@@ -118,33 +117,33 @@ const s = StyleSheet.create({
   qr: { width: 76, height: 76 },
   qrCaption: { fontSize: 7, color: C.ink4, marginTop: 3, textAlign: 'center' },
 
-  // Availability / contact summary
-  summary: {
-    flexDirection: 'row',
-    marginTop: 18,
+  // Contact panel — the only summary box (no availability or fees: the PDF is a shareable
+  // document, not a booking surface). Two columns of label-over-value cells.
+  contactPanel: {
+    marginTop: 20,
     borderWidth: 1,
     borderColor: C.line,
+    borderLeftWidth: 3,
+    borderLeftColor: C.accent,
     borderRadius: 10,
     backgroundColor: C.bgAlt,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  summaryCol: { flex: 1, padding: 12 },
-  summaryDivider: { width: 1, backgroundColor: C.line },
-  label: { fontSize: 8, fontWeight: 700, color: C.ink3, marginBottom: 4 },
-  availability: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  availabilityText: { fontSize: 8.5 },
-  availabilityDot: { width: 5, height: 5, borderRadius: 2.5 },
-  notes: { fontSize: 8, color: C.ink3, marginTop: 3 },
-  contactRow: { flexDirection: 'row', marginBottom: 2.5 },
-  contactKey: { width: 58, fontSize: 8, color: C.ink4 },
-  contactVal: { flex: 1, fontSize: 8.5, color: C.ink2 },
+  label: { fontSize: 10, fontWeight: 700, color: C.ink, marginBottom: 10 },
+  notes: { fontSize: 9, color: C.ink3 },
+  contactGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
+  contactCell: { width: '50%', paddingRight: 12 },
+  contactKey: { fontSize: 7.5, fontWeight: 600, color: C.ink4, letterSpacing: 0.3, marginBottom: 2 },
+  contactVal: { fontSize: 9.5, color: C.ink, lineHeight: 1.35 },
   link: { color: C.accent, textDecoration: 'none' },
 
   // Sections
-  section: { marginTop: 18 },
+  section: { marginTop: 22 },
   // Normal case, normal spacing — same as the profile page's section headings (the letter-spaced
   // caps label style was removed site-wide in Oct 2026).
   sectionTitle: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: 700,
     color: C.accent,
     paddingBottom: 4,
@@ -153,8 +152,8 @@ const s = StyleSheet.create({
     borderBottomColor: C.line,
   },
   headline: { fontSize: 10.5, fontWeight: 600, color: C.ink, marginBottom: 4 },
-  bio: { fontSize: 9.5, color: C.ink3, lineHeight: 1.6 },
-  textBlocks: { gap: 5 },
+  bio: { fontSize: 10, color: C.ink2, lineHeight: 1.65 },
+  textBlocks: { gap: 6 },
   bulletList: { gap: 2 },
   bulletRow: { flexDirection: 'row' },
   bulletMark: { width: 9 },
@@ -185,7 +184,7 @@ const s = StyleSheet.create({
 
   // Work timeline
   timeline: { borderLeftWidth: 1.5, borderLeftColor: C.line, marginLeft: 3, paddingLeft: 12 },
-  role: { marginBottom: 9, position: 'relative' },
+  role: { marginBottom: 12, position: 'relative' },
   roleDot: {
     position: 'absolute',
     left: -16.5,
@@ -196,15 +195,15 @@ const s = StyleSheet.create({
     backgroundColor: C.accent,
   },
   roleTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  roleTitle: { fontSize: 10, fontWeight: 600, color: C.ink, flex: 1 },
-  roleDates: { fontSize: 8, color: C.ink3 },
+  roleDates: { fontSize: 8.5, color: C.ink3 },
   roleCompany: { fontSize: 8.5, color: C.ink3, marginTop: 1 },
-  roleDesc: { fontSize: 8.5, color: C.ink3, lineHeight: 1.5 },
-  roleDescWrap: { marginTop: 3 },
-  // A company with several consecutive roles (same grouping as the profile page's timeline).
-  groupCompany: { fontSize: 10, fontWeight: 600, color: C.ink, flex: 1 },
-  groupRoles: { borderTopWidth: 1, borderTopColor: C.line, marginTop: 6, paddingTop: 6, gap: 7 },
-  subRoleTitle: { fontSize: 9.5, fontWeight: 500, color: C.ink, flex: 1 },
+  roleDesc: { fontSize: 9, color: C.ink2, lineHeight: 1.6 },
+  roleDescWrap: { marginTop: 4 },
+  // Company (ink) and its roles (brand green) in two colours so the two read apart at a glance.
+  groupCompany: { fontSize: 10.5, fontWeight: 700, color: C.ink, flex: 1 },
+  groupRoles: { borderTopWidth: 1, borderTopColor: C.line, marginTop: 6, paddingTop: 6, gap: 9 },
+  subRoleTitle: { fontSize: 10, fontWeight: 600, color: C.accent, flex: 1 },
+  nextRole: { marginTop: 9 },
 
   twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   cell: {
@@ -214,8 +213,8 @@ const s = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
   },
-  cellTitle: { fontSize: 9.5, fontWeight: 600, color: C.ink },
-  cellMeta: { fontSize: 8, color: C.ink3, marginTop: 2 },
+  cellTitle: { fontSize: 10, fontWeight: 600, color: C.ink },
+  cellMeta: { fontSize: 8.5, color: C.accent, marginTop: 2 },
 
   quote: {
     borderLeftWidth: 2,
@@ -223,7 +222,7 @@ const s = StyleSheet.create({
     paddingLeft: 10,
     marginBottom: 10,
   },
-  quoteText: { fontSize: 9, color: C.ink2, lineHeight: 1.55 },
+  quoteText: { fontSize: 9.5, color: C.ink2, lineHeight: 1.6 },
   quoteBy: { fontSize: 8, color: C.ink3, marginTop: 3 },
   quoteName: { fontWeight: 600, color: C.ink },
 
@@ -235,7 +234,7 @@ const s = StyleSheet.create({
   recInitialsText: { fontSize: 7.5, fontWeight: 700, color: C.accent },
   recName: { fontSize: 9.5, fontWeight: 600, color: C.ink },
   recDate: { fontSize: 7.5, color: C.ink4, marginTop: 1 },
-  recBody: { fontSize: 9, color: C.ink2, lineHeight: 1.55 },
+  recBody: { fontSize: 9.5, color: C.ink2, lineHeight: 1.6 },
 
   // Footer (repeated on every page)
   footer: {
@@ -330,13 +329,25 @@ function Check({ size, color = C.accent }: { size: number; color?: string }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+// `lead` is laid out unbreakably with the heading, for sections whose content is one tall
+// wrappable View (react-pdf's minPresenceAhead can't see into it, so the heading got stranded).
+function Section({ title, lead, children }: { title: string; lead?: ReactNode; children?: ReactNode }) {
   // minPresenceAhead keeps a heading from being stranded alone at the bottom of a page.
+  const heading = (
+    <Text style={s.sectionTitle} minPresenceAhead={40}>
+      {title}
+    </Text>
+  );
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle} minPresenceAhead={40}>
-        {title}
-      </Text>
+      {lead ? (
+        <View wrap={false}>
+          {heading}
+          {lead}
+        </View>
+      ) : (
+        heading
+      )}
       {children}
     </View>
   );
@@ -344,8 +355,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function ContactLine({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
-    <View style={s.contactRow}>
-      <Text style={s.contactKey}>{label}</Text>
+    <View style={s.contactCell}>
+      <Text style={s.contactKey}>{label.toUpperCase()}</Text>
       {href ? (
         <Link src={href} style={[s.contactVal, s.link]}>
           {value}
@@ -373,6 +384,42 @@ export function MemberProfilePdf({
     .join('   ·   ');
   const isSeasoned = member.memberTier === 'seasoned_professional';
   const generatedOn = formatDate(generatedAt);
+  const workBlocks = groupByCompany(member.workExperiences).flatMap((group) => {
+    const multiple = group.roles.length > 1;
+    const [first, ...rest] = group.roles;
+    const roleBlock = (role: (typeof group.roles)[number]) => (
+      <View>
+        <View style={s.roleTop}>
+          <Text style={s.subRoleTitle}>{role.title}</Text>
+          {multiple && <PdfPeriod {...rolePeriod(role)} />}
+        </View>
+        {role.description ? (
+          <View style={s.roleDescWrap}>
+            <PdfTextBlocks text={role.description} style={s.roleDesc} />
+          </View>
+        ) : null}
+      </View>
+    );
+    // Every block is a direct, unbreakable child of the timeline: the company header
+    // travels with its first role (never stranded at a page foot), and each further
+    // role follows on its own. A splittable wrapper View made react-pdf overlap text.
+    return [
+      <View key={first.id} style={[s.role, rest.length ? { marginBottom: 0 } : {}]} wrap={false}>
+        <View style={s.roleDot} />
+        <View style={s.roleTop}>
+          <Text style={s.groupCompany}>{group.company}</Text>
+          <PdfPeriod {...groupPeriod(group.roles)} />
+        </View>
+        {multiple && <Text style={s.roleCompany}>{group.roles.length} roles</Text>}
+        <View style={s.groupRoles}>{roleBlock(first)}</View>
+      </View>,
+      ...rest.map((role, k) => (
+        <View key={role.id} style={[s.nextRole, k === rest.length - 1 ? { marginBottom: 12 } : {}]} wrap={false}>
+          {roleBlock(role)}
+        </View>
+      )),
+    ];
+  });
 
   return (
     <Document
@@ -426,24 +473,13 @@ export function MemberProfilePdf({
             </View>
           </View>
 
-          {/* Availability | contact. The consultation fee is deliberately left out of the PDF (a
-              shareable document) — it stays on the profile page only. */}
-          <View style={s.summary} wrap={false}>
-            <View style={s.summaryCol}>
-              <Text style={s.label}>Availability</Text>
-              <View style={s.availability}>
-                <View style={[s.availabilityDot, { backgroundColor: member.isAvailable ? C.accent : C.ink4 }]} />
-                <Text style={[s.availabilityText, { color: member.isAvailable ? C.accent : C.ink3 }]}>
-                  {member.isAvailable ? 'Available for consultations' : 'Currently unavailable'}
-                </Text>
-              </View>
-              {member.availabilityNotes ? <Text style={s.notes}>{member.availabilityNotes}</Text> : null}
-            </View>
-            <View style={s.summaryDivider} />
-            <View style={s.summaryCol}>
-              <Text style={s.label}>Contact</Text>
-              {/* Same notice as the Contact tab when the API withheld the direct contact fields. */}
-              {!isContactVisible(member) && <Text style={s.notes}>{CONTACT_HIDDEN_MESSAGE}</Text>}
+          {/* Contact panel. Availability and the consultation fee are deliberately left out of the
+              PDF (a shareable document) — they stay on the profile page only. */}
+          <View style={s.contactPanel} wrap={false}>
+            <Text style={s.label}>Contact</Text>
+            {/* Same notice as the Contact tab when the API withheld the direct contact fields. */}
+            {!isContactVisible(member) && <Text style={[s.notes, { marginBottom: 10 }]}>{CONTACT_HIDDEN_MESSAGE}</Text>}
+            <View style={s.contactGrid}>
               {member.contactEmail && (
                 <ContactLine label="Email" value={member.contactEmail} href={`mailto:${member.contactEmail}`} />
               )}
@@ -478,7 +514,7 @@ export function MemberProfilePdf({
                   href={externalHref(member.firmWebsite) ?? undefined}
                 />
               )}
-              <ContactLine label="Profile" value={displayHost(profileUrl)} href={profileUrl} />
+              <ContactLine label="GrowXQ profile" value={displayHost(profileUrl)} href={profileUrl} />
             </View>
           </View>
 
@@ -517,58 +553,12 @@ export function MemberProfilePdf({
             </Section>
           )}
 
-          {member.workExperiences.length > 0 && (
-            <Section title="Work Experience">
-              {/* Mirrors components/members/WorkHistoryTimeline.tsx: consecutive roles at one
-                  company are a single entry (company, "N roles", overall period) with the roles
-                  nested; a lone role shows title, company and its own period. */}
-              <View style={s.timeline}>
-                {groupByCompany(member.workExperiences).map((group) => {
-                  if (group.roles.length === 1) {
-                    const role = group.roles[0];
-                    return (
-                      <View key={role.id} style={s.role} wrap={false}>
-                        <View style={s.roleDot} />
-                        <View style={s.roleTop}>
-                          <Text style={s.roleTitle}>{role.title}</Text>
-                          <PdfPeriod {...rolePeriod(role)} />
-                        </View>
-                        <Text style={s.roleCompany}>{group.company}</Text>
-                        {role.description ? (
-                          <View style={s.roleDescWrap}>
-                            <PdfTextBlocks text={role.description} style={s.roleDesc} />
-                          </View>
-                        ) : null}
-                      </View>
-                    );
-                  }
-                  return (
-                    <View key={group.roles[0].id} style={s.role}>
-                      <View style={s.roleDot} />
-                      <View style={s.roleTop} wrap={false}>
-                        <Text style={s.groupCompany}>{group.company}</Text>
-                        <PdfPeriod {...groupPeriod(group.roles)} />
-                      </View>
-                      <Text style={s.roleCompany}>{group.roles.length} roles</Text>
-                      <View style={s.groupRoles}>
-                        {group.roles.map((role) => (
-                          <View key={role.id} wrap={false}>
-                            <View style={s.roleTop}>
-                              <Text style={s.subRoleTitle}>{role.title}</Text>
-                              <PdfPeriod {...rolePeriod(role)} />
-                            </View>
-                            {role.description ? (
-                              <View style={s.roleDescWrap}>
-                                <PdfTextBlocks text={role.description} style={s.roleDesc} />
-                              </View>
-                            ) : null}
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
+          {workBlocks.length > 0 && (
+            // Mirrors components/members/WorkHistoryTimeline.tsx: every company is one entry
+            // (company, overall period, "N roles" when more than one) with its roles nested — the
+            // same layout for a single role as for several. The first block travels with the heading.
+            <Section title="Work Experience" lead={<View style={s.timeline}>{workBlocks[0]}</View>}>
+              {workBlocks.length > 1 && <View style={s.timeline}>{workBlocks.slice(1)}</View>}
             </Section>
           )}
 

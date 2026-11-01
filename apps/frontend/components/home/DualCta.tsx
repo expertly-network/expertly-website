@@ -6,7 +6,7 @@ export function DualCta() {
     <section className="border-b border-line py-24">
       <PageContainer>
         <Eyebrow>Two Ways In</Eyebrow>
-        <h2 className="mt-4 text-section-title text-ink">
+        <h2 className="font-brand mt-4 text-section-title text-ink">
           One <span className="text-accent">platform</span>. Two powerful paths.
         </h2>
         <p className="mt-5 max-w-2xl text-lede text-ink-3">
@@ -16,7 +16,7 @@ export function DualCta() {
           {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
           <Card padding="xl" className="!bg-bg-alt">
             <div className="text-mono-label text-ink-3">For Clients &amp; Businesses</div>
-            <h3 className="mt-6 text-heading text-ink">
+            <h3 className="font-brand mt-6 text-heading text-ink">
               Find the right <span className="text-accent">expert</span>. Fast.
             </h3>
             <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-ink-2">
@@ -50,7 +50,7 @@ export function DualCta() {
             />
             <div className="relative">
               <div className="text-mono-label text-white/60">For Finance &amp; Legal Pros</div>
-              <h3 className="mt-6 text-heading text-bg">
+              <h3 className="font-brand mt-6 text-heading text-bg">
                 Build your professional <span className="text-accent">presence</span>.
               </h3>
               <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-white/80">

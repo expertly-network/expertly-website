@@ -80,7 +80,9 @@ export function WorkHistoryTimeline({
     // `.mp-timeline` — vertical rule with an accent dot per company, each in its own card.
     <ol className="ml-[5px] border-l-2 border-line pl-4">
       {groupByCompany(works).map((group) => {
-        const single = group.roles.length === 1;
+        // One layout whether the company has one role or several: company and overall period,
+        // then each role with its own title, period and description.
+        const multiple = group.roles.length > 1;
         return (
           <li key={group.roles[0].id} className="relative mb-5 last:mb-0">
             <span
@@ -88,39 +90,24 @@ export function WorkHistoryTimeline({
               className="absolute -left-[22px] top-[18px] h-2.5 w-2.5 rounded-full border-2 border-bg-card bg-accent shadow-[0_0_0_1px_var(--line)]"
             />
             <div className="rounded-panel border border-line bg-bg-card p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-              {single ? (
-                <>
-                  <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
-                    <div className="min-w-0">
-                      <div className="text-profile-item font-semibold text-ink">{group.roles[0].title}</div>
-                      <div className="mt-0.5 text-profile-meta text-ink-3">{group.company}</div>
+              <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
+                <div className="min-w-0">
+                  <div className="text-profile-item font-semibold text-ink">{group.company}</div>
+                  {multiple && <div className="mt-0.5 text-profile-meta text-ink-3">{group.roles.length} roles</div>}
+                </div>
+                <Period {...groupPeriod(group.roles)} />
+              </div>
+              <ol className="mt-3 flex flex-col gap-4 border-t border-line pt-3">
+                {group.roles.map((role) => (
+                  <li key={role.id}>
+                    <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
+                      <div className="min-w-0 text-profile-item font-medium text-ink">{role.title}</div>
+                      {multiple && <Period {...rolePeriod(role)} />}
                     </div>
-                    <Period {...rolePeriod(group.roles[0])} />
-                  </div>
-                  {group.roles[0].description ? <Description text={group.roles[0].description} /> : addDescription}
-                </>
-              ) : (
-                <>
-                  <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
-                    <div className="min-w-0">
-                      <div className="text-profile-item font-semibold text-ink">{group.company}</div>
-                      <div className="mt-0.5 text-profile-meta text-ink-3">{group.roles.length} roles</div>
-                    </div>
-                    <Period {...groupPeriod(group.roles)} />
-                  </div>
-                  <ol className="mt-3 flex flex-col gap-4 border-t border-line pt-3">
-                    {group.roles.map((role) => (
-                      <li key={role.id}>
-                        <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
-                          <div className="min-w-0 text-profile-item font-medium text-ink">{role.title}</div>
-                          <Period {...rolePeriod(role)} />
-                        </div>
-                        {role.description ? <Description text={role.description} /> : addDescription}
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              )}
+                    {role.description ? <Description text={role.description} /> : addDescription}
+                  </li>
+                ))}
+              </ol>
             </div>
           </li>
         );

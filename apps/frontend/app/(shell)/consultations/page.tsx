@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getMyConsultationsServer, getReceivedConsultationsServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { ConsultationsTabs } from '@/components/consultations/ConsultationsTabs';
 
 export const metadata = {
@@ -23,17 +23,19 @@ export default async function ConsultationsPage() {
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Your account</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">Consultations</h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">
-            {isMember
-              ? 'Requests you’ve received through your GrowXQ profile, and any you’ve sent to other members.'
-              : 'Every consultation request you’ve sent to a member through their GrowXQ profile, in one place.'}
-          </p>
-        </PageContainer>
-      </section>
+      <PageHero
+        eyebrow="Your account"
+        title={
+          <>
+            Your <span className="text-accent">consultations.</span>
+          </>
+        }
+        lede={
+          isMember
+            ? 'Requests you’ve received through your GrowXQ profile, and any you’ve sent to other members.'
+            : 'Every consultation request you’ve sent to a member through their GrowXQ profile, in one place.'
+        }
+      />
       <section className="py-12">
         <PageContainer>
           <ConsultationsTabs isMember={isMember} received={received} mine={mine} viewerId={profile.id} />

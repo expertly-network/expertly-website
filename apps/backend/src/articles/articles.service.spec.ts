@@ -68,7 +68,8 @@ async function setup(mode: 'instant' | 'editorial', existing = articleRow(), man
     repo as unknown as ArticlesRepository,
     aiService as never,
     {} as never,
-    adminAccess as unknown as AdminAccessService
+    adminAccess as unknown as AdminAccessService,
+    { list: vi.fn().mockResolvedValue([]) } as never
   );
   return { service, repo, adminAccess };
 }

@@ -4,6 +4,7 @@ import { getCategoriesServer, getMyApplicationServer } from '@/lib/api/server';
 import { ApplicationWizard } from '@/components/apply/ApplicationWizard';
 import { Logo } from '@/components/Logo';
 import { homePathFor } from '@/lib/auth/roles';
+import { isSiteLaunched } from '@/lib/env';
 
 export default async function ApplyPage() {
   const profile = await getSessionUser();
@@ -11,7 +12,9 @@ export default async function ApplyPage() {
     redirect('/login?returnTo=/apply');
   }
   if (profile.role !== 'client') {
-    redirect(homePathFor(profile.role));
+    // Before launch a member has nowhere else to go (every member page is closed) — their status
+    // page tells them they're in.
+    redirect(profile.role === 'member' && !isSiteLaunched() ? '/apply/submitted' : homePathFor(profile.role));
   }
 
   // Fetched here, once, and handed to the wizard — a failure throws to app/apply/error.tsx rather

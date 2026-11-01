@@ -1,5 +1,29 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { EventDto, ImportEventsResponse, ImportEventsRowResultDto } from '@shared/event';
+import { CategoriesService } from '../categories/categories.service';
+import { inferEventCategoryIds } from './event-categories';
+import { keywordTerms } from './keyword-search';
+import type {
+  CalendarEventDto,
+  EventCalendarResponse,
+  EventDaysResponse,
+  EventDto,
+  ImportEventsResponse,
+  ImportEventsRowResultDto,
+} from '@shared/event';
+import { EVENT_CALENDAR_MAX_DAYS, EVENT_CALENDAR_PER_DAY } from '@shared/event';
+import { EVENTS_PAGE_SIZE_DEFAULT } from '@shared/event';
+import { EventDaysQueryDto, ListEventsQueryDto } from './dto/list-events-query.dto';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_DAY_SPAN = 400;
+
+// Midnight UTC of an ISO date (YYYY-MM-DD…), and of the day after it.
+function utcDayStart(isoDate: string): Date {
+  return new Date(`${isoDate.slice(0, 10)}T00:00:00.000Z`);
+}
+function utcDayAfter(isoDate: string): Date {
+  return new Date(utcDayStart(isoDate).getTime() + DAY_MS);
+}
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { assertPublishReady } from './publish-requirements';
@@ -10,7 +34,42 @@ import { toEventColumns, validateEventRow, type ValidatedEventRow } from './impo
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly eventsRepository: EventsRepository) {}
+  constructor(
+    private readonly eventsRepository: EventsRepository,
+    private readonly categoriesService: CategoriesService
+  ) {}
+
+  private async categoryLookup(): Promise<{ idByName: Map<string, string>; lineById: Map<string, string> }> {
+    const categories = await this.categoriesService.list();
+    return {
+      idByName: new Map(categories.map((c) => [c.name, c.id])),
+      lineById: new Map(categories.map((c) => [c.id, c.serviceLineId])),
+    };
+  }
+
+  // categoryIds is an array column with no FK — every id must be a real, active category.
+  private async assertCategoryIds(ids: string[]): Promise<string[]> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return unique;
+    const { lineById } = await this.categoryLookup();
+    if (unique.some((id) => !lineById.has(id))) {
+      throw new BadRequestException({ code: 'EVENT_CATEGORY_INVALID', message: 'Unknown event category.' });
+    }
+    return unique;
+  }
+
+  // The taxonomy filters as one category-id list: explicit categories, narrowed to (or replaced
+  // by) the categories of the chosen service lines. Undefined = no taxonomy filter.
+  private async resolveCategoryFilter(query: ListEventsQueryDto): Promise<string[] | undefined> {
+    if (!query.categoryId?.length && !query.serviceLineId?.length) return undefined;
+    const { lineById } = await this.categoryLookup();
+    let ids = query.categoryId?.length ? query.categoryId : [...lineById.keys()];
+    if (query.serviceLineId?.length) {
+      const lines = new Set(query.serviceLineId);
+      ids = ids.filter((id) => lines.has(lineById.get(id) ?? ''));
+    }
+    return ids;
+  }
 
   // Upcoming, published events, soonest first.
   async listUpcoming(): Promise<EventDto[]> {
@@ -19,10 +78,94 @@ export class EventsService {
     return this.eventsRepository.findUpcomingPublished(startOfToday.toISOString());
   }
 
-  // Every published event, soonest first.
-  // Past and upcoming; with `from`, only events still running on or after that date.
-  async listAll(from?: string): Promise<EventDto[]> {
-    return this.eventsRepository.findAllPublished(from ? new Date(from).toISOString() : undefined);
+  // Published events past and upcoming, filtered and paged on the server (see ListEventsQueryDto).
+  async listPublished(query: ListEventsQueryDto): Promise<{ items: EventDto[]; total: number }> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? EVENTS_PAGE_SIZE_DEFAULT;
+    if (query.from && query.to && query.to < query.from) {
+      throw new BadRequestException({ code: 'EVENT_RANGE_INVALID', message: '`to` must not be before `from`.' });
+    }
+    const { rows, total } = await this.eventsRepository.findPublishedPage(
+      {
+        fromIso: query.from ? utcDayStart(query.from).toISOString() : undefined,
+        startFromIso: query.startFrom ? utcDayStart(query.startFrom).toISOString() : undefined,
+        toExclusiveIso: query.to ? utcDayAfter(query.to).toISOString() : undefined,
+        countries: query.country,
+        formats: query.format,
+        types: query.type,
+        terms: query.q ? keywordTerms(query.q) : undefined,
+        categoryIds: await this.resolveCategoryFilter(query),
+      },
+      { from: (page - 1) * pageSize, to: page * pageSize - 1 }
+    );
+    return { items: rows, total };
+  }
+
+  // Days (UTC, YYYY-MM-DD) with at least one published event in [from, to] — the picker's dots.
+  async listEventDays(query: EventDaysQueryDto): Promise<EventDaysResponse> {
+    const from = utcDayStart(query.from);
+    const toExclusive = utcDayAfter(query.to);
+    const spanDays = (toExclusive.getTime() - from.getTime()) / DAY_MS;
+    if (spanDays <= 0 || spanDays > MAX_DAY_SPAN) {
+      throw new BadRequestException({
+        code: 'EVENT_RANGE_INVALID',
+        message: `\`to\` must be on or after \`from\`, at most ${MAX_DAY_SPAN} days later.`,
+      });
+    }
+    const spans = await this.eventsRepository.findPublishedSpans(from.toISOString(), toExclusive.toISOString());
+    const days = new Set<string>();
+    for (const span of spans) {
+      const start = utcDayStart(span.startDate.slice(0, 10));
+      const end = utcDayStart((span.endDate ?? span.startDate).slice(0, 10));
+      // Only the part of the event inside the requested span; bounded so a bad end date can't loop long.
+      const first = start < from ? from : start;
+      for (let d = first, i = 0; d <= end && d < toExclusive && i <= MAX_DAY_SPAN; i++) {
+        days.add(d.toISOString().slice(0, 10));
+        d = new Date(d.getTime() + DAY_MS);
+      }
+    }
+    return { days: [...days].sort() };
+  }
+
+  // Per UTC day in [from, to] (at most EVENT_CALENDAR_MAX_DAYS): the number of published events
+  // running that day and EVENT_CALENDAR_PER_DAY of them (those starting that day first) — all the home calendar draws,
+  // so a busy month costs a few KB instead of every event with its description.
+  async listCalendar(query: EventDaysQueryDto): Promise<EventCalendarResponse> {
+    const from = utcDayStart(query.from);
+    const toExclusive = utcDayAfter(query.to);
+    const spanDays = (toExclusive.getTime() - from.getTime()) / DAY_MS;
+    if (spanDays <= 0 || spanDays > EVENT_CALENDAR_MAX_DAYS) {
+      throw new BadRequestException({
+        code: 'EVENT_RANGE_INVALID',
+        message: `\`to\` must be on or after \`from\`, at most ${EVENT_CALENDAR_MAX_DAYS} days later.`,
+      });
+    }
+    // Earliest start first (the repository orders by start_date, id).
+    const events = await this.eventsRepository.findPublishedSpans(from.toISOString(), toExclusive.toISOString());
+    // Per day: events that start that day come first (earliest first), then ones already running —
+    // otherwise a month-long course would fill the same two slots on every day it spans.
+    const byDay = new Map<string, { starting: CalendarEventDto[]; ongoing: CalendarEventDto[] }>();
+    for (const event of events) {
+      const start = utcDayStart(event.startDate.slice(0, 10));
+      const end = utcDayStart((event.endDate ?? event.startDate).slice(0, 10));
+      const first = start < from ? from : start;
+      for (let d = first, i = 0; d <= end && d < toExclusive && i <= EVENT_CALENDAR_MAX_DAYS; i++) {
+        const key = d.toISOString().slice(0, 10);
+        const day = byDay.get(key) ?? { starting: [], ongoing: [] };
+        (d.getTime() === start.getTime() ? day.starting : day.ongoing).push(event);
+        byDay.set(key, day);
+        d = new Date(d.getTime() + DAY_MS);
+      }
+    }
+    return {
+      days: [...byDay.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, day]) => ({
+          date,
+          count: day.starting.length + day.ongoing.length,
+          events: [...day.starting, ...day.ongoing].slice(0, EVENT_CALENDAR_PER_DAY),
+        })),
+    };
   }
 
   // Every event regardless of status.
@@ -37,6 +180,11 @@ export class EventsService {
   async create(dto: CreateEventDto): Promise<EventDto> {
     const status = dto.status ?? 'draft';
     if (status === 'published') assertPublishReady(dto as unknown as Record<string, unknown>);
+    // No categories given → inferred from the title/description (see event-categories.ts).
+    const categoryIds =
+      dto.categoryIds !== undefined
+        ? await this.assertCategoryIds(dto.categoryIds)
+        : inferEventCategoryIds(dto.title, dto.description, (await this.categoryLookup()).idByName);
 
     return withUniqueSlugRetry(
       () => this.eventsRepository.findUniqueSlug(dto.title),
@@ -58,6 +206,7 @@ export class EventsService {
           is_free: dto.isFree ?? false,
           registration_url: dto.registrationUrl ?? null,
           organiser_name: dto.organiserName ?? null,
+          category_ids: categoryIds,
           status: dto.status ?? 'draft',
         })
     );
@@ -100,6 +249,7 @@ export class EventsService {
     if (dto.registrationUrl !== undefined) patch.registration_url = dto.registrationUrl;
     if (dto.organiserName !== undefined) patch.organiser_name = dto.organiserName;
     if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.categoryIds !== undefined) patch.category_ids = await this.assertCategoryIds(dto.categoryIds);
 
     return this.eventsRepository.updateById(id, patch);
   }
@@ -109,8 +259,11 @@ export class EventsService {
   }
 
   async exportToCsv(): Promise<string> {
-    const events = await this.eventsRepository.findAllForAdmin();
-    return eventsToCsv(events);
+    const [events, categories] = await Promise.all([
+      this.eventsRepository.findAllForAdmin(),
+      this.categoriesService.list(),
+    ]);
+    return eventsToCsv(events, new Map(categories.map((c) => [c.id, c.name])));
   }
 
   // All-or-nothing full sync: every row is validated before anything is written: a blank `id`
@@ -131,7 +284,10 @@ export class EventsService {
       });
     }
 
-    const existing = await this.eventsRepository.findAllForAdmin();
+    const [existing, { idByName }] = await Promise.all([
+      this.eventsRepository.findAllForAdmin(),
+      this.categoryLookup(),
+    ]);
     const existingById = new Map(existing.map((event) => [event.id, event]));
 
     const errors: string[] = [];
@@ -140,7 +296,7 @@ export class EventsService {
     const toUpdate: ValidatedEventRow[] = [];
 
     for (const row of rows) {
-      const result = validateEventRow(row);
+      const result = validateEventRow(row, idByName);
       if ('errors' in result) {
         errors.push(...result.errors);
         continue;

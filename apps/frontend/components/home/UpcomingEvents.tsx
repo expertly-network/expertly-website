@@ -1,5 +1,11 @@
 import { Card, Badge } from '@/components/ui';
-import { formatEventMonth, formatEventDay, formatEventFormat, isOnlineEvent } from '@/lib/events/format';
+import {
+  formatEventMonth,
+  formatEventDay,
+  formatEventFormat,
+  isOnlineEvent,
+  normalizeEventTitle,
+} from '@/lib/events/format';
 import type { EventDto } from '@shared/event';
 
 // A simpler card list in place of a full calendar widget.
@@ -19,7 +25,7 @@ export function UpcomingEvents({ events }: { events: EventDto[] }) {
                 <span className="text-[11px] font-medium text-ok">{formatEventFormat(e.eventFormat)}</span>
               )}
             </div>
-            <h4 className="mt-1.5 text-sm font-medium text-ink">{e.title}</h4>
+            <h4 className="mt-1.5 text-sm font-medium text-ink">{normalizeEventTitle(e.title)}</h4>
             <p className="mt-1 line-clamp-2 text-xs text-ink-3">{e.description}</p>
             {isOnlineEvent(e) ? (
               <div className="mt-2 text-[11px] text-ink-3">Online</div>

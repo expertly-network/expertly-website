@@ -5,17 +5,17 @@ import { formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
 import { formatDate } from '@/lib/dates';
+import { ArticleCountries } from '@/components/articles/ArticleCountries';
 
-// Cover image, service badge, title, countries, then an author row with date + read time.
+// Cover image, service label, title, countries, then an author row with date + read time.
+// The title's link stretches over the whole card; the service label is a separate link (above
+// the overlay) to the articles list filtered to that service.
 export function ArticleCard({ article }: { article: ArticleListItemDto }) {
   const primaryService = article.services[0];
   const designation = formatAuthorDesignation(article.authorHeadline, article.authorFirmName);
 
   return (
-    <Link
-      href={`/articles/${article.slug}`}
-      className="flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2"
-    >
+    <article className="relative flex flex-col overflow-hidden rounded-2xl border border-line bg-bg-card transition-colors hover:border-line-2">
       <div className="relative h-[180px] w-full bg-bg-alt">
         <Image
           src={article.coverImageUrl}
@@ -31,35 +31,28 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
         {/* Service on its own line so a long name never wraps the badge onto two lines;
             countries sit under the title, date + read time move to the author row. */}
         {primaryService && (
-          <div className="mb-3 flex min-w-0" title={primaryService.name}>
-            <Badge variant="brand" className="max-w-full">
-              <span className="truncate">{primaryService.name}</span>
-            </Badge>
-          </div>
-        )}
-
-        <h3 className="line-clamp-2 text-title text-ink">{article.title}</h3>
-
-        {article.countries.length > 0 && (
-          <div className="mt-2 flex min-w-0 items-center gap-1 text-xs text-ink-3">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-              className="flex-none text-ink-4"
+          <div className="mb-3 flex min-w-0" title={`More articles on ${primaryService.name}`}>
+            <Link
+              href={`/articles?service=${encodeURIComponent(primaryService.id)}`}
+              className="relative z-10 max-w-full rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span className="truncate" title={article.countries.join(', ')}>
-              {article.countries.join(', ')}
-            </span>
+              <Badge variant="brand" className="max-w-full transition-opacity hover:opacity-80">
+                <span className="truncate">{primaryService.name}</span>
+              </Badge>
+            </Link>
           </div>
         )}
+
+        <h3 className="line-clamp-2 text-title text-ink">
+          <Link
+            href={`/articles/${article.slug}`}
+            className="after:absolute after:inset-0 after:content-[''] focus-visible:underline focus-visible:outline-none"
+          >
+            {article.title}
+          </Link>
+        </h3>
+
+        <ArticleCountries countries={article.countries} className="mt-2" />
 
         <div className="mt-auto flex items-center gap-2.5 pt-5">
           {article.authorPhotoUrl ? (
@@ -90,6 +83,6 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
           </span>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

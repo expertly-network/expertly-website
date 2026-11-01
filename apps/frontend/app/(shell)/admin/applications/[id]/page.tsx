@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getAdminApplicationServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { ApplicationReviewDetail } from '@/components/admin/ApplicationReviewDetail';
 
 export const metadata = {
@@ -26,13 +26,7 @@ export default async function AdminApplicationDetailPage(props: { params: Promis
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Admin</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">Membership Application</h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">Review this membership application.</p>
-        </PageContainer>
-      </section>
+      <PageHero eyebrow="Admin" title="Membership Application" lede="Review this membership application." />
       <section className="py-12">
         <PageContainer>
           <ApplicationReviewDetail application={application} />

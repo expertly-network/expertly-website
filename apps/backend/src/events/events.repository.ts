@@ -1,7 +1,8 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { keywordOrFilter } from './keyword-search';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
-import type { EventDto } from '@shared/event';
+import type { EventDto, CalendarEventDto } from '@shared/event';
 import { generateUniqueSlug, generateUniqueSlugs, isSlugUniqueViolation, SlugTakenException } from '../common/slugify';
 import { MAX_LIST_ROWS } from '../common/list-limits';
 
@@ -27,9 +28,20 @@ const EVENT_COLUMNS = [
   'isFree:is_free',
   'registrationUrl:registration_url',
   'organiserName:organiser_name',
+  'categoryIds:category_ids',
   'status',
   'createdAt:created_at',
   'updatedAt:updated_at',
+] as const;
+
+// The lean shape the calendar grid and date-picker dots need — no description or links.
+const CALENDAR_COLUMNS = [
+  'id',
+  'title',
+  'startDate:start_date',
+  'endDate:end_date',
+  'country',
+  'eventFormat:event_format',
 ] as const;
 
 @Injectable()
@@ -52,15 +64,69 @@ export class EventsRepository {
     return data as unknown as EventDto[];
   }
 
-  // Past and upcoming, oldest first. `sinceIso` keeps only events still running on or after it,
-  // so the MAX_LIST_ROWS cap trims the far future of the caller's window, not the part it shows.
-  async findAllPublished(sinceIso?: string): Promise<EventDto[]> {
-    let query = this.events().select(EVENT_COLUMNS.join(', ')).eq('status', 'published');
-    if (sinceIso) query = query.or(`end_date.gte.${sinceIso},and(end_date.is.null,start_date.gte.${sinceIso})`);
-    const { data, error } = await query.order('start_date', { ascending: true }).limit(MAX_LIST_ROWS);
+  // One page of published events (past and upcoming) overlapping [fromIso, toExclusiveIso), oldest
+  // first, plus the total across all pages. Times are server-generated ISO strings, not user text.
+  async findPublishedPage(
+    filters: {
+      fromIso?: string;
+      /** Starting on or after this instant (an event already running before it is excluded). */
+      startFromIso?: string;
+      toExclusiveIso?: string;
+      countries?: string[];
+      formats?: string[];
+      types?: string[];
+      terms?: string[];
+      /** Tagged with any of these categories; an empty list matches nothing. */
+      categoryIds?: string[];
+    },
+    range: { from: number; to: number }
+  ): Promise<{ rows: EventDto[]; total: number }> {
+    let query = this.events().select(EVENT_COLUMNS.join(', '), { count: 'exact' }).eq('status', 'published');
+    if (filters.fromIso) {
+      query = query.or(`end_date.gte.${filters.fromIso},and(end_date.is.null,start_date.gte.${filters.fromIso})`);
+    }
+    if (filters.startFromIso) query = query.gte('start_date', filters.startFromIso);
+    if (filters.toExclusiveIso) query = query.lt('start_date', filters.toExclusiveIso);
+    if (filters.countries?.length) query = query.in('country', filters.countries);
+    if (filters.formats?.length) query = query.in('event_format', filters.formats);
+    if (filters.types?.length) query = query.in('event_type', filters.types);
+    if (filters.categoryIds) {
+      // An empty list means the taxonomy filter matched no categories, so no event can match.
+      if (filters.categoryIds.length === 0) query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+      else query = query.overlaps('category_ids', filters.categoryIds);
+    }
+    // Each keyword must match some searched column; terms are pre-sanitised (keyword-search.ts).
+    for (const term of filters.terms ?? []) query = query.or(keywordOrFilter(term));
+    const { data, error, count } = await query
+      .order('start_date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(range.from, range.to);
 
     if (error) throw new InternalServerErrorException('Failed to load events.');
-    return data as unknown as EventDto[];
+    const rows = data as unknown as EventDto[];
+    return { rows, total: count ?? rows.length };
+  }
+
+  // Start/end of every published event overlapping the span, for the date picker's per-day dots.
+  // Read in PostgREST-sized chunks (max_rows is 1000) so a busy span isn't silently truncated.
+  async findPublishedSpans(fromIso: string, toExclusiveIso: string): Promise<CalendarEventDto[]> {
+    const CHUNK = 1000;
+    const spans: CalendarEventDto[] = [];
+    for (let offset = 0; ; offset += CHUNK) {
+      const { data, error } = await this.events()
+        .select(CALENDAR_COLUMNS.join(', '))
+        .eq('status', 'published')
+        .or(`end_date.gte.${fromIso},and(end_date.is.null,start_date.gte.${fromIso})`)
+        .lt('start_date', toExclusiveIso)
+        .order('start_date', { ascending: true })
+        .order('id', { ascending: true })
+        .range(offset, offset + CHUNK - 1);
+      if (error) throw new InternalServerErrorException('Failed to load event days.');
+      const rows = data as unknown as CalendarEventDto[];
+      spans.push(...rows);
+      if (rows.length < CHUNK) break;
+    }
+    return spans;
   }
 
   // Uncapped on purpose: feeds the admin list AND the CSV export/import round trip, which must

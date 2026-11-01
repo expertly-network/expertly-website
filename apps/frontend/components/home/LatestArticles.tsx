@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui';
 import { formatArticleDate, formatReadTime, formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
+import { ArticleCountries } from '@/components/articles/ArticleCountries';
 
 function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36 | 60 }) {
   const dimension = size === 60 ? 'h-[60px] w-[60px]' : 'h-9 w-9';
@@ -60,6 +61,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
             {formatArticleDate(featured.createdAt)} · {formatReadTime(featured.readTimeMinutes)}
           </div>
           <h3 className="mt-3.5 text-heading text-ink">{featured.title}</h3>
+          <ArticleCountries countries={featured.countries} className="mt-2.5" />
           <div className="mt-5 flex items-center gap-3">
             <AuthorAvatar article={featured} size={60} />
             <div>
@@ -80,8 +82,9 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
               <div className="font-mono text-sm text-ink-4">0{i + 2}</div>
               <div className="min-w-0 flex-1">
                 <h4 className="text-title text-ink">{a.title}</h4>
-                {/* Author on the left, read time · date in the row's otherwise empty right side. */}
-                <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1.5">
+                <ArticleCountries countries={a.countries} className="mt-1.5" />
+                {/* Author on the left, date and read time in the row's otherwise empty right side. */}
+                <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-1.5">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <AuthorAvatar article={a} size={36} />
                     <div className="min-w-0 leading-tight">
@@ -89,9 +92,10 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
                       {designation && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>}
                     </div>
                   </div>
-                  <span className="shrink-0 font-mono text-[11px] text-ink-3">
-                    {formatReadTime(a.readTimeMinutes)} · {formatArticleDate(a.createdAt)}
-                  </span>
+                  <div className="shrink-0 text-right font-mono text-[11px] leading-[1.5] text-ink-3">
+                    <div>{formatArticleDate(a.createdAt)}</div>
+                    <div>{formatReadTime(a.readTimeMinutes)}</div>
+                  </div>
                 </div>
               </div>
             </Link>

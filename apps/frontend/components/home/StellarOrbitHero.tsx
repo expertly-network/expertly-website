@@ -146,7 +146,7 @@ export function StellarOrbitHero({
             className="flex max-w-[580px] flex-1 flex-col text-center lg:text-left"
             style={{ animation: 'hs-fade-up 1s cubic-bezier(0.22,1,0.36,1) 0.1s both' }}
           >
-            <h1 className="min-h-[3.8em] text-[clamp(38px,4.2vw,66px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
+            <h1 className="font-brand min-h-[3.8em] text-[clamp(38px,4.2vw,66px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
               {PART1.split('\n').map((line, i) => (
                 <span key={i}>
                   {line}
@@ -206,7 +206,7 @@ export function StellarOrbitHero({
             </div>
 
             <div
-              className="mx-auto mt-[52px] flex max-w-full flex-wrap justify-center gap-x-7 gap-y-4 border-t border-white/[0.08] pt-7 lg:mx-0 lg:justify-start"
+              className="mx-auto mt-[52px] grid w-full max-w-full grid-cols-2 gap-x-6 gap-y-5 border-t border-white/[0.08] pt-7 text-left sm:grid-cols-4 lg:mx-0"
               style={{ animation: 'hs-fade-in 0.6s ease 2.5s both' }}
             >
               {(
@@ -218,11 +218,11 @@ export function StellarOrbitHero({
                 ] as const
               ).map(([num, suffix, label]) => (
                 <div key={label} className="flex flex-col gap-1">
-                  <span className="text-xl font-semibold leading-none tracking-[-0.025em] text-bg-card">
+                  <span className="text-stat font-semibold leading-none text-bg-card">
                     {num}
                     {suffix}
                   </span>
-                  <span className="whitespace-nowrap font-mono text-[10px] font-medium text-white/35">{label}</span>
+                  <span className="text-caption font-medium text-white/60">{label}</span>
                 </div>
               ))}
             </div>

@@ -3,8 +3,16 @@ export type MemberSort = 'featured' | 'tenure' | 'rate_asc' | 'rate_desc';
 
 export const DEFAULT_SORT: MemberSort = 'featured';
 
-// Shared with the client-side infinite-scroll list so both agree on page size.
-export const MEMBER_LIST_PAGE_SIZE = 8;
+// One directory page (the API's maximum page size).
+export const MEMBER_LIST_PAGE_SIZE = 50;
+
+// ?page= — the directory's current page. Anything that isn't a whole number in the API's range
+// (GET /v1/members takes 1–10,000) falls back to page 1.
+export function parseMemberPage(searchParams: RawSearchParams): number {
+  const raw = Array.isArray(searchParams.page) ? searchParams.page[0] : searchParams.page;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 10_000 ? n : 1;
+}
 
 export interface MemberFilters {
   q?: string;

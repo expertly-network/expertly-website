@@ -1,5 +1,12 @@
 import { Suspense } from 'react';
-import { getMembersServer, getCategoriesServer, getArticlesServer, getEventsServer } from '@/lib/api/server';
+import {
+  getMembersServer,
+  getCategoriesServer,
+  getArticlesServer,
+  getEventCalendarServer,
+  getEventsPageServer,
+} from '@/lib/api/server';
+import { toIsoDate } from '@/lib/api/events-query';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { StellarOrbitHero } from '@/components/home/StellarOrbitHero';
 import { AiSearchTeaser } from '@/components/home/AiSearchTeaser';
@@ -19,7 +26,6 @@ import { Button, Eyebrow } from '@/components/ui';
 import type { MemberListItemDto } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
 import type { ArticleListItemDto } from '@shared/article';
-import type { EventDto } from '@shared/event';
 
 export const metadata = {
   title: 'GrowXQ — Vetted finance & legal experts, on demand',
@@ -140,7 +146,7 @@ async function CategoriesSection() {
       <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
         <div>
           <Eyebrow>Coverage</Eyebrow>
-          <h2 className="mt-4 text-section-title text-ink">
+          <h2 className="font-brand mt-4 text-section-title text-ink">
             <span className="text-accent">Specialists</span> across every corner of finance &amp; law.
           </h2>
           <p className="mt-5 text-lede text-ink-3">
@@ -173,7 +179,7 @@ async function LatestArticlesSection() {
         <div className="flex items-end justify-between">
           <div>
             <Eyebrow>Knowledge base</Eyebrow>
-            <h2 className="mt-4 text-section-title text-ink">
+            <h2 className="font-brand mt-4 text-section-title text-ink">
               Latest <span className="text-accent">articles</span>
             </h2>
             <p className="mt-4 max-w-xl text-lede text-ink-3">
@@ -194,15 +200,19 @@ async function LatestArticlesSection() {
 }
 
 async function EventsSection() {
-  let events: EventDto[];
-  try {
-    // Past events too (from two months back): the calendar shows them greyed out alongside
-    // what's coming up.
-    events = await getEventsServer({ upcoming: false, monthsBack: 2 });
-  } catch {
-    events = [];
-  }
-  return <EventsTeaser events={events} />;
+  // The current month's calendar (per-day counts + two events a day) and the next few events for
+  // the phone-width list; other months load as the visitor navigates.
+  const now = new Date();
+  const [calendar, upcoming] = await Promise.all([
+    getEventCalendarServer(
+      toIsoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+      toIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+    ).catch(() => ({ days: [] })),
+    getEventsPageServer({ from: toIsoDate(now), pageSize: 4 })
+      .then((p) => p.items)
+      .catch(() => []),
+  ]);
+  return <EventsTeaser calendar={calendar} upcoming={upcoming} />;
 }
 
 export default async function HomePage() {
@@ -228,7 +238,7 @@ export default async function HomePage() {
             </div>
             <div className="order-1 lg:order-2">
               <Eyebrow>Our network</Eyebrow>
-              <h2 className="mt-4 text-section-title text-ink">
+              <h2 className="font-brand mt-4 text-section-title text-ink">
                 A specialist network of <span className="text-accent">verified</span> practitioners.
               </h2>
               <p className="mt-5 text-lede text-ink-3">
@@ -255,7 +265,7 @@ export default async function HomePage() {
         <section className="border-b border-line bg-ink py-24">
           <PageContainer>
             <Eyebrow dark>Where Our Members Practice</Eyebrow>
-            <h2 className="mt-3.5 max-w-[760px] text-section-title text-bg-card">
+            <h2 className="font-brand mt-3.5 max-w-[760px] text-section-title text-bg-card">
               Senior Professionals from firms that <span className="text-accent">set the standard.</span>
             </h2>
             <p className="mt-4 max-w-xl text-lede text-white/60">
@@ -287,7 +297,7 @@ export default async function HomePage() {
       <section className="py-24">
         <PageContainer>
           <Eyebrow>Questions</Eyebrow>
-          <h2 className="mt-4 text-section-title text-ink">
+          <h2 className="font-brand mt-4 text-section-title text-ink">
             Common <span className="text-accent">questions</span>.
           </h2>
           <div className="mt-10 grid gap-12 lg:grid-cols-2">

@@ -5,10 +5,11 @@ interface UnsplashSearchResult {
 }
 
 const SEARCH_URL = 'https://api.unsplash.com/search/photos';
-// >1 so the frontend's "change image"/"try another" controls have something to actually cycle
-// through from a single fetch, instead of silently re-querying (and often landing on the same
-// single result) every click.
-const RESULTS_PER_QUERY = 5;
+// The search pool is Unsplash's maximum page size; a random RESULTS_RETURNED of it go back, in
+// random order. Returning the same top few every time made articles on one topic share a cover
+// and "try another" cycle through the same handful of photos.
+const SEARCH_POOL_SIZE = 30;
+const RESULTS_RETURNED = 10;
 const TIMEOUT_MS = 8_000;
 
 // Searches Unsplash for cover image suggestions, keeping the access key server-side.
@@ -29,7 +30,7 @@ export class UnsplashService {
 
     const url = new URL(SEARCH_URL);
     url.searchParams.set('query', query);
-    url.searchParams.set('per_page', String(RESULTS_PER_QUERY));
+    url.searchParams.set('per_page', String(SEARCH_POOL_SIZE));
     url.searchParams.set('orientation', 'landscape');
     url.searchParams.set('content_filter', 'high');
 
@@ -51,6 +52,15 @@ export class UnsplashService {
       this.logger.error(`Unsplash search failed for query "${query}"`, error instanceof Error ? error.stack : error);
       throw providerError();
     }
-    return body.results.map((r) => r.urls.regular);
+    return shuffle([...new Set(body.results.map((r) => r.urls.regular))]).slice(0, RESULTS_RETURNED);
   }
+}
+
+// Fisher–Yates, in place; returns the same array.
+export function shuffle<T>(items: T[], random: () => number = Math.random): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
 }

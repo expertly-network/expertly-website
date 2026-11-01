@@ -1,4 +1,4 @@
-import { Card, Button } from '@/components/ui';
+import { SidebarJoinCard, SidebarStatsCard } from '@/components/shared/SidebarCards';
 
 const STATS = [
   {
@@ -34,42 +34,19 @@ const STATS = [
 export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) {
   return (
     <aside className="sticky top-6 flex flex-col gap-4 max-[1023px]:static max-[1023px]:order-first">
-      <Card padding="md">
-        <h3 className="text-title text-ink">Every member is individually vetted.</h3>
-        <p className="mt-3 text-sm text-ink-3">
-          Our screening covers credentials, years in practice, jurisdiction expertise, and a peer review by existing
-          members. No self-serve listings.
-        </p>
-        <div className="mt-2">
-          {STATS.map((stat) => (
-            <div key={stat.num} className="flex items-start gap-3 border-t border-line py-3.5">
-              <div className="w-14 flex-none text-[26px] font-semibold leading-none tracking-[-0.03em] text-accent">
-                {stat.num}
-              </div>
-              <p className="text-[13px] leading-[1.45] text-ink-3">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <SidebarStatsCard
+        title="Every member is individually vetted."
+        intro="Our screening covers credentials, years in practice, jurisdiction expertise, and a peer review by existing members. No self-serve listings."
+        stats={STATS}
+      />
       {showApply && (
-        <Card padding="md" className="relative overflow-hidden bg-ink max-[859px]:hidden">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full"
-            style={{
-              background:
-                'radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent) 0%, transparent 70%)',
-            }}
+        <div className="max-[859px]:hidden">
+          <SidebarJoinCard
+            eyebrow="For practitioners"
+            title="Join the network."
+            body="Apply for membership and get discovered by clients globally. Keep 100% of your fees."
           />
-          <span className="relative font-mono text-[9px] font-bold text-white/40">FOR PRACTITIONERS</span>
-          <h3 className="relative mt-2 text-title text-bg-card">Join the network.</h3>
-          <p className="relative mt-2 text-sm text-white/60">
-            Apply for membership and get discovered by clients globally. Keep 100% of your fees.
-          </p>
-          <Button href="/apply" variant="secondary-dark" className="relative mt-4" fullWidth>
-            Apply for membership →
-          </Button>
-        </Card>
+        </div>
       )}
     </aside>
   );

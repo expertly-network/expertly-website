@@ -41,12 +41,20 @@ for the linked header logo. Never hand-type "GrowXQ" as a logo or reintroduce lo
 
 ## Footer
 
-A dark ink band with a soft brand-green glow: four link columns (Navigation, Legal, Social,
-Contact), then the oversized, centred wordmark running off the bottom edge, then a slim white bar with the
+The first footer's compact, centred layout on a dark ink band with a soft brand-green glow: the
+gradient growXQ wordmark, then three centred rows — the main pages (Articles … Membership); Terms &
+Conditions, Membership Policy, Privacy Policy; Contact us (mailto) and LinkedIn — then a small
 copyright line. The page's `<main>` is at least one screen tall, so the footer always starts below
 the fold, even on a page with little content.
 
 ## Fonts
+
+Geist is the default everywhere, including headings in articles, profiles, dashboards, forms,
+and admin screens. Do not apply a serif font globally by HTML heading level. Cormorant Garamond
+is reserved for explicitly selected marketing headings: homepage section headings, membership
+marketing, and public browse-page hero titles. Use `font-brand` for these headings; product
+card titles, author names and article content remain Geist. The logo keeps its brand typography.
+
 
 - **Geist** — body/UI text, the default (`font-sans`). Loaded via the `geist` npm package
   (`geist/font/sans`), not Google Fonts — Geist isn't on Google Fonts' catalog.
@@ -131,7 +139,7 @@ letter-spacing + weight together.
 | `text-display` | 44–96px (clamp) | 0.98 | -0.03em | 500 | Hero/marketing display text | theme.css `.display` |
 | `text-headline` | 32–56px (clamp) | 1.04 | -0.025em | 500 | Major section headline | theme.css `.headline` |
 | `text-section-title` | 28–44px (clamp) | 1.08 | -0.02em | 500 | Section heading | theme.css `.section-title` |
-| `text-lede` | 17–20px (clamp) | 1.5 | -0.005em | 400 | **The standard body-paragraph size, used app-wide** for any section/page-intro paragraph that sits directly under a heading and explains what that section is about (pair with `text-ink-3`) — home page section paragraphs, every page hero's subhead, auth card subheads, application-wizard step descriptions. NOT for card/list-item-level text (a member bio excerpt, an FAQ answer, article body prose, sidebar meta) — those stay at `text-sm`/`text-caption`, matching the design's own smaller sizing there. | theme.css `.lede` |
+| `text-lede` | 15–17px (clamp) | 1.55 | -0.005em | 400 | **The standard body-paragraph size, used app-wide** for any section/page-intro paragraph that sits directly under a heading and explains what that section is about (pair with `text-ink-3`) — home page section paragraphs, every page hero's subhead, auth card subheads, application-wizard step descriptions. NOT for card/list-item-level text (a member bio excerpt, an FAQ answer, article body prose, sidebar meta) — those stay at `text-sm`/`text-caption`, matching the design's own smaller sizing there. | theme.css `.lede` |
 | `text-heading` | 32px | 1.1 | -0.02em | 500 | Page/card heading (e.g. `/login`'s "Get started with GrowXQ.") | This app — consolidated from `auth-title` and similar 28–32px headings |
 | `text-article-title` | 24–38px (clamp) | 1.12 | -0.025em | 500 | Article detail page `<h1>` only — deliberately its own, smaller-topped clamp than `text-headline`, matching `.art-detail-title` | theme.css `.art-detail-title` |
 | `text-title` | 18px | 1.25 | -0.012em | 500 | Card/item title | This app — consolidated from 17–19px card-title variants across the prototype |
@@ -140,7 +148,7 @@ letter-spacing + weight together.
 | `text-caption` | 13px | 1.4 | normal | 400 | Secondary/meta text (pair with `text-ink-3`) | This app — from `auth-foot`, card meta text |
 | `text-mono-label` | 11px | normal | normal | 500 | Small-caps tag/label, pairs with `font-mono` | This app — from badges, `auth-logos` city names |
 | `text-profile-label` | 11px | normal | normal | (set at call site, 700) | Member profile section heading ("Key Engagements"), pairs with `font-mono` — not uppercased, matching the prototype | styles.css `.mp-section-label` |
-| `text-profile-body` | 15.5px | 1.7 | — | (400) | Member profile bio paragraph | styles.css `.mp-bio` |
+| `text-profile-body` | 15px | 1.7 | — | (400) | Member profile bio paragraph | styles.css `.mp-bio` |
 | `text-profile-item` | 14.5px | 1.45 | — | (500/600 at call site) | Member profile item titles, stats row, tabs, contact values | styles.css `.mp-eng-title` / `.mp-work-title` / `.mp-stat` / `.mp-tab` |
 | `text-profile-meta` | 11px | 1.45 | — | (400) | Member profile item meta (institution · year, company, dates) | styles.css `.mp-edu-meta` / `.mp-work-company` / `.mp-award-meta` |
 
@@ -172,6 +180,10 @@ prototype pairs the same size with different weights.
 Still-fine to use freely: Tailwind's default scale (`text-sm`, `text-xs`, etc.) for genuine
 one-offs that aren't part of any recurring pattern — the semantic names above are for anything
 that repeats or represents a heading/label *role*, not a ban on every non-token size.
+
+**Body text was reduced on 2026-10-31** (`text-lede` 17–20px → 15–17px, article prose 16px →
+15.5px, profile bio 15.5px → 15px) because paragraphs read too large next to the titles. Title
+sizes were left unchanged; keep this ratio when adding new tokens.
 
 ## Radii
 
@@ -243,6 +255,25 @@ Not every existing page has been migrated to these yet — they were extracted f
 retrofitted into) the pages that already existed when this was written. Treat migrating a
 still-inline pattern to `components/ui/` as part of the normal cost of touching that page, not
 a separate cleanup task to schedule later.
+
+## Page heroes
+
+Every page with a dark hero uses `components/layout/PageHero.tsx`: the browse pages (Articles,
+Events, Members, Perks, Templates, Learnings), the dashboards, Consultations and every admin page: dark band, eyebrow, `font-brand text-headline` title, `text-lede`
+paragraph, an optional search slot capped at `max-w-2xl`, an optional `action` (a button
+right of the title on desktop, below it on phones), an optional `back` link (`HeroBackLink`) above
+the eyebrow on detail pages, and `children` for an extra row under the text. The description is
+optional. The Membership page keeps its own marketing hero with the pricing panel. Search bars use the exported
+`HERO_SEARCH_CLASS` / `HERO_SEARCH_INPUT_CLASS` / `HERO_SEARCH_BUTTON_CLASS` (white pill, 56px min
+height, with or without a submit button). Page-specific art goes in `decoration`. Don't hand-roll
+a new hero; extend `PageHero` instead.
+
+## Side drawer
+
+`components/ui/SideDrawer.tsx` — a right-hand detail panel (native `<dialog>`, 520px wide, full
+width on phones, dimmed/blurred backdrop, pinned footer). Use it for "open an item's details
+without leaving the list" (perks: `components/resources/PerkDrawer.tsx`). Centred `Modal` /
+`ResourceDialog` remain for short tasks and comparisons.
 
 ## Changing something
 

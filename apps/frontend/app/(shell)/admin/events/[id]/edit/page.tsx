@@ -1,8 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getAdminEventServer } from '@/lib/api/server';
+import { getAdminEventServer, getCategoriesServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { EventForm } from '@/components/admin/EventForm';
 
 export const metadata = {
@@ -26,15 +26,10 @@ export default async function EditAdminEventPage(props: { params: Promise<{ id: 
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Admin</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">Edit event</h1>
-        </PageContainer>
-      </section>
+      <PageHero eyebrow="Admin" title="Edit event" />
       <section className="py-12">
         <PageContainer>
-          <EventForm event={event} />
+          <EventForm event={event} categories={await getCategoriesServer()} />
         </PageContainer>
       </section>
     </div>

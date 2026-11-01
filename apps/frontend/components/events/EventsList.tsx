@@ -1,10 +1,17 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Card, DateRangePicker, FilterPopover, startOfDay, type DateRange } from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { EventRow } from '@/components/events/EventRow';
-import type { EventDto, EventFormat } from '@shared/event';
+import type { EventDto, EventFormat, ListEventsQuery } from '@shared/event';
+import type { CategoryDto } from '@shared/category';
+import { EVENT_TYPES } from '@/lib/events/format';
+import { getEventDays, listEventsPage } from '@/lib/api/events';
+import { toIsoDate } from '@/lib/api/events-query';
+import { EventsMonthSection, MonthHeading } from '@/components/events/EventsMonthSection';
+import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { formatMonthYear } from '@/lib/dates';
 
 type DatePreset = 'upcoming' | 'past' | 'this_month' | 'next_3_months' | 'all';
@@ -57,16 +64,50 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-// Client-side filtering over the full event set. Shared by the public and admin event lists;
-// `getAdminBadge`/`getAdminActions` are optional per-event render slots the admin page uses.
+// The filters as an API query (dates as local calendar days).
+function toQuery(
+  range: DateRange,
+  country: string[],
+  format: EventFormat[],
+  type: string[],
+  q: string | undefined,
+  lines: string[],
+  topics: string[]
+): ListEventsQuery {
+  return {
+    q,
+    serviceLineId: lines.length ? lines : undefined,
+    categoryId: topics.length ? topics : undefined,
+    from: range.from ? toIsoDate(range.from) : undefined,
+    to: range.to ? toIsoDate(range.to) : undefined,
+    country: country.length ? country : undefined,
+    format: format.length ? format : undefined,
+    type: type.length ? type : undefined,
+  };
+}
+
+// Two modes. Public /events (`remote`): the calendar is far too large to ship whole, so every filter
+// change asks the API which months have matches (its first and last event), and each month then
+// loads its own events a few at a time with its own "Load more" (EventsMonthSection). Admin
+// (`events`): the full admin list is already loaded, so filtering stays client-side. `getAdminBadge`/`getAdminActions`
+// are optional per-event render slots the admin page uses.
 export function EventsList({
-  events,
+  events = [],
+  remote,
+  query,
+  categories = [],
   defaultDatePreset = 'upcoming',
   getAdminBadge,
   getAdminActions,
   emptyMessage,
 }: {
-  events: EventDto[];
+  events?: EventDto[];
+  /** Match count for the default filters, server-rendered; turns on server-side filtering/paging. */
+  remote?: { total: number };
+  /** Keyword search from the page hero (?q=); the remote list is already filtered by it. */
+  query?: string;
+  /** The taxonomy, for the area/topic filters and the topic tags on each row. */
+  categories?: CategoryDto[];
   defaultDatePreset?: DatePreset;
   getAdminBadge?: (event: EventDto) => ReactNode;
   getAdminActions?: (event: EventDto) => ReactNode;
@@ -76,6 +117,93 @@ export function EventsList({
   const [dateRange, setDateRange] = useState<DateRange>(defaultRange);
   const [countryFilter, setCountryFilter] = useState<string[]>([]);
   const [formatFilter, setFormatFilter] = useState<EventFormat[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
+  const [topicFilter, setTopicFilter] = useState<string[]>([]);
+  // Service lines in taxonomy order, and topics (categories) narrowed to the chosen lines.
+  const lineOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of categories) if (!seen.has(c.serviceLineId)) seen.set(c.serviceLineId, c.serviceLineName);
+    return [...seen].map(([value, label]) => ({ value, label }));
+  }, [categories]);
+  const topicOptions = useMemo(
+    () =>
+      categories
+        .filter((c) => lineFilter.length === 0 || lineFilter.includes(c.serviceLineId))
+        .map((c) => ({ value: c.id, label: c.name })),
+    [categories, lineFilter]
+  );
+  const topicNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const lineByTopicId = useMemo(() => new Map(categories.map((c) => [c.id, c.serviceLineId])), [categories]);
+
+  // Remote mode: the months that have matches for the current filters (first to last match).
+  const remoteQuery = useMemo(
+    () => toQuery(dateRange, countryFilter, formatFilter, typeFilter, query, lineFilter, topicFilter),
+    [dateRange, countryFilter, formatFilter, typeFilter, query, lineFilter, topicFilter]
+  );
+  const [remoteMonths, setRemoteMonths] = useState<Date[] | null>(null);
+  const [remoteTotal, setRemoteTotal] = useState(remote?.total ?? 0);
+  const [loading, setLoading] = useState(!!remote);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestId = useRef(0);
+
+  // The list is sorted by start date, so its first and last match (page size 1) bound the months
+  // to show; months in between with no matches hide themselves once loaded.
+  const loadMonths = useCallback(async () => {
+    const id = ++requestId.current;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const first = await listEventsPage({ ...remoteQuery, page: 1, pageSize: 1 });
+      if (id !== requestId.current) return;
+      if (first.total === 0 || !first.items[0]) {
+        setRemoteTotal(0);
+        setRemoteMonths([]);
+        return;
+      }
+      const last = first.total === 1 ? first : await listEventsPage({ ...remoteQuery, page: first.total, pageSize: 1 });
+      if (id !== requestId.current) return;
+      // An event that started before the range (it's still running) counts from the range's start.
+      const rangeStart = dateRange.from;
+      const firstStart = new Date(first.items[0].startDate);
+      const start = rangeStart && rangeStart > firstStart ? rangeStart : firstStart;
+      const end = new Date((last.items[0] ?? first.items[0]).startDate);
+      const months: Date[] = [];
+      for (let m = new Date(start.getFullYear(), start.getMonth(), 1); m <= end; m.setMonth(m.getMonth() + 1)) {
+        months.push(new Date(m));
+      }
+      setRemoteTotal(first.total);
+      setRemoteMonths(months);
+    } catch (err) {
+      if (id !== requestId.current) return;
+      setLoadError(apiErrorMessage(err, 'Could not load events. Please try again.'));
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  }, [remoteQuery, dateRange.from]);
+
+  useEffect(() => {
+    if (remote) void loadMonths();
+  }, [remote, loadMonths]);
+
+  // Remote mode: event days for the months the picker is showing, fetched as it opens/pages.
+  const [remoteDays, setRemoteDays] = useState<Set<string>>(new Set());
+  const daysRequestId = useRef(0);
+  const loadDays = useCallback(
+    (first: Date, last: Date) => {
+      if (!remote) return;
+      const id = ++daysRequestId.current;
+      setRemoteDays(new Set());
+      getEventDays(toIsoDate(first), toIsoDate(last))
+        .then(({ days }) => {
+          if (id === daysRequestId.current) setRemoteDays(new Set(days));
+        })
+        .catch(() => {
+          if (id === daysRequestId.current) setRemoteDays(new Set());
+        }); // dots are a hint; never block the picker
+    },
+    [remote]
+  );
 
   // Every day any event runs on, for the picker's dots.
   const eventDays = useMemo(() => {
@@ -92,7 +220,8 @@ export function EventsList({
     return days;
   }, [events]);
 
-  const filtered = useMemo(() => {
+  const clientFiltered = useMemo(() => {
+    if (remote) return [];
     const from = dateRange.from;
     // `to` is inclusive: anything starting before the end of that day counts.
     const toExclusive = dateRange.to
@@ -106,29 +235,54 @@ export function EventsList({
       const matchesDate = (!from || end >= from) && (!toExclusive || start < toExclusive);
       const matchesCountry = countryFilter.length === 0 || (!!e.country && countryFilter.includes(e.country));
       const matchesFormat = formatFilter.length === 0 || (!!e.eventFormat && formatFilter.includes(e.eventFormat));
-      return matchesDate && matchesCountry && matchesFormat;
+      const matchesType = typeFilter.length === 0 || (!!e.eventType && typeFilter.includes(e.eventType));
+      const matchesTopic = topicFilter.length === 0 || e.categoryIds.some((id) => topicFilter.includes(id));
+      const matchesLine =
+        lineFilter.length === 0 || e.categoryIds.some((id) => lineFilter.includes(lineByTopicId.get(id) ?? ''));
+      return matchesDate && matchesCountry && matchesFormat && matchesType && matchesTopic && matchesLine;
     });
-  }, [events, dateRange, countryFilter, formatFilter]);
+  }, [remote, events, dateRange, countryFilter, formatFilter, typeFilter, topicFilter, lineFilter, lineByTopicId]);
 
   const groups = useMemo(() => {
     const map = new Map<string, EventDto[]>();
-    for (const e of filtered) {
+    for (const e of clientFiltered) {
       const key = formatMonthYear(new Date(e.startDate));
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
     return [...map.entries()];
-  }, [filtered]);
+  }, [clientFiltered]);
 
   const isDefaultRange =
     (dateRange.from?.getTime() ?? null) === (defaultRange.from?.getTime() ?? null) &&
     (dateRange.to?.getTime() ?? null) === (defaultRange.to?.getTime() ?? null);
-  const hasFilters = !isDefaultRange || countryFilter.length > 0 || formatFilter.length > 0;
+  const hasFilters =
+    !isDefaultRange ||
+    countryFilter.length > 0 ||
+    formatFilter.length > 0 ||
+    typeFilter.length > 0 ||
+    lineFilter.length > 0 ||
+    topicFilter.length > 0;
+  const resultCount = remote ? remoteTotal : clientFiltered.length;
+  const showCount = !(remote && loading) && !loadError;
+  const filtersKey = JSON.stringify(remoteQuery);
+  const renderEvent = (event: EventDto) => (
+    <EventRow
+      key={event.id}
+      event={event}
+      topics={event.categoryIds.map((id) => topicNameById.get(id)).filter((n): n is string => !!n)}
+      adminBadge={getAdminBadge?.(event)}
+      adminActions={getAdminActions?.(event)}
+    />
+  );
 
   const resetFilters = () => {
     setDateRange(defaultRange);
     setCountryFilter([]);
     setFormatFilter([]);
+    setTypeFilter([]);
+    setLineFilter([]);
+    setTopicFilter([]);
   };
 
   return (
@@ -140,13 +294,37 @@ export function EventsList({
           onChange={setDateRange}
           presets={DATE_PRESETS.map((p) => ({ label: p.label, range: p.range }))}
           clearValue={defaultRange}
-          hasEvent={(day) => eventDays.has(dayKey(day))}
+          hasEvent={(day) => (remote ? remoteDays.has(toIsoDate(day)) : eventDays.has(dayKey(day)))}
+          onVisibleMonthsChange={remote ? loadDays : undefined}
         />
+        {lineOptions.length > 0 && (
+          <FilterPopover
+            label="All areas"
+            options={lineOptions}
+            selected={lineFilter}
+            onChange={(values) => {
+              setLineFilter(values);
+              // Drop topics that fall outside the newly chosen areas.
+              setTopicFilter((prev) =>
+                prev.filter((id) => values.length === 0 || values.includes(lineByTopicId.get(id) ?? ''))
+              );
+            }}
+          />
+        )}
+        {topicOptions.length > 0 && (
+          <FilterPopover label="All topics" options={topicOptions} selected={topicFilter} onChange={setTopicFilter} />
+        )}
         <FilterPopover
           label="All countries"
           options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
           selected={countryFilter}
           onChange={setCountryFilter}
+        />
+        <FilterPopover
+          label="All event types"
+          options={EVENT_TYPES.map((t) => ({ value: t, label: t }))}
+          selected={typeFilter}
+          onChange={setTypeFilter}
         />
         {FORMAT_OPTIONS.map((opt) => {
           const active = formatFilter.includes(opt.value);
@@ -183,39 +361,56 @@ export function EventsList({
         })}
       </div>
 
-      {hasFilters && (
-        <div className="flex justify-end pt-4">
+      <div className="flex min-h-9 items-center justify-between gap-3 pt-4">
+        <span className="flex flex-wrap items-center gap-2 text-sm text-ink-3" aria-live="polite">
+          {showCount && (
+            <span>
+              <strong className="font-semibold text-ink">{resultCount.toLocaleString('en-GB')}</strong>{' '}
+              {resultCount === 1 ? 'event' : 'events'}
+              {query && <> matching &ldquo;{query}&rdquo;</>}
+            </span>
+          )}
+          {query && (
+            <Link href="/events" scroll={false} className="font-mono text-[11px] font-semibold text-accent">
+              Clear search ✕
+            </Link>
+          )}
+        </span>
+        {hasFilters && (
           <button type="button" onClick={resetFilters} className="font-mono text-[11px] font-semibold text-accent">
             Clear all filters ✕
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {groups.length > 0 ? (
+      {remote && loading && !loadError ? (
+        <div className="mt-8 space-y-3" aria-busy="true" aria-label="Loading events">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-bg-alt" />
+          ))}
+        </div>
+      ) : remote && remoteMonths && remoteMonths.length > 0 ? (
+        <div className="mt-5">
+          {remoteMonths.map((month, i) => (
+            <EventsMonthSection
+              key={`${filtersKey}|${month.getFullYear()}-${month.getMonth()}`}
+              month={month}
+              query={remoteQuery}
+              first={i === 0}
+              renderEvent={renderEvent}
+            />
+          ))}
+        </div>
+      ) : groups.length > 0 ? (
         <div className="mt-5">
           {groups.map(([month, monthEvents], i) => (
             <div key={month} className={i === 0 ? 'mt-5' : 'mt-[52px]'}>
-              <div className="mb-[18px] flex items-baseline gap-3.5">
-                <span className="flex-none text-[clamp(26px,3vw,36px)] font-medium tracking-[-0.03em] text-ink">
-                  {month}
-                </span>
-                {i > 0 && <span className="h-px flex-1 bg-line" />}
-              </div>
-              <div>
-                {monthEvents.map((event, j) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    isMonthFirst={j === 0}
-                    adminBadge={getAdminBadge?.(event)}
-                    adminActions={getAdminActions?.(event)}
-                  />
-                ))}
-              </div>
+              <MonthHeading month={month} first={i === 0} />
+              <div>{monthEvents.map(renderEvent)}</div>
             </div>
           ))}
         </div>
-      ) : events.length === 0 && emptyMessage ? (
+      ) : loadError ? null : !remote && events.length === 0 && emptyMessage ? (
         <Card padding="lg" className="mt-8 flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-ink-3">{emptyMessage}</p>
         </Card>
@@ -231,6 +426,14 @@ export function EventsList({
             </Button>
           )}
         </div>
+      )}
+      {loadError && (
+        <Card padding="md" className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-ink-2">{loadError}</p>
+          <Button variant="secondary" size="sm" onClick={() => void loadMonths()}>
+            Try again
+          </Button>
+        </Card>
       )}
     </div>
   );

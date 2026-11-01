@@ -6,19 +6,19 @@ version bump; anything that changes an existing shape goes to `/v2`.
 
 **Access levels** (matching `docs/auth.md`'s guard model):
 
-| Badge | Meaning |
-|---|---|
-| 🌐 Public | No auth required (`@Public()`) |
-| 🔑 Auth | Any authenticated role |
-| 🔒 Owner | Auth, scoped to the caller's own resource |
-| _role_ | Auth, restricted to exactly that role (see note below) |
+| Badge           | Meaning                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🌐 Public       | No auth required (`@Public()`)                                                                                                                 |
+| 🔑 Auth         | Any authenticated role                                                                                                                         |
+| 🔒 Owner        | Auth, scoped to the caller's own resource                                                                                                      |
+| _role_          | Auth, restricted to exactly that role (see note below)                                                                                         |
 | 🛡️ _permission_ | `admin`, further restricted to an admin sub-tier that has that permission — see "Admin sub-tier permissions" under Member Directory & Profiles |
 
 ## Live/generated API docs (Swagger)
 
 `@nestjs/swagger` generates a live, always-current view of the actual wired-up routes/DTOs at
 `/api` (JSON spec at `/api-json`) on the backend — a cross-check against this hand-authored file,
-not a replacement for it (this file is the *design* contract, decided before implementation;
+not a replacement for it (this file is the _design_ contract, decided before implementation;
 Swagger just reflects whatever's actually implemented right now, which can drift from this file if
 they aren't both updated together).
 
@@ -86,8 +86,8 @@ resource routes treat such a token as a guest / deactivated member); `403 ROLE_R
 
 ## List sizes
 
-Paginated lists cap their page size (`GET /v1/articles` 50, `GET /v1/members` 50, AI search 20).
-Every other list endpoint — admin queues, a user's own lists, resource catalogs, events — returns at
+Paginated lists cap their page size (`GET /v1/articles` 50, `GET /v1/members` 50, AI search 20, `GET /v1/events?upcoming=false` 1000).
+Every other list endpoint — admin queues, a user's own lists, resource catalogs — returns at
 most **500 rows** (`MAX_LIST_ROWS`, `apps/backend/src/common/list-limits.ts`), newest first where the
 list is a queue or history; the admin AI-generations log keeps its own 200.
 
@@ -97,16 +97,16 @@ Every authenticated route is rate-limited **per user** (`RateLimitGuard`,
 `apps/backend/src/common/rate-limit/`) → `429 RATE_LIMITED` with `retryAfterSeconds`. Default: 300
 requests/minute. Tighter, shared buckets on the expensive or abusable routes:
 
-| Bucket | Routes | Limits |
-|---|---|---|
-| `ai-draft` | `POST /v1/articles/ai-draft` | 3/min, 20/hour, 50/day |
-| `ai` | `ai-refine`, `ai-followup-questions`, `suggest-topics` | 10/min, 60/hour, 200/day |
-| `linkedin-import` | `POST /v1/applications/me/linkedin-import` | 5/hour, 10/day |
-| `cover-images` | `GET /v1/articles/cover-images` | 20/min, 200/hour |
-| `coupon` | `POST /v1/applications/me/coupon-preview` | 10/min, 30/hour |
-| `application-save` | `POST /v1/applications/me` | 20/min, 60/hour, 200/day |
-| `upload` | application uploads + LinkedIn photo, `POST /v1/members/:id/uploads` | 20/min, 200/day |
-| `write` | create article, member edit, consultation + message, recommendation | 20/min, 300/day |
+| Bucket             | Routes                                                               | Limits                   |
+| ------------------ | -------------------------------------------------------------------- | ------------------------ |
+| `ai-draft`         | `POST /v1/articles/ai-draft`                                         | 3/min, 20/hour, 50/day   |
+| `ai`               | `ai-refine`, `ai-followup-questions`, `suggest-topics`               | 10/min, 60/hour, 200/day |
+| `linkedin-import`  | `POST /v1/applications/me/linkedin-import`                           | 5/hour, 10/day           |
+| `cover-images`     | `GET /v1/articles/cover-images`                                      | 20/min, 200/hour         |
+| `coupon`           | `POST /v1/applications/me/coupon-preview`                            | 10/min, 30/hour          |
+| `application-save` | `POST /v1/applications/me`                                           | 20/min, 60/hour, 200/day |
+| `upload`           | application uploads + LinkedIn photo, `POST /v1/members/:id/uploads` | 20/min, 200/day          |
+| `write`            | create article, member edit, consultation + message, recommendation  | 20/min, 300/day          |
 
 `POST /v1/search` additionally keeps its own limits (see "AI search"). Counters are in memory, i.e.
 per API instance. Anonymous (`🌐 Public`) requests aren't counted: public pages are server-rendered
@@ -121,6 +121,13 @@ Backing `apps/backend/src/applications/`, `apps/backend/src/categories/`,
 `packages/shared-types/membership-application.ts`, `packages/shared-types/category.ts`,
 `packages/shared-types/service.ts`.
 
+### 🌐 `GET /v1/service-lines`
+
+Since 2026-10-31 the taxonomy has three levels: **service line** (Tax, Corporate Secretarial,
+Finance, Legal, Other) → **category** → **service**, from the client's `Services.xlsx`. This
+returns the active tree: `ServiceLineDto[]` — `{ id, name, sortOrder, categories: CategoryDto[] }`,
+lines in order, empty lines omitted. Used by the service-line ("Tax / Finance / Legal") filters.
+
 ### 🌐 `GET /v1/categories`
 
 Returns the active category→service taxonomy tree for the application wizard's service-preference
@@ -131,7 +138,9 @@ services) — see `docs/database-erd.md`'s `categories`/`services` section and
 `docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md` for the full rationale.
 
 **Response `200`:** `CategoryDto[]` — `{ id: string, name: string, sortOrder: number, imageUrl:
-string | null, isActive: boolean, services: ServiceDto[] }[]`. `ServiceDto` — `{ id: string,
+string | null, isActive: boolean, serviceLineId: string, serviceLineName: string, services:
+ServiceDto[] }[]`, ordered by service line, then category `sortOrder` (`serviceLineId`/
+`serviceLineName` added 2026-10-31, additive). `ServiceDto` — `{ id: string,
 categoryId: string, name: string, sortOrder: number, isCustom: boolean, isActive: boolean }`.
 `isCustom` marks the one "<<Custom Field>>" placeholder service some categories have — selecting it
 in the UI reveals a free-text input whose value is persisted as a `customLabel`/
@@ -146,7 +155,9 @@ categories today.
 referenced by a member/article/application, returns `409` (`CATEGORY_NOT_EMPTY` /
 `SERVICE_IN_USE`) rather than cascading; an unknown id is `404 CATEGORY_NOT_FOUND` /
 `SERVICE_NOT_FOUND`. Bounds (2026-10-30, `400 VALIDATION_FAILED`): category/service `name` ≤ 100;
-category `imageUrl` http(s) only, ≤ 2048.
+category `imageUrl` http(s) only, ≤ 2048. Category create/update take an optional `serviceLineId`
+(UUID; omitted on create → the "Other" line; unknown → `400 SERVICE_LINE_NOT_FOUND`). Renaming a
+category re-queues the search index for every member/article using its services.
 
 The wizard persists to the backend as the applicant moves through it — there is no
 frontend-only-until-submit state anymore (see `docs/superpowers/specs/2026-08-23-member-application-form-design.md`
@@ -172,6 +183,7 @@ coupon answers `COUPON_INVALID`, so without it this route would be a coupon orac
 the coupon-preview limit; the wizard saves once per step change).
 
 **Behavior:**
+
 - No application yet, or the caller's most recent one is `rejected` → creates a **new** `draft`
   row from whatever fields are sent (any subset — every field is optional). A `rejected` row is
   never reused/mutated — it stays as an untouched historical record, and re-applying starts a
@@ -204,6 +216,7 @@ for the discussion.
 **Request:** `UpdateApplicationRequest` (see `packages/shared-types/membership-application.ts`) —
 every field optional, plus `status?: 'draft' | 'submitted'` and `currentStep?: number` (which
 wizard step to resume on, pure UX convenience, not validated).
+
 - `billingPeriod` — annual only as of 2026-08-31 (`BillingPeriod` is now a single-member
   `'annual'` union); `'monthly'` is rejected by validation, not silently accepted.
 - `peerReferences` — up to 2 entries while a draft, exactly 2 required to submit; each is
@@ -477,8 +490,11 @@ no version bump.
 to and fetch the author's profile (`GET /v1/members/:slug`); null when the author has no member
 profile. Additive, no version bump.
 
-`aiSummary: string | null` — a short 3-to-4-point summary rendered as the detail page's "AI
-Summary" callout (one bullet per `\n`-separated line), sourced from `articles.ai_summary`.
+`aiSummary: string | null` — a 3-to-5-point summary (one sentence of ~15–35 words per point)
+rendered as the "AI Summary" callout on the detail page and on the signed-out preview (one bullet
+per `\n`-separated line), sourced from `articles.ai_summary`. Since 2026-10-31 a reply with fewer
+than 3 points is split into sentences, then retried once. Older one-line summaries can be
+regenerated with `apps/backend/scripts/backfill-ai-summaries.mjs`.
 Generated once, server-side, by `ArticlesService.generateSummaryIfNeeded()` (`AiService.
 summarizeArticle`) the first time an article transitions to `status: 'published'` — fired async
 and never awaited by the publish/approve request, so it never blocks or fails that response; on
@@ -493,10 +509,13 @@ an LLM call, even while `aiSummary` is still `null`; one call per article at a t
 The browse grid — published articles only, list shape (no `body`).
 
 **Query params** (all optional; `ListArticlesQuery` in `packages/shared-types/article.ts`):
+
 - `authorId` (UUID) — added by the Member Directory & Profiles session so a member's profile page
   can list their own published articles via this endpoint rather than an embedded/duplicated array
   (the prototype embeds a copy of the author's articles directly on the profile object — not
   reproduced).
+- `serviceLineId` (UUID, repeatable, 2026-10-31) — articles tagged with any service in these
+  service lines; combined with `serviceId` it narrows to the services inside those lines.
 - `serviceId` (UUID, repeatable) / `country` (repeatable) — added 2026-10-24 with pagination. Each
   matches articles carrying **any** of the given values; the two combine with AND. Replaces the
   browse grid's old client-side filtering, which only worked while the whole set was loaded.
@@ -559,7 +578,10 @@ so it can check current facts before deciding what to ask, used only when it wou
 questions get asked.
 
 **Request:** `AiFollowUpQuestionsRequest` (see `packages/shared-types/article.ts`) —
-`notes`/`advice` required, `recentDevelopments` optional. No `serviceIds`/`countries`/`state` —
+`topic` (3–25 words), `notes` (25–600 words) and `advice` (10–400 words) required,
+`recentDevelopments` optional (at most 400 words). Word limits live in
+`apps/backend/src/ai/dto/word-limits.ts`; a near-empty brief (e.g. "ABC") is a `400
+VALIDATION_FAILED` rather than a made-up article. No `serviceIds`/`countries`/`state` —
 generates purely from the written brief; follow-up question quality comes from the notes content,
 not from taxonomy context, so this endpoint doesn't need the member to have picked anything first.
 
@@ -579,13 +601,16 @@ client-side, then saves it via `POST /v1/articles` below (typically with `creati
 **Request:** `multipart/form-data`, not JSON — a `payload` field carrying the
 `AiDraftArticleRequest` shape (see `packages/shared-types/article.ts`) as a JSON string, plus zero
 or more `files` parts (the wizard's source-document dropzone; PDF, JPEG, PNG, WebP, or TXT — DOCX
-is not supported, see below). Why multipart: the JSON-only fields (`notes`, `recentDevelopments`,
+is not supported, see below). Why multipart: the JSON-only fields (`topic`, `notes`, `recentDevelopments`,
 `advice`, `followUpAnswers`, `followUpQuestionsAsked`, `sourceLinks`, `includeVisual`, `tone`,
 `extraInstructions`) needed to travel alongside real file uploads in one request, same reasoning
 as the membership-application photo upload endpoint. No `title`/`serviceIds`/`countries`/`state`
-— the model infers all four (see Response below) rather than the member picking them beforehand;
-`notes`/`advice` stay optional at the DTO level, matching the existing pattern where the real
-"must be filled in" enforcement is the wizard's own step-1 gate, not a hard server requirement.
+— the model infers all four (see Response below) rather than the member picking them beforehand.
+`topic` is what the article is about (a topic or working title; the model still writes the final
+title). Since 2026-10-31 the brief is enforced server-side with the same word limits as
+`ai-followup-questions` (`topic` 3–25, `notes` 25–600, `advice` 10–400 words, all required;
+`recentDevelopments` ≤400 and each `followUpAnswers[].answer` ≤250 words) — a one-word brief used
+to yield a random article.
 
 PDF and image uploads are sent to the model as **native documents** (`apps/backend/src/ai/
 prepare-source-file.ts`, magic-byte checked via `file-type` first, per root CLAUDE.md's
@@ -612,8 +637,7 @@ the other two providers this behaves closer to the old `sourceLinks`-only fetch 
 `@Roles('member')` posture as `POST /v1/articles`.
 
 `followUpAnswers` (max 10) carries only the follow-up questions from `ai-followup-questions` above
-that the member actually answered — blanks are omitted client-side. `followUpQuestionsAsked` (max
-10) separately echoes back the *full* question list that endpoint returned, even ones left blank —
+that the member actually answered — blanks are omitted client-side. `followUpQuestionsAsked` (max 10) separately echoes back the _full_ question list that endpoint returned, even ones left blank —
 this isn't used in the generation prompt, only recorded in the `ai_draft_generations` audit log
 (see `docs/database-erd.md`) so "asked but skipped" can be told apart from "never asked".
 
@@ -638,7 +662,7 @@ fire-and-forget, into `ai_draft_generations` (logging the **inferred** `serviceI
 
 ### `member` `POST /v1/articles/ai-refine`
 
-The wizard's inline "refine" box — re-prompts the model against the *current* draft plus the
+The wizard's inline "refine" box — re-prompts the model against the _current_ draft plus the
 member's requested changes, returning a complete revised draft (not a diff). Plain JSON, unlike
 `ai-draft` above (no files here).
 
@@ -674,7 +698,9 @@ below for the same reason as `me` — otherwise `:id` would swallow the literal 
 joined with a space; omitted/blank falls back to a generic finance/legal query so the form still
 has an image before any practice area is chosen.
 
-**Response `200`:** `CoverImageSuggestionsResponse` — `{ images: string[] }`, up to 5 URLs. The
+**Response `200`:** `CoverImageSuggestionsResponse` — `{ images: string[] }`, up to 10 URLs — a random 10 of the top 30
+Unsplash results, in random order, so articles on the same topic don't all get the same cover
+(since 2026-10-31; previously the same top 5 every time). The
 frontend cycles through these client-side for "Try another image" rather than re-querying on every
 click. **Errors:** `401` · `403` client account · `503 COVER_IMAGES_NOT_CONFIGURED`
 (`UNSPLASH_ACCESS_KEY` not set) · `502 COVER_IMAGES_PROVIDER_ERROR` (the Unsplash call failed) —
@@ -688,6 +714,7 @@ rank); `client` is rejected. Unlike `POST /v1/applications`, this doesn't need a
 check — "member or admin" fits the ranked model directly.
 
 **Request:** `CreateArticleRequest` (see `packages/shared-types/article.ts`). Notably:
+
 - `authorId` is never accepted from the client — always the caller's own id.
 - `status` — optional, `'draft' | 'published'`. Sending `'draft'` (or a resulting status of
   `'draft'` on `PATCH`) saves a work-in-progress draft. **Anything else (including omitting the
@@ -798,8 +825,9 @@ Full detail of one attempt: everything the member gave the wizard next to what t
 Same guard chain as above.
 
 **Response `200`:** `AdminAiGenerationDetailDto` — the list-item fields above, plus:
-- `inputs` — `notes`, `recentDevelopments`, `advice` (step 1); `followUps: { question, answer |
-  null }[]` (every question the AI asked, in order — `answer: null` means the member skipped it);
+
+- `inputs` — `topic` (null for attempts before 2026-10-31), `notes`, `recentDevelopments`, `advice` (step 1); `followUps: { question, answer |
+null }[]` (every question the AI asked, in order — `answer: null` means the member skipped it);
   `sourceLinks`; `sourceFiles: { filename, url | null }[]` (`url` is a **10-minute signed URL**
   into the private `ai-draft-sources` bucket, `null` if the object can't be signed); `includeVisual`,
   `tone`, `extraInstructions` (step 3).
@@ -837,18 +865,49 @@ missing.
 
 ### 🌐 `GET /v1/events`
 
-**Query params:** `upcoming` (optional, default `true`). `true`/omitted preserves the original
-homepage-only behaviour exactly (`status='published'` and not-yet-ended, soonest-first — see
-`EventsService.listUpcoming()`'s comment for the start-of-UTC-day comparison rationale).
-`upcoming=false` returns `published` events past and upcoming, ascending by `start_date`, capped at
-500 rows. Optional `from` (ISO date, e.g. `2026-08-01`; only with `upcoming=false`) keeps only events
-still running on or after that date, so a caller asks for the window it shows and the cap trims the
-far future rather than the part on screen. The homepage calendar sends the first day of the month two
-months back (past events show greyed out); the `/events` browse list sends twelve months back and
-filters by its date-range picker client-side. Unknown values → `400 VALIDATION_FAILED`
-(`upcoming` must be `true`/`false`, `from` an ISO date).
+**Query params:** `upcoming` (optional, default `true`) preserves the dashboard's published,
+not-yet-ended list. With `upcoming=false`, results are filtered and paginated:
 
-**Response `200`:** `EventDto[]`.
+| Parameter       | Rules                                                                                                                                                                                                                                                                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `from`          | Optional ISO date; event end (or start when no end) must be on or after this UTC day.                                                                                                                                                                                                                                                        |
+| `to`            | Optional inclusive ISO date; event start must be before the following UTC day.                                                                                                                                                                                                                                                               |
+| `startFrom`     | Optional ISO date (added 2026-10-31, additive); event start must be on or after this UTC day — unlike `from`, an event already running is excluded. The events page uses it so each month lists an event once, where it starts.                                                                                                              |
+| `country`       | Repeatable country string, at most 20, each at most 100 characters; matches any selected country.                                                                                                                                                                                                                                            |
+| `format`        | Repeatable `in_person`, `hybrid`, or `virtual`, at most 3; matches any selected format.                                                                                                                                                                                                                                                      |
+| `categoryId`    | Repeatable category UUID, at most 30; events tagged with any of them (`events.category_ids`).                                                                                                                                                                                                                                                |
+| `serviceLineId` | Repeatable service line UUID, at most 10; events tagged with any category in those lines. With `categoryId`, narrows the categories to those lines.                                                                                                                                                                                          |
+| `q`             | Optional free text, at most 200 characters. Split into up to 6 words (stopwords like "in"/"events" dropped, simple plurals trimmed, punctuation stripped); every word must appear in the title, description, type, organiser, city or country (case-insensitive). Instant keyword matching — the conversational search is `POST /v1/search`. |
+| `type`          | Repeatable event type label (e.g. `Seminar`, `Webinar`), at most 20, each at most 60 characters; exact match on `event_type`, any selected type.                                                                                                                                                                                             |
+| `page`          | Integer ≥1, default 1.                                                                                                                                                                                                                                                                                                                       |
+| `pageSize`      | Integer 1–1000, default 50.                                                                                                                                                                                                                                                                                                                  |
+
+Filters combine with AND. Published events only, ordered by `start_date` ascending then `id`
+for stable paging. `from`/`to` match events overlapping the requested span.
+**Response `200`:** `EventDto[]`, with `X-Total-Count` (all matching rows, exposed through CORS)
+when `upcoming=false`. Invalid query values → `400 VALIDATION_FAILED`; reversed ranges →
+`400 EVENT_RANGE_INVALID`. The public events page queries one month at a time (6 per page, each
+month with its own "Load more"; months after the first add `startFrom`); the home calendar queries
+the visible month.
+
+### 🌐 `GET /v1/events/calendar`
+
+The home page's month grid (2026-10-31). **Query:** `from`, `to` — ISO dates (YYYY-MM-DD),
+inclusive, at most 62 days apart (`400 EVENT_RANGE_INVALID` otherwise). **Response `200`:**
+`EventCalendarResponse` — `{ days: { date, count, events }[] }`, only days with at least one
+published event, ascending. `date` is the UTC day; `count` is every published event running that
+day (multi-day events count on each day); `events` holds only two — events starting that day first (earliest first), then ones already
+running — as
+`CalendarEventDto` `{ id, title, startDate, endDate, country, eventFormat }` — no description. A
+busy month is ~16 KB instead of ~900 KB for the full event list.
+
+### 🌐 `GET /v1/events/days`
+
+Required `from` and `to` ISO dates define an inclusive UTC span of at most 400 days.
+Returns `{ "days": ["2026-12-01", "2026-12-02"] }`: sorted distinct `YYYY-MM-DD` dates on
+which any published event runs, clipped to the requested span (including multi-day events).
+No country/format filters. Invalid values → `400 VALIDATION_FAILED`; reversed or oversized
+spans → `400 EVENT_RANGE_INVALID`. Used for date-picker dots.
 
 ## Events — admin
 
@@ -888,6 +947,11 @@ below for what else is enforced when `status: 'published'`.
 `venueName`/`organiserName` ≤ 200; `coverImageUrl`/`registrationUrl` ≤ 2048 and **http(s) only**
 (a scheme-less `www.example.com` is still accepted); `startDate`/`endDate` must be ISO 8601
 (`@IsDateString`); `timezone` must be an IANA zone (`@IsTimeZone`, e.g. `Asia/Kolkata`), ≤ 64.
+`categoryIds` (2026-10-31): optional array of at most 5 category UUIDs, each checked against the
+active categories (`400 EVENT_CATEGORY_INVALID`). Omitted on create → inferred from the title and
+description by keyword rules (`apps/backend/src/events/event-categories.ts`); on `PATCH`, omitted
+leaves them unchanged. CSV export/import carry a `categories` column of category names separated
+by `;` — a blank cell infers them, an unknown name is a row error.
 
 **Response `201`:** `EventDto`. **Errors:** `401` no/invalid token · `403` not admin or missing
 `manageEvents` · `400` validation failure (including publish requirements, see below) · `409
@@ -910,10 +974,10 @@ equivalent, since `EventsService.create()` falls back to `?? null` either way.
 
 `title`, `description`, and `startDate` are always required (DTO-level `@IsNotEmpty`). The
 remaining fields are optional on a DTO level — a draft can omit all of them — but are enforced by
-`EventsService` (`apps/backend/src/events/publish-requirements.ts`) whenever the event's *effective*
+`EventsService` (`apps/backend/src/events/publish-requirements.ts`) whenever the event's _effective_
 status resolves to `'published'`: `organiserName`, `endDate`, `eventFormat`, `eventType`, `city`,
 `country`, `registrationUrl`. "Effective" means `dto.status ?? <current row's status for PATCH>`
-checked against the *merged* fields (existing row's values patched with whatever this request
+checked against the _merged_ fields (existing row's values patched with whatever this request
 provides) — not just what's present in a single request body. This closes two gaps a pure
 per-request check would miss: publishing a draft that already has some fields set via a prior save
 (PATCH `{status: 'published'}` alone must still see those fields), and a status-less PATCH against
@@ -966,6 +1030,7 @@ this API. A file with zero data rows is rejected outright (`400`) rather than tr
 everything," even though that's what a literal full sync would otherwise do.
 
 **Response `200`** (never `201` — the response is as often all-updates as it is a creation):
+
 ```
 ImportEventsResponse {
   createdCount: number;
@@ -974,6 +1039,7 @@ ImportEventsResponse {
   results: { row: number | null; action: 'created' | 'updated' | 'deleted'; id: string; title: string }[];
 }
 ```
+
 `row` is `null` for a `deleted` action, since a deletion is driven by an id's absence from the file,
 not by any specific row in it.
 
@@ -999,9 +1065,6 @@ transaction — deliberately not built given the above.
 - A frontend import/export UI on `/admin/events` — this session built and verified the backend
   contract only (curl, per this repo's backend/frontend session split); wiring an upload button and
   a "Download CSV" link into the admin page is separate frontend scope.
-- Country/format/date-range filtering on `GET /v1/events` itself — the standalone page filters
-  client-side over the full `upcoming=false` set (same pattern as `/articles`), not query params,
-  since the dataset is small (dozens, not thousands).
 
 ## Member directory & profiles
 
@@ -1029,7 +1092,7 @@ city/state/country, and the names of the member's services or their categories),
 `categoryId` (single — broadens to "any service in this category"; combined with `serviceId`, both
 must match), `country` (repeatable), `rateMinCents`/`rateMaxCents`, `sort`
 (`featured`\|`newest`\|`tenure`\|`rate_asc`\|`rate_desc`, default `featured`), `page`/`pageSize` (default
-`pageSize=8`, matching the prototype's infinite-scroll page size; **max 50**). Validated
+`pageSize=8`; **max 50** — the `/members` page asks for 50 per numbered page). Validated
 (2026-10-29): `q` ≤ 100 chars, `serviceId`/`categoryId` UUIDs, at most 20 `serviceId`/`country`
 values, integer rates, a known `sort` — anything else is `400 VALIDATION_FAILED`. Filtering,
 search, sorting and paging run in one SQL function (`member_directory_ids`), so every page is full
@@ -1045,9 +1108,14 @@ Tenure/rate display strings
 `bio` is the full field (not pre-truncated) — the directory card excerpt is a client-side
 `line-clamp-2`, matching the design's own approach, so no separate excerpt field was added.
 
+**Header `X-Total-Count` (added 2026-10-31, additive):** the total number of matches across all
+pages (exposed via CORS like `GET /v1/articles`/`GET /v1/events`), for the directory's page bar.
+The body is still a plain array. A page past the end returns `[]` with `X-Total-Count: 0`
+(`member_directory_ids` reads the count off its own rows).
+
 ### _member_ `GET /v1/members/me/profile`
 
-*Added 2026-10-23.* The signed-in member's own profile handle — **Response `200`:**
+_Added 2026-10-23._ The signed-in member's own profile handle — **Response `200`:**
 `MyMemberProfileDto` (`{ id, slug }`, `packages/shared-types/member.ts`). `404` when the caller has
 no member profile; `403` for clients. Two path segments, so it can never collide with a slug read.
 Backs the frontend's `/members/me` route, which redirects to `/members/<slug>` (the home hero's
@@ -1196,6 +1264,7 @@ otherwise). Applies **immediately**, no moderation queue (product decision). Vet
 consolidated here the same day, before any external consumer — not a `/v2`-worthy break.)
 
 **Request:** `UpdateMemberRequest`, every field optional:
+
 - `isAvailable?: boolean` — the "Available for consultations" switch (profile sidebar + mobile CTA
   bar). Previously a DB default (`true`) no one could change.
 - `availabilityNotes?: string | null` — ≤ 200 chars, shown under the status; omit to keep, `null`
@@ -1251,6 +1320,7 @@ in one call. `:id` is the member's UUID (`400` if malformed, `404` if no such me
 `status`, including deactivated).
 
 **Response `200`:** `AdminMemberEditsDetailDto`:
+
 - `member` — `{ id, slug, name, initials, email, photoUrl, status, isVerified }`.
 - `current` — the **live** value of every self-editable section, keyed by section name
   (`headline_bio: {headline, bio}`, `contact: ContactEditPayload`, and the six list sections as
@@ -1272,6 +1342,7 @@ accepted, `isVerified` = the item has proof.
 **2. Per-item** (array sections, added 2026-10-10): `{ items: [{ index, decision, reason? }], reviewNote? }`.
 `items` must cover **every** payload index exactly once (`ITEM_REVIEW_INCOMPLETE`,
 `ITEM_REVIEW_INDEX_INVALID`). `decision`:
+
 - `approved_verified` — applied, live **with** the Verified badge (`isVerified: true`). The item must
   have proof: its own `proofAttachments` (engagements/testimonials/awards/key_clients) or the
   edit-level `proofFileUrl`/`proofLink` (education/work_experiences), else `400 VERIFIED_REQUIRES_PROOF`.
@@ -1279,16 +1350,16 @@ accepted, `isVerified` = the item has proof.
   e.g. "proof not attached"), else `400 ITEM_REVIEW_REASON_REQUIRED`.
 - `rejected` — not applied. `reason` required. If the payload item carried a live `id`, that live
   item stays untouched; a brand-new item is dropped.
-`status` may be omitted; the edit's status is derived: `verified` if any item was accepted, else
-`rejected`. A supplied `status` that contradicts this is `400 REVIEW_STATUS_MISMATCH`. Per-item
-mode on `headline_bio`/`contact` is `400 ITEM_REVIEW_NOT_SUPPORTED`; neither `status` nor `items`
-is `400 REVIEW_DECISION_REQUIRED`. The decisions are stored on the edit as `itemReviews`
-(`[{index, decision, reason}]`) and returned in `MemberProfileEditDto.itemReviews` (null for
-whole-edit reviews) so the member sees each item's reason. If every item is rejected the live
-section is left exactly as it was (including items the member had removed). Accepted items keep
-`proofAttachments`. Work history is re-validated (end-before-start) and re-sorted on apply; overlaps with
-retained live items are allowed. `contact`
-approval now also writes `workEmail`. No email is sent.
+  `status` may be omitted; the edit's status is derived: `verified` if any item was accepted, else
+  `rejected`. A supplied `status` that contradicts this is `400 REVIEW_STATUS_MISMATCH`. Per-item
+  mode on `headline_bio`/`contact` is `400 ITEM_REVIEW_NOT_SUPPORTED`; neither `status` nor `items`
+  is `400 REVIEW_DECISION_REQUIRED`. The decisions are stored on the edit as `itemReviews`
+  (`[{index, decision, reason}]`) and returned in `MemberProfileEditDto.itemReviews` (null for
+  whole-edit reviews) so the member sees each item's reason. If every item is rejected the live
+  section is left exactly as it was (including items the member had removed). Accepted items keep
+  `proofAttachments`. Work history is re-validated (end-before-start) and re-sorted on apply; overlaps with
+  retained live items are allowed. `contact`
+  approval now also writes `workEmail`. No email is sent.
 
 **Key-client logos are published on approval.** A newly uploaded logo sits in the private
 `member-proofs` bucket as the item's `logoUploadPath`; the public profile reads `logoUrl`. On
@@ -1529,11 +1600,11 @@ Signed in, any role. Responses are plain camelCase DTOs (no envelope), like ever
 
 **Request** (`SearchRequestDto`) — a question:
 
-| Field | Type | Notes |
-|---|---|---|
-| `query` | string, required | 2–500 characters after trimming (`400` otherwise) |
-| `scope` | `'all'`\|`'members'`\|`'articles'`\|`'events'`, optional | default `all`; anything else is `400` |
-| `limit` | integer 1–20, optional | otherwise the number in the question, else 10 |
+| Field   | Type                                                     | Notes                                             |
+| ------- | -------------------------------------------------------- | ------------------------------------------------- |
+| `query` | string, required                                         | 2–500 characters after trimming (`400` otherwise) |
+| `scope` | `'all'`\|`'members'`\|`'articles'`\|`'events'`, optional | default `all`; anything else is `400`             |
+| `limit` | integer 1–20, optional                                   | otherwise the number in the question, else 10     |
 
 **Response `200`** (`SearchResponse`): `{ logId, answer, results, applied, degraded, ms }`.
 
@@ -1593,16 +1664,16 @@ but new/changed members, articles and events only appear once it has run.
 **Old → new names** (the contract this replaces was the `ai-search` Supabase Edge Function; nothing
 consumed it yet, so there is no compatibility shim):
 
-| Old (Edge Function) | New |
-|---|---|
-| `log_id` (request and response) | `logId` |
-| `retry_after_seconds` | `retryAfterSeconds` |
-| result `rate.min_cents` / `max_cents` | `rate.minCents` / `maxCents` |
-| article `published_at`, `read_time_minutes` | `publishedAt`, `readTimeMinutes` |
-| event `starts_at`, `ends_at`, `is_free`, `registration_url` | `startsAt`, `endsAt`, `isFree`, `registrationUrl` |
-| `applied.service_ids`, `date_from`, `date_to`, `max_hourly_rate_usd` | `applied.serviceIds`, `dateFrom`, `dateTo`, `maxHourlyRateUsd` |
-| error body `{ error }` only | `{ statusCode, code, message }` (+ `retryAfterSeconds` on 429) — see "Errors" |
-| `search_query_log.applied` (stored snake_case) | stored camelCase from now on; older rows keep the old keys |
+| Old (Edge Function)                                                  | New                                                                           |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `log_id` (request and response)                                      | `logId`                                                                       |
+| `retry_after_seconds`                                                | `retryAfterSeconds`                                                           |
+| result `rate.min_cents` / `max_cents`                                | `rate.minCents` / `maxCents`                                                  |
+| article `published_at`, `read_time_minutes`                          | `publishedAt`, `readTimeMinutes`                                              |
+| event `starts_at`, `ends_at`, `is_free`, `registration_url`          | `startsAt`, `endsAt`, `isFree`, `registrationUrl`                             |
+| `applied.service_ids`, `date_from`, `date_to`, `max_hourly_rate_usd` | `applied.serviceIds`, `dateFrom`, `dateTo`, `maxHourlyRateUsd`                |
+| error body `{ error }` only                                          | `{ statusCode, code, message }` (+ `retryAfterSeconds` on 429) — see "Errors" |
+| `search_query_log.applied` (stored snake_case)                       | stored camelCase from now on; older rows keep the old keys                    |
 
 Operational command (in `apps/backend`): `pnpm worker` (the background worker, locally).
 
@@ -1669,14 +1740,14 @@ User progress/saves/notes/completion tracking are out of scope. Templates were a
 
 ### Public browse and role-shaped detail
 
-| Method | Route | Result |
-|---|---|---|
-| GET | `/v1/perks` | `PerkDto[]` |
-| GET | `/v1/perks/:slug` | `PerkDto` |
-| GET | `/v1/learnings` | `LearningDto[]` |
-| GET | `/v1/learnings/:id` | `LearningDto` |
-| GET | `/v1/collections` | `CollectionDto[]` with ordered, role-shaped items |
-| GET | `/v1/collections/:id` | `CollectionDto` |
+| Method | Route                 | Result                                            |
+| ------ | --------------------- | ------------------------------------------------- |
+| GET    | `/v1/perks`           | `PerkDto[]`                                       |
+| GET    | `/v1/perks/:slug`     | `PerkDto`                                         |
+| GET    | `/v1/learnings`       | `LearningDto[]`                                   |
+| GET    | `/v1/learnings/:id`   | `LearningDto`                                     |
+| GET    | `/v1/collections`     | `CollectionDto[]` with ordered, role-shaped items |
+| GET    | `/v1/collections/:id` | `CollectionDto`                                   |
 
 Metadata is public. Send `Authorization: Bearer <access_token>` to get authorized content.
 An absent token means guest; a supplied malformed/expired/forged token returns **401**, never
@@ -1689,12 +1760,12 @@ without pagination. Optional list filters: `q` (case-insensitive name/title + de
 resource; collections have kind/audiences, perks category/featured, and learnings category/audiences/
 level/featured. Invalid enum filters and unknown query fields return **400**.
 
-| Viewer | Perk offers | Learning playback URL |
-|---|---|---|
-| Guest | No codes, offer text, redemption links, terms or expiry | Never returned, including `access=open` |
-| Signed-in client | Only `user_*` tier, if live, unexpired and redeemable | `open`, or `auto` when first in any active playlist |
-| Member | `member_*` tier; falls back to the `user_*` tier when `member_offer` is empty. Live, unexpired and redeemable only | Every active video |
-| Admin on public routes | Same as member | Every active video |
+| Viewer                 | Perk offers                                                                                                        | Learning playback URL                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| Guest                  | No codes, offer text, redemption links, terms or expiry                                                            | Never returned, including `access=open`             |
+| Signed-in client       | Only `user_*` tier, if live, unexpired and redeemable                                                              | `open`, or `auto` when first in any active playlist |
+| Member                 | `member_*` tier; falls back to the `user_*` tier when `member_offer` is empty. Live, unexpired and redeemable only | Every active video                                  |
+| Admin on public routes | Same as member                                                                                                     | Every active video                                  |
 
 A member never sees less than a client: with no `member_offer`, a member gets the `user_*` tier (added 2026-10-30). A client never gets the `member_*` tier. `coming_soon` and expired offers
 are withheld for every public viewer, including admin. Expiry is inclusive through its UTC date.
@@ -1720,13 +1791,13 @@ its URL.
 
 For each resource `{perks|learnings|collections}`:
 
-| Method | Route | Body / result |
-|---|---|---|
-| GET | `/v1/admin/{resource}` | All rows, including inactive; `Admin*Dto[]` |
-| GET | `/v1/admin/{resource}/:id` | Full `Admin*Dto` |
-| POST | `/v1/admin/{resource}` | `Create*Request`; **201** `Admin*Dto` |
-| PATCH | `/v1/admin/{resource}/:id` | Non-empty `Update*Request`; **200** `Admin*Dto` |
-| DELETE | `/v1/admin/{resource}/:id` | **204**, **404** if absent |
+| Method | Route                      | Body / result                                   |
+| ------ | -------------------------- | ----------------------------------------------- |
+| GET    | `/v1/admin/{resource}`     | All rows, including inactive; `Admin*Dto[]`     |
+| GET    | `/v1/admin/{resource}/:id` | Full `Admin*Dto`                                |
+| POST   | `/v1/admin/{resource}`     | `Create*Request`; **201** `Admin*Dto`           |
+| PATCH  | `/v1/admin/{resource}/:id` | Non-empty `Update*Request`; **200** `Admin*Dto` |
+| DELETE | `/v1/admin/{resource}/:id` | **204**, **404** if absent                      |
 
 No token: **401**. Clients/members or admins without `manageResources`: **403**. Existing global
 RolesGuard and AdminPermissionGuard re-check the active admin profile and permission in the DB.
@@ -1774,12 +1845,12 @@ Downloadable starter documents (Word / Excel / PowerPoint / PDF). **Every templa
 members-only.** Files live in the private `template-files` Storage bucket; the stored object path
 is never returned by a public route — a member gets a 60-second signed link instead.
 
-| Method | Route | Auth | Result |
-|---|---|---|---|
-| GET | `/v1/templates` | 🌐 optional bearer | `TemplateDto[]` (active only). Query: `q`, `category`, `audience`, `featured` |
-| GET | `/v1/templates/:id` | 🌐 optional bearer | `TemplateDto` |
-| POST | `/v1/templates/:id/download` | 🔒 member | `TemplateDownloadDto` `{ url, fileName, expiresAt }` |
-| GET | `/v1/collections?kind=template_kit` | 🌐 optional bearer | Kits with `items: TemplateDto[]` |
+| Method | Route                               | Auth               | Result                                                                        |
+| ------ | ----------------------------------- | ------------------ | ----------------------------------------------------------------------------- |
+| GET    | `/v1/templates`                     | 🌐 optional bearer | `TemplateDto[]` (active only). Query: `q`, `category`, `audience`, `featured` |
+| GET    | `/v1/templates/:id`                 | 🌐 optional bearer | `TemplateDto`                                                                 |
+| POST   | `/v1/templates/:id/download`        | 🔒 member          | `TemplateDownloadDto` `{ url, fileName, expiresAt }`                          |
+| GET    | `/v1/collections?kind=template_kit` | 🌐 optional bearer | Kits with `items: TemplateDto[]`                                              |
 
 `TemplateDto`: `id, slug, title, description, category, highlights[], fileType, fileName,
 fileSizeBytes, previewImageUrl, audiences, isFeatured, sortOrder, canDownload, lockReason`.
@@ -1796,13 +1867,13 @@ template's `fileName`.
 
 **Admin** (🛡️ `manageResources`, same fresh-admin guard as the rest of this module):
 
-| Method | Route | Notes |
-|---|---|---|
-| GET | `/v1/admin/templates` / `/:id` | `AdminTemplateDto` incl. `filePath` and `isActive` |
-| POST | `/v1/admin/templates/upload` | Multipart field `file`, ≤15MB. Type sniffed from the bytes (`file-type`): docx/xlsx/pptx/pdf only, else **400** (`FILE_REQUIRED` / `FILE_EMPTY` / `FILE_TOO_LARGE` / `FILE_INVALID_TYPE`). Stored at `uploads/<uuid>.<ext>`; returns `TemplateUploadDto` `{ filePath, fileName, fileSizeBytes, fileType }` — the file name is the uploader's, stripped of any path and given the true extension |
-| POST | `/v1/admin/templates` | `CreateTemplateRequest` = metadata + the upload response. `filePath` must match `^(starter\|uploads)/[a-z0-9-]+\.(docx\|xlsx\|pptx\|pdf)$`, end in `fileType`, and exist in the bucket, else **400** (`TEMPLATE_FILE_TYPE_MISMATCH` / `TEMPLATE_FILE_REQUIRED`). Slug generated server-side |
-| PATCH | `/v1/admin/templates/:id` | Partial. Swapping `filePath` deletes the old `uploads/` object once nothing references it |
-| DELETE | `/v1/admin/templates/:id` | **204**. Pruned from every kit (DB trigger); its `uploads/` file is deleted. Seed `starter/` files are kept |
+| Method | Route                          | Notes                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/admin/templates` / `/:id` | `AdminTemplateDto` incl. `filePath` and `isActive`                                                                                                                                                                                                                                                                                                                                              |
+| POST   | `/v1/admin/templates/upload`   | Multipart field `file`, ≤15MB. Type sniffed from the bytes (`file-type`): docx/xlsx/pptx/pdf only, else **400** (`FILE_REQUIRED` / `FILE_EMPTY` / `FILE_TOO_LARGE` / `FILE_INVALID_TYPE`). Stored at `uploads/<uuid>.<ext>`; returns `TemplateUploadDto` `{ filePath, fileName, fileSizeBytes, fileType }` — the file name is the uploader's, stripped of any path and given the true extension |
+| POST   | `/v1/admin/templates`          | `CreateTemplateRequest` = metadata + the upload response. `filePath` must match `^(starter\|uploads)/[a-z0-9-]+\.(docx\|xlsx\|pptx\|pdf)$`, end in `fileType`, and exist in the bucket, else **400** (`TEMPLATE_FILE_TYPE_MISMATCH` / `TEMPLATE_FILE_REQUIRED`). Slug generated server-side                                                                                                     |
+| PATCH  | `/v1/admin/templates/:id`      | Partial. Swapping `filePath` deletes the old `uploads/` object once nothing references it                                                                                                                                                                                                                                                                                                       |
+| DELETE | `/v1/admin/templates/:id`      | **204**. Pruned from every kit (DB trigger); its `uploads/` file is deleted. Seed `starter/` files are kept                                                                                                                                                                                                                                                                                     |
 
 Kits use the existing collection routes with `kind: 'template_kit'`; `itemIds` must be template ids.
 

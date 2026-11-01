@@ -1,4 +1,7 @@
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsUUID,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -10,6 +13,8 @@ import {
   MaxLength,
 } from 'class-validator';
 import type { EventFormat, EventStatus } from '@shared/event';
+
+export const MAX_EVENT_CATEGORIES = 5;
 
 const EVENT_FORMATS: EventFormat[] = ['in_person', 'virtual', 'hybrid'];
 const EVENT_STATUSES: EventStatus[] = ['draft', 'published'];
@@ -94,6 +99,13 @@ export class CreateEventDto {
   @IsString()
   @MaxLength(EVENT_LABEL_MAX)
   organiserName?: string | null;
+
+  /** Topic categories (taxonomy level 2), at most 5. Omitted on create → inferred from the text. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_EVENT_CATEGORIES)
+  @IsUUID('all', { each: true })
+  categoryIds?: string[];
 
   // Defaults to 'draft' if omitted.
   @IsOptional()

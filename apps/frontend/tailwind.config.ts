@@ -65,6 +65,7 @@ const config: Config = {
       },
 
       fontFamily: {
+        brand: ['var(--font-brand-serif)', 'Georgia', 'Times New Roman', 'serif'],
         sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         // Historically Archivo with wide tracking; now the same face as body text so small labels
         // read as plain text, not letter-spaced caps-style tags.
@@ -87,7 +88,8 @@ const config: Config = {
           'clamp(28px, 3.2vw, 44px)',
           { lineHeight: '1.08', letterSpacing: '-0.02em', fontWeight: '500' },
         ],
-        lede: ['clamp(17px, 1.3vw, 20px)', { lineHeight: '1.5', letterSpacing: '-0.005em', fontWeight: '400' }],
+        // 15–17px (was 17–20px): paragraph text read too large next to the titles (Oct 2026).
+        lede: ['clamp(15px, 1.1vw, 17px)', { lineHeight: '1.55', letterSpacing: '-0.005em', fontWeight: '400' }],
 
         // This app's additions — consolidated from recurring (but not
         // perfectly consistent, e.g. 17/18/19px card titles) sizes used
@@ -111,7 +113,7 @@ const config: Config = {
         // `.mp-section-label` — "KEY ENGAGEMENTS"-style section heading, pairs with `font-mono`.
         'profile-label': ['11px', { lineHeight: 'normal', letterSpacing: 'normal' }],
         // `.mp-bio`
-        'profile-body': ['15.5px', { lineHeight: '1.7' }],
+        'profile-body': ['15px', { lineHeight: '1.7' }],
         // `.mp-eng-title` / `.mp-edu-degree` / `.mp-work-title` / `.mp-stat` / `.mp-tab`
         'profile-item': ['14.5px', { lineHeight: '1.45' }],
         // `.mp-edu-meta` / `.mp-work-company` / `.mp-award-meta`

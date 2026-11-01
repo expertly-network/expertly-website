@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { LearningDto, CollectionDto } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card, Input, Select } from '@/components/ui';
+import { Badge, Button, Card, Select } from '@/components/ui';
 import { ResourceHero } from './ResourceHero';
 import { ResourceImage } from './ResourceImage';
 import { ResourceDialog } from './ResourceDialog';
@@ -57,18 +57,13 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
       <ResourceHero
         title="The technology your profession"
         accent="never taught you."
-        search={
-          <Input
-            id="learning-search"
-            label=""
-            aria-label="Search videos"
-            className="bg-bg-card"
-            type="search"
-            placeholder="AI, drafting, Excel, privacy…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        }
+        search={{
+          id: 'learning-search',
+          label: 'Search videos',
+          placeholder: 'AI, drafting, Excel, privacy…',
+          value: q,
+          onChange: setQ,
+        }}
       >
         Hand-picked videos on AI, automation and data, chosen for tax, legal and audit practitioners. Less searching.
         More putting what you learn into practice.

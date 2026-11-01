@@ -77,7 +77,7 @@ export function Testimonials() {
       />
       <PageContainer className="relative">
         <Eyebrow>Voices</Eyebrow>
-        <h2 className="mt-4 text-section-title text-bg-card">
+        <h2 className="font-brand mt-4 text-section-title text-bg-card">
           <span className="text-accent">Trusted</span> by professionals worldwide.
         </h2>
 

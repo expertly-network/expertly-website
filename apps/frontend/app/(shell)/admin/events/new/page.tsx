@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { EventForm } from '@/components/admin/EventForm';
+import { getCategoriesServer } from '@/lib/api/server';
 
 export const metadata = {
   title: 'Create event — Admin — GrowXQ',
@@ -19,15 +20,10 @@ export default async function NewAdminEventPage() {
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Admin</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">Create event</h1>
-        </PageContainer>
-      </section>
+      <PageHero eyebrow="Admin" title="Create event" />
       <section className="py-12">
         <PageContainer>
-          <EventForm />
+          <EventForm categories={await getCategoriesServer()} />
         </PageContainer>
       </section>
     </div>

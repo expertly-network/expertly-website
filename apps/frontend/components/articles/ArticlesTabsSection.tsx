@@ -15,6 +15,7 @@ export function ArticlesTabsSection({
   myArticles,
   canWrite,
   initialTab = 'browse',
+  initialServiceFilter = [],
 }: {
   /** First page of the browse grid; the grid fetches further pages itself. */
   articles: ArticleListItemDto[];
@@ -25,6 +26,8 @@ export function ArticlesTabsSection({
   /** Set from ?tab=mine so a link straight to "My Articles" (e.g. from /articles/write's nav)
    * lands on the right panel instead of always defaulting to Browse. */
   initialTab?: ArticlesTab;
+  /** From ?service=<id>: the browse grid starts filtered to that service. */
+  initialServiceFilter?: string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -42,8 +45,13 @@ export function ArticlesTabsSection({
 
       <div className="mt-8">
         {tab === 'browse' ? (
-          articles.length > 0 ? (
-            <ArticlesGrid initialArticles={articles} initialTotal={totalArticles} categories={categories} />
+          articles.length > 0 || initialServiceFilter.length > 0 ? (
+            <ArticlesGrid
+              initialArticles={articles}
+              initialTotal={totalArticles}
+              categories={categories}
+              initialServiceFilter={initialServiceFilter}
+            />
           ) : (
             <p className="py-16 text-center text-sm text-ink-3">No articles published yet — check back soon.</p>
           )

@@ -57,6 +57,7 @@ export class AdminAiGenerationsService {
     return {
       ...toListItem(row, authors, indexByGenerationId(linkedArticles)),
       inputs: {
+        topic: row.core_answers.topic ?? null,
         notes: row.core_answers.notes ?? null,
         recentDevelopments: row.core_answers.recentDevelopments ?? null,
         advice: row.core_answers.advice ?? null,

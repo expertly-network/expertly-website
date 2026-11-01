@@ -136,6 +136,12 @@ export function SidebarNav({ user, variant = 'full' }: { user: Profile | null; v
           <span className={navLabelClasses(variant)}>Membership</span>
         </Link>
       )}
+      {user?.role === 'client' && (
+        <Link href="/dashboard" className={navLinkClasses(variant)}>
+          <svg {...iconProps}>{DASHBOARD_ICON}</svg>
+          <span className={navLabelClasses(variant)}>Dashboard</span>
+        </Link>
+      )}
       {user && user.role !== 'member' && (
         <Link href="/consultations" className={navLinkClasses(variant)}>
           <svg {...iconProps}>{CONSULTATIONS_ICON}</svg>

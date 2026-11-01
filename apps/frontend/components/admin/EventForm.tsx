@@ -2,14 +2,25 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Input, Select, Textarea } from '@/components/ui';
+import { Button, Card, Input, MultiSelect, Select, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { createEvent, updateEvent } from '@/lib/api/events';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { CreateEventRequest, EventDto, EventFormat } from '@shared/event';
+import type { CategoryDto } from '@shared/category';
 
 // Suggestions only — event_type is free text, not an enum.
-const EVENT_TYPE_SUGGESTIONS = ['Tax', 'Legal', 'Audit', 'AI & Tech', 'Fintech', 'Law', 'Startup', 'General'];
+const EVENT_TYPE_SUGGESTIONS = [
+  'Seminar',
+  'Webinar',
+  'Conference',
+  'Training',
+  'Workshop',
+  'Forum',
+  'Certificate Course',
+  'Roundtable',
+  'Summit',
+];
 
 const FORMAT_OPTIONS: { value: EventFormat; label: string }[] = [
   { value: 'in_person', label: 'In Person' },
@@ -37,6 +48,8 @@ interface FormState {
   registrationUrl: string;
   organiserName: string;
   coverImageUrl: string;
+  /** Topic categories. Empty on a new event = let the server infer them from the text. */
+  categoryIds: string[];
 }
 
 function toFormState(event?: EventDto): FormState {
@@ -56,6 +69,7 @@ function toFormState(event?: EventDto): FormState {
     registrationUrl: event?.registrationUrl ?? '',
     organiserName: event?.organiserName ?? '',
     coverImageUrl: event?.coverImageUrl ?? '',
+    categoryIds: event?.categoryIds ?? [],
   };
 }
 
@@ -67,7 +81,7 @@ const PUBLISH_REQUIRED_FIELDS: { key: keyof FormState; label: string }[] = [
   { key: 'startDate', label: 'Start date' },
   { key: 'endDate', label: 'End date' },
   { key: 'eventFormat', label: 'Format' },
-  { key: 'eventType', label: 'Category' },
+  { key: 'eventType', label: 'Event type' },
   { key: 'city', label: 'City' },
   { key: 'country', label: 'Country' },
   { key: 'registrationUrl', label: 'Registration URL' },
@@ -75,7 +89,7 @@ const PUBLISH_REQUIRED_FIELDS: { key: keyof FormState; label: string }[] = [
 
 // null (not undefined) for a blanked-out optional field — an omitted key means "leave unchanged"
 // on edit, so null is the only way to actually clear a field the admin previously set.
-function toRequestBody(state: FormState, status: 'draft' | 'published'): CreateEventRequest {
+function toRequestBody(state: FormState, status: 'draft' | 'published', isEdit: boolean): CreateEventRequest {
   return {
     title: state.title,
     description: state.description,
@@ -92,12 +106,15 @@ function toRequestBody(state: FormState, status: 'draft' | 'published'): CreateE
     isFree: state.isFree,
     registrationUrl: state.registrationUrl || null,
     organiserName: state.organiserName || null,
+    // A new event with no topics picked omits the field so the server infers them; an edit always
+    // sends the admin's current choice.
+    ...(isEdit || state.categoryIds.length > 0 ? { categoryIds: state.categoryIds } : {}),
     status,
   };
 }
 
 // Shared by the create and edit event pages — `event` present means edit mode.
-export function EventForm({ event }: { event?: EventDto }) {
+export function EventForm({ event, categories }: { event?: EventDto; categories: CategoryDto[] }) {
   const router = useRouter();
   const [state, setState] = useState<FormState>(() => toFormState(event));
   const [busy, setBusy] = useState<'draft' | 'published' | null>(null);
@@ -129,7 +146,7 @@ export function EventForm({ event }: { event?: EventDto }) {
     setError(null);
     setBusy(status);
     try {
-      const body = toRequestBody(state, status);
+      const body = toRequestBody(state, status, !!event);
       if (event) {
         await updateEvent(event.id, body);
       } else {
@@ -211,11 +228,11 @@ export function EventForm({ event }: { event?: EventDto }) {
           </Select>
           <div>
             <Input
-              label="Category"
+              label="Event type"
               list="event-type-suggestions"
               value={state.eventType}
               onChange={(e) => set('eventType', e.target.value)}
-              placeholder="e.g. Tax"
+              placeholder="e.g. Seminar"
               error={fieldErrors.eventType}
             />
             <datalist id="event-type-suggestions">
@@ -224,6 +241,20 @@ export function EventForm({ event }: { event?: EventDto }) {
               ))}
             </datalist>
           </div>
+        </div>
+
+        <div>
+          <MultiSelect
+            label="Topics"
+            options={categories.map((c) => ({ value: c.id, label: `${c.serviceLineName} · ${c.name}` }))}
+            selected={state.categoryIds}
+            onChange={(values) => set('categoryIds', values.slice(0, 5))}
+            placeholder={event ? 'No topics' : 'Leave empty to tag automatically from the title'}
+          />
+          <p className="mt-1.5 text-xs text-ink-3">
+            Up to 5. Used by the Events page&apos;s area and topic filters.
+            {!event && ' Left empty, topics are inferred from the title and description.'}
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-4 max-[640px]:grid-cols-1">

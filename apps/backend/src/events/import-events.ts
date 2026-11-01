@@ -11,6 +11,7 @@ import type { EventFormat, EventStatus } from '@shared/event';
 import { missingPublishFields } from './publish-requirements';
 import type { ParsedEventCsvRow } from './events-csv';
 import type { EventInsert } from './events.repository';
+import { inferEventCategoryIds } from './event-categories';
 
 const EVENT_FORMATS: EventFormat[] = ['in_person', 'virtual', 'hybrid'];
 const EVENT_STATUSES: EventStatus[] = ['draft', 'published'];
@@ -35,6 +36,7 @@ export interface ValidatedEventRow {
     isFree: boolean;
     registrationUrl: string | null;
     organiserName: string | null;
+    categoryIds: string[];
     status: EventStatus;
   };
 }
@@ -51,7 +53,12 @@ function nullableCell(cells: Record<string, string>, key: string): string | null
 // Validates one CSV row in isolation (no DB access, each row treated as a full desired-state
 // replace rather than a partial patch — matching how a spreadsheet row is naturally edited).
 // Cross-row checks (duplicate/unknown ids) are the caller's job, since only it sees every row.
-export function validateEventRow(row: ParsedEventCsvRow): { row: ValidatedEventRow } | { errors: string[] } {
+// `categories` holds category names separated by ";"; a blank (or missing) cell infers them from
+// the title/description, like a create through the API.
+export function validateEventRow(
+  row: ParsedEventCsvRow,
+  categoryIdByName: Map<string, string>
+): { row: ValidatedEventRow } | { errors: string[] } {
   const errors: string[] = [];
   const prefix = `Row ${row.rowNumber}:`;
 
@@ -103,8 +110,24 @@ export function validateEventRow(row: ParsedEventCsvRow): { row: ValidatedEventR
     isFree,
     registrationUrl,
     organiserName: nullableCell(row.cells, 'organiserName'),
+    categoryIds: [] as string[],
     status,
   };
+
+  const categoryNames = cell(row.cells, 'categories')
+    .split(';')
+    .map((n) => n.trim())
+    .filter(Boolean);
+  if (categoryNames.length === 0) {
+    fields.categoryIds = inferEventCategoryIds(title, description, categoryIdByName);
+  } else {
+    for (const name of categoryNames) {
+      const id = categoryIdByName.get(name);
+      if (id) fields.categoryIds.push(id);
+      else errors.push(`${prefix} Unknown category "${name}".`);
+    }
+    fields.categoryIds = [...new Set(fields.categoryIds)].slice(0, 5);
+  }
 
   // Same bounds/format rules as Create/UpdateEventDto (a CSV row never goes through the DTO).
   if (startDate && !isISO8601(startDate)) errors.push(`${prefix} Start date must be an ISO 8601 date.`);
@@ -155,6 +178,7 @@ export function toEventColumns(row: ValidatedEventRow): Omit<EventInsert, 'slug'
     is_free: row.fields.isFree,
     registration_url: row.fields.registrationUrl,
     organiser_name: row.fields.organiserName,
+    category_ids: row.fields.categoryIds,
     status: row.fields.status,
   };
 }

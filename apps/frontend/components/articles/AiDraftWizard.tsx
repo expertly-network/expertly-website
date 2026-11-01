@@ -13,6 +13,19 @@ import type { AiDraftArticleResponse } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
 import { ExternalLink } from '@/components/shared/ExternalLink';
 import { AI_DRAFT_PROSE } from '@/lib/articles/prose';
+import { AI_BRIEF_LIMITS, countWords, parseSourceLinks, wordLimitError } from '@/lib/articles/ai-brief-limits';
+
+type BriefField = 'topic' | 'notes' | 'recentDevelopments' | 'advice' | 'links';
+
+// "12 / 600 words" under a field, so the limits are visible before they're hit.
+function wordHint(text: string, limit: { min: number; max: number }) {
+  const n = countWords(text);
+  return (
+    <span className={n > limit.max ? 'text-error' : undefined}>
+      {n} / {limit.max} words{limit.min > 0 ? ` · at least ${limit.min}` : ''}
+    </span>
+  );
+}
 
 type SubStep = 1 | 2 | 3;
 
@@ -111,6 +124,7 @@ export function AiDraftWizard({
 }) {
   const services = categories.flatMap((c) => c.services);
   const [subStep, setSubStep] = useState<SubStep>(1);
+  const [topic, setTopic] = useState('');
   const [notes, setNotes] = useState('');
   const [recentDevelopments, setRecentDevelopments] = useState('');
   const [advice, setAdvice] = useState('');
@@ -130,7 +144,10 @@ export function AiDraftWizard({
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
 
   // Inline, per field — a banner below the fold left members hunting for what was missing.
-  const [stepErrors, setStepErrors] = useState<{ notes?: string; advice?: string }>({});
+  const [stepErrors, setStepErrors] = useState<Partial<Record<BriefField, string>>>({});
+  const [followUpErrors, setFollowUpErrors] = useState<Record<string, string>>({});
+  const clearError = (field: BriefField) =>
+    setStepErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AiDraftArticleResponse | null>(null);
@@ -147,20 +164,27 @@ export function AiDraftWizard({
   // manually written article, checked before "Continue to preview" instead of failing at publish.
   const [reviewAttempted, setReviewAttempted] = useState(false);
 
+  // Every field is checked before moving on — a bad link or a one-word brief is caught here, not
+  // after the member has answered the follow-ups and pressed Generate.
   async function continueFromStep1() {
-    const errors = {
-      notes: notes.trim() ? undefined : 'Share your own take — the AI writes from your perspective.',
-      advice: advice.trim() ? undefined : 'Add your advice for readers.',
+    const errors: Partial<Record<BriefField, string>> = {
+      topic: wordLimitError(topic, AI_BRIEF_LIMITS.topic, 'a topic or working title') ?? undefined,
+      notes: wordLimitError(notes, AI_BRIEF_LIMITS.notes, 'your own take') ?? undefined,
+      recentDevelopments: wordLimitError(recentDevelopments, AI_BRIEF_LIMITS.recentDevelopments, '') ?? undefined,
+      advice: wordLimitError(advice, AI_BRIEF_LIMITS.advice, 'your advice for readers') ?? undefined,
+      links: parseSourceLinks(links).error ?? undefined,
     };
-    if (errors.notes || errors.advice) {
+    const firstInvalid = (['topic', 'notes', 'recentDevelopments', 'advice', 'links'] as const).find((f) => errors[f]);
+    if (firstInvalid) {
       setStepErrors(errors);
-      document.getElementById(errors.notes ? 'ai-notes' : 'ai-advice')?.focus();
+      document.getElementById(`ai-${firstInvalid}`)?.focus();
       return;
     }
     setStepErrors({});
     setLoadingFollowUps(true);
     try {
       const { questions } = await getFollowUpQuestions({
+        topic,
         notes,
         recentDevelopments: recentDevelopments || undefined,
         advice,
@@ -176,6 +200,17 @@ export function AiDraftWizard({
     }
   }
 
+  // Follow-up answers are optional, but each one given must stay within the word limit.
+  function continueFromStep2() {
+    const errors: Record<string, string> = {};
+    for (const question of followUpQuestions) {
+      const error = wordLimitError(followUpAnswerMap[question] ?? '', AI_BRIEF_LIMITS.followUpAnswer, '');
+      if (error) errors[question] = error;
+    }
+    setFollowUpErrors(errors);
+    if (Object.keys(errors).length === 0) setSubStep(3);
+  }
+
   async function generate() {
     setGenError(null);
     setGenerating(true);
@@ -186,15 +221,13 @@ export function AiDraftWizard({
 
       const result = await generateArticleDraft(
         {
-          notes: notes || undefined,
+          topic,
+          notes,
           recentDevelopments: recentDevelopments || undefined,
-          advice: advice || undefined,
+          advice,
           followUpAnswers: followUpAnswers.length > 0 ? followUpAnswers : undefined,
           followUpQuestionsAsked: followUpQuestions.length > 0 ? followUpQuestions : undefined,
-          sourceLinks: links
-            .split('\n')
-            .map((l) => l.trim())
-            .filter(Boolean),
+          sourceLinks: parseSourceLinks(links).links,
           includeVisual,
           tone,
           extraInstructions: extraInstructions || undefined,
@@ -429,6 +462,19 @@ export function AiDraftWizard({
         <div className="mt-2 flex animate-[anvIn_0.3s_cubic-bezier(0.22,1,0.36,1)_both] flex-col gap-5">
           {subStep === 1 && (
             <>
+              <Input
+                id="ai-topic"
+                label="What's the article about?"
+                markRequired
+                value={topic}
+                error={stepErrors.topic}
+                hint={wordHint(topic, AI_BRIEF_LIMITS.topic)}
+                onChange={(e) => {
+                  setTopic(e.target.value);
+                  clearError('topic');
+                }}
+                placeholder="A topic or working title, e.g. What the new TDS rules on rent mean for landlords"
+              />
               <Textarea
                 id="ai-notes"
                 label="Your thoughts / notes"
@@ -436,18 +482,25 @@ export function AiDraftWizard({
                 rows={4}
                 value={notes}
                 error={stepErrors.notes}
+                hint={wordHint(notes, AI_BRIEF_LIMITS.notes)}
                 onChange={(e) => {
                   setNotes(e.target.value);
-                  if (stepErrors.notes) setStepErrors((prev) => ({ ...prev, notes: undefined }));
+                  clearError('notes');
                 }}
                 placeholder="What's your own take on this? Give the AI your perspective to write from."
               />
               <Textarea
+                id="ai-recentDevelopments"
                 label="Any recent developments or regulations for this topic?"
                 labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
                 rows={3}
                 value={recentDevelopments}
-                onChange={(e) => setRecentDevelopments(e.target.value)}
+                error={stepErrors.recentDevelopments}
+                hint={wordHint(recentDevelopments, AI_BRIEF_LIMITS.recentDevelopments)}
+                onChange={(e) => {
+                  setRecentDevelopments(e.target.value);
+                  clearError('recentDevelopments');
+                }}
                 placeholder="e.g. a new circular, amendment, or ruling the article should reference"
               />
               <Textarea
@@ -457,9 +510,10 @@ export function AiDraftWizard({
                 rows={3}
                 value={advice}
                 error={stepErrors.advice}
+                hint={wordHint(advice, AI_BRIEF_LIMITS.advice)}
                 onChange={(e) => {
                   setAdvice(e.target.value);
-                  if (stepErrors.advice) setStepErrors((prev) => ({ ...prev, advice: undefined }));
+                  clearError('advice');
                 }}
                 placeholder="What should readers actually do with this information?"
               />
@@ -529,11 +583,16 @@ export function AiDraftWizard({
                 )}
                 <div className="mt-3.5">
                   <Textarea
+                    id="ai-links"
                     label="Links for the AI to research"
-                    labelRight={<span className="text-xs font-normal text-ink-3">one per line</span>}
+                    labelRight={<span className="text-xs font-normal text-ink-3">one per line, up to 5</span>}
                     rows={3}
                     value={links}
-                    onChange={(e) => setLinks(e.target.value)}
+                    error={stepErrors.links}
+                    onChange={(e) => {
+                      setLinks(e.target.value);
+                      clearError('links');
+                    }}
                     placeholder={'https://…\nhttps://…'}
                   />
                 </div>
@@ -562,13 +621,21 @@ export function AiDraftWizard({
                     labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
                     rows={2}
                     value={followUpAnswerMap[question] ?? ''}
-                    onChange={(e) => setFollowUpAnswerMap((prev) => ({ ...prev, [question]: e.target.value }))}
+                    error={followUpErrors[question]}
+                    hint={wordHint(followUpAnswerMap[question] ?? '', AI_BRIEF_LIMITS.followUpAnswer)}
+                    onChange={(e) => {
+                      setFollowUpAnswerMap((prev) => ({ ...prev, [question]: e.target.value }));
+                      setFollowUpErrors((prev) => {
+                        const { [question]: _cleared, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
                   />
                 ))}
               </div>
               <div className="mt-1 flex items-center justify-between">
                 <WizardBackStep onClick={() => setSubStep(1)} />
-                <WizardNextButton onClick={() => setSubStep(3)}>Continue {ARROW_ICON}</WizardNextButton>
+                <WizardNextButton onClick={continueFromStep2}>Continue {ARROW_ICON}</WizardNextButton>
               </div>
             </>
           )}

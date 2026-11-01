@@ -24,6 +24,7 @@ export const EXPORT_COLUMNS = [
   'isFree',
   'registrationUrl',
   'organiserName',
+  'categories',
   'status',
   'createdAt',
   'updatedAt',
@@ -33,9 +34,17 @@ export const EXPORT_COLUMNS = [
 // requireds on a single-event create, same as CreateEventDto.
 export const REQUIRED_IMPORT_COLUMNS = ['title', 'description', 'startDate'] as const;
 
-export function eventsToCsv(events: EventDto[]): string {
+// `categories` is written as names joined by "; " (readable in a spreadsheet); import reads it back.
+export function eventsToCsv(events: EventDto[], categoryNameById: Map<string, string>): string {
   const rows = events.map((event) =>
-    EXPORT_COLUMNS.map((col) => stringifyCell((event as unknown as Record<string, unknown>)[col]))
+    EXPORT_COLUMNS.map((col) =>
+      col === 'categories'
+        ? event.categoryIds
+            .map((id) => categoryNameById.get(id))
+            .filter(Boolean)
+            .join('; ')
+        : stringifyCell((event as unknown as Record<string, unknown>)[col])
+    )
   );
   return stringify([EXPORT_COLUMNS as unknown as string[], ...rows]);
 }

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -10,4 +10,8 @@ export class CreateCategoryDto {
   @IsUrl({ protocols: ['http', 'https'] })
   @MaxLength(2048)
   imageUrl?: string;
+
+  @IsOptional()
+  @IsUUID()
+  serviceLineId?: string;
 }

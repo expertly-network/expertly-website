@@ -103,3 +103,12 @@ export function getSiteUrlOrDefault(): string {
 export function getApiUrlRuntime(): string {
   return stripTrailingSlash(runtimeEnv('API_URL') ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
 }
+
+/**
+ * The launch switch (runtime SITE_LAUNCHED, Coolify env var — flip it and restart, no rebuild).
+ * `false` puts the site in pre-launch: only the teaser at `/`, sign-in and the application stay
+ * open (see lib/launch.ts). Anything else, or unset, means launched — so local dev is unaffected.
+ */
+export function isSiteLaunched(): boolean {
+  return runtimeEnv('SITE_LAUNCHED')?.trim().toLowerCase() !== 'false';
+}

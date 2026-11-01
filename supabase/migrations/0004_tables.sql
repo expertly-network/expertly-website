@@ -93,7 +93,40 @@ create policy profiles_select_auth_admin
   using (true);
 
 -- ============================================================================
--- categories / services — the two-level service taxonomy. `services.category_id` has no ON
+-- service_lines — the top of the three-level taxonomy (service line → category → service), e.g.
+-- Tax, Finance, Legal. Seeded from the client's Services.xlsx (2026-10-31); "Other" holds the
+-- catch-all "Others" category the sheet doesn't list.
+-- ============================================================================
+
+create table public.service_lines (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order smallint not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create trigger set_service_lines_updated_at
+  before update on public.service_lines
+  for each row execute function public.set_updated_at();
+
+alter table public.service_lines enable row level security;
+
+create policy service_lines_select_all
+  on public.service_lines for select
+  using (true);
+
+insert into public.service_lines (name, sort_order) values
+  ('Tax', 1),
+  ('Corporate Secretarial', 2),
+  ('Finance', 3),
+  ('Legal', 4),
+  ('Other', 5);
+
+-- ============================================================================
+-- categories / services — the lower two levels of the service taxonomy (each category belongs to
+-- one service line, above). `services.category_id` has no ON
 -- DELETE clause (default restrict): deleting a category that still has services fails with a
 -- foreign-key violation (23503), caught in CategoriesRepository and turned into a 409 — an admin
 -- must delete/move a category's services first. Referenced by a real FK from member_services
@@ -105,6 +138,7 @@ create policy profiles_select_auth_admin
 
 create table public.categories (
   id uuid primary key default gen_random_uuid(),
+  service_line_id uuid not null references public.service_lines (id),
   name text not null unique,
   sort_order smallint not null,
   -- Same decorative-only, nullable, not-user-facing-until-admin-sets-it role practice_areas.image_url had.
@@ -113,6 +147,8 @@ create table public.categories (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create index categories_service_line_id_idx on public.categories (service_line_id);
 
 create trigger set_categories_updated_at
   before update on public.categories
@@ -152,47 +188,56 @@ create policy services_select_all
   on public.services for select
   using (true);
 
--- Seed data: 17 categories, 138 services, transcribed verbatim from the client-supplied taxonomy
+-- Seed data: 18 categories, 141 services, transcribed verbatim from the client-supplied taxonomy
+-- (updated 2026-10-31 from Services.xlsx: categories grouped under service lines, the "Legal - "
+-- prefix dropped, "Other taxes" → "Other taxes & duties", and a Finance → Investment Banking
+-- category added). Originally
 -- (docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md §2), except one typo fix
 -- ("Gfit" -> "Gift" under Direct Tax) and the numbering gap at #4 closed (categories are keyed by
 -- name, not the client's original S.No). sort_order is source order within each category.
 -- image_url: square Unsplash crops (free licence, hotlinked per Unsplash API guidelines), shown as the
 -- homepage Coverage tile thumbnails. Admins can replace any of them via PATCH /v1/admin/categories/:id.
-insert into public.categories (name, sort_order, image_url) values
-  ('Direct Tax', 1,
+insert into public.categories (service_line_id, name, sort_order, image_url)
+select l.id, c.name, c.sort_order, c.image_url
+from (values
+  ('Tax', 'Direct Tax', 1,
    'https://images.unsplash.com/photo-1709880945165-d2208c6ad2ec?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHx0YXglMjBjYWxjdWxhdG9yfGVufDF8fHx8MTc5MzI5MTMwNnww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Indirect Tax', 2,
+  ('Tax', 'Indirect Tax', 2,
    'https://images.unsplash.com/photo-1731686602391-7484df33a03c?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxyZWNlaXB0cyUyMGludm9pY2V8ZW58MXx8fHwxNzkzMjkxMTYyfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Other taxes', 3,
+  ('Tax', 'Other taxes & duties', 3,
    'https://images.unsplash.com/photo-1554224154-26032ffc0d07?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHx0YXglMjBmb3Jtc3xlbnwxfHx8fDE3OTMyOTEzMDd8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Corporate compliances & Secretarial assistance', 4,
+  ('Corporate Secretarial', 'Corporate compliances & Secretarial assistance', 4,
    'https://images.unsplash.com/photo-1695388474402-ed805a890d8d?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxvZmZpY2UlMjBwYXBlcndvcmt8ZW58MXx8fHwxNzkzMjkxMzA4fDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Accounting & related compliances', 5,
+  ('Finance', 'Accounting & related compliances', 5,
    'https://images.unsplash.com/photo-1642043175009-5997b3a078d8?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxhY2NvdW50aW5nJTIwbGVkZ2VyfGVufDF8fHx8MTc5MzI5MTMwOHww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Audit & Assurance', 6,
+  ('Finance', 'Audit & Assurance', 6,
    'https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxmaW5hbmNpYWwlMjBhdWRpdHxlbnwxfHx8fDE3OTMyOTEzMDl8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Corporate, M&A & Capital Markets', 7,
+  ('Finance', 'Investment Banking', 7,
+   'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=192&h=192&fit=crop&auto=format&q=70'),
+  ('Legal', 'Corporate, M&A & Capital Markets', 8,
    'https://images.unsplash.com/photo-1573164574572-cb89e39749b4?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxib2FyZHJvb20lMjBtZWV0aW5nfGVufDF8fHx8MTc5MzI5MTMwOXww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Banking, Finance & Insolvency', 8,
+  ('Legal', 'Banking, Finance & Insolvency', 9,
    'https://images.unsplash.com/photo-1554469384-e58fac16e23a?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxiYW5rJTIwYnVpbGRpbmd8ZW58MXx8fHwxNzkzMjkxMzA5fDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Dispute Resolution & Investigations', 9,
+  ('Legal', 'Dispute Resolution & Investigations', 10,
    'https://images.unsplash.com/photo-1676181739859-08330dea8999?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxnYXZlbHxlbnwxfHx8fDE3OTMyOTExODh8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Regulatory, Competition & Public Law', 10,
+  ('Legal', 'Regulatory, Competition & Public Law', 11,
    'https://images.unsplash.com/photo-1523292562811-8fa7962a78c8?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxnb3Zlcm5tZW50JTIwYnVpbGRpbmclMjBjb2x1bW5zfGVufDF8fHx8MTc5MzI5MTMxMHww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Data Protection, Technology & IP', 11,
+  ('Legal', 'Data Protection, Technology & IP', 12,
    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxkYXRhJTIwc2VjdXJpdHl8ZW58MXx8fHwxNzkzMjkxMzEwfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Employment & Immigration', 12,
+  ('Legal', 'Employment & Immigration', 13,
    'https://images.unsplash.com/photo-1553697388-94e804e2f0f6?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxwYXNzcG9ydCUyMHRyYXZlbHxlbnwxfHx8fDE3OTMyOTEzMTF8MA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Real Estate, Infrastructure & Environment', 13,
+  ('Legal', 'Real Estate, Infrastructure & Environment', 14,
    'https://images.unsplash.com/photo-1514565131-fce0801e5785?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxza3lsaW5lJTIwYnVpbGRpbmdzfGVufDF8fHx8MTc5MzI5MTMxMXww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Private Client, Family & Wealth', 14,
+  ('Legal', 'Private Client, Family & Wealth', 15,
    'https://images.unsplash.com/photo-1558036117-15d82a90b9b1?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxmYW1pbHklMjBlc3RhdGUlMjBob21lfGVufDF8fHx8MTc5MzI5MTMxMnww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Legal - Sector-Specific Practices', 15,
+  ('Legal', 'Sector-Specific Practices', 16,
    'https://images.unsplash.com/photo-1717386255773-1e3037c81788?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyeSUyMGZhY3Rvcnl8ZW58MXx8fHwxNzkzMjkxMzEzfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Notarial & Admin Services', 16,
+  ('Legal', 'Notarial & Admin Services', 17,
    'https://images.unsplash.com/photo-1603796846097-bee99e4a601f?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxzaWduaW5nJTIwZG9jdW1lbnR8ZW58MXx8fHwxNzkzMjkxMTkwfDA&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70'),
-  ('Others', 17,
-   'https://images.unsplash.com/photo-1535957998253-26ae1ef29506?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxvZmZpY2UlMjBkZXNrfGVufDF8fHx8MTc5MzI5MTMxM3ww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70');
+  ('Other', 'Others', 18,
+   'https://images.unsplash.com/photo-1535957998253-26ae1ef29506?ixid=M3w5MDU1Mzd8MHwxfHNlYXJjaHwxfHxvZmZpY2UlMjBkZXNrfGVufDF8fHx8MTc5MzI5MTMxM3ww&ixlib=rb-4.1.0&w=192&h=192&fit=crop&auto=format&q=70')
+) as c(line_name, name, sort_order, image_url)
+join public.service_lines l on l.name = c.line_name;
 
 insert into public.services (category_id, name, sort_order, is_custom)
 select c.id, s.name, s.sort_order, s.is_custom
@@ -237,9 +282,9 @@ join (values
   ('Indirect Tax', 'Tax data analytics and dashboarding.', 16, false),
   ('Indirect Tax', 'Other (please specify)', 17, true),
 
-  ('Other taxes', 'Property tax', 1, false),
-  ('Other taxes', 'Stamp Duty advisory & compliances', 2, false),
-  ('Other taxes', 'Other (please specify)', 3, true),
+  ('Other taxes & duties', 'Property tax', 1, false),
+  ('Other taxes & duties', 'Stamp Duty advisory & compliances', 2, false),
+  ('Other taxes & duties', 'Other (please specify)', 3, true),
 
   ('Corporate compliances & Secretarial assistance', 'Banking & KYC Setup', 1, false),
   ('Corporate compliances & Secretarial assistance', 'Beneficial Ownership (UBO) & KYC Filings', 2, false),
@@ -282,71 +327,75 @@ join (values
   ('Audit & Assurance', 'Group / Component Audit', 13, false),
   ('Audit & Assurance', 'Other (please specify)', 14, true),
 
-  ('Legal - Corporate, M&A & Capital Markets', 'Capital Markets', 1, false),
-  ('Legal - Corporate, M&A & Capital Markets', 'Contractual Laws', 2, false),
-  ('Legal - Corporate, M&A & Capital Markets', 'Corporate Laws', 3, false),
-  ('Legal - Corporate, M&A & Capital Markets', 'Mergers & Acquisitions', 4, false),
-  ('Legal - Corporate, M&A & Capital Markets', 'Private Equity', 5, false),
-  ('Legal - Corporate, M&A & Capital Markets', 'Startups & Emerging Companies', 6, false),
-  ('Legal - Corporate, M&A & Capital Markets', 'Venture Capital', 7, false),
+  ('Investment Banking', 'Funding', 1, false),
+  ('Investment Banking', 'IPO', 2, false),
+  ('Investment Banking', 'IPO advisors', 3, false),
 
-  ('Legal - Banking, Finance & Insolvency', 'Banking & Finance', 1, false),
-  ('Legal - Banking, Finance & Insolvency', 'Bankruptcy/Restructuring', 2, false),
-  ('Legal - Banking, Finance & Insolvency', 'Fintech & Payments Regulation', 3, false),
-  ('Legal - Banking, Finance & Insolvency', 'Insolvency and bankruptcy', 4, false),
-  ('Legal - Banking, Finance & Insolvency', 'Private Banks', 5, false),
-  ('Legal - Banking, Finance & Insolvency', 'Restructuring/Insolvency', 6, false),
-  ('Legal - Banking, Finance & Insolvency', 'Structured Finance & Securitization', 7, false),
+  ('Corporate, M&A & Capital Markets', 'Capital Markets', 1, false),
+  ('Corporate, M&A & Capital Markets', 'Contractual Laws', 2, false),
+  ('Corporate, M&A & Capital Markets', 'Corporate Laws', 3, false),
+  ('Corporate, M&A & Capital Markets', 'Mergers & Acquisitions', 4, false),
+  ('Corporate, M&A & Capital Markets', 'Private Equity', 5, false),
+  ('Corporate, M&A & Capital Markets', 'Startups & Emerging Companies', 6, false),
+  ('Corporate, M&A & Capital Markets', 'Venture Capital', 7, false),
 
-  ('Legal - Dispute Resolution & Investigations', 'Alternative Dispute Resolution', 1, false),
-  ('Legal - Dispute Resolution & Investigations', 'Class Actions / Group Litigation', 2, false),
-  ('Legal - Dispute Resolution & Investigations', 'International Arbitration', 3, false),
-  ('Legal - Dispute Resolution & Investigations', 'Litigation: General Commercial', 4, false),
-  ('Legal - Dispute Resolution & Investigations', 'Product Liability & Mass Torts', 5, false),
-  ('Legal - Dispute Resolution & Investigations', 'White-Collar Crime & Corporate Investigations', 6, false),
+  ('Banking, Finance & Insolvency', 'Banking & Finance', 1, false),
+  ('Banking, Finance & Insolvency', 'Bankruptcy/Restructuring', 2, false),
+  ('Banking, Finance & Insolvency', 'Fintech & Payments Regulation', 3, false),
+  ('Banking, Finance & Insolvency', 'Insolvency and bankruptcy', 4, false),
+  ('Banking, Finance & Insolvency', 'Private Banks', 5, false),
+  ('Banking, Finance & Insolvency', 'Restructuring/Insolvency', 6, false),
+  ('Banking, Finance & Insolvency', 'Structured Finance & Securitization', 7, false),
 
-  ('Legal - Regulatory, Competition & Public Law', 'Anti-Bribery & Corruption Compliance', 1, false),
-  ('Legal - Regulatory, Competition & Public Law', 'Antitrust', 2, false),
-  ('Legal - Regulatory, Competition & Public Law', 'Competition Law', 3, false),
-  ('Legal - Regulatory, Competition & Public Law', 'Exchange control regulations/ Foreign investments', 4, false),
-  ('Legal - Regulatory, Competition & Public Law', 'Government & Public Policy / Administrative Law', 5, false),
-  ('Legal - Regulatory, Competition & Public Law', 'Public Finance', 6, false),
-  ('Legal - Regulatory, Competition & Public Law', 'Sanctions & Export Controls', 7, false),
+  ('Dispute Resolution & Investigations', 'Alternative Dispute Resolution', 1, false),
+  ('Dispute Resolution & Investigations', 'Class Actions / Group Litigation', 2, false),
+  ('Dispute Resolution & Investigations', 'International Arbitration', 3, false),
+  ('Dispute Resolution & Investigations', 'Litigation: General Commercial', 4, false),
+  ('Dispute Resolution & Investigations', 'Product Liability & Mass Torts', 5, false),
+  ('Dispute Resolution & Investigations', 'White-Collar Crime & Corporate Investigations', 6, false),
 
-  ('Legal - Data Protection, Technology & IP', 'Artificial Intelligence', 1, false),
-  ('Legal - Data Protection, Technology & IP', 'Cybersecurity Law', 2, false),
-  ('Legal - Data Protection, Technology & IP', 'Data Protection & IT Laws', 3, false),
-  ('Legal - Data Protection, Technology & IP', 'Intellectual property (IP) Laws', 4, false),
-  ('Legal - Data Protection, Technology & IP', 'Patents & Trademark Prosecution', 5, false),
-  ('Legal - Data Protection, Technology & IP', 'Privacy & Data Security: Privacy', 6, false),
-  ('Legal - Data Protection, Technology & IP', 'Technology, Media, and Telecommunications', 7, false),
+  ('Regulatory, Competition & Public Law', 'Anti-Bribery & Corruption Compliance', 1, false),
+  ('Regulatory, Competition & Public Law', 'Antitrust', 2, false),
+  ('Regulatory, Competition & Public Law', 'Competition Law', 3, false),
+  ('Regulatory, Competition & Public Law', 'Exchange control regulations/ Foreign investments', 4, false),
+  ('Regulatory, Competition & Public Law', 'Government & Public Policy / Administrative Law', 5, false),
+  ('Regulatory, Competition & Public Law', 'Public Finance', 6, false),
+  ('Regulatory, Competition & Public Law', 'Sanctions & Export Controls', 7, false),
 
-  ('Legal - Employment & Immigration', 'Employment / Labour laws / Social Security', 1, false),
-  ('Legal - Employment & Immigration', 'Immigration', 2, false),
+  ('Data Protection, Technology & IP', 'Artificial Intelligence', 1, false),
+  ('Data Protection, Technology & IP', 'Cybersecurity Law', 2, false),
+  ('Data Protection, Technology & IP', 'Data Protection & IT Laws', 3, false),
+  ('Data Protection, Technology & IP', 'Intellectual property (IP) Laws', 4, false),
+  ('Data Protection, Technology & IP', 'Patents & Trademark Prosecution', 5, false),
+  ('Data Protection, Technology & IP', 'Privacy & Data Security: Privacy', 6, false),
+  ('Data Protection, Technology & IP', 'Technology, Media, and Telecommunications', 7, false),
 
-  ('Legal - Real Estate, Infrastructure & Environment', 'Energy & Natural Resources', 1, false),
-  ('Legal - Real Estate, Infrastructure & Environment', 'Environmental / ESG compliance', 2, false),
-  ('Legal - Real Estate, Infrastructure & Environment', 'Projects, Infrastructure & Energy', 3, false),
-  ('Legal - Real Estate, Infrastructure & Environment', 'Real Estate - Property registration & compliances', 4, false),
-  ('Legal - Real Estate, Infrastructure & Environment', 'Real Estate Advisory & Structuring', 5, false),
-  ('Legal - Real Estate, Infrastructure & Environment', 'Real Estate Litigation', 6, false),
+  ('Employment & Immigration', 'Employment / Labour laws / Social Security', 1, false),
+  ('Employment & Immigration', 'Immigration', 2, false),
 
-  ('Legal - Private Client, Family & Wealth', 'Civil Laws', 1, false),
-  ('Legal - Private Client, Family & Wealth', 'Family Laws', 2, false),
-  ('Legal - Private Client, Family & Wealth', 'Inheritance Law & Succession Planning', 3, false),
-  ('Legal - Private Client, Family & Wealth', 'Private Wealth Law', 4, false),
-  ('Legal - Private Client, Family & Wealth', 'Trusts & Estate Litigation', 5, false),
-  ('Legal - Private Client, Family & Wealth', 'Wealth Managers', 6, false),
+  ('Real Estate, Infrastructure & Environment', 'Energy & Natural Resources', 1, false),
+  ('Real Estate, Infrastructure & Environment', 'Environmental / ESG compliance', 2, false),
+  ('Real Estate, Infrastructure & Environment', 'Projects, Infrastructure & Energy', 3, false),
+  ('Real Estate, Infrastructure & Environment', 'Real Estate - Property registration & compliances', 4, false),
+  ('Real Estate, Infrastructure & Environment', 'Real Estate Advisory & Structuring', 5, false),
+  ('Real Estate, Infrastructure & Environment', 'Real Estate Litigation', 6, false),
 
-  ('Legal - Sector-Specific Practices', 'Aviation', 1, false),
-  ('Legal - Sector-Specific Practices', 'Healthcare', 2, false),
-  ('Legal - Sector-Specific Practices', 'Insurance', 3, false),
-  ('Legal - Sector-Specific Practices', 'Life Sciences', 4, false),
-  ('Legal - Sector-Specific Practices', 'Maritime/Admiralty', 5, false),
-  ('Legal - Sector-Specific Practices', 'Notary', 6, false),
-  ('Legal - Sector-Specific Practices', 'Private Aircraft', 7, false),
-  ('Legal - Sector-Specific Practices', 'Startups & Emerging Companies', 8, false),
-  ('Legal - Sector-Specific Practices', 'Transportation: Road (Carriage/Logistics)', 9, false),
+  ('Private Client, Family & Wealth', 'Civil Laws', 1, false),
+  ('Private Client, Family & Wealth', 'Family Laws', 2, false),
+  ('Private Client, Family & Wealth', 'Inheritance Law & Succession Planning', 3, false),
+  ('Private Client, Family & Wealth', 'Private Wealth Law', 4, false),
+  ('Private Client, Family & Wealth', 'Trusts & Estate Litigation', 5, false),
+  ('Private Client, Family & Wealth', 'Wealth Managers', 6, false),
+
+  ('Sector-Specific Practices', 'Aviation', 1, false),
+  ('Sector-Specific Practices', 'Healthcare', 2, false),
+  ('Sector-Specific Practices', 'Insurance', 3, false),
+  ('Sector-Specific Practices', 'Life Sciences', 4, false),
+  ('Sector-Specific Practices', 'Maritime/Admiralty', 5, false),
+  ('Sector-Specific Practices', 'Notary', 6, false),
+  ('Sector-Specific Practices', 'Private Aircraft', 7, false),
+  ('Sector-Specific Practices', 'Startups & Emerging Companies', 8, false),
+  ('Sector-Specific Practices', 'Transportation: Road (Carriage/Logistics)', 9, false),
 
   ('Notarial & Admin Services', 'Document Legalization & Apostille', 1, false),
   ('Notarial & Admin Services', 'Regulatory Filings & Licensing (legal support)', 2, false),
@@ -579,12 +628,17 @@ create table public.events (
   is_free boolean not null default false,
   registration_url text,
   organiser_name text,
+  -- Topic tags: ids of categories (taxonomy level 2). Array, no FK — same trade-off as
+  -- articles.service_ids. Set by admins, or inferred from the title/description when an event is
+  -- created without any (apps/backend/src/events/event-categories.ts).
+  category_ids uuid[] not null default '{}',
   status event_status not null default 'draft',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index events_status_start_idx on public.events (status, start_date);
+create index events_category_ids_idx on public.events using gin (category_ids);
 
 alter table public.events
   add constraint events_end_after_start check (end_date is null or end_date >= start_date);
@@ -1378,6 +1432,8 @@ create trigger search_sync_member_services after insert or delete or update on p
 create trigger search_sync_profiles       after update of first_name, last_name, status, deleted_at on public.profiles
   for each row execute function public.search_trg();
 create trigger search_sync_services       after update of name on public.services
+  for each row execute function public.search_trg();
+create trigger search_sync_categories     after update of name on public.categories
   for each row execute function public.search_trg();
 
 alter table public.search_documents         enable row level security;

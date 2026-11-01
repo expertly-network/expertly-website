@@ -1,5 +1,34 @@
-import { ApiError, apiFetch, apiFetchResponse } from '@/lib/api/client';
-import type { CreateEventRequest, EventDto, ImportEventsResponse, UpdateEventRequest } from '@shared/event';
+import { ApiError, apiFetch, apiFetchPage, apiFetchResponse } from '@/lib/api/client';
+import type {
+  CreateEventRequest,
+  EventDaysResponse,
+  EventDto,
+  ImportEventsResponse,
+  ListEventsQuery,
+  UpdateEventRequest,
+  EventCalendarResponse,
+} from '@shared/event';
+import { buildEventsQueryString, EVENTS_TOTAL_COUNT_HEADER } from '@/lib/api/events-query';
+
+// One server-filtered page of published events plus the total match count (browser side).
+export function listEventsPage(query: ListEventsQuery): Promise<{ items: EventDto[]; total: number }> {
+  return apiFetchPage<EventDto>(
+    `/events${buildEventsQueryString({ ...query, upcoming: 'false' })}`,
+    EVENTS_TOTAL_COUNT_HEADER
+  );
+}
+
+// Days (UTC dates, YYYY-MM-DD) with a published event between `from` and `to`, for the picker's dots.
+// The home calendar's month: per-day counts plus the first two events of each day.
+export function getEventCalendar(from: string, to: string): Promise<EventCalendarResponse> {
+  return apiFetch<EventCalendarResponse>(
+    `/events/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+  );
+}
+
+export function getEventDays(from: string, to: string): Promise<EventDaysResponse> {
+  return apiFetch<EventDaysResponse>(`/events/days?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+}
 
 export function createEvent(body: CreateEventRequest): Promise<EventDto> {
   return apiFetch<EventDto>('/admin/events', {

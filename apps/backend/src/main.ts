@@ -67,7 +67,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      maxParamLength: 500,
+      routerOptions: { maxParamLength: 500 },
       bodyLimit: 1024 * 1024,
       genReqId: requestId,
     })

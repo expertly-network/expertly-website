@@ -158,6 +158,12 @@ there is no CASCADE/RESTRICT safety net here the way there is elsewhere in this 
 itself is still a real table specifically so this validation (and the frontend's dropdown options)
 has something to check against. `customLabel` is required when the referenced service `is_custom`.
 
+### `service_lines`
+
+Top level of the three-level taxonomy (2026-10-31, from `Services.xlsx`): `id`, `name` (unique),
+`sort_order`, `is_active`, `created_at`, `updated_at`. Seeded: Tax, Corporate Secretarial, Finance,
+Legal, Other (the last holds the catch-all "Others" category). Public `select` RLS policy.
+
 ### `categories` / `services`
 
 Replaces the old flat `practice_areas` table (12 rows, 3-value `category` enum) outright — a
@@ -165,7 +171,10 @@ client-supplied, real two-level taxonomy (17 categories, 138 services), not a ba
 `docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md` for the full rationale and
 seed data.
 
-**`categories`**: `id`, `name` (unique), `sort_order`, `image_url` (nullable, decorative-only —
+**`categories`**: `id`, `service_line_id` (FK → `service_lines.id`, not null — 2026-10-31; the
+"Legal - " name prefix was dropped, "Other taxes" became "Other taxes & duties", and Finance →
+"Investment Banking" (Funding, IPO, IPO advisors) was added: 18 categories, 141 services),
+`name` (unique), `sort_order`, `image_url` (nullable, decorative-only —
 unlike the old `practice_areas` seed, no images are seeded for the 17 categories today; stays null
 until an admin sets one via the taxonomy admin CRUD), `is_active`, `created_at`, `updated_at`.
 
@@ -432,6 +441,7 @@ backend module read from it — see the drift note below.
 | `is_free` | boolean, default `false` | |
 | `registration_url` | text, nullable | |
 | `organiser_name` | text, nullable | |
+| `category_ids` | uuid[], default `{}` | Topic tags → `categories.id` (no FK, validated in `EventsService`; GIN index). Inferred from title/description when an event is created/imported without them (`apps/backend/src/events/event-categories.ts`); the events already in the database were tagged the same way on 2026-10-31 (1,257 of 1,649 matched). |
 | `status` | enum `draft`\|`published` | RLS only exposes `published` rows to `select` |
 | `created_at`, `updated_at` | timestamptz | |
 

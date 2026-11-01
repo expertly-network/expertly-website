@@ -18,7 +18,7 @@ function run(cmd, args) {
   // whole group (see killAll). A plain SIGTERM to just this pid leaves `node --watch`'s
   // internal worker process — the one that actually binds the port — orphaned and still
   // holding it for the next `pnpm dev`.
-  const child = spawn(cmd, args, { stdio: 'inherit', shell: true, detached: true });
+  const child = spawn(cmd, args, { stdio: 'inherit', detached: true });
   children.add(child);
   child.on('exit', (code) => {
     children.delete(child);
@@ -57,4 +57,6 @@ await new Promise((resolve, reject) => {
 });
 
 run(NEST, ['build', '--watch']);
-run('node', ['--watch', ENTRY]);
+// Dev reloads must finish even when an SDK keeps a shutdown handle open.
+// Production still uses Nest's graceful SIGTERM shutdown (no watcher).
+run(process.execPath, ['--watch', '--watch-kill-signal=SIGKILL', ENTRY]);

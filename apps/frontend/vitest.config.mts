@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Next preserves JSX for its own compiler; component tests need it transformed.
+  oxc: { jsx: { runtime: 'automatic' } },
   // `@/*` and `@shared/*` come from tsconfig.json's paths, same as Next.
   resolve: { tsconfigPaths: true },
   test: {

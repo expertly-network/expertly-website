@@ -1,4 +1,7 @@
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsUUID,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -17,6 +20,7 @@ import {
   EVENT_TITLE_MAX,
   EVENT_URL_MAX,
   EVENT_URL_OPTIONS,
+  MAX_EVENT_CATEGORIES,
 } from './create-event.dto';
 
 const EVENT_FORMATS: EventFormat[] = ['in_person', 'virtual', 'hybrid'];
@@ -101,4 +105,10 @@ export class UpdateEventDto {
   @IsOptional()
   @IsIn(EVENT_STATUSES)
   status?: EventStatus;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_EVENT_CATEGORIES)
+  @IsUUID('all', { each: true })
+  categoryIds?: string[];
 }

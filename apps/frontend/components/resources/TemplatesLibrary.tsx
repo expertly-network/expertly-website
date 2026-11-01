@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import type { CollectionDto, TemplateDto, TemplateFileType } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card, Input } from '@/components/ui';
+import { Badge, Button, Card } from '@/components/ui';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { getTemplateDownload } from '@/lib/api/resources';
 import { ResourceHero } from './ResourceHero';
@@ -110,12 +110,6 @@ export function TemplatesLibrary({
     )
     .sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || a.sortOrder - b.sortOrder);
   const visibleKits = kits.filter((k) => k.items.some(isTemplate));
-  const heroPages = [
-    templates.find((t) => t.fileType === 'docx'),
-    templates.find((t) => t.fileType === 'xlsx'),
-    templates.find((t) => t.fileType === 'pptx'),
-  ].filter((t): t is TemplateDto => !!t);
-
   function open(t: TemplateDto) {
     setError('');
     setSelected(t);
@@ -145,28 +139,13 @@ export function TemplatesLibrary({
       <ResourceHero
         title="Professional templates,"
         accent="ready to adapt."
-        aside={
-          heroPages.length > 0 && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-24 right-[5%] top-12 hidden w-[400px] xl:block"
-            >
-              <PaperStack items={heroPages} className="h-full" />
-            </div>
-          )
-        }
-        search={
-          <Input
-            id="template-search"
-            type="search"
-            label=""
-            aria-label="Search templates"
-            className="bg-bg-card"
-            placeholder="Search templates, e.g. GST, NDA, audit…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        }
+        search={{
+          id: 'template-search',
+          label: 'Search templates',
+          placeholder: 'Search templates, e.g. GST, NDA, audit…',
+          value: q,
+          onChange: setQ,
+        }}
       >
         Working papers, letters, workbooks and decks built for tax, legal and audit practitioners. Start from a solid
         structure instead of a blank page.

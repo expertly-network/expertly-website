@@ -62,6 +62,7 @@ const EXPECTED: Record<string, string> = {
 
   // Taxonomy
   'GET /v1/categories': 'public',
+  'GET /v1/service-lines': 'public',
   'GET /v1/admin/categories': 'admin:manageTaxonomy',
   'POST /v1/admin/categories': 'admin:manageTaxonomy',
   'PATCH /v1/admin/categories/:id': 'admin:manageTaxonomy',
@@ -102,6 +103,8 @@ const EXPECTED: Record<string, string> = {
 
   // Events
   'GET /v1/events': 'public',
+  'GET /v1/events/days': 'public',
+  'GET /v1/events/calendar': 'public',
   'GET /v1/admin/events': 'admin:manageEvents',
   'GET /v1/admin/events/export': 'admin:manageEvents',
   'POST /v1/admin/events/import': 'admin:manageEvents',

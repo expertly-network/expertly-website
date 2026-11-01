@@ -231,7 +231,7 @@ export class MembersRepository {
   async findDirectoryPageIds(
     filters: MemberDirectoryFilters,
     page: { limit: number; offset: number }
-  ): Promise<string[]> {
+  ): Promise<{ ids: string[]; total: number }> {
     const { data, error } = await this.supabase.db.rpc('member_directory_ids', {
       p_q: filters.q ?? null,
       p_service_ids: filters.serviceIds?.length ? filters.serviceIds : null,
@@ -244,7 +244,9 @@ export class MembersRepository {
       p_offset: page.offset,
     });
     if (error) throw new InternalServerErrorException('Failed to load members.');
-    return (data ?? []).map((r) => r.profile_id);
+    const rows = data ?? [];
+    // total_count is the same on every row; a page past the end has no rows to read it from.
+    return { ids: rows.map((r) => r.profile_id), total: Number(rows[0]?.total_count ?? 0) };
   }
 
   // The rows for one directory page (≤ 50 ids), returned in the given order.

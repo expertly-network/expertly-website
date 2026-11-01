@@ -78,11 +78,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "ai_draft_generations_author_id_fkey";
-            columns: ["author_id"];
+            foreignKeyName: 'ai_draft_generations_author_id_fkey';
+            columns: ['author_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -104,7 +104,7 @@ export type Database = {
           service_ids: string[];
           slug: string;
           state: string | null;
-          status: Database["public"]["Enums"]["article_status"];
+          status: Database['public']['Enums']['article_status'];
           title: string;
           updated_at: string;
         };
@@ -125,7 +125,7 @@ export type Database = {
           service_ids?: string[];
           slug: string;
           state?: string | null;
-          status?: Database["public"]["Enums"]["article_status"];
+          status?: Database['public']['Enums']['article_status'];
           title: string;
           updated_at?: string;
         };
@@ -146,24 +146,24 @@ export type Database = {
           service_ids?: string[];
           slug?: string;
           state?: string | null;
-          status?: Database["public"]["Enums"]["article_status"];
+          status?: Database['public']['Enums']['article_status'];
           title?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "articles_ai_generation_id_fkey";
-            columns: ["ai_generation_id"];
+            foreignKeyName: 'articles_ai_generation_id_fkey';
+            columns: ['ai_generation_id'];
             isOneToOne: false;
-            referencedRelation: "ai_draft_generations";
-            referencedColumns: ["id"];
+            referencedRelation: 'ai_draft_generations';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "articles_author_id_fkey";
-            columns: ["author_id"];
+            foreignKeyName: 'articles_author_id_fkey';
+            columns: ['author_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -174,6 +174,7 @@ export type Database = {
           image_url: string | null;
           is_active: boolean;
           name: string;
+          service_line_id: string;
           sort_order: number;
           updated_at: string;
         };
@@ -183,6 +184,7 @@ export type Database = {
           image_url?: string | null;
           is_active?: boolean;
           name: string;
+          service_line_id: string;
           sort_order: number;
           updated_at?: string;
         };
@@ -192,6 +194,7 @@ export type Database = {
           image_url?: string | null;
           is_active?: boolean;
           name?: string;
+          service_line_id?: string;
           sort_order?: number;
           updated_at?: string;
         };
@@ -266,18 +269,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "consultation_messages_request_id_fkey";
-            columns: ["request_id"];
+            foreignKeyName: 'consultation_messages_request_id_fkey';
+            columns: ['request_id'];
             isOneToOne: false;
-            referencedRelation: "consultation_requests";
-            referencedColumns: ["id"];
+            referencedRelation: 'consultation_requests';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "consultation_messages_sender_id_fkey";
-            columns: ["sender_id"];
+            foreignKeyName: 'consultation_messages_sender_id_fkey';
+            columns: ['sender_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -297,7 +300,7 @@ export type Database = {
           response_message: string | null;
           scheduled_at: string | null;
           service_id: string | null;
-          status: Database["public"]["Enums"]["consultation_status"];
+          status: Database['public']['Enums']['consultation_status'];
           subject: string | null;
           updated_at: string;
         };
@@ -316,7 +319,7 @@ export type Database = {
           response_message?: string | null;
           scheduled_at?: string | null;
           service_id?: string | null;
-          status?: Database["public"]["Enums"]["consultation_status"];
+          status?: Database['public']['Enums']['consultation_status'];
           subject?: string | null;
           updated_at?: string;
         };
@@ -335,31 +338,31 @@ export type Database = {
           response_message?: string | null;
           scheduled_at?: string | null;
           service_id?: string | null;
-          status?: Database["public"]["Enums"]["consultation_status"];
+          status?: Database['public']['Enums']['consultation_status'];
           subject?: string | null;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "consultation_requests_member_id_fkey";
-            columns: ["member_id"];
+            foreignKeyName: 'consultation_requests_member_id_fkey';
+            columns: ['member_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "consultation_requests_requester_id_fkey";
-            columns: ["requester_id"];
+            foreignKeyName: 'consultation_requests_requester_id_fkey';
+            columns: ['requester_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "consultation_requests_service_id_fkey";
-            columns: ["service_id"];
+            foreignKeyName: 'consultation_requests_service_id_fkey';
+            columns: ['service_id'];
             isOneToOne: false;
-            referencedRelation: "services";
-            referencedColumns: ["id"];
+            referencedRelation: 'services';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -367,6 +370,7 @@ export type Database = {
         Row: {
           city: string | null;
           country: string | null;
+          category_ids: string[];
           cover_image_url: string | null;
           created_at: string;
           description: string;
@@ -380,7 +384,7 @@ export type Database = {
           short_description: string | null;
           slug: string;
           start_date: string;
-          status: Database["public"]["Enums"]["event_status"];
+          status: Database['public']['Enums']['event_status'];
           timezone: string | null;
           title: string;
           updated_at: string;
@@ -389,6 +393,7 @@ export type Database = {
         Insert: {
           city?: string | null;
           country?: string | null;
+          category_ids?: string[];
           cover_image_url?: string | null;
           created_at?: string;
           description?: string;
@@ -402,7 +407,7 @@ export type Database = {
           short_description?: string | null;
           slug: string;
           start_date: string;
-          status?: Database["public"]["Enums"]["event_status"];
+          status?: Database['public']['Enums']['event_status'];
           timezone?: string | null;
           title: string;
           updated_at?: string;
@@ -411,6 +416,7 @@ export type Database = {
         Update: {
           city?: string | null;
           country?: string | null;
+          category_ids?: string[];
           cover_image_url?: string | null;
           created_at?: string;
           description?: string;
@@ -424,7 +430,7 @@ export type Database = {
           short_description?: string | null;
           slug?: string;
           start_date?: string;
-          status?: Database["public"]["Enums"]["event_status"];
+          status?: Database['public']['Enums']['event_status'];
           timezone?: string | null;
           title?: string;
           updated_at?: string;
@@ -507,8 +513,8 @@ export type Database = {
           review_note: string | null;
           reviewed_at: string | null;
           reviewed_by: string | null;
-          section: Database["public"]["Enums"]["member_edit_section"];
-          status: Database["public"]["Enums"]["member_edit_status"];
+          section: Database['public']['Enums']['member_edit_section'];
+          status: Database['public']['Enums']['member_edit_status'];
           submitted_at: string;
           updated_at: string;
         };
@@ -523,8 +529,8 @@ export type Database = {
           review_note?: string | null;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
-          section: Database["public"]["Enums"]["member_edit_section"];
-          status?: Database["public"]["Enums"]["member_edit_status"];
+          section: Database['public']['Enums']['member_edit_section'];
+          status?: Database['public']['Enums']['member_edit_status'];
           submitted_at?: string;
           updated_at?: string;
         };
@@ -539,25 +545,25 @@ export type Database = {
           review_note?: string | null;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
-          section?: Database["public"]["Enums"]["member_edit_section"];
-          status?: Database["public"]["Enums"]["member_edit_status"];
+          section?: Database['public']['Enums']['member_edit_section'];
+          status?: Database['public']['Enums']['member_edit_status'];
           submitted_at?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "member_profile_edits_member_id_fkey";
-            columns: ["member_id"];
+            foreignKeyName: 'member_profile_edits_member_id_fkey';
+            columns: ['member_id'];
             isOneToOne: false;
-            referencedRelation: "member_profiles";
-            referencedColumns: ["profile_id"];
+            referencedRelation: 'member_profiles';
+            referencedColumns: ['profile_id'];
           },
           {
-            foreignKeyName: "member_profile_edits_reviewed_by_fkey";
-            columns: ["reviewed_by"];
+            foreignKeyName: 'member_profile_edits_reviewed_by_fkey';
+            columns: ['reviewed_by'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -583,7 +589,7 @@ export type Database = {
           is_verified: boolean;
           key_clients: NonNullable<Json>;
           linkedin_url: string | null;
-          member_tier: Database["public"]["Enums"]["membership_tier"];
+          member_tier: Database['public']['Enums']['membership_tier'];
           membership_started_at: string;
           photo_path: string | null;
           profile_id: string;
@@ -591,11 +597,11 @@ export type Database = {
           rate_currency: string;
           rate_max_cents: number | null;
           rate_min_cents: number | null;
-          region: Database["public"]["Enums"]["application_region"] | null;
-          renewal_payment_status: Database["public"]["Enums"]["renewal_payment_status"] | null;
+          region: Database['public']['Enums']['application_region'] | null;
+          renewal_payment_status: Database['public']['Enums']['renewal_payment_status'] | null;
           slug: string;
           state: string | null;
-          status: Database["public"]["Enums"]["member_profile_status"];
+          status: Database['public']['Enums']['member_profile_status'];
           testimonials: NonNullable<Json>;
           updated_at: string;
           website: string | null;
@@ -624,7 +630,7 @@ export type Database = {
           is_verified?: boolean;
           key_clients?: NonNullable<Json>;
           linkedin_url?: string | null;
-          member_tier: Database["public"]["Enums"]["membership_tier"];
+          member_tier: Database['public']['Enums']['membership_tier'];
           membership_started_at?: string;
           photo_path?: string | null;
           profile_id: string;
@@ -632,11 +638,11 @@ export type Database = {
           rate_currency?: string;
           rate_max_cents?: number | null;
           rate_min_cents?: number | null;
-          region?: Database["public"]["Enums"]["application_region"] | null;
-          renewal_payment_status?: Database["public"]["Enums"]["renewal_payment_status"] | null;
+          region?: Database['public']['Enums']['application_region'] | null;
+          renewal_payment_status?: Database['public']['Enums']['renewal_payment_status'] | null;
           slug: string;
           state?: string | null;
-          status?: Database["public"]["Enums"]["member_profile_status"];
+          status?: Database['public']['Enums']['member_profile_status'];
           testimonials?: NonNullable<Json>;
           updated_at?: string;
           website?: string | null;
@@ -665,7 +671,7 @@ export type Database = {
           is_verified?: boolean;
           key_clients?: NonNullable<Json>;
           linkedin_url?: string | null;
-          member_tier?: Database["public"]["Enums"]["membership_tier"];
+          member_tier?: Database['public']['Enums']['membership_tier'];
           membership_started_at?: string;
           photo_path?: string | null;
           profile_id?: string;
@@ -673,11 +679,11 @@ export type Database = {
           rate_currency?: string;
           rate_max_cents?: number | null;
           rate_min_cents?: number | null;
-          region?: Database["public"]["Enums"]["application_region"] | null;
-          renewal_payment_status?: Database["public"]["Enums"]["renewal_payment_status"] | null;
+          region?: Database['public']['Enums']['application_region'] | null;
+          renewal_payment_status?: Database['public']['Enums']['renewal_payment_status'] | null;
           slug?: string;
           state?: string | null;
-          status?: Database["public"]["Enums"]["member_profile_status"];
+          status?: Database['public']['Enums']['member_profile_status'];
           testimonials?: NonNullable<Json>;
           updated_at?: string;
           website?: string | null;
@@ -687,18 +693,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "member_profiles_application_id_fkey";
-            columns: ["application_id"];
+            foreignKeyName: 'member_profiles_application_id_fkey';
+            columns: ['application_id'];
             isOneToOne: false;
-            referencedRelation: "membership_applications";
-            referencedColumns: ["id"];
+            referencedRelation: 'membership_applications';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "member_profiles_profile_id_fkey";
-            columns: ["profile_id"];
+            foreignKeyName: 'member_profiles_profile_id_fkey';
+            columns: ['profile_id'];
             isOneToOne: true;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -735,18 +741,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "member_recommendations_author_id_fkey";
-            columns: ["author_id"];
+            foreignKeyName: 'member_recommendations_author_id_fkey';
+            columns: ['author_id'];
             isOneToOne: false;
-            referencedRelation: "member_profiles";
-            referencedColumns: ["profile_id"];
+            referencedRelation: 'member_profiles';
+            referencedColumns: ['profile_id'];
           },
           {
-            foreignKeyName: "member_recommendations_recipient_id_fkey";
-            columns: ["recipient_id"];
+            foreignKeyName: 'member_recommendations_recipient_id_fkey';
+            columns: ['recipient_id'];
             isOneToOne: false;
-            referencedRelation: "member_profiles";
-            referencedColumns: ["profile_id"];
+            referencedRelation: 'member_profiles';
+            referencedColumns: ['profile_id'];
           },
         ];
       };
@@ -768,18 +774,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "member_services_member_id_fkey";
-            columns: ["member_id"];
+            foreignKeyName: 'member_services_member_id_fkey';
+            columns: ['member_id'];
             isOneToOne: false;
-            referencedRelation: "member_profiles";
-            referencedColumns: ["profile_id"];
+            referencedRelation: 'member_profiles';
+            referencedColumns: ['profile_id'];
           },
           {
-            foreignKeyName: "member_services_service_id_fkey";
-            columns: ["service_id"];
+            foreignKeyName: 'member_services_service_id_fkey';
+            columns: ['service_id'];
             isOneToOne: false;
-            referencedRelation: "services";
-            referencedColumns: ["id"];
+            referencedRelation: 'services';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -788,7 +794,7 @@ export type Database = {
           amount_due_cents: number | null;
           applicant_id: string;
           background_check_consent: boolean | null;
-          billing_period: Database["public"]["Enums"]["billing_period"] | null;
+          billing_period: Database['public']['Enums']['billing_period'] | null;
           bio: string | null;
           city: string | null;
           contact_email: string | null;
@@ -805,7 +811,7 @@ export type Database = {
           linkedin_import_consent: boolean;
           linkedin_url: string | null;
           list_price_cents: number | null;
-          payment_status: Database["public"]["Enums"]["payment_status"] | null;
+          payment_status: Database['public']['Enums']['payment_status'] | null;
           peer_references: NonNullable<Json>;
           phone: string | null;
           phone_country_code: string | null;
@@ -813,14 +819,14 @@ export type Database = {
           privacy_version_agreed: string | null;
           rate_max_cents: number | null;
           rate_min_cents: number | null;
-          region: Database["public"]["Enums"]["application_region"] | null;
+          region: Database['public']['Enums']['application_region'] | null;
           rejection_reason: string | null;
           reviewed_at: string | null;
           reviewed_by: string | null;
-          selected_tier: Database["public"]["Enums"]["membership_tier"] | null;
+          selected_tier: Database['public']['Enums']['membership_tier'] | null;
           service_preferences: NonNullable<Json>;
           state: string | null;
-          status: Database["public"]["Enums"]["application_status"];
+          status: Database['public']['Enums']['application_status'];
           terms_version_agreed: string | null;
           updated_at: string;
           work_experiences: NonNullable<Json>;
@@ -830,7 +836,7 @@ export type Database = {
           amount_due_cents?: number | null;
           applicant_id: string;
           background_check_consent?: boolean | null;
-          billing_period?: Database["public"]["Enums"]["billing_period"] | null;
+          billing_period?: Database['public']['Enums']['billing_period'] | null;
           bio?: string | null;
           city?: string | null;
           contact_email?: string | null;
@@ -847,7 +853,7 @@ export type Database = {
           linkedin_import_consent?: boolean;
           linkedin_url?: string | null;
           list_price_cents?: number | null;
-          payment_status?: Database["public"]["Enums"]["payment_status"] | null;
+          payment_status?: Database['public']['Enums']['payment_status'] | null;
           peer_references?: NonNullable<Json>;
           phone?: string | null;
           phone_country_code?: string | null;
@@ -855,14 +861,14 @@ export type Database = {
           privacy_version_agreed?: string | null;
           rate_max_cents?: number | null;
           rate_min_cents?: number | null;
-          region?: Database["public"]["Enums"]["application_region"] | null;
+          region?: Database['public']['Enums']['application_region'] | null;
           rejection_reason?: string | null;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
-          selected_tier?: Database["public"]["Enums"]["membership_tier"] | null;
+          selected_tier?: Database['public']['Enums']['membership_tier'] | null;
           service_preferences?: NonNullable<Json>;
           state?: string | null;
-          status?: Database["public"]["Enums"]["application_status"];
+          status?: Database['public']['Enums']['application_status'];
           terms_version_agreed?: string | null;
           updated_at?: string;
           work_experiences?: NonNullable<Json>;
@@ -872,7 +878,7 @@ export type Database = {
           amount_due_cents?: number | null;
           applicant_id?: string;
           background_check_consent?: boolean | null;
-          billing_period?: Database["public"]["Enums"]["billing_period"] | null;
+          billing_period?: Database['public']['Enums']['billing_period'] | null;
           bio?: string | null;
           city?: string | null;
           contact_email?: string | null;
@@ -889,7 +895,7 @@ export type Database = {
           linkedin_import_consent?: boolean;
           linkedin_url?: string | null;
           list_price_cents?: number | null;
-          payment_status?: Database["public"]["Enums"]["payment_status"] | null;
+          payment_status?: Database['public']['Enums']['payment_status'] | null;
           peer_references?: NonNullable<Json>;
           phone?: string | null;
           phone_country_code?: string | null;
@@ -897,14 +903,14 @@ export type Database = {
           privacy_version_agreed?: string | null;
           rate_max_cents?: number | null;
           rate_min_cents?: number | null;
-          region?: Database["public"]["Enums"]["application_region"] | null;
+          region?: Database['public']['Enums']['application_region'] | null;
           rejection_reason?: string | null;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
-          selected_tier?: Database["public"]["Enums"]["membership_tier"] | null;
+          selected_tier?: Database['public']['Enums']['membership_tier'] | null;
           service_preferences?: NonNullable<Json>;
           state?: string | null;
-          status?: Database["public"]["Enums"]["application_status"];
+          status?: Database['public']['Enums']['application_status'];
           terms_version_agreed?: string | null;
           updated_at?: string;
           work_experiences?: NonNullable<Json>;
@@ -912,18 +918,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "membership_applications_applicant_id_fkey";
-            columns: ["applicant_id"];
+            foreignKeyName: 'membership_applications_applicant_id_fkey';
+            columns: ['applicant_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "membership_applications_reviewed_by_fkey";
-            columns: ["reviewed_by"];
+            foreignKeyName: 'membership_applications_reviewed_by_fkey';
+            columns: ['reviewed_by'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -1023,7 +1029,7 @@ export type Database = {
           scheduled_date: string;
           scheduled_end_at: string;
           scheduled_start_at: string;
-          status: Database["public"]["Enums"]["peer_connect_match_status"];
+          status: Database['public']['Enums']['peer_connect_match_status'];
           transcript: string | null;
           updated_at: string;
         };
@@ -1041,7 +1047,7 @@ export type Database = {
           scheduled_date: string;
           scheduled_end_at: string;
           scheduled_start_at: string;
-          status?: Database["public"]["Enums"]["peer_connect_match_status"];
+          status?: Database['public']['Enums']['peer_connect_match_status'];
           transcript?: string | null;
           updated_at?: string;
         };
@@ -1059,17 +1065,17 @@ export type Database = {
           scheduled_date?: string;
           scheduled_end_at?: string;
           scheduled_start_at?: string;
-          status?: Database["public"]["Enums"]["peer_connect_match_status"];
+          status?: Database['public']['Enums']['peer_connect_match_status'];
           transcript?: string | null;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "peer_connect_matches_reschedule_requested_by_fkey";
-            columns: ["reschedule_requested_by"];
+            foreignKeyName: 'peer_connect_matches_reschedule_requested_by_fkey';
+            columns: ['reschedule_requested_by'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -1089,7 +1095,7 @@ export type Database = {
           rating: number | null;
           service_ids: string[];
           unmatched_note: string | null;
-          unmatched_reason: Database["public"]["Enums"]["peer_connect_unmatched_reason"] | null;
+          unmatched_reason: Database['public']['Enums']['peer_connect_unmatched_reason'] | null;
           updated_at: string;
         };
         Insert: {
@@ -1107,7 +1113,7 @@ export type Database = {
           rating?: number | null;
           service_ids?: string[];
           unmatched_note?: string | null;
-          unmatched_reason?: Database["public"]["Enums"]["peer_connect_unmatched_reason"] | null;
+          unmatched_reason?: Database['public']['Enums']['peer_connect_unmatched_reason'] | null;
           updated_at?: string;
         };
         Update: {
@@ -1125,30 +1131,30 @@ export type Database = {
           rating?: number | null;
           service_ids?: string[];
           unmatched_note?: string | null;
-          unmatched_reason?: Database["public"]["Enums"]["peer_connect_unmatched_reason"] | null;
+          unmatched_reason?: Database['public']['Enums']['peer_connect_unmatched_reason'] | null;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "peer_connect_member_preferences_match_id_fkey";
-            columns: ["match_id"];
+            foreignKeyName: 'peer_connect_member_preferences_match_id_fkey';
+            columns: ['match_id'];
             isOneToOne: false;
-            referencedRelation: "peer_connect_matches";
-            referencedColumns: ["id"];
+            referencedRelation: 'peer_connect_matches';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "peer_connect_member_preferences_member_id_fkey";
-            columns: ["member_id"];
+            foreignKeyName: 'peer_connect_member_preferences_member_id_fkey';
+            columns: ['member_id'];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
       profiles: {
         Row: {
-          admin_role: Database["public"]["Enums"]["admin_role"] | null;
-          auth_provider: Database["public"]["Enums"]["auth_provider"];
+          admin_role: Database['public']['Enums']['admin_role'] | null;
+          auth_provider: Database['public']['Enums']['auth_provider'];
           avatar_url: string | null;
           consent: NonNullable<Json>;
           created_at: string;
@@ -1162,14 +1168,14 @@ export type Database = {
           last_name: string;
           phone: string | null;
           phone_country_code: string | null;
-          role: Database["public"]["Enums"]["profile_role"];
-          status: Database["public"]["Enums"]["profile_status"];
+          role: Database['public']['Enums']['profile_role'];
+          status: Database['public']['Enums']['profile_status'];
           timezone: string;
           updated_at: string;
         };
         Insert: {
-          admin_role?: Database["public"]["Enums"]["admin_role"] | null;
-          auth_provider?: Database["public"]["Enums"]["auth_provider"];
+          admin_role?: Database['public']['Enums']['admin_role'] | null;
+          auth_provider?: Database['public']['Enums']['auth_provider'];
           avatar_url?: string | null;
           consent?: NonNullable<Json>;
           created_at?: string;
@@ -1183,14 +1189,14 @@ export type Database = {
           last_name: string;
           phone?: string | null;
           phone_country_code?: string | null;
-          role?: Database["public"]["Enums"]["profile_role"];
-          status?: Database["public"]["Enums"]["profile_status"];
+          role?: Database['public']['Enums']['profile_role'];
+          status?: Database['public']['Enums']['profile_status'];
           timezone?: string;
           updated_at?: string;
         };
         Update: {
-          admin_role?: Database["public"]["Enums"]["admin_role"] | null;
-          auth_provider?: Database["public"]["Enums"]["auth_provider"];
+          admin_role?: Database['public']['Enums']['admin_role'] | null;
+          auth_provider?: Database['public']['Enums']['auth_provider'];
           avatar_url?: string | null;
           consent?: NonNullable<Json>;
           created_at?: string;
@@ -1204,8 +1210,8 @@ export type Database = {
           last_name?: string;
           phone?: string | null;
           phone_country_code?: string | null;
-          role?: Database["public"]["Enums"]["profile_role"];
-          status?: Database["public"]["Enums"]["profile_status"];
+          role?: Database['public']['Enums']['profile_role'];
+          status?: Database['public']['Enums']['profile_status'];
           timezone?: string;
           updated_at?: string;
         };
@@ -1373,6 +1379,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      service_lines: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          sort_order: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       services: {
         Row: {
           category_id: string;
@@ -1406,11 +1439,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "services_category_id_fkey";
-            columns: ["category_id"];
+            foreignKeyName: 'services_category_id_fkey';
+            columns: ['category_id'];
             isOneToOne: false;
-            referencedRelation: "categories";
-            referencedColumns: ["id"];
+            referencedRelation: 'categories';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -1497,6 +1530,7 @@ export type Database = {
         };
         Returns: {
           profile_id: string;
+          total_count: number;
         }[];
       };
       search_enqueue: { Args: { p_id: string; p_type: string }; Returns: undefined };
@@ -1563,43 +1597,39 @@ export type Database = {
       };
     };
     Enums: {
-      admin_role: "super_admin" | "content_manager" | "reviewer";
+      admin_role: 'super_admin' | 'content_manager' | 'reviewer';
       application_region:
-        | "asia_pacific"
-        | "europe"
-        | "latin_america"
-        | "middle_east"
-        | "north_america"
-        | "south_asia"
-        | "africa";
-      application_status: "draft" | "submitted" | "under_review" | "approved" | "rejected";
-      article_status: "draft" | "published" | "pending_review" | "rejected";
-      auth_provider: "email" | "linkedin_oidc" | "google";
-      billing_period: "monthly" | "annual";
-      consultation_status: "pending" | "completed" | "declined";
-      event_status: "draft" | "published";
+        | 'asia_pacific'
+        | 'europe'
+        | 'latin_america'
+        | 'middle_east'
+        | 'north_america'
+        | 'south_asia'
+        | 'africa';
+      application_status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+      article_status: 'draft' | 'published' | 'pending_review' | 'rejected';
+      auth_provider: 'email' | 'linkedin_oidc' | 'google';
+      billing_period: 'monthly' | 'annual';
+      consultation_status: 'pending' | 'completed' | 'declined';
+      event_status: 'draft' | 'published';
       member_edit_section:
-        | "headline_bio"
-        | "contact"
-        | "engagements"
-        | "education"
-        | "work_experiences"
-        | "key_clients"
-        | "testimonials"
-        | "awards";
-      member_edit_status: "pending" | "verified" | "rejected";
-      member_profile_status: "active" | "deactivated";
-      membership_tier: "budding_entrepreneur" | "seasoned_professional";
-      payment_status: "pending" | "waived" | "paid";
-      peer_connect_match_status: "scheduled" | "completed" | "cancelled";
-      peer_connect_unmatched_reason:
-        | "odd_headcount"
-        | "no_compatible_peer"
-        | "inactive_member"
-        | "other";
-      profile_role: "client" | "member" | "admin";
-      profile_status: "active" | "suspended" | "deleted";
-      renewal_payment_status: "paid" | "pending" | "overdue";
+        | 'headline_bio'
+        | 'contact'
+        | 'engagements'
+        | 'education'
+        | 'work_experiences'
+        | 'key_clients'
+        | 'testimonials'
+        | 'awards';
+      member_edit_status: 'pending' | 'verified' | 'rejected';
+      member_profile_status: 'active' | 'deactivated';
+      membership_tier: 'budding_entrepreneur' | 'seasoned_professional';
+      payment_status: 'pending' | 'waived' | 'paid';
+      peer_connect_match_status: 'scheduled' | 'completed' | 'cancelled';
+      peer_connect_unmatched_reason: 'odd_headcount' | 'no_compatible_peer' | 'inactive_member' | 'other';
+      profile_role: 'client' | 'member' | 'admin';
+      profile_status: 'active' | 'suspended' | 'deleted';
+      renewal_payment_status: 'paid' | 'pending' | 'overdue';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1607,29 +1637,29 @@ export type Database = {
   };
 };
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R;
       }
       ? R
@@ -1637,22 +1667,20 @@ export type Tables<
     : never;
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I;
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I;
       }
       ? I
@@ -1660,22 +1688,20 @@ export type TablesInsert<
     : never;
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U;
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U;
       }
       ? U
@@ -1683,78 +1709,71 @@ export type TablesUpdate<
     : never;
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums'] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
+    | keyof DefaultSchema['CompositeTypes']
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never;
 
 export const Constants = {
   public: {
     Enums: {
-      admin_role: ["super_admin", "content_manager", "reviewer"],
+      admin_role: ['super_admin', 'content_manager', 'reviewer'],
       application_region: [
-        "asia_pacific",
-        "europe",
-        "latin_america",
-        "middle_east",
-        "north_america",
-        "south_asia",
-        "africa",
+        'asia_pacific',
+        'europe',
+        'latin_america',
+        'middle_east',
+        'north_america',
+        'south_asia',
+        'africa',
       ],
-      application_status: ["draft", "submitted", "under_review", "approved", "rejected"],
-      article_status: ["draft", "published", "pending_review", "rejected"],
-      auth_provider: ["email", "linkedin_oidc", "google"],
-      billing_period: ["monthly", "annual"],
-      consultation_status: ["pending", "completed", "declined"],
-      event_status: ["draft", "published"],
+      application_status: ['draft', 'submitted', 'under_review', 'approved', 'rejected'],
+      article_status: ['draft', 'published', 'pending_review', 'rejected'],
+      auth_provider: ['email', 'linkedin_oidc', 'google'],
+      billing_period: ['monthly', 'annual'],
+      consultation_status: ['pending', 'completed', 'declined'],
+      event_status: ['draft', 'published'],
       member_edit_section: [
-        "headline_bio",
-        "contact",
-        "engagements",
-        "education",
-        "work_experiences",
-        "key_clients",
-        "testimonials",
-        "awards",
+        'headline_bio',
+        'contact',
+        'engagements',
+        'education',
+        'work_experiences',
+        'key_clients',
+        'testimonials',
+        'awards',
       ],
-      member_edit_status: ["pending", "verified", "rejected"],
-      member_profile_status: ["active", "deactivated"],
-      membership_tier: ["budding_entrepreneur", "seasoned_professional"],
-      payment_status: ["pending", "waived", "paid"],
-      peer_connect_match_status: ["scheduled", "completed", "cancelled"],
-      peer_connect_unmatched_reason: [
-        "odd_headcount",
-        "no_compatible_peer",
-        "inactive_member",
-        "other",
-      ],
-      profile_role: ["client", "member", "admin"],
-      profile_status: ["active", "suspended", "deleted"],
-      renewal_payment_status: ["paid", "pending", "overdue"],
+      member_edit_status: ['pending', 'verified', 'rejected'],
+      member_profile_status: ['active', 'deactivated'],
+      membership_tier: ['budding_entrepreneur', 'seasoned_professional'],
+      payment_status: ['pending', 'waived', 'paid'],
+      peer_connect_match_status: ['scheduled', 'completed', 'cancelled'],
+      peer_connect_unmatched_reason: ['odd_headcount', 'no_compatible_peer', 'inactive_member', 'other'],
+      profile_role: ['client', 'member', 'admin'],
+      profile_status: ['active', 'suspended', 'deleted'],
+      renewal_payment_status: ['paid', 'pending', 'overdue'],
     },
   },
 } as const;

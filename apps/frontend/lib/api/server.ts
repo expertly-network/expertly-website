@@ -22,7 +22,8 @@ import type {
   ArticleListItemDto,
   ListArticlesQuery,
 } from '@shared/article';
-import type { EventDto } from '@shared/event';
+import type { EventCalendarResponse, EventDto, ListEventsQuery } from '@shared/event';
+import { buildEventsQueryString, EVENTS_TOTAL_COUNT_HEADER } from '@/lib/api/events-query';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
 
 // Public, viewer-independent lists (no Authorization header) are cached in Next's data cache for
@@ -147,6 +148,19 @@ export function getMembersServer(queryString: string): Promise<MemberListItemDto
   return publicList<MemberListItemDto>(`/members${queryString}`, 'Failed to load members.');
 }
 
+const MEMBERS_TOTAL_COUNT_HEADER = 'X-Total-Count';
+
+// One directory page plus the total match count (the X-Total-Count header), for the page bar.
+export async function getMembersPageServer(
+  queryString: string
+): Promise<{ items: MemberListItemDto[]; total: number }> {
+  const res = await publicGet(`/members${queryString}`, 'Failed to load members.');
+  if (!res) return { items: [], total: 0 };
+  const items = (await res.json()) as MemberListItemDto[];
+  const total = Number(res.headers.get(MEMBERS_TOTAL_COUNT_HEADER) ?? items.length);
+  return { items, total: Number.isFinite(total) ? total : items.length };
+}
+
 // Returns a member's full profile by slug, or null if signed out or not found. cache()d per request:
 // generateMetadata, the page, and the article author sidebar all ask for the same profile.
 export const getMemberServer = cache(
@@ -249,21 +263,30 @@ export const getArticleServer = cache(
     })
 );
 
-// Returns events, upcoming-only by default. With `upcoming: false`, past ones too — `monthsBack`
-// narrows that to events still running on or after the first day of the month that many months
-// ago (the API caps the list, so a caller asks for the window it actually shows).
-export function getEventsServer(params: { upcoming?: boolean; monthsBack?: number } = {}): Promise<EventDto[]> {
-  const qs = new URLSearchParams();
-  if (params.upcoming === false) {
-    qs.set('upcoming', 'false');
-    if (params.monthsBack !== undefined) {
-      const now = new Date();
-      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - params.monthsBack, 1));
-      qs.set('from', from.toISOString().slice(0, 10));
-    }
-  }
-  const query = qs.toString();
-  return publicList<EventDto>(`/events${query ? `?${query}` : ''}`, 'Failed to load events.');
+// The dashboard's upcoming list (not-yet-ended events, soonest first).
+export function getEventsServer(): Promise<EventDto[]> {
+  return publicList<EventDto>('/events', 'Failed to load events.');
+}
+
+// One server-filtered page of published events (past and upcoming) plus the total match count.
+// The home calendar's month (see GET /v1/events/calendar); empty on failure.
+export async function getEventCalendarServer(from: string, to: string): Promise<EventCalendarResponse> {
+  const res = await publicGet(
+    `/events/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    'Failed to load the events calendar.'
+  );
+  return res ? ((await res.json()) as EventCalendarResponse) : { days: [] };
+}
+
+export async function getEventsPageServer(query: ListEventsQuery): Promise<{ items: EventDto[]; total: number }> {
+  const res = await publicGet(
+    `/events${buildEventsQueryString({ ...query, upcoming: 'false' })}`,
+    'Failed to load events.'
+  );
+  if (!res) return { items: [], total: 0 };
+  const items = (await res.json()) as EventDto[];
+  const total = Number(res.headers.get(EVENTS_TOTAL_COUNT_HEADER) ?? items.length);
+  return { items, total: Number.isFinite(total) ? total : items.length };
 }
 
 // Returns every event for the admin list, regardless of status.

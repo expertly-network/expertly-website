@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button, Card, FilterPopover } from '@/components/ui';
+import { Button, Card, FilterPopover, Pagination } from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { ArticleCard } from '@/components/articles/ArticleCard';
 import { getArticles } from '@/lib/api/articles';
@@ -10,24 +10,33 @@ import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ArticleListItemDto } from '@shared/article';
 import type { CategoryDto } from '@shared/category';
 
-type Status = 'idle' | 'filtering' | 'loading-more';
+type Status = 'idle' | 'filtering' | 'paging';
 
 // Server-paged: the first page arrives from the server component; changing a filter refetches
-// page 1, and scrolling near the end of the grid appends the next page (infinite scroll, same
-// pattern as MemberDirectoryList). Filtering happens in the API, not here — the
-// browser only ever holds the pages it has shown.
+// page 1, and the page bar under the grid swaps in another page of ARTICLES_PAGE_SIZE. Filtering
+// happens in the API, not here — the browser only ever holds the page it is showing.
 export function ArticlesGrid({
   initialArticles,
   initialTotal,
   categories,
+  initialServiceFilter = [],
 }: {
   initialArticles: ArticleListItemDto[];
   initialTotal: number;
   categories: CategoryDto[];
+  /** Service ids the server-rendered first page is already filtered by. */
+  initialServiceFilter?: string[];
 }) {
-  const services = categories.flatMap((c) => c.services);
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
+  // Service lines (Tax, Finance, Legal, …) in taxonomy order; services narrowed to the chosen lines.
+  const lineOptions = [...new Map(categories.map((c) => [c.serviceLineId, c.serviceLineName]))].map(
+    ([value, label]) => ({ value, label })
+  );
+  const services = categories
+    .filter((c) => lineFilter.length === 0 || lineFilter.includes(c.serviceLineId))
+    .flatMap((c) => c.services);
   const [countryFilter, setCountryFilter] = useState<string[]>([]);
-  const [serviceFilter, setServiceFilter] = useState<string[]>([]);
+  const [serviceFilter, setServiceFilter] = useState<string[]>(initialServiceFilter);
   const [articles, setArticles] = useState(initialArticles);
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(1);
@@ -37,7 +46,7 @@ export function ArticlesGrid({
   // Only the latest request may write state — a slow earlier response must not overwrite it.
   const requestId = useRef(0);
   const isFirstRender = useRef(true);
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
 
   async function load(nextPage: number, mode: Exclude<Status, 'idle'>) {
     const id = ++requestId.current;
@@ -46,18 +55,19 @@ export function ArticlesGrid({
     try {
       const result = await getArticles({
         serviceId: serviceFilter,
+        serviceLineId: lineFilter,
         country: countryFilter,
         page: nextPage,
         pageSize: ARTICLES_PAGE_SIZE,
       });
       if (id !== requestId.current) return;
-      setArticles((prev) => (nextPage === 1 ? result.items : [...prev, ...result.items]));
+      setArticles(result.items);
       setTotal(result.total);
       setPage(nextPage);
     } catch (err) {
       if (id !== requestId.current) return;
       // A failed filter change mustn't leave the previous filter's results on screen.
-      if (nextPage === 1) {
+      if (mode === 'filtering') {
         setArticles([]);
         setTotal(0);
       }
@@ -74,28 +84,17 @@ export function ArticlesGrid({
     }
     void load(1, 'filtering');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch only when the filters change
-  }, [countryFilter, serviceFilter]);
+  }, [countryFilter, serviceFilter, lineFilter]);
 
-  const hasFilters = countryFilter.length > 0 || serviceFilter.length > 0;
-  const hasMore = articles.length < total;
+  const hasFilters = countryFilter.length > 0 || serviceFilter.length > 0 || lineFilter.length > 0;
+  const totalPages = Math.max(1, Math.ceil(total / ARTICLES_PAGE_SIZE));
 
-  // Starts the next page ~400px before the end of the grid comes into view. Paused while a request
-  // is in flight or after a failure (the "Try again" button resumes), so an error can't loop.
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore || status !== 'idle' || failed) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) void load(page + 1, 'loading-more');
-      },
-      { rootMargin: '400px' }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load() reads the current filters
-  }, [hasMore, status, failed, page, countryFilter, serviceFilter]);
+  function goToPage(nextPage: number) {
+    void load(nextPage, 'paging');
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-  // Shown where the failure happened: above the grid for a filter change, below it for a next page.
+  // Shown where the failure happened: above the grid for a filter change, below it for a page change.
   const retryCard = failed && (
     <Card padding="md" className="mt-5 flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-ink-3">Couldn&apos;t load articles. {failed.message}</p>
@@ -106,8 +105,23 @@ export function ArticlesGrid({
   );
 
   return (
-    <div>
+    <div ref={topRef} className="scroll-mt-24">
       <div className="flex flex-wrap gap-2.5">
+        <FilterPopover
+          label="All areas"
+          options={lineOptions}
+          selected={lineFilter}
+          onChange={(values) => {
+            setLineFilter(values);
+            // Keep only services that still belong to the chosen areas.
+            const allowed = new Set(
+              categories
+                .filter((c) => values.length === 0 || values.includes(c.serviceLineId))
+                .flatMap((c) => c.services.map((sv) => sv.id))
+            );
+            setServiceFilter((prev) => prev.filter((id) => allowed.has(id)));
+          }}
+        />
         <FilterPopover
           label="All countries"
           options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
@@ -125,9 +139,9 @@ export function ArticlesGrid({
       <p className="mt-6 font-mono text-xs text-ink-3" aria-live="polite">
         {status === 'filtering'
           ? 'Loading…'
-          : failed?.page === 1
+          : failed?.mode === 'filtering'
             ? '\u00a0'
-            : `${total} article${total === 1 ? '' : 's'}`}
+            : `${total} article${total === 1 ? '' : 's'}${totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}`}
       </p>
 
       {failed?.mode === 'filtering' && status === 'idle' && retryCard}
@@ -136,24 +150,17 @@ export function ArticlesGrid({
         <>
           <div
             className={`mt-5 grid gap-6 transition-opacity sm:grid-cols-2 lg:grid-cols-3 ${
-              status === 'filtering' ? 'pointer-events-none opacity-50' : ''
+              status !== 'idle' ? 'pointer-events-none opacity-50' : ''
             }`}
             aria-busy={status !== 'idle'}
           >
             {articles.map((article) => (
               <ArticleCard key={article.id} article={article} />
             ))}
-            {status === 'loading-more' &&
-              Array.from({ length: Math.min(ARTICLES_PAGE_SIZE, total - articles.length) }).map((_, i) => (
-                <div
-                  key={`skeleton-${i}`}
-                  className="h-[330px] animate-pulse rounded-2xl border border-line bg-bg-alt"
-                />
-              ))}
           </div>
 
-          {failed?.mode === 'loading-more' && status === 'idle' && retryCard}
-          <div ref={sentinelRef} aria-hidden="true" className="h-px" />
+          {failed?.mode === 'paging' && status === 'idle' && retryCard}
+          <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} className="mt-10" />
         </>
       ) : status === 'filtering' ? (
         <div className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
@@ -172,6 +179,7 @@ export function ArticlesGrid({
                 onClick={() => {
                   setCountryFilter([]);
                   setServiceFilter([]);
+                  setLineFilter([]);
                 }}
               >
                 View all

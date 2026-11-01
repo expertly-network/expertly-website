@@ -23,6 +23,7 @@ import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
 import { countArticleWords, stripHtml, MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS } from './word-count';
 import { AiService } from '../ai/ai.service';
+import { CategoriesService } from '../categories/categories.service';
 import { AiDraftGenerationsRepository } from '../ai/ai-draft-generations.repository';
 import {
   ArticlesRepository,
@@ -39,6 +40,8 @@ const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 50;
 
 export interface ListPublishedQuery extends PublishedArticleFilters {
+  /** Service lines (taxonomy level 1): articles tagged with any service in them. */
+  serviceLineIds?: string[];
   page?: number;
   pageSize?: number;
 }
@@ -60,7 +63,8 @@ export class ArticlesService {
     private readonly articlesRepository: ArticlesRepository,
     private readonly aiService: AiService,
     private readonly aiDraftGenerationsRepository: AiDraftGenerationsRepository,
-    private readonly adminAccess: AdminAccessService
+    private readonly adminAccess: AdminAccessService,
+    private readonly categoriesService: CategoriesService
   ) {}
 
   // Resolves a submission to 'published' or 'pending_review' based on the review mode.
@@ -92,7 +96,21 @@ export class ArticlesService {
   // MAX_PAGE_SIZE when neither is given (callers that want "everything", e.g. an author's tab),
   // so no request returns an unbounded list.
   async listPublished(query: ListPublishedQuery): Promise<{ items: ArticleListItemDto[]; total: number }> {
-    const { page, pageSize, ...filters } = query;
+    const { page, pageSize, serviceLineIds, ...filters } = query;
+    if (serviceLineIds?.length) {
+      // A service line is the set of services under its categories; combined with explicit
+      // serviceIds it narrows them. No overlap means nothing can match.
+      const lines = new Set(serviceLineIds);
+      const lineServiceIds = new Set(
+        (await this.categoriesService.list())
+          .filter((c) => lines.has(c.serviceLineId))
+          .flatMap((c) => c.services.map((s) => s.id))
+      );
+      filters.serviceIds = filters.serviceIds?.length
+        ? filters.serviceIds.filter((id) => lineServiceIds.has(id))
+        : [...lineServiceIds];
+      if (filters.serviceIds.length === 0) return { items: [], total: 0 };
+    }
     const fallbackSize = page === undefined && pageSize === undefined ? MAX_PAGE_SIZE : DEFAULT_PAGE_SIZE;
     const size = Math.min(Math.max(pageSize ?? fallbackSize, 1), MAX_PAGE_SIZE);
     const from = (Math.max(page ?? 1, 1) - 1) * size;

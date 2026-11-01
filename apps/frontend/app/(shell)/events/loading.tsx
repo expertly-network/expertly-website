@@ -4,7 +4,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 export default function EventsLoading() {
   return (
     <div role="status" aria-label="Loading events" className="animate-pulse">
-      <section className="bg-ink pb-12 pt-14">
+      <section className="bg-ink py-12 sm:py-16">
         <PageContainer>
           <div className="h-3 w-24 rounded bg-white/10" />
           <div className="mt-4 h-10 w-2/3 rounded-md bg-white/10" />

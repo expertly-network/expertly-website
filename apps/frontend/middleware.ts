@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-import { SUPABASE_URL, getApiUrlRuntime, getSiteUrlOrDefault } from '@/lib/env';
+import { SUPABASE_URL, getApiUrlRuntime, getSiteUrlOrDefault, isSiteLaunched } from '@/lib/env';
+import { isOpenBeforeLaunch } from '@/lib/launch';
 
 // Routes that require a signed-in user. Add more prefixes here as new protected
 // pages ship (e.g. '/peer-connect').
@@ -76,15 +77,41 @@ export async function middleware(request: NextRequest) {
     'Content-Security-Policy': csp,
   });
 
-  const isProtected = PROTECTED_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix));
+  const { pathname } = request.nextUrl;
+  // Keep any cookies a refresh attempt cleared/rewrote (e.g. an expired session being removed).
+  const withSessionCookies = (next: NextResponse) => {
+    response.cookies.getAll().forEach((cookie) => next.cookies.set(cookie));
+    return next;
+  };
+
+  // Pre-launch: a signed-in visitor is sent to their application (/apply forwards admins to /admin
+  // and anyone who has already applied to /apply/submitted); a signed-out one sees the teaser, which
+  // `/` serves in place of the home page.
+  if (!isSiteLaunched()) {
+    if (userId && (pathname === '/' || !isOpenBeforeLaunch(pathname))) {
+      return withSessionCookies(NextResponse.redirect(new URL('/apply', request.url)));
+    }
+    if (!isOpenBeforeLaunch(pathname)) {
+      return withSessionCookies(NextResponse.redirect(new URL('/', request.url)));
+    }
+    if (pathname === '/') {
+      const headers = new Headers(request.headers);
+      headers.set('x-nonce', nonce);
+      headers.set('Content-Security-Policy', csp);
+      const teaser = withSessionCookies(
+        NextResponse.rewrite(new URL('/welcome', request.url), { request: { headers } })
+      );
+      teaser.headers.set('Content-Security-Policy', csp);
+      return teaser;
+    }
+  }
+
+  const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (isProtected && !userId) {
     const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('returnTo', request.nextUrl.pathname);
-    const redirect = NextResponse.redirect(redirectUrl);
-    // Keep any cookies a refresh attempt cleared/rewrote (e.g. an expired session being removed).
-    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
-    return redirect;
+    redirectUrl.searchParams.set('returnTo', pathname);
+    return withSessionCookies(NextResponse.redirect(redirectUrl));
   }
 
   response.headers.set('Content-Security-Policy', csp);

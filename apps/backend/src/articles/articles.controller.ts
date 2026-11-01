@@ -99,6 +99,7 @@ export class ArticlesController {
     @Res({ passthrough: true }) reply: FastifyReply,
     @Query('authorId') authorId?: string,
     @Query('serviceId') serviceId?: string | string[],
+    @Query('serviceLineId') serviceLineId?: string | string[],
     @Query('country') country?: string | string[],
     @Query('excludeId') excludeId?: string,
     @Query('page') page?: string,
@@ -107,11 +108,14 @@ export class ArticlesController {
     const serviceIds = toArray(serviceId);
     assertUuids('authorId', [authorId]);
     assertUuids('serviceId', serviceIds ?? []);
+    const serviceLineIds = toArray(serviceLineId);
+    assertUuids('serviceLineId', serviceLineIds ?? []);
     assertUuids('excludeId', [excludeId]);
 
     const { items, total } = await this.articlesService.listPublished({
       authorId,
       serviceIds,
+      serviceLineIds,
       countries: toArray(country),
       excludeId,
       page: toPositiveInt('page', page),

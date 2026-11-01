@@ -70,6 +70,9 @@ export function AiGenerationDetail({ generation }: { generation: AdminAiGenerati
           title="The member's brief"
           description="Step 1 of the wizard — the core questions every member answers."
         >
+          <Field label="Topic / working title">
+            <TextValue value={inputs.topic} />
+          </Field>
           <Field label="Your thoughts / notes">
             <TextValue value={inputs.notes} />
           </Field>

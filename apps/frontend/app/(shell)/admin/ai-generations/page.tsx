@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getAdminAiGenerationsServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { AdminAiGenerationsTable } from '@/components/admin/AdminAiGenerationsTable';
 
 export const metadata = {
@@ -24,16 +24,11 @@ export default async function AdminAiGenerationsPage() {
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Admin</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">AI generations</h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">
-            Every article draft generated with GrowXQ AI. Open one to see exactly what the member gave the AI, and what
-            it wrote back. Showing the 200 most recent.
-          </p>
-        </PageContainer>
-      </section>
+      <PageHero
+        eyebrow="Admin"
+        title="AI generations"
+        lede="Every article draft generated with GrowXQ AI. Open one to see exactly what the member gave the AI, and what it wrote back. Showing the 200 most recent."
+      />
       <section className="py-12">
         <PageContainer>
           <AdminAiGenerationsTable generations={generations} />

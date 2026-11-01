@@ -15,7 +15,7 @@ export function AiSearchTeaser() {
       <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
         <div>
           <Eyebrow>GrowXQ · Intelligent Discovery</Eyebrow>
-          <h2 className="mt-4 text-section-title text-ink">
+          <h2 className="font-brand mt-4 text-section-title text-ink">
             Ask in plain English. Get <span className="text-accent">exactly</span> who &amp; what you need.
           </h2>
           <p className="mt-5 max-w-[480px] text-lede text-ink-3">

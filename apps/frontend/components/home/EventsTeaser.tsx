@@ -1,17 +1,17 @@
-import { Button, Card, Eyebrow } from '@/components/ui';
+import { Button, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { EventsCalendar } from '@/components/home/EventsCalendar';
-import type { EventDto } from '@shared/event';
+import type { EventCalendarResponse, EventDto } from '@shared/event';
 
 // Falls back to a "coming soon" placeholder if there are no events yet.
-export function EventsTeaser({ events }: { events: EventDto[] }) {
+export function EventsTeaser({ calendar, upcoming }: { calendar: EventCalendarResponse; upcoming: EventDto[] }) {
   return (
     <section className="border-b border-line py-24">
       <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <Eyebrow>Calendar</Eyebrow>
-            <h2 className="mt-4 text-section-title text-ink">
+            <h2 className="font-brand mt-4 text-section-title text-ink">
               Be part of what&apos;s <span className="text-accent">next</span>
             </h2>
             <p className="mt-4 max-w-xl text-lede text-ink-3">
@@ -24,17 +24,7 @@ export function EventsTeaser({ events }: { events: EventDto[] }) {
           </Button>
         </div>
         <div className="mt-8">
-          {events.length > 0 ? (
-            <EventsCalendar events={events} />
-          ) : (
-            <Card padding="lg" className="flex flex-col items-center gap-2 text-center">
-              <p className="text-sm font-medium text-ink">Events are coming soon.</p>
-              <p className="max-w-md text-sm text-ink-3">
-                We&apos;re building out a calendar of conferences, meetups, and member-exclusive sessions. Check back
-                shortly.
-              </p>
-            </Card>
-          )}
+          <EventsCalendar calendar={calendar} upcoming={upcoming} />
         </div>
       </PageContainer>
     </section>

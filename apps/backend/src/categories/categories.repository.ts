@@ -5,7 +5,15 @@ import type { Database } from '../supabase/database.types';
 export type CategoryInsert = Database['public']['Tables']['categories']['Insert'];
 export type CategoryUpdate = Database['public']['Tables']['categories']['Update'];
 
-const CATEGORY_COLUMNS = ['id', 'name', 'sortOrder:sort_order', 'imageUrl:image_url', 'isActive:is_active'] as const;
+const CATEGORY_COLUMNS = [
+  'id',
+  'name',
+  'sortOrder:sort_order',
+  'imageUrl:image_url',
+  'isActive:is_active',
+  'serviceLineId:service_line_id',
+] as const;
+const SERVICE_LINE_COLUMNS = ['id', 'name', 'sortOrder:sort_order', 'isActive:is_active'] as const;
 const SERVICE_COLUMNS = [
   'id',
   'categoryId:category_id',
@@ -20,6 +28,14 @@ export interface CategoryRow {
   name: string;
   sortOrder: number;
   imageUrl: string | null;
+  isActive: boolean;
+  serviceLineId: string;
+}
+
+export interface ServiceLineRow {
+  id: string;
+  name: string;
+  sortOrder: number;
   isActive: boolean;
 }
 
@@ -42,6 +58,30 @@ export class CategoriesRepository {
 
   private services() {
     return this.supabase.db.from('services');
+  }
+
+  private serviceLines() {
+    return this.supabase.db.from('service_lines');
+  }
+
+  async findServiceLines(activeOnly: boolean): Promise<ServiceLineRow[]> {
+    let query = this.serviceLines().select(SERVICE_LINE_COLUMNS.join(', ')).order('sort_order');
+    if (activeOnly) query = query.eq('is_active', true);
+    const { data, error } = await query;
+    if (error) throw new InternalServerErrorException('Failed to load service lines.');
+    return (data ?? []) as unknown as ServiceLineRow[];
+  }
+
+  async findServiceLineIdByName(name: string): Promise<string | null> {
+    const { data, error } = await this.serviceLines().select('id').eq('name', name).maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to load service lines.');
+    return (data?.id as string | undefined) ?? null;
+  }
+
+  async serviceLineExists(id: string): Promise<boolean> {
+    const { data, error } = await this.serviceLines().select('id').eq('id', id).maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to load service lines.');
+    return !!data;
   }
 
   async findAllActiveWithServices(): Promise<(CategoryRow & { services: ServiceRow[] })[]> {

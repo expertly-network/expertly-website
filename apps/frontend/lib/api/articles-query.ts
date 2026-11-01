@@ -8,6 +8,7 @@ export function buildArticlesQueryString(query: ListArticlesQuery = {}): string 
   const search = new URLSearchParams();
   if (query.authorId) search.set('authorId', query.authorId);
   for (const id of query.serviceId ?? []) search.append('serviceId', id);
+  for (const id of query.serviceLineId ?? []) search.append('serviceLineId', id);
   for (const c of query.country ?? []) search.append('country', c);
   if (query.excludeId) search.set('excludeId', query.excludeId);
   if (query.page !== undefined) search.set('page', String(query.page));
@@ -16,5 +17,5 @@ export function buildArticlesQueryString(query: ListArticlesQuery = {}): string 
   return qs ? `?${qs}` : '';
 }
 
-// Browse grid page size — 12 fills whole rows at every breakpoint (1, 2 and 3 columns).
-export const ARTICLES_PAGE_SIZE = 12;
+// Browse grid page size — 30 fills whole rows at every breakpoint (1, 2 and 3 columns).
+export const ARTICLES_PAGE_SIZE = 30;

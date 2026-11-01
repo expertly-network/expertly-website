@@ -1,50 +1,67 @@
 import { Button, Card } from '@/components/ui';
+import { SidebarJoinCard, SidebarStatsCard } from '@/components/shared/SidebarCards';
 
-// "Suggest an event" is a mailto: link — there's no submission backend yet.
-export function EventsSidebar({ showApply = true }: { showApply?: boolean }) {
+// Same card set as the member directory's sidebar. "Suggest an event" is a mailto: link — there's
+// no submission backend yet.
+export function EventsSidebar({ upcomingCount, showApply = true }: { upcomingCount: number; showApply?: boolean }) {
+  const stats = [
+    {
+      num: upcomingCount.toLocaleString('en-GB'),
+      label: (
+        <>
+          <b className="font-medium text-ink">Upcoming events</b>: conferences, seminars, webinars and workshops.
+        </>
+      ),
+    },
+    {
+      num: '3',
+      label: (
+        <>
+          <b className="font-medium text-ink">Formats</b>: in person, hybrid and online, so you can join from anywhere.
+        </>
+      ),
+    },
+    {
+      num: '100%',
+      label: (
+        <>
+          <b className="font-medium text-ink">Curated</b>: every listing is reviewed by the GrowXQ team before it goes
+          live.
+        </>
+      ),
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-6">
-      <Card padding="md">
-        <div className="mb-1 text-mono-label text-ink-3">Curated calendar</div>
-        <h3 className="mt-2 text-title text-ink">Events worth your time.</h3>
-        <p className="mt-2 text-sm text-ink-3">
-          Only conferences and summits relevant to finance and legal professionals make the list, personally reviewed by
-          the GrowXQ team.
-        </p>
-      </Card>
+    <aside className="flex flex-col gap-4">
+      <SidebarStatsCard
+        title="Events worth your time."
+        intro="Only events relevant to finance and legal professionals make the calendar."
+        stats={stats}
+      />
 
       <Card padding="md">
-        <div className="mb-1 text-mono-label text-ink-3">Know of one we&apos;re missing?</div>
-        <h3 className="mt-2 text-title text-ink">Suggest an event.</h3>
+        <h3 className="text-title text-ink">Know of one we&apos;re missing?</h3>
         <p className="mt-2 text-sm text-ink-3">
           Running or attending something relevant? Send us the details and our team will review it for the calendar.
         </p>
-        <Button href="mailto:contact@growxq.com?subject=Event%20suggestion" variant="secondary" className="mt-4">
+        <Button
+          href="mailto:contact@growxq.com?subject=Event%20suggestion"
+          variant="secondary"
+          className="mt-4"
+          fullWidth
+        >
           Suggest an event →
         </Button>
       </Card>
 
       {showApply && (
-        <Card padding="md" className="relative overflow-hidden bg-ink">
-          <div
-            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
-            style={{
-              background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
-            }}
-            aria-hidden="true"
-          />
-          <div className="relative">
-            <div className="mb-1 text-mono-label text-white/50">For members</div>
-            <h3 className="mt-2 text-title text-bg-card">Get early access to events.</h3>
-            <p className="mt-2 text-sm text-white/60">
-              GrowXQ members receive early-bird notifications and introductions to event organisers.
-            </p>
-            <Button href="/apply" variant="secondary-dark" className="mt-4">
-              Apply for membership →
-            </Button>
-          </div>
-        </Card>
+        <SidebarJoinCard
+          eyebrow="For members"
+          title="Get early access to events."
+          body="GrowXQ members receive early-bird notifications and introductions to event organisers."
+        />
       )}
-    </div>
+    </aside>
   );
 }

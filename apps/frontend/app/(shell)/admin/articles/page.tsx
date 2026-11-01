@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getAdminArticlesServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Eyebrow } from '@/components/ui';
+import { PageHero } from '@/components/layout/PageHero';
 import { AdminArticlesTable } from '@/components/admin/AdminArticlesTable';
 
 export const metadata = {
@@ -23,16 +23,11 @@ export default async function AdminArticlesPage() {
 
   return (
     <div>
-      <section className="bg-ink py-16">
-        <PageContainer>
-          <Eyebrow dark>Admin</Eyebrow>
-          <h1 className="mt-2 text-headline text-bg-card">Article review queue</h1>
-          <p className="mt-3 max-w-xl text-lede text-white/65">
-            Review articles submitted for editorial review. Approving one publishes it immediately; rejecting one
-            requires a reason, visible to the author.
-          </p>
-        </PageContainer>
-      </section>
+      <PageHero
+        eyebrow="Admin"
+        title="Article review queue"
+        lede="Review articles submitted for editorial review. Approving one publishes it immediately; rejecting one requires a reason, visible to the author."
+      />
       <section className="py-12">
         <PageContainer>
           {articles.length > 0 ? (

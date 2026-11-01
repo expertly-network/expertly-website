@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { SignInLink } from '@/components/auth/SignInLink';
 import { UpcomingEvents } from '@/components/home/UpcomingEvents';
-import type { EventDto } from '@shared/event';
-import { isOnlineEvent } from '@/lib/events/format';
+import type { CalendarEventDto, EventCalendarDay, EventCalendarResponse, EventDto } from '@shared/event';
+import { isOnlineEvent, normalizeEventTitle } from '@/lib/events/format';
+import { getEventCalendar } from '@/lib/api/events';
+import { toIsoDate } from '@/lib/api/events-query';
 
 const MONTH_NAMES = [
   'January',
@@ -46,27 +48,16 @@ function countryCode(name: string | null): string {
   return COUNTRY_CODE[name] ?? name.slice(0, 2).toUpperCase();
 }
 
-type CalEvent = {
-  id: string;
-  title: string;
-  cc: string;
-  sd: Date;
-  ed: Date;
-  isPast: boolean;
-};
-
-// Bars shown per week row; any further events on a day collapse into a "+N more" line.
-const MAX_LANES = 2;
-
 function startOfDay(d: Date) {
   const c = new Date(d);
   c.setHours(0, 0, 0, 0);
   return c;
 }
 
-// An interactive month-calendar grid. Event pills aren't links — there's no event detail page
-// yet — so the single "All events" CTA links to /events instead.
-export function EventsCalendar({ events }: { events: EventDto[] }) {
+// An interactive month grid. Each day shows up to two events and "+N more" for the rest — the API
+// sends only that much per day (GET /v1/events/calendar), so switching months stays light.
+// Past days and their events are greyed out; upcoming events link to their row on /events.
+export function EventsCalendar({ calendar, upcoming }: { calendar: EventCalendarResponse; upcoming: EventDto[] }) {
   const [monthOffset, setMonthOffset] = useState(0);
 
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -75,86 +66,48 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
   const yr = view.getFullYear();
   const mo = view.getMonth();
 
-  // The phone-width list (no month grid there) shows what's next, not the past events the grid
-  // greys out.
-  const upcoming = useMemo(
-    () => events.filter((e) => startOfDay(new Date(e.endDate ?? e.startDate)) >= today),
-    [events, today]
-  );
+  // Calendar days per month, fetched as the visitor navigates (the server renders the current
+  // month). `null` = that month failed to load.
+  const [byMonth, setByMonth] = useState<Record<string, EventCalendarDay[] | null>>(() => ({
+    [`${base.getFullYear()}-${base.getMonth()}`]: calendar.days,
+  }));
+  const monthKey = `${yr}-${mo}`;
+  const monthDays = byMonth[monthKey];
+  const monthLoading = monthDays === undefined;
 
-  const calEvents: CalEvent[] = useMemo(
-    () =>
-      events.map((e) => {
-        const sd = startOfDay(new Date(e.startDate));
-        const ed = e.endDate ? startOfDay(new Date(e.endDate)) : sd;
-        return {
-          id: e.id,
-          title: e.title,
-          cc: isOnlineEvent(e) ? 'Online' : countryCode(e.country),
-          sd,
-          ed,
-          isPast: ed < today,
-        };
-      }),
-    [events, today]
-  );
+  useEffect(() => {
+    if (byMonth[monthKey] !== undefined) return;
+    let cancelled = false;
+    getEventCalendar(toIsoDate(new Date(yr, mo, 1)), toIsoDate(new Date(yr, mo + 1, 0)))
+      .then(({ days }) => !cancelled && setByMonth((prev) => ({ ...prev, [monthKey]: days })))
+      .catch(() => !cancelled && setByMonth((prev) => ({ ...prev, [monthKey]: null })));
+    return () => {
+      cancelled = true;
+    };
+  }, [byMonth, monthKey, yr, mo]);
+
+  const dayByDate = useMemo(() => new Map((monthDays ?? []).map((d) => [d.date, d])), [monthDays]);
 
   const firstDOW = new Date(yr, mo, 1).getDay();
   const startOffset = firstDOW === 0 ? 6 : firstDOW - 1;
   const daysInMonth = new Date(yr, mo + 1, 0).getDate();
   const totalWeeks = Math.ceil((startOffset + daysInMonth) / 7);
 
-  const weeks = Array.from({ length: totalWeeks }, (_, w) => {
-    const weekStart = w * 7 - startOffset + 1;
-    const days = Array.from({ length: 7 }, (_, d) => {
-      const dn = weekStart + d;
+  const weeks = Array.from({ length: totalWeeks }, (_, w) =>
+    Array.from({ length: 7 }, (_, d) => {
+      const dn = w * 7 - startOffset + 1 + d;
       if (dn < 1 || dn > daysInMonth) return null;
       const cDate = new Date(yr, mo, dn);
       return {
         dn,
         isToday: cDate.getTime() === today.getTime(),
         isPast: cDate < today,
-        isWeekend: d >= 5,
+        data: dayByDate.get(toIsoDate(cDate)),
       };
-    });
+    })
+  );
 
-    const weekEnd = weekStart + 6;
-    const weekEvs = calEvents
-      .filter((ev) => {
-        const overlapsMonth =
-          (ev.sd.getFullYear() === yr && ev.sd.getMonth() === mo) ||
-          (ev.ed.getFullYear() === yr && ev.ed.getMonth() === mo);
-        if (!overlapsMonth) return false;
-        const esd = ev.sd.getDate();
-        const eed = ev.ed.getDate();
-        if (esd > Math.min(daysInMonth, weekEnd)) return false;
-        if (eed < Math.max(1, weekStart)) return false;
-        return true;
-      })
-      .map((ev) => {
-        const ds = Math.max(ev.sd.getDate(), Math.max(1, weekStart));
-        const de = Math.min(ev.ed.getDate(), Math.min(daysInMonth, weekEnd));
-        return { ev, col: ds - weekStart + 1, span: de - ds + 1 };
-      })
-      // Earliest first, longer spans first on ties, so multi-day bars claim the top lanes.
-      .sort((a, b) => a.col - b.col || b.span - a.span);
-
-    // First-fit lane packing: each bar takes the first lane that's free from its start column.
-    const laneEnds: number[] = [];
-    const placed = weekEvs.map((item) => {
-      let lane = laneEnds.findIndex((end) => end < item.col);
-      if (lane === -1) lane = laneEnds.length;
-      laneEnds[lane] = item.col + item.span - 1;
-      return { ...item, lane };
-    });
-    const visibleEvs = placed.filter((p) => p.lane < MAX_LANES);
-    // Per weekday column (1-7): events on that day that didn't get a visible lane.
-    const hiddenByCol = Array.from({ length: 7 }, (_, i) =>
-      placed.filter((p) => p.lane >= MAX_LANES && p.col <= i + 1 && i + 1 < p.col + p.span)
-    );
-
-    return { days, weekEvs, visibleEvs, hiddenByCol };
-  });
+  const label = (ev: CalendarEventDto) => (isOnlineEvent(ev) ? 'Online' : countryCode(ev.country));
 
   return (
     <div>
@@ -202,6 +155,15 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               <path d="M9 6l6 6-6 6" />
             </svg>
           </button>
+          <span className="text-xs text-ink-3" aria-live="polite">
+            {monthLoading
+              ? 'Loading events…'
+              : monthDays === null
+                ? "Couldn't load this month's events."
+                : monthDays.length === 0
+                  ? 'No events listed this month yet.'
+                  : ''}
+          </span>
         </div>
 
         {/* The side panel sits beside the month grid only from lg up; between 860px and lg it stacks
@@ -217,103 +179,71 @@ export function EventsCalendar({ events }: { events: EventDto[] }) {
               ))}
             </div>
             {weeks.map((week, wi) => (
-              <div key={wi} className="relative h-[112px] border-b border-line last:border-none">
-                <div className="absolute inset-0 grid grid-cols-7">
-                  {week.days.map((day, di) =>
-                    day ? (
-                      <div
-                        key={di}
-                        className={`h-full p-2 ${day.isPast ? 'opacity-30' : ''} ${day.isToday ? 'bg-[color-mix(in_oklab,var(--accent)_13%,var(--bg-card))]' : ''}`}
+              <div key={wi} className="grid h-[112px] grid-cols-7 border-b border-line last:border-none">
+                {week.map((day, di) =>
+                  day ? (
+                    <div
+                      key={di}
+                      className={`flex min-w-0 flex-col gap-[3px] p-1.5 ${day.isToday ? 'bg-[color-mix(in_oklab,var(--accent)_13%,var(--bg-card))]' : ''}`}
+                    >
+                      <span
+                        className={`mb-0.5 inline-flex h-6 w-6 flex-none items-center justify-center font-mono text-xs font-semibold tracking-[-0.01em] ${
+                          day.isToday
+                            ? 'rounded-full bg-accent font-bold text-bg'
+                            : day.isPast
+                              ? 'text-ink-4 opacity-50'
+                              : 'text-ink-3'
+                        }`}
                       >
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center font-mono text-xs font-semibold tracking-[-0.01em] ${
-                            day.isToday
-                              ? 'rounded-full bg-accent font-bold text-bg'
-                              : day.isPast
-                                ? 'text-ink-4'
-                                : 'text-ink-3'
-                          }`}
-                        >
-                          {day.dn}
-                        </span>
-                      </div>
-                    ) : (
-                      <div key={di} className="h-full opacity-35" />
-                    )
-                  )}
-                </div>
-                {week.weekEvs.length > 0 && (
-                  <div
-                    className="absolute inset-0 grid grid-cols-7 content-start gap-x-1 gap-y-[3px] overflow-hidden px-[5px] pb-[5px] pt-8"
-                    style={{ gridTemplateRows: '26px 26px 16px' }}
-                  >
-                    {week.visibleEvs.map(({ ev, col, span, lane }) => {
-                      const content = (
-                        <>
-                          {ev.cc && (
+                        {day.dn}
+                      </span>
+                      {day.data?.events.map((ev) => {
+                        const title = normalizeEventTitle(ev.title);
+                        const content = (
+                          <>
                             <span
-                              className={`flex-none font-mono text-[8px] font-extrabold ${ev.isPast ? 'text-ink-4' : 'text-accent'}`}
+                              className={`flex-none font-mono text-[8px] font-extrabold ${day.isPast ? 'text-ink-4' : 'text-accent'}`}
                             >
-                              {ev.cc}
+                              {label(ev)}
                             </span>
-                          )}
-                          <span
-                            className={`flex-1 truncate text-xs font-semibold tracking-[-0.01em] ${ev.isPast ? 'text-ink-4' : 'text-ink'}`}
-                          >
-                            {ev.title}
+                            <span
+                              className={`flex-1 truncate text-[11px] font-semibold tracking-[-0.01em] ${day.isPast ? 'text-ink-3' : 'text-ink'}`}
+                            >
+                              {title}
+                            </span>
+                          </>
+                        );
+                        const cls =
+                          'flex h-[22px] min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] px-1.5 text-left';
+                        // Past events stay visible (greyed) but aren't links; upcoming ones jump to their
+                        // row on /events. A plain <a> so the row's CSS :target highlight applies.
+                        return day.isPast ? (
+                          <span key={ev.id} title={title} className={`${cls} cursor-default border-line-2 bg-bg-alt`}>
+                            {content}
                           </span>
-                        </>
-                      );
-                      const style = { gridColumn: `${col} / span ${span}`, gridRow: lane + 1 };
-                      // Past events are context only — no click affordance. Upcoming ones jump to
-                      // their row on /events (there are no per-event pages yet).
-                      return ev.isPast ? (
-                        <span
-                          key={ev.id}
-                          title={ev.title}
-                          className="flex cursor-default items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] border-line-2 bg-bg-alt px-2.5 text-left"
-                          style={style}
-                        >
-                          {content}
-                        </span>
-                      ) : (
-                        // A plain <a>, not <Link>: client-side navigation doesn't update the
-                        // CSS :target state that highlights the row on /events.
-                        <a
-                          key={ev.id}
-                          href={`/events#event-${ev.id}`}
-                          title={ev.title}
-                          className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md border-l-[3px] border-accent bg-[linear-gradient(90deg,color-mix(in_oklab,var(--accent)_20%,var(--bg-card))_0%,color-mix(in_oklab,var(--accent)_8%,var(--bg-card))_100%)] px-2.5 text-left transition-all hover:-translate-y-px hover:shadow-[0_3px_18px_color-mix(in_oklab,var(--accent)_30%,transparent)]"
-                          style={style}
-                        >
-                          {content}
-                        </a>
-                      );
-                    })}
-                    {week.hiddenByCol.map((hidden, i) => {
-                      if (hidden.length === 0) return null;
-                      const day = week.days[i];
-                      const label = `+${hidden.length} more`;
-                      const names = hidden.map((h) => h.ev.title).join('\n');
-                      const style = { gridColumn: `${i + 1}`, gridRow: MAX_LANES + 1 };
-                      const cls = 'self-center truncate px-1 text-[11px] font-semibold leading-none';
-                      return day?.isPast ? (
-                        <span key={`more-${i}`} title={names} className={`${cls} text-ink-4`} style={style}>
-                          {label}
-                        </span>
-                      ) : (
+                        ) : (
+                          <a
+                            key={ev.id}
+                            href={`/events#event-${ev.id}`}
+                            title={title}
+                            className={`${cls} border-accent bg-[color-mix(in_oklab,var(--accent)_14%,var(--bg-card))] transition-colors hover:bg-[color-mix(in_oklab,var(--accent)_24%,var(--bg-card))]`}
+                          >
+                            {content}
+                          </a>
+                        );
+                      })}
+                      {day.data && day.data.count > day.data.events.length && (
                         <Link
-                          key={`more-${i}`}
                           href="/events"
-                          title={names}
-                          className={`${cls} text-accent hover:underline`}
-                          style={style}
+                          className={`truncate px-1 text-[11px] font-semibold leading-tight hover:underline ${day.isPast ? 'text-ink-4' : 'text-accent'}`}
                         >
-                          {label}
+                          +{day.data.count - day.data.events.length} more
                         </Link>
-                      );
-                    })}
-                  </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div key={di} />
+                  )
                 )}
               </div>
             ))}

@@ -6,11 +6,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Red border + message below the field — e.g. from a form's inline/scroll-to-error
    * validation. Absent/undefined renders the normal (non-error) state. */
   error?: string;
+  /** Helper text below the field, same as Textarea's; `error` takes over when present. */
+  hint?: ReactNode;
   /** Appends a red asterisk to the label, for forms that mark required fields (article forms). */
   markRequired?: boolean;
 }
 
-export function Input({ label, labelRight, id, error, markRequired, className, ...inputProps }: InputProps) {
+export function Input({ label, labelRight, id, error, hint, markRequired, className, ...inputProps }: InputProps) {
   // Falls back to a generated id so the <label> is always tied to the control, even when a call
   // site passes neither `id` nor `name`.
   const generatedId = useId();
@@ -42,7 +44,11 @@ export function Input({ label, labelRight, id, error, markRequired, className, .
         } ${className ?? ''}`}
         {...inputProps}
       />
-      {error && <span className="text-xs text-error">{error}</span>}
+      {error ? (
+        <span className="text-xs text-error">{error}</span>
+      ) : (
+        hint && <span className="text-xs text-ink-3">{hint}</span>
+      )}
     </div>
   );
 }

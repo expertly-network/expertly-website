@@ -63,9 +63,7 @@ function remotePatterns() {
 
 /** @type {(phase: string) => import('next').NextConfig} */
 module.exports = (phase) => {
-  // `next lint` loads this config under the same phase; only a real `next build` needs the env.
-  const isLint = process.argv.some((arg) => arg === 'lint' || arg.endsWith('next-lint.js'));
-  if (phase === PHASE_PRODUCTION_BUILD && !isLint) validateBuildEnv();
+  if (phase === PHASE_PRODUCTION_BUILD) validateBuildEnv();
 
   return {
     output: 'standalone',
