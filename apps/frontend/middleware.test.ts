@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { config, middleware } from './middleware';
 
-const session = vi.hoisted(() => ({ userId: null as string | null, forwarded: [] as Record<string, string>[] }));
+const session = vi.hoisted(() => ({
+  userId: null as string | null,
+  role: null as string | null,
+  forwarded: [] as Record<string, string>[],
+}));
 
 vi.mock('@/lib/supabase/middleware', () => ({
   updateSession: vi.fn(async (_request: unknown, headers: Record<string, string>) => {
     session.forwarded.push(headers);
-    return { response: NextResponse.next(), userId: session.userId };
+    return { response: NextResponse.next(), userId: session.userId, role: session.role };
   }),
 }));
 
 beforeEach(() => {
   session.userId = null;
+  session.role = null;
   session.forwarded = [];
 });
 
@@ -100,5 +105,34 @@ describe('middleware matcher', () => {
     '/docs/terms.pdf',
   ])('skips %s', (path) => {
     expect(matches(path)).toBe(false);
+  });
+});
+
+describe('pre-launch gate (SITE_LAUNCHED=false)', () => {
+  beforeEach(() => vi.stubEnv('SITE_LAUNCHED', 'false'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  const go = (path: string) => middleware(new NextRequest(`https://growxq.test${path}`));
+
+  it('sends a signed-in client to their application', async () => {
+    session.userId = 'u1';
+    session.role = 'client';
+    const res = await go('/events');
+    expect(res.headers.get('location')).toBe('https://growxq.test/apply');
+  });
+
+  it('shows a signed-out visitor the teaser and keeps closed pages closed', async () => {
+    expect((await go('/')).headers.get('x-middleware-rewrite')).toBe('https://growxq.test/welcome');
+    expect((await go('/articles')).headers.get('location')).toBe('https://growxq.test/');
+  });
+
+  it('lets an admin through to every page, including the real home page', async () => {
+    session.userId = 'admin-1';
+    session.role = 'admin';
+    for (const path of ['/', '/events', '/articles', '/resources/perks']) {
+      const res = await go(path);
+      expect(res.headers.get('location')).toBeNull();
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    }
   });
 });

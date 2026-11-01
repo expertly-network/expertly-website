@@ -72,7 +72,7 @@ export async function middleware(request: NextRequest) {
 
   // The nonce reaches Server Components as a request header (read in app/layout.tsx); Next's renderer
   // reads the CSP request header to nonce its own scripts.
-  const { response, userId } = await updateSession(request, {
+  const { response, userId, role } = await updateSession(request, {
     'x-nonce': nonce,
     'Content-Security-Policy': csp,
   });
@@ -96,10 +96,11 @@ export async function middleware(request: NextRequest) {
     return next;
   };
 
-  // Pre-launch: a signed-in visitor is sent to their application (/apply forwards admins to /admin
-  // and anyone who has already applied to /apply/submitted); a signed-out one sees the teaser, which
-  // `/` serves in place of the home page.
-  if (!isSiteLaunched()) {
+  // Pre-launch: a signed-in visitor is sent to their application (/apply forwards anyone who has
+  // already applied to /apply/submitted); a signed-out one sees the teaser, which `/` serves in
+  // place of the home page. Admins skip the gate entirely — they need the whole site to prepare it
+  // for launch (the teaser stays reachable for them at /welcome).
+  if (!isSiteLaunched() && role !== 'admin') {
     if (userId && (pathname === '/' || !isOpenBeforeLaunch(pathname))) {
       return withSessionCookies(NextResponse.redirect(new URL('/apply', request.url)));
     }

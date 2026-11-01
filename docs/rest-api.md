@@ -884,11 +884,12 @@ not-yet-ended list. With `upcoming=false`, results are filtered and paginated:
 | `to`            | Optional inclusive ISO date; event start must be before the following UTC day.                                                                                                                                                                                                                                                               |
 | `startFrom`     | Optional ISO date (added 2026-10-31, additive); event start must be on or after this UTC day — unlike `from`, an event already running is excluded. The events page uses it so each month lists an event once, where it starts.                                                                                                              |
 | `country`       | Repeatable country string, at most 20, each at most 100 characters; matches any selected country.                                                                                                                                                                                                                                            |
-| `format`        | Repeatable `in_person`, `hybrid`, or `virtual`, at most 3; matches any selected format.                                                                                                                                                                                                                                                      |
+| `format`        | Repeatable `in_person`, `hybrid`, or `virtual`, at most 3; matches any selected format. (The events page shows two toggles and treats hybrid as both: In Person → `in_person`+`hybrid`, Online → `virtual`+`hybrid`, both → `hybrid`.)                                                                                                                                                                                                                                                      |
 | `categoryId`    | Repeatable category UUID, at most 30; events tagged with any of them (`events.category_ids`).                                                                                                                                                                                                                                                |
 | `serviceLineId` | Repeatable service line UUID, at most 10; events tagged with any category in those lines. With `categoryId`, narrows the categories to those lines.                                                                                                                                                                                          |
 | `q`             | Optional free text, at most 200 characters. Split into up to 6 words (stopwords like "in"/"events" dropped, simple plurals trimmed, punctuation stripped); every word must appear in the title, description, type, organiser, city or country (case-insensitive). Instant keyword matching — the conversational search is `POST /v1/search`. |
 | `type`          | Repeatable event type label (e.g. `Seminar`, `Webinar`), at most 20, each at most 60 characters; exact match on `event_type`, any selected type.                                                                                                                                                                                             |
+| `organiser`     | Repeatable organiser name (2026-11-01, additive), at most 20, each at most 200 characters; exact match on `organiser_name` (values from `GET /v1/events/organisers`), any selected organiser. |
 | `page`          | Integer ≥1, default 1.                                                                                                                                                                                                                                                                                                                       |
 | `pageSize`      | Integer 1–1000, default 50.                                                                                                                                                                                                                                                                                                                  |
 
@@ -910,6 +911,22 @@ day (multi-day events count on each day); `events` holds only two — events sta
 running — as
 `CalendarEventDto` `{ id, title, startDate, endDate, country, eventFormat }` — no description. A
 busy month is ~16 KB instead of ~900 KB for the full event list.
+
+### 🌐 `GET /v1/events/organisers`
+
+Added 2026-11-01. Every organiser with at least one published event (past or upcoming), for the
+events page's organiser filter. **Response `200`:** `EventOrganiserDto[]` — `{ name, count }`,
+most events first, ties by name. Names are returned as stored (pass them back as `organiser` on
+`GET /v1/events`); blank organisers are skipped. Read in 1000-row chunks and counted in the
+service (PostgREST can't group).
+
+### 🌐 `GET /v1/events/stats`
+
+Added 2026-11-01. The events page sidebar's figures over published events still running today
+(UTC) or later — the same set as the page's default "Upcoming" filter. **Response `200`:**
+`EventStatsResponse` — `{ upcoming, countries, organisers }`: the event count, and distinct
+countries / organisers among them (case- and whitespace-insensitive; online events have no
+country).
 
 ### 🌐 `GET /v1/events/days`
 

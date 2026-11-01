@@ -5,10 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Button, Card, DateRangePicker, FilterPopover, startOfDay, type DateRange } from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { EventRow } from '@/components/events/EventRow';
-import type { EventDto, EventFormat, ListEventsQuery } from '@shared/event';
+import type { EventDto, EventFormat, EventOrganiserDto, ListEventsQuery } from '@shared/event';
 import type { CategoryDto } from '@shared/category';
 import { EVENT_TYPES } from '@/lib/events/format';
-import { getEventDays, listEventsPage } from '@/lib/api/events';
+import { getEventDays, getEventOrganisers, listEventsPage } from '@/lib/api/events';
 import { toIsoDate } from '@/lib/api/events-query';
 import { EventsMonthSection, MonthHeading } from '@/components/events/EventsMonthSection';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
@@ -53,11 +53,24 @@ function presetRange(preset: DatePreset): DateRange {
   return (DATE_PRESETS.find((p) => p.value === preset) ?? DATE_PRESETS[0]).range();
 }
 
-const FORMAT_OPTIONS: { value: EventFormat; label: string }[] = [
+// Two format toggles; a hybrid event counts as both. The list keeps events having every selected
+// format: In Person → in-person + hybrid, Online → online + hybrid, both → hybrid only. The API
+// still stores three values (in_person / virtual / hybrid), so the toggles map onto them here.
+type FormatToggle = 'in_person' | 'online';
+
+const FORMAT_TOGGLES: { value: FormatToggle; label: string }[] = [
   { value: 'in_person', label: 'In Person' },
-  { value: 'hybrid', label: 'Hybrid' },
-  { value: 'virtual', label: 'Online' },
+  { value: 'online', label: 'Online' },
 ];
+
+export function formatsForToggles(toggles: FormatToggle[]): EventFormat[] | undefined {
+  const inPerson = toggles.includes('in_person');
+  const online = toggles.includes('online');
+  if (inPerson && online) return ['hybrid'];
+  if (inPerson) return ['in_person', 'hybrid'];
+  if (online) return ['virtual', 'hybrid'];
+  return undefined;
+}
 
 // Day key (local) for the picker's "has events" dots.
 function dayKey(d: Date): string {
@@ -68,20 +81,22 @@ function dayKey(d: Date): string {
 function toQuery(
   range: DateRange,
   country: string[],
-  format: EventFormat[],
+  format: FormatToggle[],
   type: string[],
   q: string | undefined,
   lines: string[],
-  topics: string[]
+  topics: string[],
+  organisers: string[]
 ): ListEventsQuery {
   return {
+    organiser: organisers.length ? organisers : undefined,
     q,
     serviceLineId: lines.length ? lines : undefined,
     categoryId: topics.length ? topics : undefined,
     from: range.from ? toIsoDate(range.from) : undefined,
     to: range.to ? toIsoDate(range.to) : undefined,
     country: country.length ? country : undefined,
-    format: format.length ? format : undefined,
+    format: formatsForToggles(format),
     type: type.length ? type : undefined,
   };
 }
@@ -116,7 +131,8 @@ export function EventsList({
   const defaultRange = useMemo(() => presetRange(defaultDatePreset), [defaultDatePreset]);
   const [dateRange, setDateRange] = useState<DateRange>(defaultRange);
   const [countryFilter, setCountryFilter] = useState<string[]>([]);
-  const [formatFilter, setFormatFilter] = useState<EventFormat[]>([]);
+  const [formatFilter, setFormatFilter] = useState<FormatToggle[]>([]);
+  const [organiserFilter, setOrganiserFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [lineFilter, setLineFilter] = useState<string[]>([]);
   const [topicFilter, setTopicFilter] = useState<string[]>([]);
@@ -136,10 +152,41 @@ export function EventsList({
   const topicNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const lineByTopicId = useMemo(() => new Map(categories.map((c) => [c.id, c.serviceLineId])), [categories]);
 
+  // Organiser filter options: from the API in remote mode (every organiser with published events),
+  // from the loaded list in admin mode. Most events first; the count rides along in the label.
+  const [remoteOrganisers, setRemoteOrganisers] = useState<EventOrganiserDto[]>([]);
+  useEffect(() => {
+    if (!remote) return;
+    let cancelled = false;
+    getEventOrganisers()
+      .then((list) => {
+        if (!cancelled) setRemoteOrganisers(list);
+      })
+      .catch(() => {
+        // The filter just doesn't appear; the list itself still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [remote]);
+  const organiserOptions = useMemo(() => {
+    let list = remoteOrganisers;
+    if (!remote) {
+      const counts = new Map<string, number>();
+      for (const e of events) {
+        if (e.organiserName?.trim()) counts.set(e.organiserName, (counts.get(e.organiserName) ?? 0) + 1);
+      }
+      list = [...counts]
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }
+    return list.map((o) => ({ value: o.name, label: `${o.name} (${o.count.toLocaleString('en-GB')})` }));
+  }, [remote, remoteOrganisers, events]);
+
   // Remote mode: the months that have matches for the current filters (first to last match).
   const remoteQuery = useMemo(
-    () => toQuery(dateRange, countryFilter, formatFilter, typeFilter, query, lineFilter, topicFilter),
-    [dateRange, countryFilter, formatFilter, typeFilter, query, lineFilter, topicFilter]
+    () => toQuery(dateRange, countryFilter, formatFilter, typeFilter, query, lineFilter, topicFilter, organiserFilter),
+    [dateRange, countryFilter, formatFilter, typeFilter, query, lineFilter, topicFilter, organiserFilter]
   );
   const [remoteMonths, setRemoteMonths] = useState<Date[] | null>(null);
   const [remoteTotal, setRemoteTotal] = useState(remote?.total ?? 0);
@@ -234,14 +281,30 @@ export function EventsList({
       // An event matches when any part of it falls inside the range.
       const matchesDate = (!from || end >= from) && (!toExclusive || start < toExclusive);
       const matchesCountry = countryFilter.length === 0 || (!!e.country && countryFilter.includes(e.country));
-      const matchesFormat = formatFilter.length === 0 || (!!e.eventFormat && formatFilter.includes(e.eventFormat));
+      const formats = formatsForToggles(formatFilter);
+      const matchesFormat = !formats || (!!e.eventFormat && formats.includes(e.eventFormat));
+      const matchesOrganiser =
+        organiserFilter.length === 0 || (!!e.organiserName && organiserFilter.includes(e.organiserName));
       const matchesType = typeFilter.length === 0 || (!!e.eventType && typeFilter.includes(e.eventType));
       const matchesTopic = topicFilter.length === 0 || e.categoryIds.some((id) => topicFilter.includes(id));
       const matchesLine =
         lineFilter.length === 0 || e.categoryIds.some((id) => lineFilter.includes(lineByTopicId.get(id) ?? ''));
-      return matchesDate && matchesCountry && matchesFormat && matchesType && matchesTopic && matchesLine;
+      return (
+        matchesDate && matchesCountry && matchesFormat && matchesOrganiser && matchesType && matchesTopic && matchesLine
+      );
     });
-  }, [remote, events, dateRange, countryFilter, formatFilter, typeFilter, topicFilter, lineFilter, lineByTopicId]);
+  }, [
+    remote,
+    events,
+    dateRange,
+    countryFilter,
+    formatFilter,
+    organiserFilter,
+    typeFilter,
+    topicFilter,
+    lineFilter,
+    lineByTopicId,
+  ]);
 
   const groups = useMemo(() => {
     const map = new Map<string, EventDto[]>();
@@ -260,6 +323,7 @@ export function EventsList({
     !isDefaultRange ||
     countryFilter.length > 0 ||
     formatFilter.length > 0 ||
+    organiserFilter.length > 0 ||
     typeFilter.length > 0 ||
     lineFilter.length > 0 ||
     topicFilter.length > 0;
@@ -280,6 +344,7 @@ export function EventsList({
     setDateRange(defaultRange);
     setCountryFilter([]);
     setFormatFilter([]);
+    setOrganiserFilter([]);
     setTypeFilter([]);
     setLineFilter([]);
     setTopicFilter([]);
@@ -320,13 +385,21 @@ export function EventsList({
           selected={countryFilter}
           onChange={setCountryFilter}
         />
+        {organiserOptions.length > 0 && (
+          <FilterPopover
+            label="All organisers"
+            options={organiserOptions}
+            selected={organiserFilter}
+            onChange={setOrganiserFilter}
+          />
+        )}
         <FilterPopover
           label="All event types"
           options={EVENT_TYPES.map((t) => ({ value: t, label: t }))}
           selected={typeFilter}
           onChange={setTypeFilter}
         />
-        {FORMAT_OPTIONS.map((opt) => {
+        {FORMAT_TOGGLES.map((opt) => {
           const active = formatFilter.includes(opt.value);
           // Both formats tint the brand green (--ok is an alias of --accent).
           const activeColorVar = opt.value === 'in_person' ? '--ok' : '--accent';

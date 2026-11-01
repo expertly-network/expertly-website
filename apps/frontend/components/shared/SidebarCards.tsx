@@ -15,9 +15,9 @@ export function SidebarStatsCard({ title, intro, stats }: { title: string; intro
       <h3 className="text-title text-ink">{title}</h3>
       <p className="mt-3 text-sm text-ink-3">{intro}</p>
       <div className="mt-2">
-        {stats.map((stat) => (
-          <div key={stat.num} className="flex items-start gap-3 border-t border-line py-3.5">
-            <div className="w-16 flex-none text-[26px] font-semibold leading-none tracking-[-0.03em] text-accent">
+        {stats.map((stat, i) => (
+          <div key={i} className="flex items-start gap-3 border-t border-line py-3.5">
+            <div className="min-w-[4rem] flex-none text-[26px] font-semibold leading-none tracking-[-0.03em] text-accent">
               {stat.num}
             </div>
             <p className="text-[13px] leading-[1.45] text-ink-3">{stat.label}</p>

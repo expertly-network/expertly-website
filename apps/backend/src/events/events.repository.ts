@@ -34,6 +34,14 @@ const EVENT_COLUMNS = [
   'updatedAt:updated_at',
 ] as const;
 
+// Just what the organiser list and sidebar stats aggregate.
+const FACET_COLUMNS = ['organiserName:organiser_name', 'country'] as const;
+
+export interface EventFacetRow {
+  organiserName: string | null;
+  country: string | null;
+}
+
 // The lean shape the calendar grid and date-picker dots need — no description or links.
 const CALENDAR_COLUMNS = [
   'id',
@@ -75,6 +83,7 @@ export class EventsRepository {
       countries?: string[];
       formats?: string[];
       types?: string[];
+      organisers?: string[];
       terms?: string[];
       /** Tagged with any of these categories; an empty list matches nothing. */
       categoryIds?: string[];
@@ -90,6 +99,7 @@ export class EventsRepository {
     if (filters.countries?.length) query = query.in('country', filters.countries);
     if (filters.formats?.length) query = query.in('event_format', filters.formats);
     if (filters.types?.length) query = query.in('event_type', filters.types);
+    if (filters.organisers?.length) query = query.in('organiser_name', filters.organisers);
     if (filters.categoryIds) {
       // An empty list means the taxonomy filter matched no categories, so no event can match.
       if (filters.categoryIds.length === 0) query = query.eq('id', '00000000-0000-0000-0000-000000000000');
@@ -105,6 +115,24 @@ export class EventsRepository {
     if (error) throw new InternalServerErrorException('Failed to load events.');
     const rows = data as unknown as EventDto[];
     return { rows, total: count ?? rows.length };
+  }
+
+  // Organiser + country of every published event (still running on/after `sinceIso` when given),
+  // for the organiser filter and sidebar stats. PostgREST can't GROUP BY, so rows are read in
+  // max_rows-sized chunks and counted in the service.
+  async findPublishedFacets(sinceIso?: string): Promise<EventFacetRow[]> {
+    const CHUNK = 1000;
+    const rows: EventFacetRow[] = [];
+    for (let offset = 0; ; offset += CHUNK) {
+      let query = this.events().select(FACET_COLUMNS.join(', ')).eq('status', 'published');
+      if (sinceIso) query = query.or(`end_date.gte.${sinceIso},and(end_date.is.null,start_date.gte.${sinceIso})`);
+      const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + CHUNK - 1);
+      if (error) throw new InternalServerErrorException('Failed to load event facets.');
+      const chunk = data as unknown as EventFacetRow[];
+      rows.push(...chunk);
+      if (chunk.length < CHUNK) break;
+    }
+    return rows;
   }
 
   // Start/end of every published event overlapping the span, for the date picker's per-day dots.

@@ -2,7 +2,13 @@ import { Controller, Get, Query, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { Public } from '../auth/decorators/public.decorator';
 import { EventsService } from './events.service';
-import { EventDto, type EventCalendarResponse, type EventDaysResponse } from '@shared/event';
+import {
+  EventDto,
+  type EventCalendarResponse,
+  type EventDaysResponse,
+  type EventOrganiserDto,
+  type EventStatsResponse,
+} from '@shared/event';
 import { EventDaysQueryDto, ListEventsQueryDto } from './dto/list-events-query.dto';
 
 @Controller('events')
@@ -32,5 +38,19 @@ export class EventsController {
   @Get('days')
   days(@Query() query: EventDaysQueryDto): Promise<EventDaysResponse> {
     return this.eventsService.listEventDays(query);
+  }
+
+  // 🌐 Public — organisers with published events and their counts, for the organiser filter.
+  @Public()
+  @Get('organisers')
+  organisers(): Promise<EventOrganiserDto[]> {
+    return this.eventsService.listOrganisers();
+  }
+
+  // 🌐 Public — upcoming / countries / organisers figures for the events page sidebar.
+  @Public()
+  @Get('stats')
+  stats(): Promise<EventStatsResponse> {
+    return this.eventsService.getStats();
   }
 }

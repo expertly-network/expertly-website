@@ -17,6 +17,7 @@ export function buildEventsQueryString(query: ListEventsQuery = {}): string {
   for (const c of query.country ?? []) search.append('country', c);
   for (const f of query.format ?? []) search.append('format', f);
   for (const t of query.type ?? []) search.append('type', t);
+  for (const o of query.organiser ?? []) search.append('organiser', o);
   for (const id of query.categoryId ?? []) search.append('categoryId', id);
   for (const id of query.serviceLineId ?? []) search.append('serviceLineId', id);
   if (query.page !== undefined) search.set('page', String(query.page));

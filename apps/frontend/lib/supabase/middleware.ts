@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest, requestHeaders: Record
 
   // A signed-out visitor has no session to refresh or verify — skip the Supabase client entirely.
   if (!hasSessionCookie(request)) {
-    return { response: supabaseResponse, userId: null };
+    return { response: supabaseResponse, userId: null, role: null };
   }
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -53,6 +53,9 @@ export async function updateSession(request: NextRequest, requestHeaders: Record
 
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims.sub ?? null;
+  // The Custom Access Token Hook's role claim (see docs/auth.md) — verified with the rest of the JWT.
+  const appRole = data?.claims.app_role;
+  const role = typeof appRole === 'string' ? appRole : null;
 
-  return { response: supabaseResponse, userId };
+  return { response: supabaseResponse, userId, role };
 }

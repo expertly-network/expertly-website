@@ -162,3 +162,39 @@ describe('home calendar', () => {
     });
   });
 });
+
+describe('organiser filter and sidebar stats', () => {
+  const facets = [
+    { organiserName: 'ISCA', country: 'Singapore' },
+    { organiserName: 'ISCA', country: 'singapore ' },
+    { organiserName: 'ICAI', country: 'India' },
+    { organiserName: '  ', country: null },
+    { organiserName: null, country: 'India' },
+  ];
+
+  it('lists organisers by event count, skipping blanks', async () => {
+    const { repository, service } = setup();
+    Object.assign(repository, { findPublishedFacets: vi.fn().mockResolvedValue(facets) });
+    expect(await service.listOrganisers()).toEqual([
+      { name: 'ISCA', count: 2 },
+      { name: 'ICAI', count: 1 },
+    ]);
+    expect(repository.findPublishedFacets).toHaveBeenCalledWith();
+  });
+
+  it('counts upcoming events and distinct countries/organisers', async () => {
+    const { repository, service } = setup();
+    Object.assign(repository, { findPublishedFacets: vi.fn().mockResolvedValue(facets) });
+    expect(await service.getStats()).toEqual({ upcoming: 5, countries: 2, organisers: 2 });
+    expect(repository.findPublishedFacets).toHaveBeenCalledWith(expect.stringMatching(/T00:00:00\.000Z$/));
+  });
+
+  it('passes the organiser filter through', async () => {
+    const { repository, service } = setup();
+    await service.listPublished({ organiser: ['ISCA'] });
+    expect(repository.findPublishedPage).toHaveBeenCalledWith(
+      expect.objectContaining({ organisers: ['ISCA'] }),
+      expect.anything()
+    );
+  });
+});

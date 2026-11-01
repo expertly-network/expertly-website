@@ -7,6 +7,7 @@ import type {
   ListEventsQuery,
   UpdateEventRequest,
   EventCalendarResponse,
+  EventOrganiserDto,
 } from '@shared/event';
 import { buildEventsQueryString, EVENTS_TOTAL_COUNT_HEADER } from '@/lib/api/events-query';
 
@@ -24,6 +25,11 @@ export function getEventCalendar(from: string, to: string): Promise<EventCalenda
   return apiFetch<EventCalendarResponse>(
     `/events/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
   );
+}
+
+// Organisers with published events, most events first — the organiser filter's options.
+export function getEventOrganisers(): Promise<EventOrganiserDto[]> {
+  return apiFetch<EventOrganiserDto[]>('/events/organisers');
 }
 
 export function getEventDays(from: string, to: string): Promise<EventDaysResponse> {

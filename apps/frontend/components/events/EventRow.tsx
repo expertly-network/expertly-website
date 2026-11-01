@@ -8,7 +8,8 @@ import { formatDayRange } from '@/lib/dates';
 import { formatEventFormat, isOnlineEvent, normalizeEventTitle } from '@/lib/events/format';
 
 // adminBadge/adminActions let the admin list show a status badge and swap in edit/delete actions.
-// Clicking the title/description expands the row to the full description and organiser details.
+// Clicking anywhere on the row (outside its links/buttons) expands it to the full description and
+// organiser details; the title stays a real button so keyboard users get the same toggle.
 export function EventRow({
   event,
   topics = [],
@@ -16,7 +17,7 @@ export function EventRow({
   adminActions,
 }: {
   event: EventDto;
-  /** Topic category names, shown as small tags under the title. */
+  /** Topic category names, shown as tags in the badge row above the title. */
   topics?: string[];
   adminBadge?: ReactNode;
   adminActions?: ReactNode;
@@ -62,7 +63,16 @@ export function EventRow({
   return (
     <div
       id={`event-${event.id}`}
-      className="grid scroll-mt-24 grid-cols-[140px_1fr_180px_auto] items-start gap-x-9 border-b border-line py-7 target:ring-2 target:ring-accent target:ring-offset-4 max-[900px]:grid-cols-1 max-[900px]:gap-y-3"
+      onClick={(e) => {
+        // Links/buttons inside the row (Register, admin actions, the title itself) keep their own
+        // behaviour; a drag-to-select of the text shouldn't toggle either.
+        if (!hasMore || (e.target as HTMLElement).closest('a, button, input, select, textarea')) return;
+        if (window.getSelection()?.toString()) return;
+        setExpanded((v) => !v);
+      }}
+      className={`grid scroll-mt-24 grid-cols-[140px_1fr_180px_auto] items-start gap-x-9 border-b border-line py-7 target:ring-2 target:ring-accent target:ring-offset-4 max-[900px]:grid-cols-1 max-[900px]:gap-y-3 ${
+        hasMore ? 'cursor-pointer' : ''
+      }`}
     >
       <div>
         <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Date</span>
@@ -74,13 +84,19 @@ export function EventRow({
       <div className="min-w-0">
         <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
           {event.eventType && <Badge variant="neutral">{event.eventType}</Badge>}
-          {/* Format tags follow one rule: In Person is neutral, Online/Hybrid are brand green. */}
-          {event.eventFormat && (
-            <Badge variant={event.eventFormat === 'in_person' ? 'neutral' : 'brand'}>
-              {formatEventFormat(event.eventFormat)}
-            </Badge>
+          {/* A hybrid event is both In Person and Online. In Person is neutral, Online is brand green. */}
+          {(event.eventFormat === 'in_person' || event.eventFormat === 'hybrid') && (
+            <Badge variant="neutral">{formatEventFormat('in_person')}</Badge>
+          )}
+          {(event.eventFormat === 'virtual' || event.eventFormat === 'hybrid') && (
+            <Badge variant="brand">{formatEventFormat('virtual')}</Badge>
           )}
           {event.isFree && <Badge variant="neutral">Free</Badge>}
+          {topics.map((t) => (
+            <Badge key={t} variant="surface">
+              {t}
+            </Badge>
+          ))}
           {adminBadge}
         </div>
         <button
@@ -97,22 +113,7 @@ export function EventRow({
           {event.description && !expanded && (
             <p className="mt-1 line-clamp-2 text-[13px] leading-[1.55] text-ink-3">{event.description}</p>
           )}
-          {hasMore && (
-            <span className="mt-2 inline-block font-mono text-[11px] font-semibold text-accent">
-              {expanded ? 'Show less ↑' : 'View details ↓'}
-            </span>
-          )}
         </button>
-        {topics.length > 0 && (
-          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
-            {topics.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1">
-                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-accent" />
-                {t}
-              </span>
-            ))}
-          </p>
-        )}
         {expanded && (
           <div id={detailsId} className="mt-3 space-y-3 rounded-lg bg-bg-alt p-4">
             {event.description && (

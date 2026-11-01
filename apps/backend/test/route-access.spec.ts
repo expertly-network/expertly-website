@@ -104,6 +104,8 @@ const EXPECTED: Record<string, string> = {
   // Events
   'GET /v1/events': 'public',
   'GET /v1/events/days': 'public',
+  'GET /v1/events/organisers': 'public',
+  'GET /v1/events/stats': 'public',
   'GET /v1/events/calendar': 'public',
   'GET /v1/admin/events': 'admin:manageEvents',
   'GET /v1/admin/events/export': 'admin:manageEvents',

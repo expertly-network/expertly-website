@@ -1239,6 +1239,12 @@
                   "description": "Repeatable. Events tagged with any category in these service lines."
                 },
                 {
+                  "key": "organiser",
+                  "value": "Institute of Singapore Chartered Accountants (ISCA)",
+                  "disabled": true,
+                  "description": "Repeatable. Exact organiser name from GET /events/organisers; any match."
+                },
+                {
                   "key": "page",
                   "value": "1"
                 },
@@ -1248,7 +1254,7 @@
                 }
               ]
             },
-            "description": "Public published events. upcoming=true (default) preserves the dashboard list. upcoming=false enables keyword search (q), startFrom (only events starting on/after a date — `from` also keeps events already running), categoryId / serviceLineId taxonomy filters, overlap date, country, format and type (repeatable event type label, e.g. Webinar) filters and paging. Returns EventDto[]; X-Total-Count carries all matches. Reversed dates: 400 EVENT_RANGE_INVALID.",
+            "description": "Public published events. upcoming=true (default) preserves the dashboard list. upcoming=false enables keyword search (q), startFrom (only events starting on/after a date — `from` also keeps events already running), categoryId / serviceLineId taxonomy filters, overlap date, country, format and type (repeatable event type label, e.g. Webinar) filters and paging. Returns EventDto[]; X-Total-Count carries all matches. Reversed dates: 400 EVENT_RANGE_INVALID. `organiser` (2026-11-01): repeatable exact organiser name, ≤20 values of ≤200 chars.",
             "auth": {
               "type": "noauth"
             }
@@ -1329,6 +1335,66 @@
               ]
             },
             "description": "Public sorted distinct UTC days for date-picker dots. Required inclusive from/to, at most 400 days. Returns {days: string[]}. Invalid span: 400 EVENT_RANGE_INVALID.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /events/organisers — Organisers with published events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/organisers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "organisers"
+              ]
+            },
+            "description": "Public. Every organiser with a published event (past or upcoming), most events first: [{ name, count }]. Feeds the events page organiser filter; pass `name` back as `organiser` on GET /events.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /events/stats — Events sidebar figures",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "stats"
+              ]
+            },
+            "description": "Public. { upcoming, countries, organisers } over published events still running today (UTC) or later — the events page sidebar.",
             "auth": {
               "type": "noauth"
             }

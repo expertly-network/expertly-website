@@ -7,6 +7,8 @@ import type {
   EventCalendarResponse,
   EventDaysResponse,
   EventDto,
+  EventOrganiserDto,
+  EventStatsResponse,
   ImportEventsResponse,
   ImportEventsRowResultDto,
 } from '@shared/event';
@@ -93,12 +95,41 @@ export class EventsService {
         countries: query.country,
         formats: query.format,
         types: query.type,
+        organisers: query.organiser,
         terms: query.q ? keywordTerms(query.q) : undefined,
         categoryIds: await this.resolveCategoryFilter(query),
       },
       { from: (page - 1) * pageSize, to: page * pageSize - 1 }
     );
     return { items: rows, total };
+  }
+
+  // Every organiser with a published event, most events first (ties by name) — the organiser
+  // filter's options. Names are trimmed for counting but returned as stored, so they match `organiser`.
+  async listOrganisers(): Promise<EventOrganiserDto[]> {
+    const counts = new Map<string, number>();
+    for (const { organiserName } of await this.eventsRepository.findPublishedFacets()) {
+      if (!organiserName?.trim()) continue;
+      counts.set(organiserName, (counts.get(organiserName) ?? 0) + 1);
+    }
+    return [...counts]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }
+
+  // The events page sidebar's figures, over published events that haven't ended yet (same
+  // "upcoming" as the page's default filter: still running today or later).
+  async getStats(): Promise<EventStatsResponse> {
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const rows = await this.eventsRepository.findPublishedFacets(startOfToday.toISOString());
+    const distinct = (values: (string | null)[]) =>
+      new Set(values.map((v) => v?.trim().toLowerCase()).filter((v): v is string => !!v)).size;
+    return {
+      upcoming: rows.length,
+      countries: distinct(rows.map((r) => r.country)),
+      organisers: distinct(rows.map((r) => r.organiserName)),
+    };
   }
 
   // Days (UTC, YYYY-MM-DD) with at least one published event in [from, to] — the picker's dots.

@@ -1,4 +1,4 @@
-import { getCategoriesServer, getEventsPageServer } from '@/lib/api/server';
+import { getCategoriesServer, getEventStatsServer, getEventsPageServer } from '@/lib/api/server';
 import { toIsoDate } from '@/lib/api/events-query';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { canApplyForMembership } from '@/lib/auth/roles';
@@ -11,8 +11,7 @@ import { PageHero } from '@/components/layout/PageHero';
 
 export const metadata = {
   title: 'Events — GrowXQ',
-  description:
-    'Conferences, summits, and professional meetings curated for the GrowXQ network: in person, hybrid, or on-demand.',
+  description: 'Conferences, summits, and professional meetings curated for the GrowXQ network: in person or online.',
 };
 
 export default async function EventsPage(props: { searchParams: Promise<{ q?: string }> }) {
@@ -21,10 +20,10 @@ export default async function EventsPage(props: { searchParams: Promise<{ q?: st
   // The match count for the default "Upcoming" filter; EventsList loads the events themselves, a
   // month at a time, from the API (the calendar is far too large to send whole).
   const from = toIsoDate(new Date());
-  const [firstPage, upcomingTotal, user, categories] = await Promise.all([
+  const [firstPage, stats, user, categories] = await Promise.all([
     getEventsPageServer({ from, q, pageSize: 1 }),
-    // The sidebar's "upcoming events" figure is the whole calendar, not the current search.
-    q ? getEventsPageServer({ from, pageSize: 1 }).then((p) => p.total) : null,
+    // The sidebar's figures cover the whole calendar, not the current search.
+    getEventStatsServer(),
     getSessionUser(),
     getCategoriesServer().catch(() => []),
   ]);
@@ -38,7 +37,7 @@ export default async function EventsPage(props: { searchParams: Promise<{ q?: st
             Be part of what&apos;s <span className="text-accent">next.</span>
           </>
         }
-        lede="Conferences, summits, and professional meetings curated for the GrowXQ network: in person, hybrid, or on-demand."
+        lede="Conferences, summits, and professional meetings curated for the GrowXQ network: in person or online."
         search={<EventsHeroSearch initialQuery={q ?? ''} />}
         decoration={
           <>
@@ -60,7 +59,7 @@ export default async function EventsPage(props: { searchParams: Promise<{ q?: st
         <PageContainer className="grid items-start gap-14 lg:grid-cols-[1fr_320px]">
           <EventsList key={q ?? ''} remote={{ total: firstPage.total }} query={q} categories={categories} />
           <div className="lg:sticky lg:top-6 lg:self-start">
-            <EventsSidebar upcomingCount={upcomingTotal ?? firstPage.total} showApply={canApplyForMembership(user)} />
+            <EventsSidebar stats={stats} showApply={canApplyForMembership(user)} />
           </div>
         </PageContainer>
       </section>

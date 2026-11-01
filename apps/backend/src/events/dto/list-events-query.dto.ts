@@ -22,7 +22,7 @@ const toArray = ({ value }: { value: unknown }) =>
 // GET /v1/events. `upcoming` (default true) is the dashboard's "not yet ended" list. With
 // `upcoming=false` the list is filtered and paged on the server — the calendar is far too large
 // (thousands of events) to ship whole: `from`/`to` (ISO dates, inclusive) keep events overlapping
-// that span, `startFrom` keeps only events starting on/after a day, `country`/`format`/`type` narrow it, `page`/`pageSize` page it (total in X-Total-Count).
+// that span, `startFrom` keeps only events starting on/after a day, `country`/`format`/`type`/`organiser` narrow it, `page`/`pageSize` page it (total in X-Total-Count).
 export class ListEventsQueryDto {
   @IsOptional()
   @IsIn(['true', 'false'])
@@ -89,6 +89,15 @@ export class ListEventsQueryDto {
   @IsString({ each: true })
   @MaxLength(60, { each: true })
   type?: string[];
+
+  // Organiser names as stored (GET /v1/events/organisers), matched exactly; any match.
+  @IsOptional()
+  @Transform(toArray)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  organiser?: string[];
 
   @IsOptional()
   @Type(() => Number)

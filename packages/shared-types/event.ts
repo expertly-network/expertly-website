@@ -111,6 +111,8 @@ export interface ListEventsQuery {
   q?: string;
   /** Event type labels, matched exactly (e.g. Seminar, Webinar). */
   type?: string[];
+  /** Organiser names, matched exactly (values from GET /v1/events/organisers). */
+  organiser?: string[];
   page?: number;
   pageSize?: number;
 }
@@ -146,4 +148,22 @@ export interface EventCalendarResponse {
 // GET /v1/events/days?from=&to= — UTC dates (YYYY-MM-DD) on which a published event runs.
 export interface EventDaysResponse {
   days: string[];
+}
+
+// GET /v1/events/organisers — every organiser with published events, most events first; feeds the
+// events page's organiser filter. Names are as stored (match `organiser` on GET /v1/events).
+export interface EventOrganiserDto {
+  name: string;
+  /** Published events (past and upcoming) by this organiser. */
+  count: number;
+}
+
+// GET /v1/events/stats — the events page sidebar's figures, over published events that haven't
+// ended yet.
+export interface EventStatsResponse {
+  upcoming: number;
+  /** Distinct countries those events are in (online events have none). */
+  countries: number;
+  /** Distinct organisers running them. */
+  organisers: number;
 }

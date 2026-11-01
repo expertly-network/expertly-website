@@ -22,7 +22,7 @@ import type {
   ArticleListItemDto,
   ListArticlesQuery,
 } from '@shared/article';
-import type { EventCalendarResponse, EventDto, ListEventsQuery } from '@shared/event';
+import type { EventCalendarResponse, EventDto, EventStatsResponse, ListEventsQuery } from '@shared/event';
 import { buildEventsQueryString, EVENTS_TOTAL_COUNT_HEADER } from '@/lib/api/events-query';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
 
@@ -287,6 +287,17 @@ export async function getEventsPageServer(query: ListEventsQuery): Promise<{ ite
   const items = (await res.json()) as EventDto[];
   const total = Number(res.headers.get(EVENTS_TOTAL_COUNT_HEADER) ?? items.length);
   return { items, total: Number.isFinite(total) ? total : items.length };
+}
+
+// The events page sidebar's figures; null when the API can't supply them (the sidebar then
+// hides the stats rather than showing made-up numbers).
+export async function getEventStatsServer(): Promise<EventStatsResponse | null> {
+  try {
+    const res = await publicGet('/events/stats', 'Failed to load event stats.');
+    return res ? ((await res.json()) as EventStatsResponse) : null;
+  } catch {
+    return null;
+  }
 }
 
 // Returns every event for the admin list, regardless of status.

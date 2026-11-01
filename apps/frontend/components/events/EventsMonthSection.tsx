@@ -127,13 +127,10 @@ export function EventsMonthSection({
         </div>
       ) : (
         remaining > 0 && (
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Button variant="secondary" size="sm" disabled={loading} onClick={() => void load(page + 1)}>
+          <div className="mt-6 flex justify-center">
+            <Button size="sm" disabled={loading} onClick={() => void load(page + 1)}>
               {loading ? 'Loading…' : `Load more from ${label}`}
             </Button>
-            <span className="text-caption text-ink-3">
-              Showing {items.length} of {(total ?? 0).toLocaleString('en-GB')}
-            </span>
           </div>
         )
       )}

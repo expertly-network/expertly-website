@@ -4,10 +4,14 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventDto } from '@shared/event';
-import { EventsList } from './EventsList';
+import { EventsList, formatsForToggles } from './EventsList';
 import { listEventsPage } from '@/lib/api/events';
 
-vi.mock('@/lib/api/events', () => ({ listEventsPage: vi.fn(), getEventDays: vi.fn() }));
+vi.mock('@/lib/api/events', () => ({
+  listEventsPage: vi.fn(),
+  getEventDays: vi.fn(),
+  getEventOrganisers: vi.fn().mockResolvedValue([]),
+}));
 vi.mock('@/components/events/EventRow', () => ({
   EventRow: ({ event }: { event: EventDto }) => React.createElement('div', null, event.title),
 }));
@@ -158,5 +162,14 @@ describe('events grouped by month with per-month "Load more"', () => {
     await clickButton('Try again');
     expect(container.textContent).toContain('Event b');
     expect(container.textContent).not.toContain('Try again');
+  });
+});
+
+describe('format toggles (a hybrid event is both)', () => {
+  it('maps the two toggles onto the stored formats', () => {
+    expect(formatsForToggles([])).toBeUndefined();
+    expect(formatsForToggles(['in_person'])).toEqual(['in_person', 'hybrid']);
+    expect(formatsForToggles(['online'])).toEqual(['virtual', 'hybrid']);
+    expect(formatsForToggles(['in_person', 'online'])).toEqual(['hybrid']);
   });
 });
