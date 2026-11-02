@@ -54,12 +54,10 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # No deployment config at build time — API_URL / SUPABASE_URL / SUPABASE_ANON_KEY are runtime
+      # env vars on each Coolify app (apps/frontend/lib/env.ts).
       - name: Build
         run: pnpm build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
   # Builds both service images on every PR (so a broken Dockerfile fails review, not the deploy)
   # and, on push to main only, pushes them to GHCR under this repo's own org
@@ -115,12 +113,6 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/growxq-frontend:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/growxq-frontend:${{ github.sha }}
-          # A PR (incl. from a fork, which gets no secrets) builds with placeholders; a push to main
-          # never does — a missing secret there is empty and fails `next build` loudly.
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || (github.event_name == 'pull_request' && 'http://localhost:4000' || '') }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || (github.event_name == 'pull_request' && 'https://placeholder.supabase.co' || '') }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || (github.event_name == 'pull_request' && 'placeholder' || '') }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 

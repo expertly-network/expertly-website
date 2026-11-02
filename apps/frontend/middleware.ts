@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-import { SUPABASE_URL, getApiUrlRuntime, getSiteUrlOrDefault, isSiteLaunched } from '@/lib/env';
+import { getApiUrl, getSiteUrlOrDefault, getSupabaseUrl, isSiteLaunched } from '@/lib/env';
 import { COUPON_COOKIE, COUPON_COOKIE_MAX_AGE, cleanCouponCode, isOpenBeforeLaunch } from '@/lib/launch';
 
 // Routes that require a signed-in user. Add more prefixes here as new protected
@@ -31,9 +31,9 @@ function originOf(url: string): string {
  *   Images can't execute script; everything that can (script/connect/frame/form) is pinned.
  */
 function contentSecurityPolicy(nonce: string): string {
-  const supabase = originOf(SUPABASE_URL);
+  const supabase = originOf(getSupabaseUrl());
   const supabaseWs = supabase.replace(/^http/, 'ws');
-  const api = originOf(getApiUrlRuntime());
+  const api = originOf(getApiUrl());
 
   const directives: Record<string, string[]> = {
     'default-src': ["'self'"],

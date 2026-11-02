@@ -79,16 +79,16 @@ docker run -d --rm --name growxq-backend -p 4000:4000 growxq-backend
 
 **Frontend:**
 
-`NEXT_PUBLIC_*` vars are inlined into the frontend's JavaScript bundle at *build* time (they run in
-the browser, not on the server), so they must be passed as build args, not just runtime `-e` flags:
+The image takes no build args — the API URL and Supabase project are runtime env vars (see
+`apps/frontend/.env.example`), so the same image runs against any backend:
 
 ```bash
-docker build -t growxq-frontend -f apps/frontend/Dockerfile \
-  --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000 \
-  --build-arg NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
-  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key \
-  .
-docker run -d --rm --name growxq-frontend -p 3000:3000 growxq-frontend
+docker build -t growxq-frontend -f apps/frontend/Dockerfile .
+docker run -d --rm --name growxq-frontend -p 3000:3000 \
+  -e API_URL=http://host.docker.internal:4000 \
+  -e SUPABASE_URL=https://your-project.supabase.co \
+  -e SUPABASE_ANON_KEY=your-anon-key \
+  growxq-frontend
 ```
 
 Visit http://localhost:3000 to confirm the same connectivity works
@@ -103,7 +103,6 @@ A single root `docker-compose.yml` builds and runs both containers, each still f
 root as context — the compose file just orchestrates them together, it doesn't merge the services.
 
 ```bash
-cp .env.example .env                      # NEXT_PUBLIC_* vars used at build time
 cp apps/backend/.env.example apps/backend/.env
 cp apps/frontend/.env.example apps/frontend/.env
 docker compose up -d --build

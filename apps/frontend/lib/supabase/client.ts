@@ -1,8 +1,8 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env';
 
 export function createClient() {
-  return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
 }

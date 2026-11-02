@@ -37,8 +37,8 @@ generates one otherwise). Keep that header on any request you add.
    `GrowXQ.postman_environment.json`.
 2. Select the **GrowXQ Local** environment (top-right environment picker).
 3. Fill in, from your `apps/backend/.env` / `apps/frontend/.env`:
-   - `supabaseUrl` → `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`
-   - `supabaseAnonKey` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `supabaseUrl` → `SUPABASE_URL`
+   - `supabaseAnonKey` → `SUPABASE_ANON_KEY` (from `apps/frontend/.env`)
    - `testEmail` / `testPassword` → an existing Supabase user in your project (sign up via the
      frontend first if you don't have one)
 4. Leave `baseUrl` as `http://localhost:4000/v1` for local dev (matches `PORT=4000` +

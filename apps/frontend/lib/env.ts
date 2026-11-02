@@ -2,43 +2,94 @@
 // reading `process.env.X!` inline, so a missing value fails loudly here with its name rather than
 // as an opaque "Invalid URL" deep inside supabase-js.
 //
-// Two kinds of value:
-// - NEXT_PUBLIC_* are inlined into the bundles at build time, so they must be read with a literal
-//   `process.env.NEXT_PUBLIC_X` (a dynamic `process.env[name]` read is never inlined into the
-//   browser bundle). `next build` refuses to run without them (next.config.js), so in production
-//   these checks only ever fire in a hand-rolled build.
-// - Runtime server config (API_URL, the site origin) is read per process from the real
-//   environment, so one image can serve several deployments (see lib/api/base-url.shared.ts).
+// Deployment config is runtime-only, never build-time: API_URL, SUPABASE_URL and SUPABASE_ANON_KEY
+// are read per process from the container's environment (Coolify env vars), so one image runs every
+// deployment (dev, production) against its own backend and Supabase project, and nothing about a
+// deployment is baked into the bundle. The browser can't read process.env, so the root layout
+// injects the same values as `window.__GROWXQ_CONFIG__` (publicConfigScript) and the browser
+// branch of each getter reads them back. None of them is a secret — the anon key is public by
+// design (RLS protects data).
 //
 // No `next/headers` import here — this module is shared with Client Components.
 
-function requirePublic(name: string, value: string | undefined): string {
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+// Reads a variable from the live process environment. Server and middleware only — in the browser
+// `process.env` is an empty shim. Always a dynamic `process.env[name]` read, so Next never inlines a
+// build-time value.
+function runtimeEnv(name: string): string | undefined {
+  const value = typeof process !== 'undefined' ? process.env[name] : undefined;
+  return value ? value : undefined;
+}
+
+function requireRuntime(name: string): string {
+  const value = runtimeEnv(name);
   if (!value) {
     throw new Error(`Missing required environment variable ${name} (see apps/frontend/.env.example).`);
   }
   return value;
 }
 
-function stripTrailingSlash(url: string): string {
-  return url.replace(/\/+$/, '');
+/** The deployment config the browser needs, injected by the root layout. */
+export interface PublicConfig {
+  apiUrl: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
 }
 
-/** The Supabase project URL, without a trailing slash. */
-export const SUPABASE_URL = stripTrailingSlash(
-  requirePublic('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL)
-);
+const PUBLIC_CONFIG_GLOBAL = '__GROWXQ_CONFIG__';
 
-/** The Supabase anon (publishable) key — safe in the browser. */
-export const SUPABASE_ANON_KEY = requirePublic(
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function browserConfig(): PublicConfig | null {
+  if (typeof window === 'undefined') return null;
+  const injected = (window as unknown as Record<string, unknown>)[PUBLIC_CONFIG_GLOBAL];
+  if (!injected || typeof injected !== 'object') {
+    throw new Error(`window.${PUBLIC_CONFIG_GLOBAL} is missing — the root layout must inject it.`);
+  }
+  return injected as PublicConfig;
+}
 
-// Reads a variable from the live process environment, not the build-time inlined copy. Server and
-// middleware only — in the browser `process.env` is an empty shim.
-function runtimeEnv(name: string): string | undefined {
-  const value = typeof process !== 'undefined' ? process.env[name] : undefined;
-  return value ? value : undefined;
+const DEV_API_URL = 'http://localhost:4000';
+
+/**
+ * The backend API's base URL for this deployment (runtime API_URL). Outside production it defaults
+ * to the local backend; in production a missing API_URL is an error, never a silent fallback.
+ */
+export function getApiUrl(): string {
+  const config = browserConfig();
+  if (config) return config.apiUrl;
+  const value = runtimeEnv('API_URL');
+  if (value) return stripTrailingSlash(value);
+  if (process.env.NODE_ENV === 'production') return requireRuntime('API_URL');
+  return DEV_API_URL;
+}
+
+/** The Supabase project URL (runtime SUPABASE_URL), without a trailing slash. */
+export function getSupabaseUrl(): string {
+  const config = browserConfig();
+  if (config) return config.supabaseUrl;
+  return stripTrailingSlash(requireRuntime('SUPABASE_URL'));
+}
+
+/** The Supabase anon (publishable) key (runtime SUPABASE_ANON_KEY) — safe in the browser. */
+export function getSupabaseAnonKey(): string {
+  const config = browserConfig();
+  if (config) return config.supabaseAnonKey;
+  return requireRuntime('SUPABASE_ANON_KEY');
+}
+
+/**
+ * Server only: the inline script the root layout renders so Client Components get this
+ * deployment's config. `<` is escaped so an env value can never close the script tag.
+ */
+export function publicConfigScript(): string {
+  const config: PublicConfig = {
+    apiUrl: getApiUrl(),
+    supabaseUrl: getSupabaseUrl(),
+    supabaseAnonKey: getSupabaseAnonKey(),
+  };
+  return `window.${PUBLIC_CONFIG_GLOBAL}=${JSON.stringify(config).replace(/</g, '\\u003c')};`;
 }
 
 const DEV_SITE_URL = 'http://localhost:3000';
@@ -97,11 +148,6 @@ export function getSiteUrlOrDefault(): string {
   } catch {
     return DEV_SITE_URL;
   }
-}
-
-/** The backend API's base URL for this deployment (runtime API_URL, then the build-time value). */
-export function getApiUrlRuntime(): string {
-  return stripTrailingSlash(runtimeEnv('API_URL') ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
 }
 
 /**

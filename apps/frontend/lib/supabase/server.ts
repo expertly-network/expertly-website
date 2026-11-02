@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env';
 
 // Server Component / Route Handler / Server Action client. Server Components render read-only
 // and cannot write cookies, so setAll below silently no-ops there — middleware.ts is what
@@ -8,7 +8,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {
         return cookieStore.getAll();

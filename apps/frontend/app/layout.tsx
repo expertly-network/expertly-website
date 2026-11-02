@@ -3,9 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import localFont from 'next/font/local';
 import { headers } from 'next/headers';
 import './globals.css';
-import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
-import { API_URL_GLOBAL } from '@/lib/api/base-url.shared';
-import { getSiteUrlOrDefault } from '@/lib/env';
+import { getSiteUrlOrDefault, publicConfigScript } from '@/lib/env';
 
 const brandSerif = localFont({
   // Variable (wght 300–700) woff2, subset to Latin + Latin-1 + general punctuation, ₹, €, ™ (64KB
@@ -32,16 +30,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // nonce requires anyway (a prerendered page can't carry a fresh nonce), so this is the decision,
   // not an accident: no route is statically prerendered.
   const nonce = (await headers()).get('x-nonce') ?? undefined;
-  // Runtime API_URL for Client Components (see lib/api/base-url.shared.ts). `<` is escaped so an
-  // env value can never close the script tag.
-  const apiUrlScript = `window.${API_URL_GLOBAL}=${JSON.stringify(await getApiBaseUrlServer()).replace(/</g, '\\u003c')};`;
+  // This deployment's runtime config (API + Supabase) for Client Components — see lib/env.ts.
+  const configScript = publicConfigScript();
 
   return (
     <html lang="en" className={`${GeistSans.variable} ${brandSerif.variable}`}>
       <head>
         {/* Browsers hide a nonce from the DOM after load (so injected code can't read it), which
             React's dev hydration check would report as a mismatch. */}
-        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: apiUrlScript }} />
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: configScript }} />
       </head>
       <body className="bg-bg text-ink font-sans">{children}</body>
     </html>

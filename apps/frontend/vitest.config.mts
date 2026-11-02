@@ -12,9 +12,9 @@ export default defineConfig({
     environment: 'node',
     // Every spec runs offline against placeholder config — no real Supabase project or API.
     env: {
-      NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.test',
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
-      NEXT_PUBLIC_API_URL: 'https://api.growxq.test',
+      SUPABASE_URL: 'https://project.supabase.test',
+      SUPABASE_ANON_KEY: 'test-anon-key',
+      API_URL: 'https://api.growxq.test',
     },
     restoreMocks: true,
   },

@@ -599,7 +599,7 @@ enabled by default on every table in this repo means the grant alone is not suff
   to the frontend. No separate JWT secret needed; verification uses the project's public JWKS,
   derived from `SUPABASE_URL` alone. The app fails fast on boot if `SUPABASE_URL`/
   `SUPABASE_SERVICE_ROLE_KEY` are missing (`SupabaseService`'s constructor).
-- Frontend needs `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in
+- Frontend needs `SUPABASE_URL` / `SUPABASE_ANON_KEY` (runtime env, never build-time) in
   `apps/frontend/.env` — anon key only, never the service-role key.
 - **Manual Supabase-dashboard steps** (not scriptable, easy to forget on a fresh project): enable
   the LinkedIn (OIDC) provider under Authentication → Providers; add `/auth/callback` to

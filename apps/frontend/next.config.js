@@ -12,25 +12,19 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
 ];
 
-// NEXT_PUBLIC_* values are inlined into the bundles at build time, so a build without them ships a
-// broken app. Fail `next build` instead (lib/env.ts repeats the check at runtime). CI builds with
-// placeholder values, which pass — only presence and URL shape are checked here.
+// Deployment config (API_URL, SUPABASE_URL, SUPABASE_ANON_KEY) is runtime-only (lib/env.ts) — the
+// build carries none of it. The one NEXT_PUBLIC_* value that may be present at build time is the site
+// origin; if it is, fail `next build` on a malformed one rather than ship it.
 function validateBuildEnv() {
+  const value = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!value) return;
+  // NEXT_PUBLIC_SITE_URL may list several origins, comma-separated (lib/env.ts).
   const problems = [];
-  for (const name of ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']) {
-    if (!process.env[name]) problems.push(`${name} is not set`);
-  }
-  for (const name of ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_SITE_URL']) {
-    const value = process.env[name];
-    if (!value) continue;
-    // NEXT_PUBLIC_SITE_URL may list several origins, comma-separated (lib/env.ts).
-    const entries = name === 'NEXT_PUBLIC_SITE_URL' ? value.split(',').map((v) => v.trim()) : [value];
-    for (const entry of entries) {
-      try {
-        new URL(entry);
-      } catch {
-        problems.push(`${name} is not a valid URL ("${entry}")`);
-      }
+  for (const entry of value.split(',').map((v) => v.trim())) {
+    try {
+      new URL(entry);
+    } catch {
+      problems.push(`NEXT_PUBLIC_SITE_URL is not a valid URL ("${entry}")`);
     }
   }
   if (problems.length) {
@@ -42,23 +36,14 @@ function validateBuildEnv() {
 // logos, uploaded covers, resource assets) and randomuser.me (homepage testimonial placeholder
 // photos). Unsplash images are rendered `unoptimized` (hotlinked — lib/images.ts),
 // and admin-entered arbitrary resource image URLs go through ResourceImage, also unoptimized.
+// The Supabase project is runtime config, so the build can't name its host: any *.supabase.co
+// project's public storage path is allowed here, and lib/images.ts only routes this deployment's
+// own project through the optimizer.
 function remotePatterns() {
-  const patterns = [{ protocol: 'https', hostname: 'randomuser.me', pathname: '/api/portraits/**' }];
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (supabaseUrl) {
-    try {
-      const url = new URL(supabaseUrl);
-      patterns.push({
-        protocol: url.protocol.replace(':', ''),
-        hostname: url.hostname,
-        ...(url.port ? { port: url.port } : {}),
-        pathname: '/storage/v1/object/public/**',
-      });
-    } catch {
-      // Reported by validateBuildEnv().
-    }
-  }
-  return patterns;
+  return [
+    { protocol: 'https', hostname: 'randomuser.me', pathname: '/api/portraits/**' },
+    { protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' },
+  ];
 }
 
 /** @type {(phase: string) => import('next').NextConfig} */

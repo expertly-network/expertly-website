@@ -18,19 +18,9 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY . .
 
-# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so they
-# must be passed as build args:
-#   docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com \
-#                 --build-arg NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
-#                 --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx \
-#                 -f apps/frontend/Dockerfile .
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-
+# No build args: the image carries no deployment config. API_URL, SUPABASE_URL and
+# SUPABASE_ANON_KEY are runtime env vars on the container (see apps/frontend/.env.example), so the
+# same image runs dev and production.
 RUN pnpm --filter=growxq-frontend run build
 
 # --- runtime ---

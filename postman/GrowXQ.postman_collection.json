@@ -32,13 +32,13 @@
       "key": "supabaseUrl",
       "value": "https://your-project.supabase.co",
       "type": "string",
-      "description": "Matches NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL. Only used by the Auth (Supabase) folder to mint a token — the backend itself is never called with this."
+      "description": "Matches SUPABASE_URL. Only used by the Auth (Supabase) folder to mint a token — the backend itself is never called with this."
     },
     {
       "key": "supabaseAnonKey",
       "value": "your-anon-key",
       "type": "string",
-      "description": "Matches NEXT_PUBLIC_SUPABASE_ANON_KEY. Safe to expose client-side; only used by the Auth (Supabase) folder."
+      "description": "Matches SUPABASE_ANON_KEY (frontend env). Safe to expose client-side; only used by the Auth (Supabase) folder."
     },
     {
       "key": "testEmail",

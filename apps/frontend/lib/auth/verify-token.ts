@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { Profile, Role } from '@/lib/auth/types';
-import { SUPABASE_URL } from '@/lib/env';
+import { getSupabaseUrl } from '@/lib/env';
 
 const VALID_ROLES: Role[] = ['client', 'member', 'admin'];
 
@@ -9,7 +9,7 @@ let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 function getJwks() {
   if (!jwks) {
-    jwks = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
+    jwks = createRemoteJWKSet(new URL(`${getSupabaseUrl()}/auth/v1/.well-known/jwks.json`));
   }
   return jwks;
 }
@@ -36,7 +36,7 @@ export async function verifySupabaseToken(token: string): Promise<Profile> {
   const { payload } = await jwtVerify(token, getJwks(), {
     algorithms: ['ES256', 'RS256'],
     audience: 'authenticated',
-    issuer: `${SUPABASE_URL}/auth/v1`,
+    issuer: `${getSupabaseUrl()}/auth/v1`,
   });
   const claims = payload as unknown as SupabaseJwtPayload;
   if (claims.role !== 'authenticated' || typeof claims.sub !== 'string' || !claims.sub) {

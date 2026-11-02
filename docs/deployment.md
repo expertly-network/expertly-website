@@ -57,22 +57,30 @@ deployed" — see the scope note at the top of this file.
 | `expertly-backend` | `ghcr.io/expertly-network/growxq-backend:latest` (was `expertly-backend` before the Oct 2026 rename) | `api.expertly.network`, `dev-api.expertly.network` |
 | `expertly-frontend` | `ghcr.io/expertly-network/growxq-frontend:latest` (was `expertly-frontend`) | `expertly.network`, `www.expertly.network`, `dev.expertly.network`, `www.dev.expertly.network` |
 
-The frontend is **one image** for every environment. `NEXT_PUBLIC_*` env vars are inlined into the
-client bundle at `next build` time, so they can't differ per environment. The API base URL is
-therefore **runtime configuration**: each frontend container gets an `API_URL` env var (set in
-Coolify, no rebuild needed to change it):
+The frontend is **one image** for every environment, and the image carries **no deployment config**.
+`NEXT_PUBLIC_*` env vars are inlined into the client bundle at `next build` time, so anything
+deployment-specific must not be one: a single CI build would hard-wire one environment's backend and
+Supabase project into every deployment (this is exactly how growxq.com once silently served the dev
+API and dev database). So `API_URL`, `SUPABASE_URL` and `SUPABASE_ANON_KEY` are **runtime-only**
+Coolify env vars on each frontend app (no rebuild needed to change them), and CI has no secrets or
+build args for them:
 
-- `apps/frontend/lib/api/base-url.server.ts` — Server Components / Route Handlers read
-  `process.env.API_URL` per request (it also calls `headers()`, which keeps those pages rendered at
-  request time rather than prerendered during `next build`). Kept in a **separate file** from the
-  client version — importing `next/headers` anywhere reachable from a Client Component bundle
-  breaks the build.
-- `apps/frontend/app/layout.tsx` — injects that same value into every page as
-  `window.__API_URL__` (a one-line inline script).
-- `apps/frontend/lib/api/base-url.client.ts` — browser-side calls (`apiFetch` in
-  `lib/api/client.ts`) read `window.__API_URL__`.
-- Fallback when `API_URL` is unset: the build-time `NEXT_PUBLIC_API_URL`, then
+- `apps/frontend/lib/env.ts` — `getApiUrl()`, `getSupabaseUrl()`, `getSupabaseAnonKey()`. On the
+  server/middleware they read `process.env` per process; in the browser they read
+  `window.__GROWXQ_CONFIG__`.
+- `apps/frontend/app/layout.tsx` — injects `{ apiUrl, supabaseUrl, supabaseAnonKey }` into every
+  page as `window.__GROWXQ_CONFIG__` (one nonce'd inline script, `publicConfigScript()`). None of
+  these is secret (the anon key is public by design).
+- `apps/frontend/lib/api/base-url.server.ts` also calls `headers()`, which keeps API-calling pages
+  rendered at request time rather than prerendered during `next build`. Kept in a **separate file**
+  from `base-url.client.ts` — importing `next/headers` anywhere reachable from a Client Component
+  bundle breaks the build.
+- No fallbacks in production: a missing `SUPABASE_URL` / `SUPABASE_ANON_KEY` (always) or `API_URL`
+  (production) throws with the variable's name. Outside production `API_URL` defaults to
   `http://localhost:4000`.
+- `next/image` can't know the Supabase host at build time, so `next.config.js` allows any
+  `*.supabase.co` project's public-storage path; `lib/images.ts` only sends this deployment's own
+  project through the optimizer. (A Supabase custom domain would need adding there.)
 
 Until Oct 2026 this was a hard-coded hostname → API map (`API_HOSTS`) in `base-url.shared.ts`;
 it was replaced so no domain lives in code (the GrowXQ rebrand changes every domain).
@@ -132,8 +140,8 @@ environment. The worker logs to stdout; look for `Search worker running.` and th
    `ghcr.io/expertly-network/growxq-{backend,frontend}:latest` and `:<commit sha>` (the sha tag is
    the exact build to roll back to — point the Coolify app at it). Authenticated with the
    workflow's own `GITHUB_TOKEN` (no PAT needed — GHCR under the repo's own org needs nothing
-   extra). Frontend build-args (`NEXT_PUBLIC_*`) come from repo secrets — see below; a PR build
-   (incl. from a fork, which gets no secrets) uses placeholders, a `main` build never does.
+   extra). The images take no build args — all deployment config is runtime (see "One environment"
+   above).
 3. **Trigger Coolify redeploy** — the last step of the same job, `main` pushes only. The token is
    passed to the shell as the `COOLIFY_API_TOKEN` env var (`-H "Authorization: Bearer
    $COOLIFY_API_TOKEN"`), never interpolated into the script text. Since Coolify's apps here are
@@ -171,15 +179,11 @@ comment.
 
 | Secret | Purpose |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Frontend build-arg fallback, used only when the container's runtime `API_URL` is unset |
-| `NEXT_PUBLIC_SUPABASE_URL` | Frontend build-arg — baked into the client bundle |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Frontend build-arg — baked into the client bundle (public-by-design, safe to bake in) |
 | `COOLIFY_API_TOKEN` | Bearer token for the deploy-trigger step. Created under Coolify → **Keys & Tokens → API Tokens**, scoped to the `Deploy` permission only (least privilege — it can't read/write anything else). **Expires 2027-08-18** — needs manual rotation before then, since an expired token fails the deploy step silently-ish (the `curl` will just 401). |
 
-The three `NEXT_PUBLIC_*` secrets must be set for the frontend to work. `next build` fails when
-`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` are missing or any `NEXT_PUBLIC_*` URL
-variable isn't a valid URL (`validateBuildEnv()` in `apps/frontend/next.config.js`), so a missing
-secret now fails the CI image build instead of shipping a frontend that breaks at runtime.
+That is the only secret. There are deliberately **no** `NEXT_PUBLIC_API_URL` /
+`NEXT_PUBLIC_SUPABASE_*` secrets — the frontend's API and Supabase settings are runtime Coolify env
+vars per deployment (see "One environment" above), never part of the build.
 
 ## Requirements
 
@@ -241,9 +245,8 @@ bug report and grep the Coolify logs for it.
 
 | Variable | When | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | build (`--build-arg`) | `next build` fails if missing or not a valid URL |
-| `NEXT_PUBLIC_API_URL` | build | fallback for `API_URL` |
-| `API_URL` | runtime (Coolify env) | the backend's public base URL — see "One environment" above |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | **runtime, required** (Coolify env) | this deployment's Supabase project; every request fails with the variable's name if missing |
+| `API_URL` | **runtime, required in production** (Coolify env) | the backend's public base URL — see "One environment" above |
 | `NEXT_PUBLIC_SITE_URL` | **runtime, required in production** | the frontend's public origin(s), comma-separated, canonical first — every domain routed to the container, e.g. `https://expertly.network,https://www.expertly.network,https://dev.expertly.network,https://www.dev.expertly.network`. Read at runtime (`apps/frontend/lib/env.ts`), so it does not need to be a build arg |
 
 **Server-side origin resolution.** Any server-side code that needs "our own public URL" (the OAuth
@@ -390,8 +393,9 @@ moved by hand. Until it is, the live facts elsewhere in this file (Coolify app n
    search worker) at the new images `ghcr.io/expertly-network/growxq-{frontend,backend}:latest`
    — CI no longer pushes the old `expertly-*` tags, so they'd silently stay on the last old image.
 2. **Set `API_URL` on the frontend app** in Coolify to the backend's public URL (today
-   `https://api.expertly.network`; after DNS moves, the new API host). Without it the frontend
-   falls back to the build-time `NEXT_PUBLIC_API_URL` secret.
+   `https://api.expertly.network`; after DNS moves, the new API host), plus `SUPABASE_URL` /
+   `SUPABASE_ANON_KEY`. Without them the frontend fails with the missing variable's name — there is
+   no build-time fallback.
 3. DNS: add the `growxq.com` (+ `www`, and the API/dev hosts you choose) records, then add those
    domains to the Coolify apps.
 4. Update `API_URL` (step 2) to the new API host once its DNS resolves.
