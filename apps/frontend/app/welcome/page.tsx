@@ -27,6 +27,8 @@ const PALETTE = {
 } as CSSProperties;
 
 const SECTION = 'mx-auto box-border w-full max-w-[1200px] px-[clamp(20px,5vw,64px)]';
+// Header and footer span the viewport with responsive edge padding.
+const PAGE_EDGE = 'box-border w-full px-[clamp(20px,5vw,64px)]';
 const SECTION_Y = 'py-[clamp(56px,8vw,112px)]';
 const LABEL = 'text-label uppercase tracking-[0.16em]';
 
@@ -111,17 +113,30 @@ export default function WelcomePage() {
   return (
     <main style={PALETTE} className="min-h-[100dvh] bg-ink text-[17px] leading-[1.6] text-[var(--wl-text)]">
       {/* Top bar */}
-      <header className={`${SECTION} flex flex-wrap items-center justify-between gap-4 py-7`}>
-        <LogoImage surface="dark" height={36} priority />
-        <div className="flex items-center gap-3 text-label uppercase tracking-[0.14em] text-white/55">
-          <span>By invitation only</span>
-          <span aria-hidden="true" className="text-white/25">
-            ·
+      <header
+        className={`${PAGE_EDGE} flex flex-col gap-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:py-7`}
+      >
+        <div className="flex min-w-0 flex-col items-start gap-2">
+          <LogoImage surface="dark" height={36} className="max-sm:![--logo-h:32px]" priority />
+          <span className="text-caption leading-[1.4] text-white/60">
+            Together, we grow e<span className="font-semibold text-accent">X</span>ponentially
           </span>
-          <Link href="/login" className="transition-colors hover:text-[var(--wl-text)]">
-            Sign in
-          </Link>
         </div>
+        <nav
+          aria-label="Invitation"
+          className="flex w-full items-center justify-between gap-4 border-t border-[var(--wl-line-soft)] pt-3 sm:w-auto sm:justify-end sm:border-0 sm:pt-0"
+        >
+          <span className="text-eyebrow uppercase tracking-[0.12em] text-white/60">By invitation only</span>
+          <Link
+            href="/login"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded border border-[var(--wl-line)] px-4 text-label font-medium text-[var(--wl-text)] transition-colors hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            Sign in{' '}
+            <span aria-hidden="true" className="ml-2">
+              &rarr;
+            </span>
+          </Link>
+        </nav>
       </header>
 
       {/* Hero */}
@@ -305,7 +320,7 @@ export default function WelcomePage() {
 
       {/* Footer */}
       <footer
-        className={`${SECTION} grid grid-cols-1 items-center gap-x-8 gap-y-3.5 pb-5 pt-6 min-[700px]:grid-cols-[1fr_auto]`}
+        className={`${PAGE_EDGE} grid grid-cols-1 items-center gap-x-8 gap-y-3.5 pb-5 pt-6 min-[700px]:grid-cols-[1fr_auto]`}
       >
         <LogoImage surface="dark" height={33} />
         <p className="m-0 text-caption text-white/55 min-[700px]:text-right">
