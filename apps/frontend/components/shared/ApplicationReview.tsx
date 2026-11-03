@@ -49,7 +49,7 @@ export function ReviewRow({
   const changed = previous !== undefined && previous !== null && previous.trim() !== value.trim();
   return (
     <div
-      className={`grid grid-cols-[140px_1fr] gap-4 px-6 py-3.5 text-sm ${multiline ? 'items-start' : 'items-center'}`}
+      className={`grid grid-cols-[140px_minmax(0,1fr)] max-[900px]:grid-cols-1 gap-4 px-6 py-3.5 text-sm max-[900px]:gap-2 max-[900px]:px-4 max-[900px]:py-5 max-[900px]:[overflow-wrap:anywhere] ${multiline ? 'items-start' : 'items-center'}`}
     >
       <span className="text-mono-label text-ink-3">{label}</span>
       {changed ? (
@@ -93,12 +93,12 @@ export function ReviewListRow({
   const currentTitles = new Set(items.map((i) => i.title));
   const removed = (prev ?? []).filter((p) => !currentTitles.has(p.title));
   return (
-    <div className="grid grid-cols-[140px_1fr] items-start gap-4 px-6 py-3.5 text-sm">
+    <div className="grid grid-cols-[140px_minmax(0,1fr)] max-[900px]:grid-cols-1 items-start gap-4 px-6 py-3.5 text-sm max-[900px]:gap-2 max-[900px]:px-4 max-[900px]:py-5 max-[900px]:[overflow-wrap:anywhere]">
       <span className="mt-0.5 text-mono-label text-ink-3">{label}</span>
       {items.length === 0 && removed.length === 0 ? (
         <span className="text-ink">—</span>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3 max-[900px]:gap-5">
           {items.map((item, i) => {
             const old = prev ? prevByTitle.get(item.title) : undefined;
             const isNew = prev !== null && !old;

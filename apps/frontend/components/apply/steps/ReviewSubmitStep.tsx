@@ -65,7 +65,7 @@ function ConfettiBurst() {
 // Entered data lives in the wizard's form state, so jumping back and forth loses nothing.
 function SectionHeader({ title, onEdit }: { title: string; onEdit: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-4 bg-bg-alt px-6 py-3">
+    <div className="flex items-center justify-between gap-4 bg-bg-alt px-6 py-3 max-[900px]:px-4">
       <span className="text-mono-label text-ink">{title}</span>
       <button
         type="button"
@@ -215,7 +215,7 @@ export function ReviewSubmitStep({
 
       <div className="mt-7 overflow-hidden rounded-2xl border border-line bg-bg-card divide-y divide-line">
         <SectionHeader title="Identity" onEdit={() => onEditStep(2)} />
-        <div className="flex items-center gap-[18px] px-6 py-5">
+        <div className="flex items-center gap-[18px] px-6 py-5 max-[900px]:flex-col max-[900px]:items-start max-[900px]:px-4 max-[900px]:py-6">
           <div className="flex h-24 w-24 flex-none items-center justify-center overflow-hidden rounded-full border-2 border-line-2 bg-bg-alt text-ink-3">
             {form.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -234,7 +234,7 @@ export function ReviewSubmitStep({
             <div className="text-title text-ink">
               {form.firstName} {form.lastName}
             </div>
-            <div className="mt-1 text-xs text-ink-3">{form.contactEmail}</div>
+            <div className="mt-1 text-xs text-ink-3 [overflow-wrap:anywhere]">{form.contactEmail}</div>
           </div>
         </div>
         <ReviewRow label="Phone" value={form.phone ? `${form.phoneCountryCode} ${form.phone}` : '—'} />

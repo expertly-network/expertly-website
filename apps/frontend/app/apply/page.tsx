@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getCategoriesServer, getMyApplicationServer } from '@/lib/api/server';
 import { ApplicationWizard } from '@/components/apply/ApplicationWizard';
-import { Logo } from '@/components/Logo';
 import { homePathFor } from '@/lib/auth/roles';
 import { isSiteLaunched } from '@/lib/env';
 import { COUPON_COOKIE, cleanCouponCode } from '@/lib/launch';
@@ -38,7 +37,6 @@ export default async function ApplyPage() {
 
   return (
     <main className="relative min-h-screen">
-      <Logo variant="auth" className="absolute left-8 top-8 z-10" />
       <ApplicationWizard
         initialApplication={draft}
         accountEmail={profile.email}
