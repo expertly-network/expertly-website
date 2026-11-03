@@ -2,7 +2,8 @@ import { Font, pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { MemberDto, MemberRecommendationDto } from '@shared/member';
 import { apiFetch } from '@/lib/api/client';
-import { MemberProfilePdf, PDF_FONT_FAMILY, PDF_HEADING_FONT_FAMILY, type PdfRecommendation } from './MemberProfilePdf';
+import { LOGO_PDF_PNG_SRC } from '@/lib/brand';
+import { MemberProfilePdf, PDF_FONT_FAMILY, type PdfRecommendation } from './MemberProfilePdf';
 
 // Client-only: builds the member profile PDF in the browser and saves it. Imported lazily from
 // ProfileHeader's PDF button so none of this (or @react-pdf/renderer) is in the page bundle.
@@ -22,11 +23,6 @@ function registerFonts() {
       { src: `${base}/Geist-SemiBold.ttf`, fontWeight: 600 },
       { src: `${base}/Geist-Bold.ttf`, fontWeight: 700 },
     ],
-  });
-  Font.register({
-    family: PDF_HEADING_FONT_FAMILY,
-    src: `${window.location.origin}/fonts/brand/CormorantGaramond-Medium.ttf`,
-    fontWeight: 400,
   });
   // react-pdf hyphenates long words by default ("consul-tation"); a profile reads better without.
   Font.registerHyphenationCallback((word) => [word]);
@@ -120,6 +116,7 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
       member={member}
       profileUrl={profileUrl}
       qrDataUrl={qrDataUrl}
+      logoSrc={`${window.location.origin}${LOGO_PDF_PNG_SRC}`}
       photoDataUrl={photoDataUrl}
       generatedAt={new Date()}
       recommendations={recommendations}

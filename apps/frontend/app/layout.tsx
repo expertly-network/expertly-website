@@ -7,7 +7,7 @@ import { getSiteUrlOrDefault, publicConfigScript } from '@/lib/env';
 
 const brandSerif = localFont({
   // Variable (wght 300–700) woff2, subset to Latin + Latin-1 + general punctuation, ₹, €, ™ (64KB
-  // vs the 1.2MB full TTF). The profile PDF embeds its own CormorantGaramond-Medium.ttf instead.
+  // vs the 1.2MB full TTF). The profile PDF doesn't use it (Geist only; its logo is an image).
   src: '../public/fonts/brand/CormorantGaramond.woff2',
   variable: '--font-brand-serif',
   display: 'swap',

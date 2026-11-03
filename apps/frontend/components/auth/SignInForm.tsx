@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { signInWithEmail } from '@/lib/auth/continue-with-email';
 
-export function SignInForm({ returnTo, onSwitchToSignUp }: { returnTo: string; onSwitchToSignUp: () => void }) {
+// Without `onSwitchToSignUp` (pre-launch admin sign-in) there's no sign-up link.
+export function SignInForm({ returnTo, onSwitchToSignUp }: { returnTo: string; onSwitchToSignUp?: () => void }) {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -65,12 +66,14 @@ export function SignInForm({ returnTo, onSwitchToSignUp }: { returnTo: string; o
         {!submitting && <span aria-hidden="true">→</span>}
       </Button>
 
-      <p className="text-center text-[13px] text-ink-3">
-        Not a user?{' '}
-        <button type="button" onClick={onSwitchToSignUp} className="font-medium text-accent hover:underline">
-          Become one
-        </button>
-      </p>
+      {onSwitchToSignUp && (
+        <p className="text-center text-[13px] text-ink-3">
+          Not a user?{' '}
+          <button type="button" onClick={onSwitchToSignUp} className="font-medium text-accent hover:underline">
+            Become one
+          </button>
+        </p>
+      )}
     </form>
   );
 }

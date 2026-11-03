@@ -24,25 +24,36 @@ because this is a Tailwind-utility-first codebase — that's "standard practice"
 
 ## Logo & brand mark
 
-Since 2026-10-30 the GrowXQ logo is **typed text, not an image**: lowercase **grow** with a raised
-green **XQ**, like an exponent ("grow^XQ"), "grow" is set in the headline serif, Cormorant Garamond Semibold (as in the homepage hero), and
-"XQ" in Geist Semibold, so the logo pairs the site's two fonts (final choice 2026-10-30). Use `<Wordmark tone="ink"|"white">`
-from `components/Logo.tsx` (size it with a `text-[…]` class) or `<Logo variant="nav"|"auth"|"sidebar">`
-for the linked header logo. Never hand-type "GrowXQ" as a logo or reintroduce logo images.
+The GrowXQ logo combines the designer's two-figure symbol with "GrowXQ" outlined from the
+website's Cormorant Garamond font at weight 500 and -0.02em tracking. The complete lockup is
+an SVG image, so it renders consistently without waiting for font loading. "Grow" is ink on
+light surfaces and white on dark; "XQ" uses brand green. The sample in Downloads supplied
+the icon and proportions; its lettering is replaced with our website font.
+
+Use `<Logo variant="nav"|"auth"|"sidebar">` for linked logos and
+`<LogoImage surface="light"|"dark" height={…}>` for unlinked logos. `height` is the symbol
+height, and `--logo-h` scales the entire image; responsive overrides use
+`max-[600px]:![--logo-h:37px]`. Source assets are `public/brand/logo-on-{light,dark}.svg`.
+Regenerate with `scripts/generate-brand-logo.py` (requires Python fonttools[woff] and uharfbuzz).
+The generator uses the exact website WOFF2 at weight 500, shapes the text, and converts glyphs
+to paths. Keep the aspect ratio in `lib/brand.ts` in sync with generator output.
 
 | Use | How |
 |---|---|
-| Light surfaces (mobile top bar, auth pages) | `<Logo variant="nav" / "auth">` — ink "grow", green "XQ" |
-| Dark surfaces (sidebar, mobile menu, dark heroes) | `<Logo variant="sidebar">` / `<Wordmark tone="white">` |
-| Collapsed sidebar rail | the green "XQ" alone (`<Logo collapsible>`) |
-| Footer | oversized wordmark with a white-to-green gradient, centred, cropped by the band's bottom edge |
-| Profile PDF header | the same wordmark as react-pdf text (Cormorant Garamond for "grow", Geist Semibold "XQ", `verticalAlign: 'super'`) |
-| Favicon / iOS icon (`app/icon.png`, `app/apple-icon.png`) | green "XQ" on the near-black ink tile |
+| Light surfaces (mobile top bar, auth, /apply, 404) | `<Logo variant="nav" / "auth">` — `logo-on-light.svg` |
+| Dark surfaces (sidebar, mobile menu, hero handoff, footer, pre-launch page) | `<Logo variant="sidebar">` / `<LogoImage surface="dark">` — `logo-on-dark.svg` |
+| Collapsed sidebar rail | the symbol alone (`<Logo collapsible>`) |
+| Footer | `<LogoImage surface="dark" height={52}>`, 37px below 600px |
+| Profile PDF header | `logo-on-dark.png` (3× raster of the complete outlined lockup; react-pdf cannot draw the SVG masks) |
+| Favicon / iOS icon (`app/icon1.svg`, `app/icon.png`, `app/apple-icon.png`) | the designer's symbol on a dark rounded tile; Next emits both as `<link rel="icon">` (the `1` suffix is how Next allows a second icon file) |
+
+Bump `LOGO_VERSION` in `lib/brand.ts` whenever a file in `public/brand/` changes — the paths stay the
+same, so without it browsers and CDNs keep serving the old artwork.
 
 ## Footer
 
 The first footer's compact, centred layout on a dark ink band with a soft brand-green glow: the
-gradient growXQ wordmark, then three centred rows — the main pages (Articles … Membership); Terms &
+GrowXQ logo, then three centred rows — the main pages (Articles … Membership); Terms &
 Conditions, Membership Policy, Privacy Policy; Contact us (mailto) and LinkedIn — then a small
 copyright line. The page's `<main>` is at least one screen tall, so the footer always starts below
 the fold, even on a page with little content.
@@ -53,7 +64,7 @@ Geist is the default everywhere, including headings in articles, profiles, dashb
 and admin screens. Do not apply a serif font globally by HTML heading level. Cormorant Garamond
 is reserved for explicitly selected marketing headings: homepage section headings, membership
 marketing, and public browse-page hero titles. Use `font-brand` for these headings; product
-card titles, author names and article content remain Geist. The logo keeps its brand typography.
+card titles, author names and article content remain Geist. The logo image outlines the same Cormorant Garamond face at medium weight.
 
 
 - **Geist** — body/UI text, the default (`font-sans`). Loaded via the `geist` npm package
@@ -332,3 +343,16 @@ validation, and collection reorder. No backend contract changes in this frontend
 Prototype-only claimed counts, saves, learning logs, notes, completion progress, and suggestion
 forms were omitted because the API has no corresponding persistence contract. No simulated
 success messages or invented activity numbers are shown.
+
+## Responsive content width
+
+`PageContainer` and the homepage hero share `.page-container`: a 1280px maximum outer
+width with continuous `clamp(20px, 4vw, 64px)` side gutters, defined in `globals.css`.
+Keep section backgrounds full width; put content inside this container. Narrow reading
+columns and forms can retain their smaller maximum widths. The homepage orbit stays
+compact on smaller desktops and expands at 1280px so it does not crowd the text.
+
+Layouts respond to CSS viewport width, not physical resolution or device pixel ratio.
+Windows display scaling and browser zoom can change that width; preserve zoom and
+responsive reflow rather than trying to detect or override the user's display settings.
+The root reserves scrollbar space to avoid horizontal jumps between short and long pages.

@@ -1,27 +1,46 @@
+import type { CSSProperties } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { LOGO_MARK_ASPECT_RATIO, LOGO_MARK_SRC, LOGO_SRC, LOGO_ASPECT_RATIO } from '@/lib/brand';
 
-// The GrowXQ wordmark: lowercase "grow" with a raised green "XQ", like an exponent. "grow" is set in
-// the headline serif (Cormorant Garamond Semibold, as in the homepage hero) and "XQ" in Geist
-// Semibold, so the logo pairs the site's two fonts. Real text — crisp at any size and themeable.
-// Size it with a text-[…] class; colour comes from `tone`.
-export function Wordmark({ tone = 'ink', className = '' }: { tone?: 'ink' | 'white'; className?: string }) {
+// Complete, outlined image lockups generated from the website's Cormorant Garamond font.
+export type LogoSurface = keyof typeof LOGO_SRC;
+
+/** `height` is the symbol height; --logo-h scales the entire image at responsive breakpoints. */
+export function LogoImage({
+  surface,
+  height,
+  className = '',
+  priority = false,
+}: {
+  surface: LogoSurface;
+  height: number;
+  className?: string;
+  priority?: boolean;
+}) {
   return (
     <span
-      className={`whitespace-nowrap font-[family-name:var(--font-brand-serif)] font-semibold leading-none tracking-[-0.01em] ${tone === 'white' ? 'text-white' : 'text-ink'} ${className}`}
+      style={{ '--logo-h': `${height}px` } as CSSProperties}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap ${className}`}
     >
-      grow
-      <sup className="ml-[0.04em] align-[0.85em] font-sans text-[0.4em] font-semibold tracking-[-0.02em] text-accent">
-        XQ
-      </sup>
+      <Image
+        src={LOGO_SRC[surface]}
+        alt="GrowXQ"
+        width={Math.round(height * LOGO_ASPECT_RATIO)}
+        height={height}
+        priority={priority}
+        unoptimized
+        className="block h-[var(--logo-h)] w-auto"
+      />
     </span>
   );
 }
 
-// Size + tone per usage context.
+// Symbol height + surface per usage context.
 const VARIANTS = {
-  nav: { tone: 'ink', size: 'text-[28px]' },
-  auth: { tone: 'ink', size: 'text-[32px]' },
-  sidebar: { tone: 'white', size: 'text-[26px]' },
+  nav: { surface: 'light', height: 26 },
+  auth: { surface: 'light', height: 30 },
+  sidebar: { surface: 'dark', height: 26 },
 } as const;
 
 export function Logo({
@@ -31,22 +50,25 @@ export function Logo({
 }: {
   variant?: keyof typeof VARIANTS;
   className?: string;
-  // When true (the sidebar's collapsed rail), only the green "XQ" mark shows until the rail is
-  // hovered, then the full wordmark fades in.
+  // When true (the sidebar's collapsed rail), only the symbol shows until the rail is hovered,
+  // then the full logo fades in.
   collapsible?: boolean;
 }) {
-  const { tone, size } = VARIANTS[variant];
+  const { surface, height } = VARIANTS[variant];
 
   return (
     <Link href="/" aria-label="GrowXQ home" className={`inline-flex items-center ${className}`}>
       {collapsible && (
         // Hidden while a stellar hero is in view (sidebar-logo-*); see HeroLogoHandoff.
-        <span
+        <Image
+          src={LOGO_MARK_SRC[surface]}
+          alt=""
           aria-hidden="true"
-          className="sidebar-logo-mark font-sans text-[15px] font-bold tracking-[-0.03em] text-accent group-hover:hidden"
-        >
-          XQ
-        </span>
+          width={Math.round(26 * LOGO_MARK_ASPECT_RATIO)}
+          height={26}
+          unoptimized
+          className="sidebar-logo-mark block h-[26px] w-auto group-hover:hidden"
+        />
       )}
       <span
         className={
@@ -55,7 +77,7 @@ export function Logo({
             : 'block'
         }
       >
-        <Wordmark tone={tone} className={size} />
+        <LogoImage surface={surface} height={height} priority />
       </span>
     </Link>
   );

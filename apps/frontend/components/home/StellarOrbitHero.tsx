@@ -139,11 +139,11 @@ export function StellarOrbitHero({
         }}
       />
 
-      <div className="relative z-[1] mx-auto flex w-full max-w-[1520px] flex-1 items-center px-6 py-12 lg:px-16 lg:py-10">
-        <div className="flex w-full flex-col items-center gap-16 lg:flex-row lg:items-center lg:justify-between">
+      <div className="page-container relative z-[1] flex flex-1 items-center py-12 lg:py-10">
+        <div className="flex w-full flex-col items-center gap-16 lg:gap-8 lg:flex-row lg:items-center lg:justify-between">
           {/* Left */}
           <div
-            className="flex max-w-[580px] flex-1 flex-col text-center lg:text-left"
+            className="flex min-w-0 max-w-[580px] flex-1 flex-col text-center lg:text-left"
             style={{ animation: 'hs-fade-up 1s cubic-bezier(0.22,1,0.36,1) 0.1s both' }}
           >
             <h1 className="font-brand min-h-[3.8em] text-[clamp(38px,4.2vw,66px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
@@ -234,8 +234,8 @@ export function StellarOrbitHero({
             style={{ animation: 'hs-scale-in 1.2s cubic-bezier(0.22,1,0.36,1) 0.3s both' }}
             aria-hidden="true"
           >
-            <div className="h-[302px] w-[302px] min-[640px]:h-[405px] min-[640px]:w-[405px] lg:h-[540px] lg:w-[540px]">
-              <div className="relative h-[540px] w-[540px] flex-none origin-top-left scale-[0.56] min-[640px]:scale-[0.75] lg:translate-x-[40px] lg:scale-100">
+            <div className="h-[302px] w-[302px] min-[640px]:h-[405px] min-[640px]:w-[405px] xl:h-[540px] xl:w-[540px]">
+              <div className="relative h-[540px] w-[540px] flex-none origin-top-left scale-[0.56] min-[640px]:scale-[0.75] xl:scale-100">
                 {RINGS.map((ring, ringIdx) => {
                   const priorDots = RINGS.slice(0, ringIdx).reduce((sum, r) => sum + r.dots.length, 0);
                   return (

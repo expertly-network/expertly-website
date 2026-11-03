@@ -3,6 +3,8 @@ import { getSessionUser } from '@/lib/auth/session-claims';
 import { safeReturnTo } from '@/lib/auth/return-to';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { InviteOnlyAuthCard } from '@/components/auth/InviteOnlyAuthCard';
+import { isSiteLaunched } from '@/lib/env';
 import type { AuthMode } from '@/components/auth/AuthTabs';
 
 export default async function LoginPage(props: { searchParams: Promise<{ mode?: string; returnTo?: string }> }) {
@@ -11,6 +13,14 @@ export default async function LoginPage(props: { searchParams: Promise<{ mode?: 
   const profile = await getSessionUser();
   if (profile) {
     redirect(returnTo);
+  }
+
+  if (!isSiteLaunched()) {
+    return (
+      <AuthLayout>
+        <InviteOnlyAuthCard returnTo={returnTo} emailSignIn={searchParams.mode === 'email'} />
+      </AuthLayout>
+    );
   }
 
   const initialMode: AuthMode = searchParams.mode === 'member' ? 'member' : 'user';

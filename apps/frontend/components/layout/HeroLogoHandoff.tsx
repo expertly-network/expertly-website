@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { Wordmark } from '@/components/Logo';
+import { LogoImage } from '@/components/Logo';
 
-// Crossfades the sidebar's collapsed logo mark with a floating wordmark while a stellar hero
+// Crossfades the sidebar's collapsed logo mark with a floating full logo while a stellar hero
 // is in view. Desktop only: below 1024px there's no sidebar, and the mobile top bar has its own
 // logo (showing this there drew a second, overlapping logo). Safe on any page — if no #hero-stellar element exists, this is a no-op.
 export function HeroLogoHandoff() {
@@ -53,7 +53,7 @@ export function HeroLogoHandoff() {
       aria-label="GrowXQ home"
       className="hero-logo-handoff fixed left-6 top-7 z-[75] hidden items-center min-[1024px]:inline-flex"
     >
-      <Wordmark tone="white" className="text-[24px]" />
+      <LogoImage surface="dark" height={26} />
     </Link>
   );
 }

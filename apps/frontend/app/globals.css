@@ -27,6 +27,10 @@
   --error: #dc2626;
   --nav-green: #0b0b0c;
 
+  /* Shared content geometry, in CSS pixels (independent of screen pixel density). */
+  --page-max-width: 1280px;
+  --page-gutter: clamp(20px, 4vw, 64px);
+
   --cta: var(--accent);
   --cta-hover: var(--accent-2);
 }
@@ -63,6 +67,25 @@
   100% {
     transform: scale(1.35);
     opacity: 0;
+  }
+}
+
+/* Keep vertical-scrollbar changes from shifting centred content between pages.
+   Preserve browser zoom and user font-size preferences. */
+html {
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@layer components {
+  .page-container {
+    width: 100%;
+    min-width: 0;
+    max-width: var(--page-max-width);
+    margin-inline: auto;
+    padding-inline: var(--page-gutter);
+    overflow-wrap: break-word;
   }
 }
 
@@ -156,7 +179,7 @@ body {
   }
 }
 
-/* Hero → sidebar wordmark handoff — only one logo shown at a time while a stellar hero is
+/* Hero → sidebar logo handoff — only one logo shown at a time while a stellar hero is
    in view. */
 html.in-hero .sidebar-logo-mark,
 html.in-hero .sidebar-logo-text {
