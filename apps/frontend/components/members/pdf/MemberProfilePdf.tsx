@@ -6,7 +6,6 @@ import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-hist
 import { toTextBlocks } from '@/lib/text/text-blocks';
 import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
 import { formatDate } from '@/lib/dates';
-import { LOGO_ASPECT_RATIO } from '@/lib/brand';
 
 // The downloadable member profile — a single-column, read-top-to-bottom document rather than
 // the web page's tabbed layout. Rendered by @react-pdf/renderer, which draws to PDF primitives
@@ -28,6 +27,7 @@ const C = {
 };
 
 export const PDF_FONT_FAMILY = 'Geist';
+export const PDF_HEADING_FONT_FAMILY = 'Cormorant Garamond';
 
 const s = StyleSheet.create({
   page: {
@@ -53,9 +53,16 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  // Raster of the same outlined lockup used on the website; react-pdf needs PNG.
-  brand: { flexDirection: 'row', alignItems: 'center' },
-  brandMark: { width: 17 * LOGO_ASPECT_RATIO, height: 17 },
+  // Text wordmark, same as the site's <Wordmark>: white "grow" + raised green "XQ".
+  brand: { fontFamily: PDF_HEADING_FONT_FAMILY, fontWeight: 400, fontSize: 16, color: C.white, letterSpacing: -0.1 },
+  brandSup: {
+    fontFamily: PDF_FONT_FAMILY,
+    fontSize: 6.6,
+    fontWeight: 600,
+    color: C.accent,
+    verticalAlign: 'super',
+    letterSpacing: -0.2,
+  },
   bandNote: { color: 'rgba(255,255,255,0.7)', fontSize: 8.5 },
 
   body: { paddingHorizontal: 40 },
@@ -251,8 +258,6 @@ export interface MemberProfilePdfProps {
   member: MemberDto;
   profileUrl: string;
   qrDataUrl: string;
-  /** Absolute URL of the complete logo PNG (lib/brand.ts LOGO_PDF_PNG_SRC). */
-  logoSrc: string;
   /** PNG data URL, already cropped square; null falls back to initials. */
   photoDataUrl: string | null;
   generatedAt: Date;
@@ -367,7 +372,6 @@ export function MemberProfilePdf({
   member,
   profileUrl,
   qrDataUrl,
-  logoSrc,
   photoDataUrl,
   generatedAt,
   recommendations,
@@ -427,10 +431,9 @@ export function MemberProfilePdf({
     >
       <Page size="A4" style={s.page}>
         <View style={s.band} fixed>
-          <View style={s.brand}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop */}
-            <Image src={logoSrc} style={s.brandMark} />
-          </View>
+          <Text style={s.brand}>
+            grow<Text style={s.brandSup}>XQ</Text>
+          </Text>
           <Text style={s.bandNote}>Verified expert profile</Text>
         </View>
 

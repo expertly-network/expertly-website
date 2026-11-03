@@ -1,5 +1,4 @@
 // Brand artwork uses the designer's symbol and outlined Cormorant Garamond (500) lettering.
-// Regenerate the complete SVG lockups with scripts/generate-brand-logo.py.
 
 // Bump when the artwork changes: the paths don't, so without it browsers and CDNs keep the old file.
 const LOGO_VERSION = 6;
@@ -15,9 +14,6 @@ export const LOGO_MARK_SRC = {
   light: `/brand/mark-on-light.svg?v=${LOGO_VERSION}`,
   dark: `/brand/mark-on-dark.svg?v=${LOGO_VERSION}`,
 } as const;
-
-/** Complete lockup rasterized for react-pdf, which cannot render the symbol's SVG masks. */
-export const LOGO_PDF_PNG_SRC = `/brand/logo-on-dark.png?v=${LOGO_VERSION}`;
 
 /** The standalone symbol is used by the collapsed sidebar. */
 export const LOGO_MARK_ASPECT_RATIO = 64.4 / 60.6;

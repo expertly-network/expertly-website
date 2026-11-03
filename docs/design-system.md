@@ -34,9 +34,8 @@ Use `<Logo variant="nav"|"auth"|"sidebar">` for linked logos and
 `<LogoImage surface="light"|"dark" height={…}>` for unlinked logos. `height` is the symbol
 height, and `--logo-h` scales the entire image; responsive overrides use
 `max-[600px]:![--logo-h:37px]`. Source assets are `public/brand/logo-on-{light,dark}.svg`.
-Regenerate with `scripts/generate-brand-logo.py` (requires Python fonttools[woff] and uharfbuzz).
-The generator uses the exact website WOFF2 at weight 500, shapes the text, and converts glyphs
-to paths. Keep the aspect ratio in `lib/brand.ts` in sync with generator output.
+The SVG lettering uses the website WOFF2 at weight 500, shaped and converted to paths.
+Keep the aspect ratio in `lib/brand.ts` in sync with the SVG artwork.
 
 | Use | How |
 |---|---|
@@ -44,7 +43,7 @@ to paths. Keep the aspect ratio in `lib/brand.ts` in sync with generator output.
 | Dark surfaces (sidebar, mobile menu, hero handoff, footer, pre-launch page) | `<Logo variant="sidebar">` / `<LogoImage surface="dark">` — `logo-on-dark.svg` |
 | Collapsed sidebar rail | the symbol alone (`<Logo collapsible>`) |
 | Footer | `<LogoImage surface="dark" height={52}>`, 37px below 600px |
-| Profile PDF header | `logo-on-dark.png` (3× raster of the complete outlined lockup; react-pdf cannot draw the SVG masks) |
+| Profile PDF header | unchanged text wordmark (Cormorant Garamond and Geist) |
 | Favicon / iOS icon (`app/icon1.svg`, `app/icon.png`, `app/apple-icon.png`) | the designer's symbol on a dark rounded tile; Next emits both as `<link rel="icon">` (the `1` suffix is how Next allows a second icon file) |
 
 Bump `LOGO_VERSION` in `lib/brand.ts` whenever a file in `public/brand/` changes — the paths stay the
@@ -343,16 +342,3 @@ validation, and collection reorder. No backend contract changes in this frontend
 Prototype-only claimed counts, saves, learning logs, notes, completion progress, and suggestion
 forms were omitted because the API has no corresponding persistence contract. No simulated
 success messages or invented activity numbers are shown.
-
-## Responsive content width
-
-`PageContainer` and the homepage hero share `.page-container`: a 1280px maximum outer
-width with continuous `clamp(20px, 4vw, 64px)` side gutters, defined in `globals.css`.
-Keep section backgrounds full width; put content inside this container. Narrow reading
-columns and forms can retain their smaller maximum widths. The homepage orbit stays
-compact on smaller desktops and expands at 1280px so it does not crowd the text.
-
-Layouts respond to CSS viewport width, not physical resolution or device pixel ratio.
-Windows display scaling and browser zoom can change that width; preserve zoom and
-responsive reflow rather than trying to detect or override the user's display settings.
-The root reserves scrollbar space to avoid horizontal jumps between short and long pages.

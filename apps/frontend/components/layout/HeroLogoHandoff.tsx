@@ -53,7 +53,7 @@ export function HeroLogoHandoff() {
       aria-label="GrowXQ home"
       className="hero-logo-handoff fixed left-6 top-7 z-[75] hidden items-center min-[1024px]:inline-flex"
     >
-      <LogoImage surface="dark" height={26} />
+      <LogoImage surface="dark" height={30} />
     </Link>
   );
 }

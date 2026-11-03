@@ -38,7 +38,7 @@ export function LogoImage({
 
 // Symbol height + surface per usage context.
 const VARIANTS = {
-  nav: { surface: 'light', height: 26 },
+  nav: { surface: 'light', height: 30 },
   auth: { surface: 'light', height: 30 },
   sidebar: { surface: 'dark', height: 26 },
 } as const;
