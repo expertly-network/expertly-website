@@ -1317,6 +1317,18 @@ values ('legal', 'legal', true, 2000000, array['text/html'])   -- 2 MB, HTML onl
 on conflict (id) do nothing;
 
 -- ============================================================================
+-- Storage — guide-videos bucket: the short how-to videos (and their poster frames) shown in the
+-- application wizard, e.g. "linkedin-url-desktop.mp4" / "linkedin-url-mobile.mp4" on the
+-- LinkedIn import step (apps/frontend/lib/guides.ts). Uploaded by hand in the Supabase dashboard
+-- (this only creates the bucket). Public read, so no policies; nothing writes here from the app.
+-- ============================================================================
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('guide-videos', 'guide-videos', true, 26214400,   -- 25 MB
+        array['video/mp4', 'image/jpeg'])
+on conflict (id) do nothing;
+
+-- ============================================================================
 -- AI search — index, outbox, query log (functions: 0003_functions.sql "AI search functions";
 -- extensions: 0001). Backend-only: RLS on with NO policies and nothing granted to
 -- anon/authenticated; only the NestJS service-role client touches these. See

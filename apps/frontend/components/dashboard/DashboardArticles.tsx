@@ -9,7 +9,8 @@ type Tab = 'latest' | 'mine';
 
 // dashboard.html's "Articles" block: Latest / My Articles tabs, "Write an article", "See all", and
 // three of the articles page's own cards (cover image, author photo and details). The prototype's
-// "Most Viewed" tab and view counts need view tracking, which the backend doesn't record yet.
+// "Most Viewed" tab and view counts need view tracking, which the backend doesn't record yet, so
+// they're left out.
 export function DashboardArticles({
   latest,
   mine,
@@ -32,7 +33,7 @@ export function DashboardArticles({
 
   return (
     <section aria-label="Articles">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-title text-ink">Articles</h2>
         <div className="flex flex-wrap items-center gap-2">
           <div role="tablist" aria-label="Articles" className="flex items-center gap-1">
@@ -53,16 +54,10 @@ export function DashboardArticles({
                 {label}
               </button>
             ))}
-            <span
-              className="rounded-full px-3 py-2 text-caption text-ink-4"
-              title="Article popularity will be available in a future update"
-            >
-              Most Viewed · Coming soon
-            </span>
           </div>
           <Link
             href="/articles/write"
-            className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-neon/60 px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent"
+            className="inline-flex items-center gap-1.5 rounded-full bg-bg-alt px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-line"
           >
             <svg
               width="14"
@@ -93,7 +88,7 @@ export function DashboardArticles({
         <p className="rounded-card border border-line bg-bg-card px-6 py-10 text-center text-sm text-ink-3">{empty}</p>
       ) : (
         // Two across leaves the third card on its own row, so it shows only at three columns.
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 max-lg:[&>*:nth-child(3)]:hidden">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:gap-6 max-lg:[&>*:nth-child(3)]:hidden">
           {items.map((a) => (
             <ArticleCard key={a.id} article={a} />
           ))}

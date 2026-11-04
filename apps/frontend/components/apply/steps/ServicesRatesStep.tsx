@@ -6,6 +6,7 @@ import { rateErrors } from '@/lib/apply/rate-errors';
 import { Input } from '@/components/ui/Input';
 import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
 import { StepActions } from '@/components/apply/StepActions';
+import { ServiceGuide } from '@/components/apply/ServiceGuide';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import type { WizardFormState } from '@/components/apply/types';
@@ -92,7 +93,10 @@ export function ServicesRatesStep({
       <p className="mt-2 text-lede text-ink-3">Select your service preferences and set your consultation rate.</p>
 
       <div className="mt-7">
-        <span className="mb-3 block text-mono-label text-ink-3">SERVICE PREFERENCES — RANK YOUR TOP 3</span>
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-mono-label text-ink-3">SERVICE PREFERENCES — RANK YOUR TOP 3</span>
+          <ServiceGuide categories={categories} />
+        </div>
 
         <p className="-mt-1.5 mb-4 text-sm text-ink-3">
           Search by service or practice area — the same service can sit under more than one category, so pick the one

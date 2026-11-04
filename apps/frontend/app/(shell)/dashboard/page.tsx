@@ -31,6 +31,7 @@ import type { Profile } from '@/lib/auth/types';
 import { formatDate, formatDayOfMonth, formatMonth } from '@/lib/dates';
 import { isOnlineEvent, normalizeEventTitle } from '@/lib/events/format';
 import { MEMBER_TIER_LABEL } from '@/lib/members/format';
+import { getLearningsServer, getPerksServer, getTemplatesServer } from '@/lib/api/resources.server';
 
 export const metadata = { title: 'Dashboard — GrowXQ' };
 
@@ -47,7 +48,7 @@ function Panel({
 }) {
   return (
     <Card padding="md">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-title text-ink">{title}</h2>
         <Link href={href} className="text-sm font-medium text-accent hover:underline">
           {action} <span aria-hidden="true">↗</span>
@@ -173,10 +174,10 @@ async function UpcomingEventsPanel() {
 
 function TileIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/25 bg-bg-card text-accent-2">
+    <span className="flex h-6 w-6 items-center text-ink">
       <svg
-        width="16"
-        height="16"
+        width="20"
+        height="20"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -242,21 +243,21 @@ async function RoiPanel() {
   ];
   return (
     <section aria-label="Your ROI on GrowXQ">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-title text-ink">Your ROI on GrowXQ</h2>
         <span className="text-caption text-ink-3">Your activity to date</span>
       </div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4 xl:gap-5">
         {tiles.map((t) => (
           <Link
             key={t.label}
             href={t.href}
-            className="min-w-0 rounded-panel border border-accent/20 bg-neon/50 p-4 transition-colors hover:border-accent sm:p-5"
+            className="min-w-0 rounded-panel bg-bg-alt p-4 shadow-panel transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] sm:p-5"
           >
             <TileIcon>{t.icon}</TileIcon>
             <p className="mt-4 text-[26px] font-semibold leading-none tracking-[-0.02em] text-ink">{t.value ?? '—'}</p>
-            <p className="mt-2 text-sm font-medium text-ink-2">{t.label}</p>
-            <p className="mt-2 text-xs font-semibold text-accent-2">
+            <p className="mt-2 text-sm font-medium text-ink">{t.label}</p>
+            <p className="mt-2 text-xs font-semibold text-ink-2">
               {t.value === undefined ? 'Temporarily unavailable' : t.detail}
             </p>
           </Link>
@@ -297,7 +298,7 @@ async function ProfileCard({ user }: { user: Profile }) {
           className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full"
           style={{ background: `conic-gradient(var(--accent) ${ring * 3.6}deg, var(--line) 0deg)` }}
         >
-          <span className="flex h-[80px] w-[80px] items-center justify-center overflow-hidden rounded-full border-4 border-bg-card bg-neon text-lg font-medium text-ink">
+          <span className="flex h-[80px] w-[80px] items-center justify-center overflow-hidden rounded-full border-4 border-bg-card bg-bg-alt text-lg font-medium text-ink">
             {member?.photoUrl ? (
               <Image
                 src={member.photoUrl}
@@ -340,7 +341,7 @@ async function ProfileCard({ user }: { user: Profile }) {
             </p>
           )}
           <p className="mt-2 text-sm text-ink-3">{[member.city, member.country].filter(Boolean).join(', ')}</p>
-          <span className="mt-4 inline-flex rounded-full border border-accent/30 bg-neon px-3 py-1 text-[11px] font-semibold text-accent-2">
+          <span className="mt-4 inline-flex rounded-full bg-bg-alt px-3 py-1 text-[11px] font-semibold text-ink-2">
             {TIER_LABEL[member.memberTier]} · {member.yearsOfExperience} yrs
           </span>
           {pct !== null && pct < 100 && (
@@ -389,11 +390,11 @@ async function MembershipCard() {
   const startIso = member?.joinedAt;
   const cycle = startIso ? membershipCycle(startIso) : null;
   return (
-    <section className="rounded-card border border-accent/25 bg-neon/60 p-5 sm:p-6" aria-label="Membership">
+    <section className="rounded-card bg-bg-alt p-5 sm:p-6" aria-label="Membership">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-title text-ink">Membership</h2>
         {member && (
-          <span className="rounded-full border border-accent/30 bg-bg-card px-2.5 py-1 text-[11px] font-semibold text-accent-2">
+          <span className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-bg">
             {MEMBER_TIER_LABEL[member.memberTier]}
           </span>
         )}
@@ -456,68 +457,67 @@ async function MemberEventsPanel({ userId }: { userId: string }) {
   );
 }
 
+// dashboard.html's Reminders: each one leads with its number (days, requests, articles).
 async function RemindersCard() {
   const [profile, consultations, mine] = await Promise.all([loadProfile(), loadRequests(), loadMyArticles()]);
   const member = profile.ok ? profile.value : null;
   const cycle = member?.joinedAt ? membershipCycle(member.joinedAt) : null;
   const pending = consultations.ok ? consultations.value.filter((r) => r.status === 'pending').length : 0;
   const drafts = mine.ok ? mine.value.filter((a) => a.status === 'draft') : [];
-  const reminders: { title: string; detail: string; href: string; icon: ReactNode }[] = [];
+  const reminders: { value: number; unit: string; title: string; detail: string; href: string }[] = [];
   if (cycle && cycle.daysLeft <= 60) {
     reminders.push({
-      title: `Membership renews in ${cycle.daysLeft} days`,
+      value: cycle.daysLeft,
+      unit: cycle.daysLeft === 1 ? 'Day' : 'Days',
+      title: 'Until your membership renews',
       detail: formatDate(cycle.renewal),
       href: '/membership',
-      icon: (
-        <>
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <path d="M16 2v4M8 2v4M3 10h18" />
-        </>
-      ),
     });
   }
   if (pending) {
     reminders.push({
-      title: `${pending} consultation ${pending === 1 ? 'request' : 'requests'} awaiting reply`,
+      value: pending,
+      unit: pending === 1 ? 'Request' : 'Requests',
+      title: 'Awaiting your reply',
       detail: 'Respond from your consultations page',
       href: '/consultations',
-      icon: <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />,
     });
   }
   if (drafts.length) {
     reminders.push({
-      title: `${drafts.length} ${drafts.length === 1 ? 'article' : 'articles'} still in draft`,
+      value: drafts.length,
+      unit: drafts.length === 1 ? 'Article' : 'Articles',
+      title: 'Still in draft',
       detail: `Finish “${drafts[0].title}”`,
       href: `/articles/write?edit=${drafts[0].id}`,
-      icon: (
-        <>
-          <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
-        </>
-      ),
     });
   }
   return (
-    <section className="relative overflow-hidden rounded-card bg-ink p-6 text-white" aria-label="Reminders">
+    <section className="relative overflow-hidden rounded-card bg-ink p-6 text-bg" aria-label="Reminders">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full"
         style={{ background: 'color-mix(in oklab, var(--accent) 18%, transparent)' }}
       />
-      <h2 className="relative text-title text-white">Reminders</h2>
+      <h2 className="relative text-title text-bg">Reminders</h2>
       {reminders.length === 0 ? (
         <p className="relative mt-4 text-sm text-white/60">You’re all caught up.</p>
       ) : (
-        <ul className="relative mt-5 space-y-4">
-          {reminders.map((r, i) => (
+        <ul className="relative mt-3 divide-y divide-white/10">
+          {reminders.map((r) => (
             <li key={r.title}>
-              <Link href={r.href} className="group flex items-start gap-3">
-                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent text-bg">
-                  <span className="text-sm font-semibold tabular-nums">{r.title.match(/\d+/)?.[0] || i + 1}</span>
+              <Link href={r.href} className="group grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-4">
+                <span>
+                  <span className="block text-[32px] font-semibold leading-none tracking-[-0.02em] text-accent tabular-nums">
+                    {r.value}
+                  </span>
+                  <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-white/55">
+                    {r.unit}
+                  </span>
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-white group-hover:underline">{r.title}</span>
-                  <span className="mt-0.5 block truncate text-xs text-white/55">{r.detail}</span>
+                <span className="min-w-0 pt-0.5">
+                  <span className="block text-sm font-semibold text-bg group-hover:underline">{r.title}</span>
+                  <span className="mt-1 block truncate text-xs text-white/55">{r.detail}</span>
                 </span>
               </Link>
             </li>
@@ -525,6 +525,21 @@ async function RemindersCard() {
         </ul>
       )}
     </section>
+  );
+}
+
+async function ResourcesSection() {
+  const [learnings, templates, perks] = await Promise.all([
+    settle(getLearningsServer()),
+    settle(getTemplatesServer()),
+    settle(getPerksServer()),
+  ]);
+  return (
+    <DashboardResources
+      learnings={learnings.ok ? learnings.value : null}
+      templates={templates.ok ? templates.value : null}
+      perks={perks.ok ? perks.value : null}
+    />
   );
 }
 
@@ -633,7 +648,7 @@ async function SentRequestsPanel() {
               ) : (
                 <span
                   aria-hidden="true"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neon text-sm font-medium text-ink"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-alt text-sm font-medium text-ink"
                 >
                   {(r.memberName ?? '?').slice(0, 1)}
                 </span>
@@ -668,7 +683,7 @@ async function ClientExpertsPanel() {
 
 async function ClientDashboard({ user }: { user: Profile }) {
   return (
-    <div className="bg-bg-alt/40">
+    <div className="bg-bg">
       <PageHero
         eyebrow="Your dashboard"
         title={
@@ -692,7 +707,7 @@ async function ClientDashboard({ user }: { user: Profile }) {
           </div>
         }
       />
-      <PageContainer className="py-8 sm:py-10">
+      <PageContainer className="py-10 sm:py-14">
         <div className="mb-8 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-4">
           <Suspense
             fallback={[0, 1, 2, 3].map((i) => (
@@ -702,7 +717,7 @@ async function ClientDashboard({ user }: { user: Profile }) {
             <ClientStatsRow />
           </Suspense>
         </div>
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-12">
           <div className="min-w-0 space-y-6">
             <Suspense fallback={<PanelSkeleton />}>
               <SentRequestsPanel />
@@ -742,7 +757,7 @@ export default async function DashboardPage() {
   if (user.role === 'client') return <ClientDashboard user={user} />;
 
   return (
-    <div className="bg-bg-alt/40">
+    <div className="bg-bg">
       <PageHero
         eyebrow="Member Portal"
         title={
@@ -754,12 +769,12 @@ export default async function DashboardPage() {
         search={<DashboardHeroSearch />}
         decoration={<HeroConstellation />}
       />
-      <PageContainer className="py-8 sm:py-10">
+      <PageContainer className="py-10 sm:py-14">
         {/* Desktop: two columns, as dashboard.html. Below xl the columns dissolve (display: contents)
             into one list, ordered by what a member needs first: who they are, their numbers, what
             to act on, then everything else. */}
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="contents xl:block xl:min-w-0 xl:space-y-8">
+        <div className="grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-12">
+          <div className="contents xl:block xl:min-w-0 xl:space-y-14">
             <div className="min-w-0 max-xl:order-2">
               <Suspense fallback={<PanelSkeleton className="h-60" />}>
                 <RoiPanel />
@@ -768,18 +783,20 @@ export default async function DashboardPage() {
             <div className="min-w-0 max-xl:order-5">
               <DashboardPeerNetwork />
             </div>
-            <div className="min-w-0 max-xl:order-5">
-              <Suspense fallback={<PanelSkeleton />}>
-                <ArticlesSection />
-              </Suspense>
-            </div>
             <div className="min-w-0 max-xl:order-4">
               <Suspense fallback={<PanelSkeleton className="h-56" />}>
                 <RequestsPanel />
               </Suspense>
             </div>
+            <div className="min-w-0 max-xl:order-5">
+              <Suspense fallback={<PanelSkeleton />}>
+                <ArticlesSection />
+              </Suspense>
+            </div>
             <div className="min-w-0 max-xl:order-8">
-              <DashboardResources />
+              <Suspense fallback={<PanelSkeleton className="h-96" />}>
+                <ResourcesSection />
+              </Suspense>
             </div>
             <div className="min-w-0 max-xl:order-9">
               <Suspense fallback={<PanelSkeleton className="h-56" />}>
@@ -788,7 +805,7 @@ export default async function DashboardPage() {
             </div>
           </div>
           <aside
-            className="contents xl:block xl:min-w-0 xl:space-y-5"
+            className="contents xl:block xl:min-w-0 xl:space-y-6"
             aria-label="Your profile, membership and reminders"
           >
             <div className="min-w-0 max-xl:order-1">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportingLoader } from '@/components/apply/ImportingLoader';
+import { LinkedInUrlGuide } from '@/components/apply/LinkedInUrlGuide';
 import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
 import { importLinkedIn, importLinkedInPhoto } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
@@ -220,11 +221,14 @@ export function LinkedInImportStep({
       ) : (
         <>
           <div className="mt-7 flex flex-col gap-5 rounded-2xl border border-line bg-bg-alt p-6">
+            <LinkedInUrlGuide />
+
             <Input
               label="LinkedIn profile URL"
               name="linkedinUrl"
               type="url"
               placeholder="https://linkedin.com/in/your-name"
+              highlight
               value={form.linkedinUrl}
               onChange={(e) => update({ linkedinUrl: e.target.value })}
             />

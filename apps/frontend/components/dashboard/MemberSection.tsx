@@ -16,7 +16,7 @@ export function MemberSection({
 }) {
   return (
     <section className="rounded-card border border-line bg-bg-card p-5 sm:p-6" aria-label={title}>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-title text-ink">{title}</h2>
         <Link href="/members" className="text-sm font-medium text-accent hover:underline">
           Browse all <span aria-hidden="true">→</span>
@@ -30,8 +30,8 @@ export function MemberSection({
         <div
           className={
             members.length < 3
-              ? 'grid gap-3 sm:grid-cols-2'
-              : 'grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4'
+              ? 'grid gap-4 sm:grid-cols-2'
+              : 'grid grid-cols-1 gap-4 min-[360px]:grid-cols-2 lg:grid-cols-4'
           }
         >
           {members.map((member) => {
@@ -57,7 +57,7 @@ export function MemberSection({
                 aria-label={`View ${member.name}'s profile`}
                 className={`group flex min-w-0 rounded-xl px-3 py-3 transition-colors hover:bg-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${members.length < 3 ? 'flex-row items-center gap-4 text-left' : 'flex-col items-center text-center'}`}
               >
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neon text-sm font-medium text-ink">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-alt text-sm font-medium text-ink">
                   {member.photoUrl ? (
                     <Image
                       width={56}

@@ -27,27 +27,32 @@ afterEach(async () => {
   host.remove();
 });
 
+const button = (label: string) => [...host.querySelectorAll('button')].find((b) => b.textContent === label)!;
+
 describe('dashboard consultation views', () => {
-  it('switches from received requests to the real sent requests and correct full-page tab', async () => {
+  it('lists received and requested together, tagged, with the right next step', async () => {
     await act(async () =>
       root.render(<DashboardConsultations received={[request]} sent={[{ ...request, id: '2' }]} />)
     );
     expect(host.textContent).toContain('Client One');
-    expect(host.textContent).toContain('Reply');
-    const outbox = [...host.querySelectorAll('button')].find((b) => b.textContent === 'Outbox')!;
-    await act(async () => outbox.click());
     expect(host.textContent).toContain('Expert Two');
-    expect(host.textContent).not.toContain('Client One');
-    expect(host.textContent).not.toContain('Reply');
-    expect(host.querySelector('a')?.getAttribute('href')).toBe('/consultations?tab=mine');
-    expect(host.querySelector('input[aria-label="Search members"]')).not.toBeNull();
+    expect(host.textContent).toContain('Received');
+    expect(host.textContent).toContain('Requested');
+    expect(host.textContent).toContain('Reply');
+    const links = [...host.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    expect(links).toContain('/consultations?tab=mine');
   });
-  it('distinguishes an unavailable inbox from an empty outbox', async () => {
-    await act(async () => root.render(<DashboardConsultations received={null} sent={[]} />));
+  it('opens on the outbox prompt when there are no consultations at all', async () => {
+    await act(async () => root.render(<DashboardConsultations received={[]} sent={[]} />));
+    expect(host.querySelector('input[aria-label="Search members"]')).not.toBeNull();
+    await act(async () => button('Inbox').click());
+    expect(host.textContent).toContain('No consultation requests yet');
+  });
+  it('distinguishes an unavailable inbox from an empty one', async () => {
+    await act(async () => root.render(<DashboardConsultations received={null} sent={null} />));
     expect(host.textContent).toContain("couldn't");
-    const outbox = [...host.querySelectorAll('button')].find((b) => b.textContent === 'Outbox')!;
-    await act(async () => outbox.click());
-    expect(host.textContent).toContain('haven’t sent');
-    expect(host.textContent).not.toContain("couldn't");
+    await act(async () => root.render(<DashboardConsultations received={null} sent={[{ ...request, id: '2' }]} />));
+    expect(host.textContent).toContain('Expert Two');
+    expect(host.textContent).toContain("couldn't be loaded");
   });
 });
