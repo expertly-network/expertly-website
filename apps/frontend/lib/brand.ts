@@ -1,19 +1,14 @@
-// Brand artwork uses the designer's symbol and outlined Cormorant Garamond (500) lettering.
-
-// Bump when the artwork changes: the paths don't, so without it browsers and CDNs keep the old file.
-const LOGO_VERSION = 6;
-
+// Shared references to the approved logo, selected by the surface it sits on.
+// Bump the version when replacing artwork to invalidate browser/CDN caches.
+const LOGO_VERSION = 12;
 export const LOGO_SRC = {
-  light: `/brand/logo-on-light.svg?v=${LOGO_VERSION}`,
-  dark: `/brand/logo-on-dark.svg?v=${LOGO_VERSION}`,
+  light: `/brand/growxq-logo-light.svg?v=${LOGO_VERSION}`,
+  dark: `/brand/growxq-logo-dark.svg?v=${LOGO_VERSION}`,
 } as const;
-export const LOGO_ASPECT_RATIO = 301.972 / 60.6;
-
-/** The symbol, per the surface it sits on (its second figure is dark on light, stone on dark). */
-export const LOGO_MARK_SRC = {
-  light: `/brand/mark-on-light.svg?v=${LOGO_VERSION}`,
-  dark: `/brand/mark-on-dark.svg?v=${LOGO_VERSION}`,
+export const FAVICON_SRC = {
+  light: `/brand/favicon-on-light.svg?v=${LOGO_VERSION}`,
+  dark: `/brand/favicon-on-dark.svg?v=${LOGO_VERSION}`,
 } as const;
-
-/** The standalone symbol is used by the collapsed sidebar. */
-export const LOGO_MARK_ASPECT_RATIO = 64.4 / 60.6;
+export const LOGO_ASPECT_RATIO = 299 / 61;
+export const LOGO_MARK_ASPECT_RATIO = 62 / 61;
+export const BRAND_ICON_SRC = FAVICON_SRC.dark;

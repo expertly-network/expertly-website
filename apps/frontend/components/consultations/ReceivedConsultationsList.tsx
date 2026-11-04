@@ -65,6 +65,7 @@ export function ReceivedConsultationsList({
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
+              aria-pressed={filter === f.key}
               className={`rounded-full border px-3.5 py-1.5 text-caption font-medium transition-colors ${
                 filter === f.key ? 'border-ink bg-ink text-bg' : 'border-line text-ink-2 hover:border-ink-3'
               }`}

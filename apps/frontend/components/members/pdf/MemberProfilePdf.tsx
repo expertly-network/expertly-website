@@ -1,3 +1,4 @@
+import { LOGO_ASPECT_RATIO } from '@/lib/brand';
 import type { ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
 import type { MemberDto } from '@shared/member';
@@ -53,16 +54,8 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  // Text wordmark, same as the site's <Wordmark>: white "grow" + raised green "XQ".
-  brand: { fontFamily: PDF_HEADING_FONT_FAMILY, fontWeight: 400, fontSize: 16, color: C.white, letterSpacing: -0.1 },
-  brandSup: {
-    fontFamily: PDF_FONT_FAMILY,
-    fontSize: 6.6,
-    fontWeight: 600,
-    color: C.accent,
-    verticalAlign: 'super',
-    letterSpacing: -0.2,
-  },
+  // Raster derivative of the same SVG used by the website (react-pdf cannot render SVG masks).
+  brand: { width: 100, height: 100 / LOGO_ASPECT_RATIO },
   bandNote: { color: 'rgba(255,255,255,0.7)', fontSize: 8.5 },
 
   body: { paddingHorizontal: 40 },
@@ -258,6 +251,7 @@ export interface MemberProfilePdfProps {
   member: MemberDto;
   profileUrl: string;
   qrDataUrl: string;
+  logoSrc: string;
   /** PNG data URL, already cropped square; null falls back to initials. */
   photoDataUrl: string | null;
   generatedAt: Date;
@@ -372,6 +366,7 @@ export function MemberProfilePdf({
   member,
   profileUrl,
   qrDataUrl,
+  logoSrc,
   photoDataUrl,
   generatedAt,
   recommendations,
@@ -431,9 +426,8 @@ export function MemberProfilePdf({
     >
       <Page size="A4" style={s.page}>
         <View style={s.band} fixed>
-          <Text style={s.brand}>
-            grow<Text style={s.brandSup}>XQ</Text>
-          </Text>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
+          <Image src={logoSrc} style={s.brand} />
           <Text style={s.bandNote}>Verified expert profile</Text>
         </View>
 

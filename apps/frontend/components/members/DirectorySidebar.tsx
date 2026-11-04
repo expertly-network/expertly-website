@@ -1,3 +1,4 @@
+import { MEMBERSHIP_TIERS } from '@/lib/members/tiers';
 import { Button } from '@/components/ui';
 import { SidebarDarkCard, SidebarJoinCard, SidebarStatsCard } from '@/components/shared/SidebarCards';
 
@@ -40,6 +41,26 @@ export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) 
         intro="Our screening covers credentials, years in practice, jurisdiction expertise, and a peer review by existing members. No self-serve listings."
         stats={STATS}
       />
+      <section className="rounded-card border border-line bg-bg-card p-6" aria-labelledby="directory-tiers-title">
+        <h3 id="directory-tiers-title" className="text-title text-ink">
+          Budding and Seasoned Professionals
+        </h3>
+        <p className="mt-3 text-sm text-ink-3">Every member carries a tier based on their professional experience.</p>
+        <dl className="mt-5 space-y-5">
+          {MEMBERSHIP_TIERS.map((tier) => (
+            <div key={tier.key}>
+              <dt>
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-caption font-semibold ${tier.badgeClass}`}
+                >
+                  {tier.name}
+                </span>
+              </dt>
+              <dd className="mt-2 text-sm text-ink-3">{tier.summary}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
       {/* The last card is always the dark one: members and admins can't apply, so they get a referral
           card instead. A mailto: link, like the events page's "Suggest an event" — no referral backend. */}
       <div className="max-[859px]:hidden">

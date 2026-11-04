@@ -292,7 +292,7 @@ export default async function HomePage() {
       <Testimonials />
 
       <DualCta />
-      {/* Who can join: the two tiers, the 5-year minimum, and how membership is verified */}
+      {/* The membership application and verification process. */}
       <MembershipTiers />
       <Newsletter />
 

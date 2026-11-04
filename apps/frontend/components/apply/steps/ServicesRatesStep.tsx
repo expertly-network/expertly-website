@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { RATE_FLOOR, RATE_CEILING } from '@shared/consultation-rates';
+import { rateErrors } from '@/lib/apply/rate-errors';
 import { Input } from '@/components/ui/Input';
 import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
 import { StepActions } from '@/components/apply/StepActions';
@@ -64,18 +66,12 @@ export function ServicesRatesStep({
   const customLabelFor = (priority: 1 | 2 | 3) => prefs.find((p) => p.priority === priority)?.customLabel ?? '';
   const isCustomService = (serviceId: string) => allServices.find((s) => s.id === serviceId)?.isCustom ?? false;
 
-  const minDollars = Number(form.rateMinDollars);
-  const maxDollars = Number(form.rateMaxDollars);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
     if (!preferenceFor(1)) e.servicePreference1 = '1st preference is required.';
-    if (form.rateMinDollars === '') e.rateMinDollars = 'Minimum rate is required.';
-    if (form.rateMaxDollars === '') e.rateMaxDollars = 'Maximum rate is required.';
-    if (form.rateMinDollars !== '' && form.rateMaxDollars !== '' && maxDollars <= minDollars) {
-      e.rateMaxDollars = 'Max must be greater than min.';
-    }
+    Object.assign(e, rateErrors(form.rateMinDollars, form.rateMaxDollars));
     return e;
   }
 
@@ -161,33 +157,31 @@ export function ServicesRatesStep({
         <p className="mt-1.5 text-sm text-ink-3">Your typical hourly fee range in USD. You can adjust this anytime.</p>
       </div>
 
+      <p className="mt-3 text-xs text-ink-3">
+        Enter $20–$500/hour. Your maximum must be greater than your minimum, with a gap of no more than $250.
+      </p>
       <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-        <Input
-          id="rateMinDollars"
-          label="Min (USD / hour)"
-          type="number"
-          min={0}
-          placeholder="e.g. 500"
-          value={form.rateMinDollars}
-          onChange={(e) => {
-            update({ rateMinDollars: e.target.value });
-            setErrors((prev) => ({ ...prev, rateMinDollars: '', rateMaxDollars: '' }));
-          }}
-          error={errors.rateMinDollars}
-        />
-        <Input
-          id="rateMaxDollars"
-          label="Max (USD / hour)"
-          type="number"
-          min={0}
-          placeholder="e.g. 2000"
-          value={form.rateMaxDollars}
-          onChange={(e) => {
-            update({ rateMaxDollars: e.target.value });
-            setErrors((prev) => ({ ...prev, rateMinDollars: '', rateMaxDollars: '' }));
-          }}
-          error={errors.rateMaxDollars}
-        />
+        {(['min', 'max'] as const).map((bound) => {
+          const field = bound === 'min' ? 'rateMinDollars' : 'rateMaxDollars';
+          return (
+            <Input
+              key={field}
+              id={field}
+              label={bound === 'min' ? 'Min (USD / hour)' : 'Max (USD / hour)'}
+              type="number"
+              min={RATE_FLOOR}
+              max={RATE_CEILING}
+              step="0.01"
+              placeholder={bound === 'min' ? 'e.g. 50' : 'e.g. 100'}
+              value={form[field]}
+              onChange={(event) => {
+                update({ [field]: event.target.value });
+                setErrors((prev) => ({ ...prev, rateMinDollars: '', rateMaxDollars: '' }));
+              }}
+              error={errors[field]}
+            />
+          );
+        })}
       </div>
 
       {saveError && (

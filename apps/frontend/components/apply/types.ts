@@ -1,3 +1,4 @@
+import { shareCompanyWebsites } from '@/lib/apply/company-websites';
 import type {
   ApplicationDto,
   ApplicationRegion,
@@ -70,7 +71,7 @@ export function toUpdateRequest(
     yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
     // Filters out blank template entries; omits the field entirely if none remain.
     workExperiences: nonEmptyOrUndefined(
-      form.workExperiences
+      shareCompanyWebsites(form.workExperiences)
         .filter((w) => w.title.trim() || w.company.trim())
         .map((w) => ({ ...w, companyUrl: w.companyUrl || undefined }))
     ),

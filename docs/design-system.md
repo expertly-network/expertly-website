@@ -24,30 +24,21 @@ because this is a Tailwind-utility-first codebase — that's "standard practice"
 
 ## Logo & brand mark
 
-The GrowXQ logo combines the designer's two-figure symbol with "GrowXQ" outlined from the
-website's Cormorant Garamond font at weight 500 and -0.02em tracking. The complete lockup is
-an SVG image, so it renders consistently without waiting for font loading. "Grow" is ink on
-light surfaces and white on dark; "XQ" uses brand green. The sample in Downloads supplied
-the icon and proportions; its lettering is replaced with our website font.
+Use the shared `<Logo>` / `<LogoImage>` components and the light/dark paths in
+`lib/brand.ts` everywhere, including application screens. Approved artwork lives in
+`public/brand/growxq-logo-{light,dark}.svg`, with the 3-unit lettering alignment and
+86% / 82% symbol opacity preserved. The collapsed sidebar crops the same logo to its symbol;
+PDF downloads convert that SVG to PNG in memory. Neither needs a separate artwork file.
+`favicon-on-{light,dark}.svg` are selected by browser theme. Bump `LOGO_VERSION` after artwork updates.
 
-Use `<Logo variant="nav"|"auth"|"sidebar">` for linked logos and
-`<LogoImage surface="light"|"dark" height={…}>` for unlinked logos. `height` is the symbol
-height, and `--logo-h` scales the entire image; responsive overrides use
-`max-[600px]:![--logo-h:37px]`. Source assets are `public/brand/logo-on-{light,dark}.svg`.
-The SVG lettering uses the website WOFF2 at weight 500, shaped and converted to paths.
-Keep the aspect ratio in `lib/brand.ts` in sync with the SVG artwork.
+## Pre-launch welcome layout
 
-| Use | How |
-|---|---|
-| Light surfaces (mobile top bar, auth, /apply, 404) | `<Logo variant="nav" / "auth">` — `logo-on-light.svg` |
-| Dark surfaces (sidebar, mobile menu, hero handoff, footer, pre-launch page) | `<Logo variant="sidebar">` / `<LogoImage surface="dark">` — `logo-on-dark.svg` |
-| Collapsed sidebar rail | the symbol alone (`<Logo collapsible>`) |
-| Footer | `<LogoImage surface="dark" height={52}>`, 37px below 600px |
-| Profile PDF header | unchanged text wordmark (Cormorant Garamond and Geist) |
-| Favicon / iOS icon (`app/icon1.svg`, `app/icon.png`, `app/apple-icon.png`) | the designer's symbol on a dark rounded tile; Next emits both as `<link rel="icon">` (the `1` suffix is how Next allows a second icon file) |
-
-Bump `LOGO_VERSION` in `lib/brand.ts` whenever a file in `public/brand/` changes — the paths stay the
-same, so without it browsers and CDNs keep serving the old artwork.
+The welcome header, hero, and footer share a centered 1200px container with responsive inner
+gutters (`clamp(20px, 5vw, 64px)`). The larger header logo sits directly above the
+hero text's left edge; the invitation and sign-in controls share the right gutter.
+The header logo is 44px tall on desktop and 32px below 640px, with the tagline beneath.
+The hero retains its original wrapping flex layout, type scale, spacing, and 400px seat card.
+The footer logo and contact details align with the same left and right gutters.
 
 ## Footer
 
@@ -303,6 +294,25 @@ without leaving the list" (perks: `components/resources/PerkDrawer.tsx`). Centre
 The selected logo direction is reflected in black ink (`ink`: #0B0B0C — was forest green #15392F until 2026-10-27, changed at the user's request; `nav-green` and the profile/PDF header band are the same black), a plain white page (`bg`: #FFFFFF — warm ivory #FAF8EF until 2026-10-29, switched to white at the user's request to match `design/static_html/assets/theme.css`; cards stay white too and separate from the page by their `line` border, as in the prototype), white cards (`bg-card`: #FFFFFF), and warm stone (`bg-alt`: #EFEEE7). The current values in `apps/frontend/app/globals.css` supersede the legacy palette table above. Secondary ink is #2E3033, muted ink #62695F, decorative ink #899085, borders #E0E1D7 / #CBD0C2. **There is exactly one green: the logo green #00A682 (`--accent`), set 2026-10-29 at the user's request** — it replaced the old forest accents #315F48 / #52765D, the verified green #31704D, the separate `--highlight` token and stray hardcoded greens (#16A34A availability dots, mint badges/glows). `accent-2` (hover), `neon` (pale fill), `ok` and `cta` are all derived from `--accent` via `color-mix`/aliases, so changing `--accent` recolors everything. Heading highlight words use `text-accent`. Never hardcode a green hex or rgba — use the token, including in inline `style` (`color-mix(in oklab, var(--accent) N%, transparent)` for tints); the profile PDF mirrors `--accent` by value in `MemberProfilePdf.tsx`. Error red stays unchanged.
 
 H1 and H2 use locally hosted Cormorant Garamond, a high-contrast serif approximation of the generated concept lettering, at their existing sizes, with a consistent medium weight matching the option 02 reference more closely. The generated image does not specify an exact font file. Body copy, navigation, forms, small card headings, and tables retain Geist. **Exception — article titles are always Geist** (`font-sans` on the article page's `h1`, the signed-out teaser in `ArticlePreview.tsx` and the write-flow `ArticleLivePreview.tsx`), so an article's title looks the same on cards, lists and its own page; the serif is reserved for page/section marketing headlines. Any new `h1`/`h2` holding user-authored content (a title, a name) should add `font-sans` the same way. The font and SIL Open Font License are in `public/fonts/brand/`; no font-provider request is needed at runtime. Dark surfaces use the same brand green as light ones. PDF profile names use a static Cormorant Garamond instance and the PDF palette mirrors the website. Layout, content, animations, auth, forms, filters, and API contracts are unchanged by this refresh.
+
+### Membership and consultation reference updates
+
+The November portal references supply content and interaction guidance; production keeps
+GrowXQ's tokens, Geist body type, Cormorant marketing headings, shared cards and controls.
+`lib/members/tiers.ts` supplies the Membership tier cards and directory sidebar explanation.
+Tier ranges follow approval rules: 5–12 years is Budding, more than 12 is Seasoned.
+The homepage's How to join section presents Apply, Verify, Approve and Go live.
+
+Consultation summaries retain four visible counters even with no requests, with status icons,
+semantic labels, theme-based colors and a two-column mobile layout.
+
+The member dashboard uses actual received/sent requests in Inbox/Outbox, resource links to
+Learnings, Templates and Perks, and profile-based event preferences (country, taxonomy category,
+city). Overrides are saved per user in this browser and Reset to profile restores the defaults.
+Event selection considers every upcoming API page, prioritizes exact matches and explicitly
+labels related matches. Failed feeds remain distinct from empty results. ROI figures are
+lifetime activity, labeled accordingly; simulated reach, goals and peer totals are not shown.
+Peer matching and article popularity remain coming soon until their services are available.
 
 ### Dashboard member sections
 

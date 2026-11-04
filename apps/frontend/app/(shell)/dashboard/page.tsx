@@ -1,3 +1,6 @@
+import { DashboardConsultations } from '@/components/dashboard/DashboardConsultations';
+import { DashboardResources, DashboardPeerNetwork } from '@/components/dashboard/DashboardResources';
+import { DashboardEvents } from '@/components/dashboard/DashboardEvents';
 import Link from 'next/link';
 import Image from 'next/image';
 import { mustHotlink } from '@/lib/images';
@@ -5,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import {
   getArticlesServer,
+  getCategoriesServer,
   getEventsServer,
   getMembersServer,
   getMemberServer,
@@ -218,7 +222,7 @@ async function RoiPanel() {
     },
     {
       value: published,
-      label: 'Publications made',
+      label: 'Articles written',
       detail: inReview ? `${inReview} in review` : 'Under your name, searchable',
       href: '/articles?tab=mine',
       icon: (
@@ -237,10 +241,10 @@ async function RoiPanel() {
     },
   ];
   return (
-    <Card padding="md">
+    <section aria-label="Your ROI on GrowXQ">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-title text-ink">Your ROI on GrowXQ</h2>
-        <span className="text-caption text-ink-3">This membership cycle</span>
+        <span className="text-caption text-ink-3">Your activity to date</span>
       </div>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {tiles.map((t) => (
@@ -258,7 +262,7 @@ async function RoiPanel() {
           </Link>
         ))}
       </div>
-    </Card>
+    </section>
   );
 }
 
@@ -274,68 +278,8 @@ async function ArticlesSection() {
 }
 
 async function RequestsPanel() {
-  const consultations = await loadRequests();
-  const requests = consultations.ok ? consultations.value : null;
-  return (
-    <section aria-label="Consultation requests">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-title text-ink">Consultation requests</h2>
-        <div className="flex items-center gap-4 text-sm">
-          {requests && <span className="text-ink-3">{requests.length} total</span>}
-          <Link href="/consultations" className="font-medium text-accent hover:underline">
-            View all <span aria-hidden="true">→</span>
-          </Link>
-        </div>
-      </div>
-      <div className="overflow-hidden rounded-card border border-line bg-bg-card">
-        {requests === null ? (
-          <p className="px-6 py-8 text-sm text-ink-3">We couldn’t load your requests. Refresh to try again.</p>
-        ) : !requests.length ? (
-          <p className="px-6 py-8 text-sm text-ink-3">
-            No requests yet. Your public profile helps potential clients discover your expertise.
-          </p>
-        ) : (
-          <div className="divide-y divide-line">
-            {[...requests]
-              .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-              .slice(0, 5)
-              .map((r) => (
-                <Link
-                  key={r.id}
-                  href="/consultations"
-                  className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-bg-alt/60 sm:px-5"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neon text-xs font-medium text-ink">
-                    {r.requesterAvatarUrl ? (
-                      <Image
-                        src={r.requesterAvatarUrl}
-                        unoptimized={mustHotlink(r.requesterAvatarUrl)}
-                        alt=""
-                        width={36}
-                        height={36}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      r.requesterName.slice(0, 1)
-                    )}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 md:flex-row md:items-center md:gap-3">
-                    <span className="flex-none text-sm font-semibold text-ink">{r.requesterName}</span>
-                    <span className="truncate text-sm text-ink-3">{r.message}</span>
-                  </div>
-                  <span className="hidden flex-none text-xs text-ink-4 sm:inline">{formatDate(r.createdAt)}</span>
-                  <Badge
-                    variant={r.status === 'pending' ? 'warning' : r.status === 'completed' ? 'success' : 'neutral'}
-                  >
-                    {r.status === 'pending' ? 'Pending' : r.status === 'completed' ? 'Completed' : 'Declined'}
-                  </Badge>
-                </Link>
-              ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
+  const [received, sent] = await Promise.all([loadRequests(), loadSentRequests()]);
+  return <DashboardConsultations received={received.ok ? received.value : null} sent={sent.ok ? sent.value : null} />;
 }
 
 const TIER_LABEL = { seasoned_professional: 'Seasoned', budding_entrepreneur: 'Budding' } as const;
@@ -490,39 +434,25 @@ async function MembershipCard() {
   );
 }
 
-async function MemberEventsPanel() {
-  const events = await settle(getEventsServer());
+async function MemberEventsPanel({ userId }: { userId: string }) {
+  const [events, profile, categories] = await Promise.all([
+    settle(getEventsServer()),
+    loadProfile(),
+    settle(getCategoriesServer()),
+  ]);
+  const member = profile.ok ? profile.value : null;
   return (
-    <Card padding="md">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-title text-ink">Upcoming events</h2>
-        <Link href="/events" className="text-sm font-medium text-accent hover:underline">
-          Browse all <span aria-hidden="true">→</span>
-        </Link>
-      </div>
-      {!events.ok ? (
-        <Message>Events are temporarily unavailable. Refresh to try again.</Message>
-      ) : !events.value.length ? (
-        <Message>No upcoming events right now.</Message>
-      ) : (
-        <ul className="divide-y divide-line">
-          {events.value.slice(0, 3).map((e) => (
-            <li key={e.id}>
-              <Link href={`/events#event-${e.id}`} className="group flex items-center gap-3 py-3">
-                <span aria-hidden="true" className="h-1.5 w-1.5 flex-none rounded-full bg-accent" />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink group-hover:text-accent">
-                  {normalizeEventTitle(e.title)}
-                </span>
-                <span className="flex-none text-[11px] uppercase text-ink-4">
-                  {formatMonth(e.startDate, { timeZone: e.timezone, utc: true }).slice(0, 3)}{' '}
-                  {formatDayOfMonth(e.startDate, { timeZone: e.timezone, utc: true }).padStart(2, '0')}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+    <DashboardEvents
+      userId={userId}
+      initialEvents={events.ok ? events.value : []}
+      initialError={!events.ok}
+      categories={categories.ok ? categories.value : []}
+      defaults={{
+        country: member?.country ? [member.country] : [],
+        location: member?.city ? [member.city] : [],
+        sector: [...new Set(member?.services.map((s) => s.categoryId) || [])],
+      }}
+    />
   );
 }
 
@@ -579,23 +509,11 @@ async function RemindersCard() {
         <p className="relative mt-4 text-sm text-white/60">You’re all caught up.</p>
       ) : (
         <ul className="relative mt-5 space-y-4">
-          {reminders.map((r) => (
+          {reminders.map((r, i) => (
             <li key={r.title}>
               <Link href={r.href} className="group flex items-start gap-3">
                 <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent text-bg">
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    {r.icon}
-                  </svg>
+                  <span className="text-sm font-semibold tabular-nums">{r.title.match(/\d+/)?.[0] || i + 1}</span>
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-white group-hover:underline">{r.title}</span>
@@ -848,6 +766,9 @@ export default async function DashboardPage() {
               </Suspense>
             </div>
             <div className="min-w-0 max-xl:order-5">
+              <DashboardPeerNetwork />
+            </div>
+            <div className="min-w-0 max-xl:order-5">
               <Suspense fallback={<PanelSkeleton />}>
                 <ArticlesSection />
               </Suspense>
@@ -858,6 +779,9 @@ export default async function DashboardPage() {
               </Suspense>
             </div>
             <div className="min-w-0 max-xl:order-8">
+              <DashboardResources />
+            </div>
+            <div className="min-w-0 max-xl:order-9">
               <Suspense fallback={<PanelSkeleton className="h-56" />}>
                 <NewMembersPanel userId={user.id} />
               </Suspense>
@@ -877,14 +801,14 @@ export default async function DashboardPage() {
                 <MembershipCard />
               </Suspense>
             </div>
-            <div className="min-w-0 max-xl:order-7">
-              <Suspense fallback={<PanelSkeleton className="h-48" />}>
-                <MemberEventsPanel />
-              </Suspense>
-            </div>
             <div className="min-w-0 max-xl:order-3">
               <Suspense fallback={<PanelSkeleton className="h-48" />}>
                 <RemindersCard />
+              </Suspense>
+            </div>
+            <div className="min-w-0 max-xl:order-7">
+              <Suspense fallback={<PanelSkeleton className="h-48" />}>
+                <MemberEventsPanel userId={user.id} />
               </Suspense>
             </div>
           </aside>

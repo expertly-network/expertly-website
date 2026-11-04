@@ -47,15 +47,6 @@ export function MyConsultationsList({
     return pool;
   }, [initialRequests, filter, query]);
 
-  if (initialRequests.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <p className="text-sm text-ink-3">You haven&apos;t requested a consultation yet.</p>
-        <Button href="/members">Browse Members</Button>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <ConsultationStats {...counts} />
@@ -67,6 +58,7 @@ export function MyConsultationsList({
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
+              aria-pressed={filter === f.key}
               className={`rounded-full border px-3.5 py-1.5 text-caption font-medium transition-colors ${
                 filter === f.key ? 'border-ink bg-ink text-bg' : 'border-line text-ink-2 hover:border-ink-3'
               }`}
@@ -84,13 +76,23 @@ export function MyConsultationsList({
             onChange={(e) => setQuery(e.target.value)}
             className="w-full min-[640px]:w-64"
           />
-          <Button variant="secondary" size="sm" onClick={() => downloadTranscript(initialRequests, 'mine')}>
+          <Button
+            disabled={!initialRequests.length}
+            variant="secondary"
+            size="sm"
+            onClick={() => downloadTranscript(initialRequests, 'mine')}
+          >
             Download transcript
           </Button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {initialRequests.length === 0 ? (
+        <div className="flex flex-col items-center gap-4 py-16 text-center">
+          <p className="text-sm text-ink-3">You haven&apos;t requested a consultation yet.</p>
+          <Button href="/members">Browse Members</Button>
+        </div>
+      ) : filtered.length === 0 ? (
         <p className="py-16 text-center text-sm text-ink-3">
           No requests match this view. Try a different status filter or clear the search.
         </p>

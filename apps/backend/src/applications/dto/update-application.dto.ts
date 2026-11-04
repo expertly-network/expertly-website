@@ -131,13 +131,15 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Min(2000)
+  @Max(50000)
   rateMinCents?: number;
 
   // Must be greater than rateMinCents.
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Min(2000)
+  @Max(50000)
   rateMaxCents?: number;
 
   @IsOptional()

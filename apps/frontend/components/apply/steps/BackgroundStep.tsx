@@ -12,6 +12,7 @@ import { ImportedTag } from '@/components/apply/ImportedTag';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { careerYears, findOverlaps, isEndBeforeStart, sortWorkHistoryNewestFirst } from '@/lib/apply/work-history';
 import { Badge } from '@/components/ui/Badge';
+import { companyKey, shareCompanyWebsites } from '@/lib/apply/company-websites';
 import {
   EMPTY_EDUCATION,
   EMPTY_WORK_EXPERIENCE,
@@ -49,6 +50,11 @@ export function BackgroundStep({
   referencesRequired?: boolean;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const workExperiences = shareCompanyWebsites(form.workExperiences);
+  const websiteOwner = (index: number) => {
+    const key = companyKey(workExperiences[index].company);
+    return key ? workExperiences.findIndex((role) => companyKey(role.company) === key) : index;
+  };
 
   // Newest-first on arrival (resumed drafts / LinkedIn imports); re-sorted again on Next.
   useEffect(() => {
@@ -93,14 +99,14 @@ export function BackgroundStep({
     const e: Record<string, string> = {};
     if (form.yearsOfExperience === '') e.yearsOfExperience = 'Years of experience is required.';
 
-    form.workExperiences.forEach((w, i) => {
+    workExperiences.forEach((w, i) => {
       if (!w.title.trim()) e[`workExperiences.${i}.title`] = 'Job title is required.';
       else if (!w.company.trim()) e[`workExperiences.${i}.company`] = 'Company is required.';
       else if (!w.startYear) e[`workExperiences.${i}.startYear`] = 'Start year is required.';
       // Only the current position's URL becomes the approved member's public firm website, so
       // past roles stay optional — any URL works, including a LinkedIn company/profile page.
       else if (w.isCurrent && !w.companyUrl?.trim())
-        e[`workExperiences.${i}.companyUrl`] = 'Add a website for your current position.';
+        e[`workExperiences.${websiteOwner(i)}.companyUrl`] = 'Add a website for your current company.';
     });
     dateErrors.forEach((msg, i) => {
       if (
@@ -139,7 +145,7 @@ export function BackgroundStep({
     }
     setErrors({});
     // Persist newest-first (the backend also sorts; this keeps what the applicant sees in step).
-    update({ workExperiences: sortWorkHistoryNewestFirst(form.workExperiences) });
+    update({ workExperiences: sortWorkHistoryNewestFirst(workExperiences) });
     onNext();
   }
 
@@ -155,10 +161,22 @@ export function BackgroundStep({
   }
 
   function updateWork(index: number, patch: Partial<WizardFormState['workExperiences'][number]>) {
-    const next = [...form.workExperiences];
+    const next = [...workExperiences];
+    if ('company' in patch && companyKey(patch.company ?? '') !== companyKey(next[index].company)) {
+      patch = { ...patch, companyUrl: '' };
+    }
     next[index] = { ...next[index], ...patch };
-    update({ workExperiences: next });
+    if ('companyUrl' in patch && !('company' in patch)) {
+      const key = companyKey(next[index].company);
+      next.forEach((role, i) => {
+        if (i === index || (key && companyKey(role.company) === key)) {
+          next[i] = { ...role, companyUrl: patch.companyUrl };
+        }
+      });
+    }
+    update({ workExperiences: shareCompanyWebsites(next) });
     const fieldsToClear = Object.keys(patch).map((key) => `workExperiences.${index}.${key}`);
+    next.forEach((_, i) => fieldsToClear.push(`workExperiences.${i}.companyUrl`));
     if ('isCurrent' in patch || 'company' in patch) fieldsToClear.push('workExperiencesCurrent');
     // Unmarking an entry as current drops its own companyUrl requirement — clear any stale error.
     if ('isCurrent' in patch && !patch.isCurrent) fieldsToClear.push(`workExperiences.${index}.companyUrl`);
@@ -241,14 +259,14 @@ export function BackgroundStep({
       )}
 
       <div className="mt-4 flex flex-col gap-4">
-        {form.workExperiences.map((work, i) => (
+        {workExperiences.map((work, i) => (
           <div key={i} className="rounded-2xl border border-line bg-bg-card p-6">
             <div className="mb-3.5 flex items-baseline justify-between">
               <span className="text-mono-label text-ink-3">Experience {String(i + 1).padStart(2, '0')}</span>
               {form.workExperiences.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => update({ workExperiences: form.workExperiences.filter((_, j) => j !== i) })}
+                  onClick={() => update({ workExperiences: workExperiences.filter((_, j) => j !== i) })}
                   className="text-xs font-medium text-error"
                 >
                   Remove
@@ -297,18 +315,26 @@ export function BackgroundStep({
             </div>
 
             <div className="mt-4">
-              <Input
-                id={`workExperiences.${i}.companyUrl`}
-                label="Company website"
-                labelRight={
-                  work.isCurrent ? undefined : <span className="text-xs font-normal text-ink-3">optional</span>
-                }
-                type="url"
-                placeholder="https://example.com — or a LinkedIn company/profile page"
-                value={work.companyUrl ?? ''}
-                onChange={(e) => updateWork(i, { companyUrl: e.target.value })}
-                error={errors[`workExperiences.${i}.companyUrl`]}
-              />
+              {websiteOwner(i) === i ? (
+                <Input
+                  id={`workExperiences.${i}.companyUrl`}
+                  label="Company website"
+                  labelRight={
+                    workExperiences.some((role, j) => websiteOwner(j) === i && role.isCurrent) ? undefined : (
+                      <span className="text-xs font-normal text-ink-3">optional</span>
+                    )
+                  }
+                  type="url"
+                  placeholder="https://example.com — or a LinkedIn company/profile page"
+                  value={work.companyUrl ?? ''}
+                  onChange={(e) => updateWork(i, { companyUrl: e.target.value })}
+                  error={errors[`workExperiences.${i}.companyUrl`]}
+                />
+              ) : (
+                <p className="text-xs text-ink-3">
+                  Company website is shared with Experience {String(websiteOwner(i) + 1).padStart(2, '0')}.
+                </p>
+              )}
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">

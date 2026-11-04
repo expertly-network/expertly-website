@@ -1,3 +1,4 @@
+import { FAVICON_SRC } from '@/lib/brand';
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import localFont from 'next/font/local';
@@ -21,6 +22,12 @@ const brandSerif = localFont({
 // dev, where OG previews can't work anyway since crawlers can't reach localhost.
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrlOrDefault()),
+  icons: {
+    icon: [
+      { url: FAVICON_SRC.light, type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
+      { url: FAVICON_SRC.dark, type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+    ],
+  },
   title: 'GrowXQ',
   description: 'Connecting clients with vetted expert members',
 };

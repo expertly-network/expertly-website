@@ -1,3 +1,4 @@
+import { validRateRangeCents } from '@shared/consultation-rates';
 import { withUniqueSlugRetry } from '../common/slugify';
 import {
   BadGatewayException,
@@ -190,14 +191,10 @@ export class ApplicationsService {
 
     const merged: ApplicationPatch = { ...(existing ?? { status: 'draft' }), ...patch };
 
-    if (
-      merged.rate_min_cents != null &&
-      merged.rate_max_cents != null &&
-      merged.rate_max_cents <= merged.rate_min_cents
-    ) {
+    if (!validRateRangeCents(merged.rate_min_cents, merged.rate_max_cents)) {
       throw new BadRequestException({
         code: 'RATE_RANGE_INVALID',
-        message: 'rateMaxCents must be greater than rateMinCents.',
+        message: 'Rates must be $20–$500/hour. Maximum must exceed minimum by no more than $250.',
       });
     }
 

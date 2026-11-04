@@ -53,6 +53,12 @@ export function DashboardArticles({
                 {label}
               </button>
             ))}
+            <span
+              className="rounded-full px-3 py-2 text-caption text-ink-4"
+              title="Article popularity will be available in a future update"
+            >
+              Most Viewed · Coming soon
+            </span>
           </div>
           <Link
             href="/articles/write"

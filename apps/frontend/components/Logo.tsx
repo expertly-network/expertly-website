@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { LOGO_MARK_ASPECT_RATIO, LOGO_MARK_SRC, LOGO_SRC, LOGO_ASPECT_RATIO } from '@/lib/brand';
+import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC, LOGO_ASPECT_RATIO } from '@/lib/brand';
 
-// Complete, outlined image lockups generated from the website's Cormorant Garamond font.
+// Complete vector lockups from the supplied GrowXQ artwork.
 export type LogoSurface = keyof typeof LOGO_SRC;
 
 /** `height` is the symbol height; --logo-h scales the entire image at responsive breakpoints. */
@@ -60,15 +60,15 @@ export function Logo({
     <Link href="/" aria-label="GrowXQ home" className={`inline-flex items-center ${className}`}>
       {collapsible && (
         // Hidden while a stellar hero is in view (sidebar-logo-*); see HeroLogoHandoff.
-        <Image
-          src={LOGO_MARK_SRC[surface]}
-          alt=""
+        <svg
           aria-hidden="true"
           width={Math.round(26 * LOGO_MARK_ASPECT_RATIO)}
           height={26}
-          unoptimized
-          className="sidebar-logo-mark block h-[26px] w-auto group-hover:hidden"
-        />
+          viewBox="0 0 62 61"
+          className="sidebar-logo-mark block h-[26px] w-auto overflow-hidden group-hover:hidden"
+        >
+          <image href={LOGO_SRC[surface]} width="299" height="61" />
+        </svg>
       )}
       <span
         className={

@@ -1,3 +1,4 @@
+import { LOGO_SRC } from '@/lib/brand';
 import { Font, pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { MemberDto, MemberRecommendationDto } from '@shared/member';
@@ -38,11 +39,11 @@ export function memberProfileUrl(slug: string): string {
   return `${origin.replace(/\/$/, '')}/members/${slug}`;
 }
 
-// Crops the photo to a square (top-anchored, like the page's `object-top`) and re-encodes it as
-// PNG via a canvas. react-pdf only embeds JPEG/PNG, and uploaded avatars may be WebP. Resolves
+// Re-encodes an image as PNG for react-pdf. Photos are cropped square and top-anchored;
+// the logo keeps its original proportions. react-pdf only embeds JPEG/PNG, and uploaded avatars may be WebP. Resolves
 // null if the image can't be loaded or the canvas is tainted by a non-CORS host, so the PDF
 // falls back to initials instead of failing outright.
-function loadPhotoAsPng(url: string, size = 320): Promise<string | null> {
+function loadImageAsPng(url: string, size = 320, cropSquare = true): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new window.Image();
     img.crossOrigin = 'anonymous';
@@ -52,10 +53,11 @@ function loadPhotoAsPng(url: string, size = 320): Promise<string | null> {
         const sx = (img.naturalWidth - side) / 2;
         const canvas = document.createElement('canvas');
         canvas.width = size;
-        canvas.height = size;
+        canvas.height = cropSquare ? size : Math.max(1, Math.round((size * img.naturalHeight) / img.naturalWidth));
         const ctx = canvas.getContext('2d');
         if (!ctx) return resolve(null);
-        ctx.drawImage(img, sx, 0, side, side, 0, 0, size, size);
+        if (cropSquare) ctx.drawImage(img, sx, 0, side, side, 0, 0, size, size);
+        else ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/png'));
       } catch {
         resolve(null);
@@ -88,7 +90,7 @@ async function loadRecommendations(memberId: string): Promise<PdfRecommendation[
   }
   const visible = items.filter((rec) => !rec.isHidden);
   const photos = await Promise.all(
-    visible.map((rec) => (rec.author.photoUrl ? loadPhotoAsPng(rec.author.photoUrl, 96) : Promise.resolve(null)))
+    visible.map((rec) => (rec.author.photoUrl ? loadImageAsPng(rec.author.photoUrl, 96) : Promise.resolve(null)))
   );
   return visible.map((rec, i) => ({
     id: rec.id,
@@ -104,22 +106,26 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
   registerFonts();
   const profileUrl = memberProfileUrl(member.slug);
 
-  const [qrDataUrl, photoDataUrl, recommendations] = await Promise.all([
+  const [qrDataUrl, photoDataUrl, recommendations, logoDataUrl] = await Promise.all([
     QRCode.toDataURL(profileUrl, {
       errorCorrectionLevel: 'M',
       margin: 0,
       width: 300,
       color: { dark: '#0b0b0c', light: '#ffffff' },
     }),
-    member.photoUrl ? loadPhotoAsPng(member.photoUrl) : Promise.resolve(null),
+    member.photoUrl ? loadImageAsPng(member.photoUrl) : Promise.resolve(null),
     loadRecommendations(member.id),
+    loadImageAsPng(`${window.location.origin}${LOGO_SRC.dark}`, 1196, false),
   ]);
+
+  if (!logoDataUrl) throw new Error('Could not load the logo for the PDF. Please try again.');
 
   const blob = await pdf(
     <MemberProfilePdf
       member={member}
       profileUrl={profileUrl}
       qrDataUrl={qrDataUrl}
+      logoSrc={logoDataUrl}
       photoDataUrl={photoDataUrl}
       generatedAt={new Date()}
       recommendations={recommendations}

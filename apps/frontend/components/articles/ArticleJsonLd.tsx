@@ -1,3 +1,4 @@
+import { BRAND_ICON_SRC } from '@/lib/brand';
 import type { ArticleListItemDto } from '@shared/article';
 import { getSiteUrlOrDefault } from '@/lib/env';
 
@@ -25,7 +26,7 @@ export function ArticleJsonLd({ article }: { article: ArticleListItemDto }) {
       ...(article.authorHeadline ? { jobTitle: article.authorHeadline } : {}),
       ...(article.authorFirmName ? { worksFor: { '@type': 'Organization', name: article.authorFirmName } } : {}),
     },
-    publisher: { '@type': 'Organization', name: 'GrowXQ', url: site, logo: `${site}/icon.png` },
+    publisher: { '@type': 'Organization', name: 'GrowXQ', url: site, logo: `${site}${BRAND_ICON_SRC}` },
   };
   return (
     <script

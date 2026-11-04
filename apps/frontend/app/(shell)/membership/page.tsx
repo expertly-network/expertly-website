@@ -1,3 +1,4 @@
+import { MembershipTierSection } from '@/components/membership/MembershipTierSection';
 import type { ReactNode } from 'react';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { canApplyForMembership } from '@/lib/auth/roles';
@@ -345,6 +346,8 @@ export default async function MembershipPage() {
           </section>
         );
       })}
+
+      <MembershipTierSection />
 
       {/* 4 · Return on investment */}
       <section className="relative overflow-hidden bg-ink py-20 max-[640px]:py-14">
