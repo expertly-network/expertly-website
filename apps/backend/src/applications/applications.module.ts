@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ConsentPoliciesModule } from '../consent-policies/consent-policies.module';
 import { ApplicationsController } from './applications.controller';
 import { AdminApplicationsController } from './admin-applications.controller';
 import { ApplicationsService } from './applications.service';
@@ -8,7 +9,7 @@ import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provid
 import { N8nLinkedInImportProvider } from './linkedin-import/n8n-linkedin-import.provider';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ConsentPoliciesModule],
   controllers: [ApplicationsController, AdminApplicationsController],
   providers: [
     ApplicationsService,

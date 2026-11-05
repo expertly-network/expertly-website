@@ -1911,3 +1911,20 @@ Verify a change by calling the API as each role with the Postman collection: a g
 a client, a member and an admin. Confirm codes, offer links, playback URLs and template file
 paths never reach a role that shouldn't see them, and that admin routes return **403** to
 non-admins.
+
+## Consent Policies
+
+| Method | Route                         | Result               |
+| ------ | ----------------------------- | --------------------- |
+| GET    | `/v1/consent-policies/:slug`  | `ConsentPolicyUrlDto` |
+
+🌐 Public. `slug` is one of `cookie-policy`, `import-consent-policy`, `privacy-policy`,
+`user-agreement`; no active row → **404** (`CONSENT_POLICY_NOT_FOUND`). Returns a 5-minute signed
+URL to the PDF (`{ contentUrl }`) — opened via `target="_blank"`, displays inline, never
+downloads. See `docs/database-erd.md`'s "Consent Policies" section for the schema.
+
+**Membership application submission** (`POST /v1/applications/me`, `status: 'submitted'`) now
+resolves the real active version for each ticked consent server-side — `termsVersionAgreed`/
+`privacyVersionAgreed` sent by the client are only checked for truthiness (did they tick the
+box), never stored as-is; the actual value written is always looked up fresh from
+`consent_policies` at the moment of submission.

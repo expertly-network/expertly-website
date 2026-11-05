@@ -13,6 +13,7 @@ import { EventsModule } from './events/events.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { ArticlesModule } from './articles/articles.module';
 import { SearchModule } from './search/search.module';
+import { ConsentPoliciesModule } from './consent-policies/consent-policies.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SearchModule } from './search/search.module';
     ConsultationsModule,
     ArticlesModule,
     SearchModule,
+    ConsentPoliciesModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppRepository],

@@ -6,7 +6,7 @@ import { SsoButton } from '@/components/auth/SsoButton';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { Card } from '@/components/ui/Card';
 import { signInWithLinkedIn } from '@/lib/auth/linkedin';
-import { TERMS_OF_SERVICE_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
+import { USER_AGREEMENT_URL, PRIVACY_POLICY_URL } from '@/lib/consent';
 
 // Pre-launch (SITE_LAUNCHED=false) replacement for AuthCard: the site is invite-only, so there's
 // no User/Member toggle and no email sign-up — the application requires LinkedIn anyway, so it's
@@ -49,8 +49,8 @@ export function InviteOnlyAuthCard({ returnTo, emailSignIn }: { returnTo: string
 
       <p className="mt-5 text-center text-[13px] text-ink-3">
         By continuing, you agree to GrowXQ&apos;s{' '}
-        <a href={TERMS_OF_SERVICE_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-2">
-          Terms of Service
+        <a href={USER_AGREEMENT_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-2">
+          User Agreement
         </a>{' '}
         and{' '}
         <a href={PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-2">

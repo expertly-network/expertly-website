@@ -11,7 +11,7 @@ import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/ty
 import { importLinkedIn, importLinkedInPhoto } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { hasLinkedInIdentity, linkLinkedInIdentity } from '@/lib/auth/linkedin';
-import { LINKEDIN_DATA_USE_URL } from '@/lib/legal';
+import { IMPORT_CONSENT_POLICY_URL } from '@/lib/consent';
 
 // Imports normalized profile data; fields it couldn't produce are left for manual entry.
 export function LinkedInImportStep({
@@ -244,7 +244,7 @@ export function LinkedInImportStep({
                 I consent to GrowXQ extracting my bio, work history, and education from this LinkedIn profile and
                 displaying it on my member listing.{' '}
                 <a
-                  href={LINKEDIN_DATA_USE_URL}
+                  href={IMPORT_CONSENT_POLICY_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-accent underline hover:text-ink"

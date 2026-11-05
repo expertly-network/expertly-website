@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LogoImage } from '@/components/Logo';
-import { MEMBERSHIP_POLICY_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal';
+import { MEMBERSHIP_POLICY_URL } from '@/lib/legal';
+import { PRIVACY_POLICY_URL, USER_AGREEMENT_URL } from '@/lib/consent';
 
 const CONTACT_EMAIL = 'contact@growxq.com';
 
@@ -18,7 +19,7 @@ const PAGE_LINKS: FooterLink[] = [
 ];
 
 const LEGAL_LINKS: FooterLink[] = [
-  { label: 'Terms & Conditions', href: TERMS_OF_SERVICE_URL },
+  { label: 'User Agreement', href: USER_AGREEMENT_URL },
   { label: 'Membership Policy', href: MEMBERSHIP_POLICY_URL },
   { label: 'Privacy Policy', href: PRIVACY_POLICY_URL },
 ];
