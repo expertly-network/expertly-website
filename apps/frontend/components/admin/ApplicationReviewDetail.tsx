@@ -200,6 +200,7 @@ export function ApplicationReviewDetail({
             label="Work history"
             items={application.workExperiences.map((w, idx) => ({
               ...workEntries(application)[idx],
+              body: w.description,
               link: externalLink(w.companyUrl, 'Company site'),
             }))}
             previousItems={prev ? workEntries(prev) : null}

@@ -21,12 +21,10 @@ export function DualCta() {
             </h3>
             <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-ink-2">
               {[
-                'Browse verified finance & legal professionals',
-                'Read expert articles on tax, law, M&A, compliance',
-                'Request consultations directly, no middlemen',
-                'Transparent rates upfront before you commit',
-                'Verified credentials, rigorously vetted before listing',
-                'Book directly from their profile, no delays',
+                'Browse finance & legal professionals, vetted before listing',
+                'Read expert articles on tax, law, M&A and compliance',
+                'Request consultations from their profile, no middlemen',
+                'Transparent rates upfront, before you commit',
               ].map((item) => (
                 <li key={item} className="flex items-start gap-3">
                   <span aria-hidden="true" className="mt-0.5 flex-none text-accent">
@@ -55,12 +53,10 @@ export function DualCta() {
               </h3>
               <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-white/80">
                 {[
-                  'Get discovered by clients globally',
-                  'Publish articles, establish authority',
-                  'Exclusive events with verified peers',
-                  'Set your rates, keep 100% of fees',
-                  'Connect with a verified peer network across 20+ jurisdictions',
-                  'Global discovery, found by clients searching by expertise',
+                  'Get discovered by clients worldwide searching by expertise',
+                  'Publish articles and establish your authority',
+                  'Exclusive events and a verified peer network in 20+ jurisdictions',
+                  'Set your rates and keep 100% of fees',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <span aria-hidden="true" className="mt-0.5 flex-none text-accent">

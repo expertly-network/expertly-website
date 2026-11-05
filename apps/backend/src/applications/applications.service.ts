@@ -1,4 +1,4 @@
-import { validRateRangeCents } from '@shared/consultation-rates';
+import { validRatesCents } from '@shared/consultation-rates';
 import { withUniqueSlugRetry } from '../common/slugify';
 import {
   BadGatewayException,
@@ -204,10 +204,10 @@ export class ApplicationsService {
 
     const merged: ApplicationPatch = { ...(existing ?? { status: 'draft' }), ...patch };
 
-    if (!validRateRangeCents(merged.rate_min_cents, merged.rate_max_cents)) {
+    if (!validRatesCents(merged.rate_min_cents, merged.rate_max_cents)) {
       throw new BadRequestException({
         code: 'RATE_RANGE_INVALID',
-        message: 'Rates must be $20–$500/hour. Maximum must exceed minimum by no more than $250.',
+        message: 'Rates must be whole dollars from $10 to $5,000/hour, with the maximum above the minimum.',
       });
     }
 
@@ -745,6 +745,7 @@ export class ApplicationsService {
     const workExperiences = (row.work_experiences ?? []) as {
       company?: string;
       companyUrl?: string;
+      firmSize?: string;
       isCurrent?: boolean;
     }[];
     const educations = (row.educations ?? []) as unknown[];
@@ -760,8 +761,12 @@ export class ApplicationsService {
       // submit here, and the check applies uniformly.
       if (!currentJob?.company?.trim()) {
         missing.push('workExperiences must include a current position (isCurrent) with a company name');
-      } else if (!currentJob.companyUrl?.trim()) {
-        missing.push('workExperiences current position must include a company website (companyUrl)');
+      } else {
+        if (!currentJob.companyUrl?.trim()) {
+          missing.push('workExperiences current position must include a company website (companyUrl)');
+        }
+        // Asked for the current company only (the wizard doesn't collect it for past ones).
+        if (!currentJob.firmSize) missing.push('workExperiences current position must include a firm size (firmSize)');
       }
     }
     if (educations.length < 1) missing.push('educations');

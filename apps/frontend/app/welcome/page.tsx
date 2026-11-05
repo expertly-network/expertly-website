@@ -255,14 +255,15 @@ export default function WelcomePage() {
           </div>
           <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-4">
             <div className="text-eyebrow uppercase tracking-[0.16em] text-white/55">For example</div>
+            {/* Each path stays on one line on every phone: chips scale with the viewport instead of wrapping. */}
             {CATEGORY_EXAMPLES.map((path) => (
-              <ol key={path[0]} className="m-0 flex list-none flex-wrap items-center gap-2.5 p-0">
+              <ol key={path[0]} className="m-0 flex list-none flex-nowrap items-center gap-[clamp(4px,1.6vw,10px)] p-0">
                 {path.map((step, i) => {
                   const last = i === path.length - 1;
                   return (
-                    <li key={step} className="flex items-center gap-2.5">
+                    <li key={step} className="flex shrink-0 items-center gap-[clamp(4px,1.6vw,10px)]">
                       <span
-                        className={`rounded border px-4 py-2.5 text-[15px] ${
+                        className={`whitespace-nowrap rounded border px-[clamp(8px,2.6vw,16px)] py-[clamp(8px,2.2vw,10px)] text-[clamp(12px,3.4vw,15px)] ${
                           last
                             ? 'border-accent bg-accent font-semibold text-ink'
                             : 'border-[var(--wl-line)] font-medium text-white/70'
@@ -338,16 +339,7 @@ export default function WelcomePage() {
       <footer
         className={`${SECTION} grid grid-cols-1 items-center gap-x-8 gap-y-3.5 max-sm:gap-y-6 pb-5 pt-6 max-sm:py-10 min-[700px]:grid-cols-[1fr_auto]`}
       >
-        <LogoImage surface="dark" height={36} className="max-[600px]:![--logo-h:30px]" />
-        <p className="m-0 text-caption text-white/55 min-[700px]:text-right">
-          Questions? Write to{' '}
-          <a
-            href="mailto:ask@growxq.com"
-            className="border-b border-accent text-[var(--wl-text)] transition-colors hover:text-accent"
-          >
-            ask@growxq.com
-          </a>
-        </p>
+        <LogoImage surface="dark" height={36} className="max-[600px]:![--logo-h:30px] min-[700px]:col-span-full" />
         <p className="m-0 text-label font-normal leading-normal text-white/50">
           The platform is designed to comply with applicable professional conduct rules.{' '}
           <Link href="/legal/terms" className="underline-offset-2 hover:text-white/80 hover:underline">
@@ -358,7 +350,15 @@ export default function WelcomePage() {
             Privacy
           </Link>
         </p>
-        <XqTagline className="text-[15px] font-medium text-white/55 min-[700px]:text-right" />
+        <p className="m-0 text-caption text-white/55 min-[700px]:text-right">
+          Questions? Write to{' '}
+          <a
+            href="mailto:ask@growxq.com"
+            className="border-b border-accent text-[var(--wl-text)] transition-colors hover:text-accent"
+          >
+            ask@growxq.com
+          </a>
+        </p>
       </footer>
     </main>
   );

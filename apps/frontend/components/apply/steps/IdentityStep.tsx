@@ -12,6 +12,7 @@ import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/ty
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
+import { EMAIL_PATTERN, LINKEDIN_PROFILE_URL_PATTERN } from '@/lib/apply/save-errors';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const BIO_MAX_CHARS = 2000;
@@ -42,12 +43,16 @@ export function IdentityStep({
     if (!form.firstName.trim()) e.firstName = 'First name is required.';
     if (!form.lastName.trim()) e.lastName = 'Last name is required.';
     if (!form.contactEmail.trim()) e.contactEmail = 'Contact email is required.';
+    else if (!EMAIL_PATTERN.test(form.contactEmail.trim())) e.contactEmail = 'Enter a valid email address.';
     // Same rule the backend applies at submit: 6-15 digits, whatever the spacing/punctuation.
     const phoneDigits = form.phone.replace(/\D/g, '').length;
     if (phoneDigits === 0) e.phone = 'Phone number is required.';
     else if (phoneDigits < 6 || phoneDigits > 15) e.phone = 'Enter a valid phone number.';
     if (!form.country) e.country = 'Country is required.';
     if (!form.linkedinUrl.trim()) e.linkedinUrl = 'LinkedIn URL is required.';
+    else if (!LINKEDIN_PROFILE_URL_PATTERN.test(form.linkedinUrl.trim())) {
+      e.linkedinUrl = 'Enter your LinkedIn profile URL (linkedin.com/in/…).';
+    }
     if (!form.bio.trim()) e.bio = 'Professional bio is required.';
     else if (form.bio.length > BIO_MAX_CHARS) e.bio = `Bio must be ${BIO_MAX_CHARS} characters or fewer.`;
     return e;
@@ -119,7 +124,13 @@ export function IdentityStep({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-ink-2">Profile photo</span>
+            <span className="text-xs font-medium text-ink-2">
+              Profile photo
+              <span aria-hidden="true" className="text-error">
+                {' '}
+                *
+              </span>
+            </span>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -144,6 +155,7 @@ export function IdentityStep({
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
             label="First name"
+            markRequired
             labelRight={form.importedFields.has('firstName') ? <ImportedTag /> : undefined}
             name="firstName"
             placeholder="Jane"
@@ -157,6 +169,7 @@ export function IdentityStep({
           />
           <Input
             label="Last name"
+            markRequired
             labelRight={form.importedFields.has('lastName') ? <ImportedTag /> : undefined}
             name="lastName"
             placeholder="Smith"
@@ -173,6 +186,7 @@ export function IdentityStep({
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
             label="Contact email"
+            markRequired
             name="contactEmail"
             type="email"
             placeholder="you@example.com"
@@ -187,6 +201,10 @@ export function IdentityStep({
           <div className="flex flex-col gap-1.5">
             <label htmlFor="phone" className="text-xs font-medium text-ink-2">
               WhatsApp / Phone
+              <span aria-hidden="true" className="text-error">
+                {' '}
+                *
+              </span>
             </label>
             <div
               className={`flex overflow-hidden rounded-input border ${
@@ -240,6 +258,7 @@ export function IdentityStep({
 
         <Input
           label="LinkedIn URL"
+          markRequired
           name="linkedinUrl"
           type="url"
           placeholder="https://linkedin.com/in/yourprofile"
@@ -255,6 +274,7 @@ export function IdentityStep({
         <Textarea
           id="bio"
           label="Professional bio"
+          markRequired
           labelRight={form.importedFields.has('bio') ? <ImportedTag /> : undefined}
           rows={4}
           autoGrow

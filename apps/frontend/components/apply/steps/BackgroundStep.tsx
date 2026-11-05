@@ -28,6 +28,18 @@ const EDUCATIONS_MAX = 5;
 // Below this, an application isn't approved (5–12 years is Budding Professional, more is Seasoned).
 const MIN_YEARS_OF_EXPERIENCE = 5;
 
+type WorkExperience = WizardFormState['workExperiences'][number];
+
+/** Role indices per company, in order of first appearance; a role with no company yet stands alone. */
+function groupByCompany(roles: WorkExperience[]): { roles: number[] }[] {
+  const groups = new Map<string, number[]>();
+  roles.forEach((role, i) => {
+    const key = companyKey(role.company) || `__unnamed-${i}`;
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  });
+  return [...groups.values()].map((indices) => ({ roles: indices }));
+}
+
 const YEARS = Array.from({ length: 67 }, (_, i) => new Date().getFullYear() - i);
 
 export function BackgroundStep({
@@ -51,10 +63,10 @@ export function BackgroundStep({
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const workExperiences = shareCompanyWebsites(form.workExperiences);
-  const websiteOwner = (index: number) => {
-    const key = companyKey(workExperiences[index].company);
-    return key ? workExperiences.findIndex((role) => companyKey(role.company) === key) : index;
-  };
+  // Roles at the same company share one box: the company's own details (name, and for the current
+  // company its size and website) are asked once, then each role underneath. The data stays a
+  // flat list of roles — this grouping is only how the form presents it.
+  const companies = groupByCompany(workExperiences);
 
   // Newest-first on arrival (resumed drafts / LinkedIn imports); re-sorted again on Next.
   useEffect(() => {
@@ -99,14 +111,23 @@ export function BackgroundStep({
     const e: Record<string, string> = {};
     if (form.yearsOfExperience === '') e.yearsOfExperience = 'Years of experience is required.';
 
-    workExperiences.forEach((w, i) => {
-      if (!w.title.trim()) e[`workExperiences.${i}.title`] = 'Job title is required.';
-      else if (!w.company.trim()) e[`workExperiences.${i}.company`] = 'Company is required.';
-      else if (!w.startYear) e[`workExperiences.${i}.startYear`] = 'Start year is required.';
-      // Only the current position's URL becomes the approved member's public firm website, so
-      // past roles stay optional — any URL works, including a LinkedIn company/profile page.
-      else if (w.isCurrent && !w.companyUrl?.trim())
-        e[`workExperiences.${websiteOwner(i)}.companyUrl`] = 'Add a website for your current company.';
+    companies.forEach(({ roles }) => {
+      const first = roles[0];
+      const company = workExperiences[first];
+      if (!company.company.trim()) e[`workExperiences.${first}.company`] = 'Company is required.';
+      // Only the current company's size and website reach the approved member's profile (firm
+      // size, firm website), so they're asked — and required — for it alone. Any URL works for the
+      // website, including a LinkedIn company/profile page.
+      else if (isCurrentCompany(roles)) {
+        if (!companyValue(roles, 'firmSize')) e[`workExperiences.${first}.firmSize`] = 'Firm size is required.';
+        if (!companyValue(roles, 'companyUrl')?.trim())
+          e[`workExperiences.${first}.companyUrl`] = 'Add a website for your current company.';
+      }
+      for (const i of roles) {
+        const w = workExperiences[i];
+        if (!w.title.trim()) e[`workExperiences.${i}.title`] = 'Job title is required.';
+        else if (!w.startYear) e[`workExperiences.${i}.startYear`] = 'Start year is required.';
+      }
     });
     dateErrors.forEach((msg, i) => {
       if (
@@ -145,7 +166,12 @@ export function BackgroundStep({
     }
     setErrors({});
     // Persist newest-first (the backend also sorts; this keeps what the applicant sees in step).
-    update({ workExperiences: sortWorkHistoryNewestFirst(workExperiences) });
+    // A past company's size and website aren't asked for, so none is kept for it either.
+    const pastCompanyRoles = new Set(companies.filter((c) => !isCurrentCompany(c.roles)).flatMap((c) => c.roles));
+    const cleaned = workExperiences.map((w, i) =>
+      pastCompanyRoles.has(i) ? { ...w, firmSize: undefined, companyUrl: undefined } : w
+    );
+    update({ workExperiences: sortWorkHistoryNewestFirst(cleaned) });
     onNext();
   }
 
@@ -160,28 +186,46 @@ export function BackgroundStep({
     });
   }
 
-  function updateWork(index: number, patch: Partial<WizardFormState['workExperiences'][number]>) {
+  function updateWork(index: number, patch: Partial<WorkExperience>) {
     const next = [...workExperiences];
-    if ('company' in patch && companyKey(patch.company ?? '') !== companyKey(next[index].company)) {
-      patch = { ...patch, companyUrl: '' };
-    }
     next[index] = { ...next[index], ...patch };
-    if ('companyUrl' in patch && !('company' in patch)) {
-      const key = companyKey(next[index].company);
-      next.forEach((role, i) => {
-        if (i === index || (key && companyKey(role.company) === key)) {
-          next[i] = { ...role, companyUrl: patch.companyUrl };
-        }
-      });
-    }
     update({ workExperiences: shareCompanyWebsites(next) });
     const fieldsToClear = Object.keys(patch).map((key) => `workExperiences.${index}.${key}`);
-    next.forEach((_, i) => fieldsToClear.push(`workExperiences.${i}.companyUrl`));
-    if ('isCurrent' in patch || 'company' in patch) fieldsToClear.push('workExperiencesCurrent');
-    // Unmarking an entry as current drops its own companyUrl requirement — clear any stale error.
-    if ('isCurrent' in patch && !patch.isCurrent) fieldsToClear.push(`workExperiences.${index}.companyUrl`);
+    if ('isCurrent' in patch) fieldsToClear.push('workExperiencesCurrent');
     clearErrors(fieldsToClear);
   }
+
+  // Company-level fields (name, size, website) are written to every role in that company's box.
+  function updateCompany(roles: number[], patch: Partial<Pick<WorkExperience, 'company' | 'firmSize' | 'companyUrl'>>) {
+    const next = workExperiences.map((w, i) => (roles.includes(i) ? { ...w, ...patch } : w));
+    update({ workExperiences: shareCompanyWebsites(next) });
+    const fieldsToClear = Object.keys(patch).map((key) => `workExperiences.${roles[0]}.${key}`);
+    if ('company' in patch) fieldsToClear.push('workExperiencesCurrent');
+    clearErrors(fieldsToClear);
+  }
+
+  // A new role in an existing company's box, right after its last role.
+  function addRoleAt(roles: number[]) {
+    const company = workExperiences[roles[0]];
+    const next = [...workExperiences];
+    next.splice(roles[roles.length - 1] + 1, 0, {
+      ...EMPTY_WORK_EXPERIENCE,
+      company: company.company,
+      firmSize: companyValue(roles, 'firmSize'),
+      companyUrl: companyValue(roles, 'companyUrl'),
+    });
+    update({ workExperiences: next });
+    setErrors({});
+  }
+
+  function removeRoles(roles: number[]) {
+    update({ workExperiences: workExperiences.filter((_, i) => !roles.includes(i)) });
+    setErrors({});
+  }
+
+  const isCurrentCompany = (roles: number[]) => roles.some((i) => workExperiences[i].isCurrent);
+  const companyValue = <K extends 'firmSize' | 'companyUrl'>(roles: number[], key: K): WorkExperience[K] =>
+    roles.map((i) => workExperiences[i][key]).find((v) => v) ?? undefined;
 
   function updateEdu(index: number, patch: Partial<WizardFormState['educations'][number]>) {
     const next = [...form.educations];
@@ -259,196 +303,230 @@ export function BackgroundStep({
       )}
 
       <div className="mt-4 flex flex-col gap-4">
-        {workExperiences.map((work, i) => (
-          <div key={i} className="rounded-2xl border border-line bg-bg-card p-6">
-            <div className="mb-3.5 flex items-baseline justify-between">
-              <span className="text-mono-label text-ink-3">Experience {String(i + 1).padStart(2, '0')}</span>
-              {form.workExperiences.length > 1 && (
+        {companies.map(({ roles }, c) => {
+          const first = roles[0];
+          const company = workExperiences[first];
+          const current = isCurrentCompany(roles);
+          return (
+            <div key={first} className="rounded-2xl border border-line bg-bg-card p-6 max-[480px]:p-5">
+              <div className="mb-3.5 flex items-baseline justify-between">
+                <span className="text-mono-label text-ink-3">Company {String(c + 1).padStart(2, '0')}</span>
+                {companies.length > 1 && (
+                  <button type="button" onClick={() => removeRoles(roles)} className="text-xs font-medium text-error">
+                    Remove company
+                  </button>
+                )}
+              </div>
+
+              <Input
+                id={`workExperiences.${first}.company`}
+                label="Company"
+                markRequired
+                placeholder="Firm name"
+                value={company.company}
+                onChange={(e) => updateCompany(roles, { company: e.target.value })}
+                error={errors[`workExperiences.${first}.company`]}
+              />
+
+              {/* Asked only for the company they work at now — a past company's size and website
+                  aren't shown anywhere, so they aren't collected. */}
+              {current && (
+                <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+                  <Select
+                    id={`workExperiences.${first}.firmSize`}
+                    label="Firm size"
+                    markRequired
+                    value={companyValue(roles, 'firmSize') ?? ''}
+                    onChange={(e) =>
+                      updateCompany(roles, { firmSize: (e.target.value || undefined) as WorkExperience['firmSize'] })
+                    }
+                    error={errors[`workExperiences.${first}.firmSize`]}
+                  >
+                    <option value="">Select…</option>
+                    {FIRM_SIZES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    id={`workExperiences.${first}.companyUrl`}
+                    label="Company website"
+                    markRequired
+                    type="url"
+                    placeholder="https://example.com — or a LinkedIn page"
+                    value={companyValue(roles, 'companyUrl') ?? ''}
+                    onChange={(e) => updateCompany(roles, { companyUrl: e.target.value })}
+                    error={errors[`workExperiences.${first}.companyUrl`]}
+                  />
+                </div>
+              )}
+
+              {roles.map((i, r) => {
+                const work = workExperiences[i];
+                return (
+                  <div key={i} className="mt-5 border-t border-line pt-5">
+                    <div className="mb-3.5 flex items-baseline justify-between">
+                      <span className="text-mono-label text-ink-3">{roles.length > 1 ? `Role ${r + 1}` : 'Role'}</span>
+                      {roles.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRoles([i])}
+                          className="text-xs font-medium text-error"
+                        >
+                          Remove role
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+                      <Input
+                        id={`workExperiences.${i}.title`}
+                        label="Job title"
+                        markRequired
+                        placeholder="Partner"
+                        value={work.title}
+                        onChange={(e) => updateWork(i, { title: e.target.value })}
+                        error={errors[`workExperiences.${i}.title`]}
+                      />
+                      <Input
+                        label="City"
+                        placeholder="e.g. London"
+                        value={work.city ?? ''}
+                        onChange={(e) => updateWork(i, { city: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+                      <div className="flex flex-col gap-1.5">
+                        <span id={`workExperiences.${i}.startLabel`} className="text-xs font-medium text-ink-2">
+                          Start date
+                          <span aria-hidden="true" className="text-error">
+                            {' '}
+                            *
+                          </span>
+                        </span>
+                        <div role="group" aria-labelledby={`workExperiences.${i}.startLabel`} className="flex gap-2">
+                          <select
+                            aria-label="Start month"
+                            className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink ${FIELD_FOCUS}`}
+                            value={work.startMonth ?? ''}
+                            onChange={(e) => updateWork(i, { startMonth: Number(e.target.value) || undefined })}
+                          >
+                            <option value="">Month</option>
+                            {MONTHS.map((m, idx) => (
+                              <option key={m} value={idx + 1}>
+                                {m}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            id={`workExperiences.${i}.startYear`}
+                            aria-label="Start year"
+                            aria-invalid={errors[`workExperiences.${i}.startYear`] ? true : undefined}
+                            className={`min-w-0 flex-1 rounded-input border px-2 py-3 text-sm text-ink ${
+                              errors[`workExperiences.${i}.startYear`]
+                                ? `border-error ${FIELD_FOCUS_ERROR}`
+                                : `border-line ${FIELD_FOCUS}`
+                            }`}
+                            value={work.startYear || ''}
+                            onChange={(e) => updateWork(i, { startYear: Number(e.target.value) })}
+                          >
+                            <option value="">Year</option>
+                            {YEARS.map((y) => (
+                              <option key={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {errors[`workExperiences.${i}.startYear`] && (
+                          <span className="text-xs text-error">{errors[`workExperiences.${i}.startYear`]}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <span id={`workExperiences.${i}.endLabel`} className="text-xs font-medium text-ink-2">
+                          End date
+                        </span>
+                        <div role="group" aria-labelledby={`workExperiences.${i}.endLabel`} className="flex gap-2">
+                          <select
+                            disabled={work.isCurrent}
+                            aria-label="End month"
+                            className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
+                            value={work.endMonth ?? ''}
+                            onChange={(e) => updateWork(i, { endMonth: Number(e.target.value) || undefined })}
+                          >
+                            <option value="">Month</option>
+                            {MONTHS.map((m, idx) => (
+                              <option key={m} value={idx + 1}>
+                                {m}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            disabled={work.isCurrent}
+                            aria-label="End year"
+                            className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
+                            value={work.endYear ?? ''}
+                            onChange={(e) => updateWork(i, { endYear: Number(e.target.value) || undefined })}
+                          >
+                            <option value="">Year</option>
+                            {YEARS.map((y) => (
+                              <option key={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {dateErrors[i] && (
+                      <span id={`workExperiences.${i}.dates`} tabIndex={-1} className="mt-2 block text-xs text-error">
+                        {dateErrors[i]}
+                      </span>
+                    )}
+                    {!dateErrors[i] && dateWarnings[i] && <WarningNote className="mt-3">{dateWarnings[i]}</WarningNote>}
+
+                    <label className="mt-4 flex items-center gap-2 text-sm text-ink-2">
+                      <input
+                        type="checkbox"
+                        checked={work.isCurrent}
+                        onChange={(e) =>
+                          updateWork(i, {
+                            isCurrent: e.target.checked,
+                            endMonth: e.target.checked ? undefined : work.endMonth,
+                            endYear: e.target.checked ? undefined : work.endYear,
+                          })
+                        }
+                      />
+                      I currently work here
+                    </label>
+
+                    <div className="mt-4">
+                      <Textarea
+                        label="Description"
+                        labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
+                        rows={3}
+                        maxLength={2000}
+                        autoGrow
+                        placeholder="What you did in this role — shown on your profile."
+                        value={work.description ?? ''}
+                        onChange={(e) => updateWork(i, { description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {form.workExperiences.length < WORK_EXPERIENCES_MAX && company.company.trim() && (
                 <button
                   type="button"
-                  onClick={() => update({ workExperiences: workExperiences.filter((_, j) => j !== i) })}
-                  className="text-xs font-medium text-error"
+                  onClick={() => addRoleAt(roles)}
+                  className="mt-4 text-sm font-medium text-accent hover:text-ink"
                 >
-                  Remove
+                  + Add another role at {company.company.trim()}
                 </button>
               )}
             </div>
-
-            <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <Input
-                id={`workExperiences.${i}.title`}
-                label="Job title"
-                placeholder="Partner"
-                value={work.title}
-                onChange={(e) => updateWork(i, { title: e.target.value })}
-                error={errors[`workExperiences.${i}.title`]}
-              />
-              <Input
-                id={`workExperiences.${i}.company`}
-                label="Company"
-                placeholder="Firm name"
-                value={work.company}
-                onChange={(e) => updateWork(i, { company: e.target.value })}
-                error={errors[`workExperiences.${i}.company`]}
-              />
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <Input
-                label="City"
-                placeholder="e.g. London"
-                value={work.city ?? ''}
-                onChange={(e) => updateWork(i, { city: e.target.value })}
-              />
-              <Select
-                label="Firm size"
-                value={work.firmSize ?? ''}
-                onChange={(e) => updateWork(i, { firmSize: e.target.value as typeof work.firmSize })}
-              >
-                <option value="">Select…</option>
-                {FIRM_SIZES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="mt-4">
-              {websiteOwner(i) === i ? (
-                <Input
-                  id={`workExperiences.${i}.companyUrl`}
-                  label="Company website"
-                  labelRight={
-                    workExperiences.some((role, j) => websiteOwner(j) === i && role.isCurrent) ? undefined : (
-                      <span className="text-xs font-normal text-ink-3">optional</span>
-                    )
-                  }
-                  type="url"
-                  placeholder="https://example.com — or a LinkedIn company/profile page"
-                  value={work.companyUrl ?? ''}
-                  onChange={(e) => updateWork(i, { companyUrl: e.target.value })}
-                  error={errors[`workExperiences.${i}.companyUrl`]}
-                />
-              ) : (
-                <p className="text-xs text-ink-3">
-                  Company website is shared with Experience {String(websiteOwner(i) + 1).padStart(2, '0')}.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <div className="flex flex-col gap-1.5">
-                <span id={`workExperiences.${i}.startLabel`} className="text-xs font-medium text-ink-2">
-                  Start date
-                </span>
-                <div role="group" aria-labelledby={`workExperiences.${i}.startLabel`} className="flex gap-2">
-                  <select
-                    aria-label="Start month"
-                    className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink ${FIELD_FOCUS}`}
-                    value={work.startMonth ?? ''}
-                    onChange={(e) => updateWork(i, { startMonth: Number(e.target.value) || undefined })}
-                  >
-                    <option value="">Month</option>
-                    {MONTHS.map((m, idx) => (
-                      <option key={m} value={idx + 1}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    id={`workExperiences.${i}.startYear`}
-                    aria-label="Start year"
-                    aria-invalid={errors[`workExperiences.${i}.startYear`] ? true : undefined}
-                    className={`min-w-0 flex-1 rounded-input border px-2 py-3 text-sm text-ink ${
-                      errors[`workExperiences.${i}.startYear`]
-                        ? `border-error ${FIELD_FOCUS_ERROR}`
-                        : `border-line ${FIELD_FOCUS}`
-                    }`}
-                    value={work.startYear || ''}
-                    onChange={(e) => updateWork(i, { startYear: Number(e.target.value) })}
-                  >
-                    <option value="">Year</option>
-                    {YEARS.map((y) => (
-                      <option key={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-                {errors[`workExperiences.${i}.startYear`] && (
-                  <span className="text-xs text-error">{errors[`workExperiences.${i}.startYear`]}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span id={`workExperiences.${i}.endLabel`} className="text-xs font-medium text-ink-2">
-                  End date
-                </span>
-                <div role="group" aria-labelledby={`workExperiences.${i}.endLabel`} className="flex gap-2">
-                  <select
-                    disabled={work.isCurrent}
-                    aria-label="End month"
-                    className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
-                    value={work.endMonth ?? ''}
-                    onChange={(e) => updateWork(i, { endMonth: Number(e.target.value) || undefined })}
-                  >
-                    <option value="">Month</option>
-                    {MONTHS.map((m, idx) => (
-                      <option key={m} value={idx + 1}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    disabled={work.isCurrent}
-                    aria-label="End year"
-                    className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
-                    value={work.endYear ?? ''}
-                    onChange={(e) => updateWork(i, { endYear: Number(e.target.value) || undefined })}
-                  >
-                    <option value="">Year</option>
-                    {YEARS.map((y) => (
-                      <option key={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {dateErrors[i] && (
-              <span id={`workExperiences.${i}.dates`} tabIndex={-1} className="mt-2 block text-xs text-error">
-                {dateErrors[i]}
-              </span>
-            )}
-            {!dateErrors[i] && dateWarnings[i] && <WarningNote className="mt-3">{dateWarnings[i]}</WarningNote>}
-
-            <label className="mt-4 flex items-center gap-2 text-sm text-ink-2">
-              <input
-                type="checkbox"
-                checked={work.isCurrent}
-                onChange={(e) =>
-                  updateWork(i, {
-                    isCurrent: e.target.checked,
-                    endMonth: e.target.checked ? undefined : work.endMonth,
-                    endYear: e.target.checked ? undefined : work.endYear,
-                  })
-                }
-              />
-              I currently work here
-            </label>
-
-            <div className="mt-4">
-              <Textarea
-                label="Description"
-                labelRight={<span className="text-xs font-normal text-ink-3">optional</span>}
-                rows={3}
-                maxLength={2000}
-                autoGrow
-                placeholder="What you did in this role — shown on your profile."
-                value={work.description ?? ''}
-                onChange={(e) => updateWork(i, { description: e.target.value })}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {form.workExperiences.length < WORK_EXPERIENCES_MAX && (
@@ -457,7 +535,7 @@ export function BackgroundStep({
           onClick={() => update({ workExperiences: [...form.workExperiences, { ...EMPTY_WORK_EXPERIENCE }] })}
           className="mt-3 rounded-input border border-line-2 px-5 py-2.5 text-sm font-medium text-ink hover:border-ink"
         >
-          + Add another role
+          + Add another company
         </button>
       )}
 
@@ -489,6 +567,7 @@ export function BackgroundStep({
               <Input
                 id={`educations.${i}.institution`}
                 label="Institution"
+                markRequired
                 placeholder="University name"
                 value={edu.institution}
                 onChange={(e) => updateEdu(i, { institution: e.target.value })}
@@ -497,6 +576,7 @@ export function BackgroundStep({
               <Input
                 id={`educations.${i}.degree`}
                 label="Degree"
+                markRequired
                 placeholder="LLB, MBA…"
                 value={edu.degree}
                 onChange={(e) => updateEdu(i, { degree: e.target.value })}
@@ -569,6 +649,7 @@ export function BackgroundStep({
               <Input
                 id={`peerReferences.${i}.name`}
                 label="Full name"
+                markRequired={referencesRequired}
                 value={reference.name}
                 onChange={(e) => updateReference(i, { name: e.target.value })}
                 error={errors[`peerReferences.${i}.name`]}
@@ -576,6 +657,7 @@ export function BackgroundStep({
               <Input
                 id={`peerReferences.${i}.relationship`}
                 label="Relationship"
+                markRequired={referencesRequired}
                 placeholder="e.g. Former manager"
                 value={reference.relationship}
                 onChange={(e) => updateReference(i, { relationship: e.target.value })}
@@ -587,6 +669,7 @@ export function BackgroundStep({
               <Input
                 id={`peerReferences.${i}.email`}
                 label="Email"
+                markRequired={referencesRequired}
                 type="email"
                 value={reference.email}
                 onChange={(e) => updateReference(i, { email: e.target.value })}

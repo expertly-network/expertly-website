@@ -84,7 +84,8 @@ export function ReviewListRow({
   previousItems,
 }: {
   label: string;
-  items: { title: string; detail?: string; link?: { href: string; label: string } }[];
+  /** `body` is free text under the entry (a role's description), shown with paragraphs/bullets kept. */
+  items: { title: string; detail?: string; body?: string; link?: { href: string; label: string } }[];
   /** Admin review only: the prior entries. New/edited entries show in red, dropped ones struck through. */
   previousItems?: { title: string; detail?: string }[] | null;
 }) {
@@ -114,6 +115,7 @@ export function ReviewListRow({
                     )}
                   </div>
                 )}
+                {item.body?.trim() && <FormattedText text={item.body} className="mt-2 text-xs text-ink-2" />}
                 {item.link && (
                   <a
                     href={item.link.href}
@@ -131,6 +133,60 @@ export function ReviewListRow({
             <div key={`removed-${i}`}>
               <ChangedValue before={r.title} after="" />
               {r.detail && <div className="mt-0.5 text-xs text-ink-3 line-through">{r.detail}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Work history grouped the way the form asks for it: each company once (name, its size, website),
+// then its roles underneath, newest company first.
+export function ReviewWorkHistoryRow({
+  label,
+  companies,
+}: {
+  label: string;
+  companies: {
+    name: string;
+    detail?: string;
+    link?: { href: string; label: string };
+    roles: { title: string; detail?: string; body?: string }[];
+  }[];
+}) {
+  return (
+    <div className="grid grid-cols-[140px_minmax(0,1fr)] max-[900px]:grid-cols-1 items-start gap-4 px-6 py-3.5 text-sm max-[900px]:gap-2 max-[900px]:px-4 max-[900px]:py-5 max-[900px]:[overflow-wrap:anywhere]">
+      <span className="mt-0.5 text-mono-label text-ink-3">{label}</span>
+      {companies.length === 0 ? (
+        <span className="text-ink">—</span>
+      ) : (
+        <div className="flex min-w-0 flex-col gap-5">
+          {companies.map((company, c) => (
+            <div key={c}>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span className="font-medium text-ink">{company.name}</span>
+                {company.link && (
+                  <a
+                    href={company.link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-accent underline hover:text-ink"
+                  >
+                    {company.link.label}
+                  </a>
+                )}
+              </div>
+              {company.detail && <div className="mt-0.5 text-xs text-ink-3">{company.detail}</div>}
+              <div className="mt-2.5 flex flex-col gap-3 border-l border-line pl-4">
+                {company.roles.map((role, r) => (
+                  <div key={r}>
+                    <div className="text-ink">{role.title}</div>
+                    {role.detail && <div className="mt-0.5 text-xs text-ink-3">{role.detail}</div>}
+                    {role.body?.trim() && <FormattedText text={role.body} className="mt-2 text-xs text-ink-2" />}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>

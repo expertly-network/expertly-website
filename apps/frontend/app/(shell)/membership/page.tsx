@@ -276,7 +276,7 @@ export default async function MembershipPage() {
             )}
           </div>
 
-          <div className="w-full overflow-hidden rounded-card border border-line bg-bg-card shadow-[0_24px_60px_-30px_rgba(11,11,12,0.25)] ring-8 ring-neon/60">
+          <div className="w-full overflow-hidden rounded-card border border-line bg-bg-card shadow-[0_24px_60px_-30px_rgba(11,11,12,0.25)] ring-8 ring-bg-alt">
             <div className="border-b border-line px-6 py-5">
               <div className="text-mono-label text-ink-2">Included in every plan</div>
               <div className="mt-1 text-caption text-ink-3">Full access from day one</div>
@@ -306,10 +306,18 @@ export default async function MembershipPage() {
       </section>
 
       {/* 2 · Pull quote */}
-      <section className="border-b border-line bg-neon/50 py-16 max-[640px]:py-12">
-        <PageContainer className="flex flex-col items-center text-center">
+      <section className="relative overflow-hidden bg-ink py-20 max-[640px]:py-14">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            background:
+              'radial-gradient(circle, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 65%)',
+          }}
+        />
+        <PageContainer className="relative flex flex-col items-center text-center">
           <span aria-hidden="true" className="h-0.5 w-12 rounded-full bg-accent" />
-          <p className="font-brand mt-7 max-w-[760px] text-balance text-section-title italic text-ink">
+          <p className="font-brand mt-7 max-w-[760px] text-balance text-section-title italic text-bg-card">
             “One new client from GrowXQ can pay for years of membership.”
           </p>
         </PageContainer>
@@ -318,8 +326,10 @@ export default async function MembershipPage() {
       {/* 3 · Benefits — text left / panel right, alternating */}
       {BENEFITS.map((b, i) => {
         const reversed = i % 2 === 1;
+        // Warm-grey band on the unreversed rows; the last row stays white so it doesn't merge into the tier band below.
+        const tinted = !reversed;
         return (
-          <section key={b.n} className={`border-b border-line py-20 max-[640px]:py-14 ${reversed ? 'bg-neon/40' : ''}`}>
+          <section key={b.n} className={`border-b border-line py-20 max-[640px]:py-14 ${tinted ? 'bg-bg-alt' : ''}`}>
             <PageContainer className="grid items-center gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-[72px]">
               <div className={`min-w-0 ${reversed ? 'lg:order-2' : ''}`}>
                 {b.soon && <SoonBadge />}
@@ -338,7 +348,7 @@ export default async function MembershipPage() {
                 </dl>
               </div>
               <div
-                className={`min-w-0 rounded-[28px] border border-line p-8 max-[640px]:p-4 ${reversed ? 'bg-bg-card lg:order-1' : 'bg-neon/50'}`}
+                className={`min-w-0 rounded-[28px] p-8 max-[640px]:p-4 ${tinted ? 'border border-line bg-bg-card' : 'bg-bg-alt'} ${reversed ? 'lg:order-1' : ''}`}
               >
                 {b.mock}
               </div>
@@ -438,7 +448,7 @@ export default async function MembershipPage() {
       </section>
 
       {/* 6 · Verification standard */}
-      <section className="border-y border-line bg-neon/40 py-20 max-[640px]:py-14">
+      <section className="border-y border-line bg-bg-alt py-20 max-[640px]:py-14">
         <PageContainer>
           <Eyebrow>Why members trust the badge</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">

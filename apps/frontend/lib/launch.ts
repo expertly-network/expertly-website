@@ -1,5 +1,6 @@
 // Pre-launch (SITE_LAUNCHED=false — see isSiteLaunched in lib/env.ts): the only pages that stay
-// open. Everything else redirects — to /apply for a signed-in visitor, else to the teaser at `/`.
+// open (`/` serves the teaser to everyone). Everything else redirects — to /apply for a signed-in
+// visitor, else to the teaser at `/`.
 // /admin stays open so applications can be reviewed; it's admin-only on its own.
 const PRELAUNCH_PREFIXES = [
   '/welcome',
@@ -19,7 +20,8 @@ export function isOpenBeforeLaunch(pathname: string): boolean {
 
 // The founding-cohort coupon (backend: applications/constants/coupons.ts — a full first-year
 // waiver). The teaser's CTA carries it as `?coupon=`; middleware remembers any such code in a
-// cookie so it survives the sign-up / login / OAuth hops, and the wizard pre-fills it.
+// cookie so it survives the sign-up / login / OAuth hops. The wizard never applies it on its own:
+// the review step offers it with an Apply button, and asks again if the applicant submits without.
 export const FOUNDING_COUPON_CODE = 'LAUNCH100';
 export const COUPON_COOKIE = 'growxq_coupon';
 export const COUPON_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;

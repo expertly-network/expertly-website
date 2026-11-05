@@ -96,12 +96,13 @@ export async function middleware(request: NextRequest) {
     return next;
   };
 
-  // Pre-launch: a signed-in visitor is sent to their application (/apply forwards anyone who has
-  // already applied to /apply/submitted); a signed-out one sees the teaser, which `/` serves in
-  // place of the home page. Admins skip the gate entirely — they need the whole site to prepare it
-  // for launch (the teaser stays reachable for them at /welcome).
+  // Pre-launch: every visitor, signed in or not, sees the teaser at `/` (served in place of the
+  // home page), so the logo always leads back to it. A signed-in visitor who opens any closed page
+  // is sent to their application instead (/apply forwards anyone who has already applied to
+  // /apply/submitted); a signed-out one goes to the teaser. Admins skip the gate entirely — they
+  // need the whole site to prepare it for launch (the teaser stays reachable for them at /welcome).
   if (!isSiteLaunched() && role !== 'admin') {
-    if (userId && (pathname === '/' || !isOpenBeforeLaunch(pathname))) {
+    if (userId && !isOpenBeforeLaunch(pathname)) {
       return withSessionCookies(NextResponse.redirect(new URL('/apply', request.url)));
     }
     if (!isOpenBeforeLaunch(pathname)) {

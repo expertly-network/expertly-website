@@ -55,18 +55,18 @@ export function toUpdateRequest(
   return {
     firstName: form.firstName || undefined,
     lastName: form.lastName || undefined,
-    contactEmail: form.contactEmail || undefined,
+    contactEmail: form.contactEmail.trim() || undefined,
     // Sent independently of `phone` — the LinkedIn import can default this from the applicant's
     // country before they've typed a number at all; gating it on `phone` being non-empty (as this
     // used to) meant that default was silently dropped on save and reverted to '+1' on the next
     // read, since the server never had a value to persist.
     phoneCountryCode: form.phoneCountryCode || undefined,
-    phone: form.phone || undefined,
+    phone: form.phone.trim() || undefined,
     region: form.region || undefined,
     country: form.country || undefined,
     state: form.state || undefined,
     city: form.city || undefined,
-    linkedinUrl: form.linkedinUrl || undefined,
+    linkedinUrl: form.linkedinUrl.trim() || undefined,
     bio: form.bio || undefined,
     yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
     // Filters out blank template entries; omits the field entirely if none remain.

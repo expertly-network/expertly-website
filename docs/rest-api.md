@@ -244,7 +244,7 @@ wizard step to resume on, pure UX convenience, not validated).
 - Field bounds (2026-10-30, `400 VALIDATION_FAILED`): `firstName`/`lastName` ≤ 100,
   `phoneCountryCode` ≤ 10, `phone` ≤ 40, `country`/`state`/`city` ≤ 100, `contactEmail` ≤ 254,
   `linkedinUrl` ≤ 2048, `couponCode` ≤ 50, `termsVersionAgreed`/`privacyVersionAgreed` ≤ 50,
-  `rateMinCents`/`rateMaxCents` ≥ 0. `workExperiences[]`: `title`/`company` ≤ 200, `city` ≤ 100,
+  `rateMinCents`/`rateMaxCents` whole dollars (a multiple of 100) from 1000 to 500000 ($10–$5,000/hour, 2026-11-05; no limit on the gap between them). `workExperiences[]`: `title`/`company` ≤ 200, `city` ≤ 100,
   `companyUrl` ≤ 2048, `startYear`/`endYear` 1900–2100. `educations[]`: `institution`/`degree`/
   `fieldOfStudy` ≤ 200, years 1900–2100. `peerReferences[]`: `name`/`relationship` ≤ 100, `email`
   ≤ 254, `phone` ≤ 40. `servicePreferences[].customLabel` ≤ 100.
@@ -272,7 +272,7 @@ permanent public URL built from the Storage path at read time — see the upload
 
 **Errors:** `401` no/invalid token · `403` not a client account · `409` application pending or
 already approved · `400` validation failure (malformed body, invalid/inactive practice area id,
-invalid coupon, `rateMax <= rateMin`, or — only when `status: 'submitted'` — incomplete required
+invalid coupon, rates outside $10–$5,000/hour or not whole dollars or `rateMax <= rateMin` (`RATE_RANGE_INVALID`), or — only when `status: 'submitted'` — incomplete required
 fields, named in the message). Codes: `403 APPLICATION_CLIENTS_ONLY` · `409 APPLICATION_LOCKED` / `APPLICATION_ALREADY_OPEN` · `400 RATE_RANGE_INVALID`, `COUPON_INVALID`, `SERVICE_PREFERENCES_DUPLICATE`, `SERVICE_IDS_INVALID`, `CUSTOM_SERVICE_LABEL_REQUIRED`, `APPLICATION_INCOMPLETE`, `URL_INVALID`, `WORK_HISTORY_END_BEFORE_START`, `VALIDATION_FAILED` · `429 RATE_LIMITED`.
 
 ### 🔒 `GET /v1/applications/me`
@@ -437,6 +437,10 @@ member-facing shape doesn't carry). `assertComplete()` (submit-time validation o
 `POST /v1/applications/me`) now requires at least one `workExperiences` entry to be `isCurrent`
 with a non-empty `company` — this is what becomes `firm_name`, so it's compulsory to submit, not
 optional.
+
+Changed 2026-11-05: that same `isCurrent` entry's `firmSize` is also required at submit (same
+cross-field `assertComplete()` rule, `400 APPLICATION_INCOMPLETE` naming it). The wizard asks for
+firm size and company website only for the current company and doesn't send them for past ones.
 
 Changed 2026-09-29: that same `isCurrent` entry's `companyUrl` is now also required at submit —
 `member_profiles.firm_website` became `NOT NULL`, so it's no longer optional the way

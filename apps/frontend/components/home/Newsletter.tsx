@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, Card, Eyebrow, FilterPopover } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { REGIONS } from '@/components/apply/types';
-import { ALL_COUNTRIES } from '@/lib/members/countries';
+import { countriesInRegions } from '@/lib/members/country-regions';
 
 // No backend yet — submitting shows a "not live" message instead of faking success.
 export function Newsletter() {
@@ -43,11 +43,17 @@ export function Newsletter() {
                   label="All regions"
                   options={REGIONS.map((r) => ({ value: r.value, label: r.label }))}
                   selected={regions}
-                  onChange={setRegions}
+                  onChange={(next) => {
+                    setRegions(next);
+                    // Drop any picked country that's no longer in the chosen regions.
+                    const allowed = new Set(countriesInRegions(next));
+                    setCountries((prev) => prev.filter((c) => allowed.has(c)));
+                  }}
                 />
                 <FilterPopover
                   label="All countries"
-                  options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
+                  // Narrowed to the selected regions (every country when none is selected).
+                  options={countriesInRegions(regions).map((c) => ({ value: c, label: c }))}
                   selected={countries}
                   onChange={setCountries}
                 />

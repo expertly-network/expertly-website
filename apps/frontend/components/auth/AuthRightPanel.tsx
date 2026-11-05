@@ -1,16 +1,16 @@
-const CITIES = [
-  'London',
-  'New York',
-  'Singapore',
-  'Dubai',
-  'Chennai',
-  'Frankfurt',
-  'Tokyo',
-  'Paris',
-  'Lagos',
-  'Madrid',
-  'Milan',
-  'Mumbai',
+import { Eyebrow } from '@/components/ui/Eyebrow';
+
+// Written for the founding cohort: there are no real stats or testimonials yet, so instead of
+// social proof the panel tells an applicant what a founding seat brings. Privileges mirror the
+// PERKS list on /welcome.
+const PRIVILEGES: [string, string][] = [
+  ['Founding Member status', 'In before GrowXQ is public, a distinction nobody who joins later can have.'],
+  ['Your first year, complimentary', 'Membership is on us for the whole of year one.'],
+  [
+    'First call on pricing and perks',
+    'Every discount and benefit reaches founding members first, at its most generous.',
+  ],
+  ['The first look', 'See what we have built, and everything that comes with it, before anyone else.'],
 ];
 
 // Desktop-only (>=1000px, matching auth.css's breakpoint) — hidden entirely on
@@ -27,43 +27,32 @@ export function AuthRightPanel() {
         aria-hidden="true"
       />
       <div className="relative max-w-[520px]">
-        <span className="text-eyebrow text-white/60">Trusted by professionals in</span>
+        <Eyebrow dark>Founding cohort · 100 seats</Eyebrow>
+        <h2 className="mt-5 font-brand text-section-title font-normal text-balance text-white">
+          You are applying for a <span className="text-accent">founding seat</span>.
+        </h2>
+        <p className="mt-4 text-lede text-white/70">Each seat is chosen by hand. Here is what it brings.</p>
 
-        <div className="mb-12 mt-6 grid grid-cols-3 gap-x-6 gap-y-2.5 font-mono text-[11px] text-white/50">
-          {CITIES.map((city) => (
-            <div key={city}>{city}</div>
+        <ul className="mt-10 border-t border-white/[0.12]">
+          {PRIVILEGES.map(([title, body]) => (
+            <li key={title} className="flex gap-3 border-b border-white/[0.12] py-5">
+              <svg
+                viewBox="0 0 16 16"
+                className="mt-1 h-4 w-4 flex-none text-accent"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M3 8.5l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <div>
+                <div className="text-base font-medium text-white">{title}</div>
+                <p className="mt-1 text-sm leading-relaxed text-white/65">{body}</p>
+              </div>
+            </li>
           ))}
-        </div>
-
-        <div className="my-12 border-y border-white/[0.12] py-8">
-          <blockquote className="mb-6 text-[22px] font-normal leading-[1.35] tracking-[-0.015em] text-white">
-            &ldquo;The right clients finally found me. GrowXQ tripled my inbound in 60 days.&rdquo;
-          </blockquote>
-          <figcaption className="flex items-center gap-3">
-            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-white/10 text-sm font-medium text-white">
-              MC
-            </div>
-            <div>
-              <div className="font-medium text-white">Marcus Chen</div>
-              <div className="font-mono text-[10px] text-white/55">Senior Tax Advisor · Singapore</div>
-            </div>
-          </figcaption>
-        </div>
-
-        <div className="flex gap-8">
-          <div>
-            <b className="block text-stat text-white">20+</b>
-            <span className="text-[10px] capitalize text-white/50">Verified experts</span>
-          </div>
-          <div>
-            <b className="block text-stat text-white">20+</b>
-            <span className="text-[10px] capitalize text-white/50">Countries</span>
-          </div>
-          <div>
-            <b className="block text-stat text-white">100+</b>
-            <span className="text-[10px] capitalize text-white/50">Consultations</span>
-          </div>
-        </div>
+        </ul>
       </div>
     </aside>
   );

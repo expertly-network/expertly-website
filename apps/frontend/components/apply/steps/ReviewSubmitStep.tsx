@@ -2,17 +2,31 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { FIRM_SIZES, REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
 import { USER_AGREEMENT_URL, PRIVACY_POLICY_URL, COOKIE_POLICY_URL } from '@/lib/consent';
 import { previewCoupon } from '@/lib/api/applications';
-import { ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
+import { ReviewRow, ReviewListRow, ReviewWorkHistoryRow } from '@/components/shared/ApplicationReview';
+import { companyKey } from '@/lib/apply/company-websites';
 import type { CouponPreviewResponse } from '@shared/membership-application';
 import type { CategoryDto } from '@shared/category';
 import { externalHref, externalLink } from '@/lib/members/format';
 import { formatCents, formatDateRange } from '@/lib/apply/format';
+
+type WorkRole = WizardFormState['workExperiences'][number];
+
+/** Roles grouped per company, companies in order of first appearance (the form keeps newest first). */
+function groupRolesByCompany(roles: WorkRole[]): WorkRole[][] {
+  const groups = new Map<string, WorkRole[]>();
+  roles.forEach((role, i) => {
+    const key = companyKey(role.company) || `__unnamed-${i}`;
+    groups.set(key, [...(groups.get(key) ?? []), role]);
+  });
+  return [...groups.values()];
+}
 
 const PRIORITY_LABEL: Record<1 | 2 | 3, string> = { 1: '1st preference', 2: '2nd preference', 3: '3rd preference' };
 
@@ -87,6 +101,7 @@ export function ReviewSubmitStep({
   saveError,
   onBack,
   onEditStep,
+  suggestedCoupon = null,
   onSubmit,
 }: {
   form: WizardFormState;
@@ -97,7 +112,13 @@ export function ReviewSubmitStep({
   onBack: () => void;
   /** Jumps to a wizard step (2 = Identity, 3 = Background, 4 = Services) keeping entered data. */
   onEditStep: (step: number) => void;
-  onSubmit: () => void;
+  /**
+   * Offered below the coupon field with its own Apply button — never applied automatically. When
+   * set (pre-launch, or an invite link's code), a coupon must be applied before submitting.
+   */
+  suggestedCoupon?: string | null;
+  /** `couponCode` is the code that was actually applied, or '' for none. */
+  onSubmit: (opts: { couponCode: string }) => void;
 }) {
   const [consentTerms, setConsentTerms] = useState(false);
   const [consentPrivacy, setConsentPrivacy] = useState(false);
@@ -110,6 +131,9 @@ export function ReviewSubmitStep({
   const [couponStatus, setCouponStatus] = useState<'idle' | 'applying' | 'success' | 'invalid'>('idle');
   const [appliedCoupon, setAppliedCoupon] = useState<CouponPreviewResponse | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  // Pop-up shown when Submit is pressed before a coupon is applied. With a suggested code there is
+  // no way past it without applying one; it stays open after a successful apply to submit from.
+  const [couponPrompt, setCouponPrompt] = useState(false);
 
   const services = categories.flatMap((c) => c.services);
   const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? id;
@@ -145,9 +169,10 @@ export function ReviewSubmitStep({
     };
   }, [form.billingPeriod]);
 
-  async function handleApplyCoupon() {
-    const code = form.couponCode.trim();
+  async function handleApplyCoupon(codeToApply?: string) {
+    const code = (codeToApply ?? form.couponCode).trim();
     if (!code || couponStatus === 'applying') return;
+    if (code !== form.couponCode) update({ couponCode: code });
     setCouponStatus('applying');
     try {
       const res = await previewCoupon({ billingPeriod: form.billingPeriod, couponCode: code });
@@ -166,13 +191,6 @@ export function ReviewSubmitStep({
     }
   }
 
-  // A code that's already there on arrival (from an invite link, or typed on an earlier visit)
-  // is applied straight away — the discounted price and the confetti, without an extra click.
-  useEffect(() => {
-    if (form.couponCode.trim()) void handleApplyCoupon();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   function handleCouponCodeChange(value: string) {
     update({ couponCode: value });
     // A previously applied/rejected code no longer describes what's now typed — back to idle
@@ -184,6 +202,11 @@ export function ReviewSubmitStep({
   }
 
   const displayedPrice = couponStatus === 'success' && appliedCoupon ? appliedCoupon : basePrice;
+  const couponApplied = couponStatus === 'success';
+  const couponRequired = Boolean(suggestedCoupon);
+  // What the pop-up offers: the code they typed, else the one offered to them.
+  const promptCode = form.couponCode.trim() || suggestedCoupon || '';
+  const showSuggestion = Boolean(suggestedCoupon) && !couponApplied;
   const isFreeFromCoupon = couponStatus === 'success' && appliedCoupon?.amountDueCents === 0;
 
   function validate(): Record<string, string> {
@@ -205,7 +228,17 @@ export function ReviewSubmitStep({
       return;
     }
     setErrors({});
-    onSubmit();
+    // A typed-but-unapplied code is caught too, so it's never silently dropped.
+    if (!couponApplied && (couponRequired || form.couponCode.trim())) {
+      setCouponPrompt(true);
+      return;
+    }
+    submitWithAppliedCoupon();
+  }
+
+  function submitWithAppliedCoupon() {
+    setCouponPrompt(false);
+    onSubmit({ couponCode: couponApplied ? form.couponCode.trim() : '' });
   }
 
   return (
@@ -243,21 +276,25 @@ export function ReviewSubmitStep({
         <ReviewRow label="Bio" value={form.bio} multiline />
         <SectionHeader title="Background" onEdit={() => onEditStep(3)} />
         <ReviewRow label="Experience" value={`${form.yearsOfExperience} years`} />
-        <ReviewListRow
+        <ReviewWorkHistoryRow
           label="Work history"
-          items={form.workExperiences
-            .filter((w) => w.title.trim() || w.company.trim())
-            .map((w) => ({
-              title: `${w.title} at ${w.company}`,
-              detail: [
-                w.city,
-                w.firmSize ? FIRM_SIZES.find((f) => f.value === w.firmSize)?.label : undefined,
-                formatDateRange(w.startMonth, w.startYear, w.isCurrent, w.endMonth, w.endYear),
-              ]
-                .filter(Boolean)
-                .join(' · '),
-              link: externalLink(w.companyUrl, 'Company site'),
-            }))}
+          companies={groupRolesByCompany(form.workExperiences.filter((w) => w.title.trim() || w.company.trim())).map(
+            (roles) => {
+              const firmSize = roles.find((w) => w.firmSize)?.firmSize;
+              return {
+                name: roles[0].company || 'Company not named',
+                detail: firmSize ? `Firm size: ${FIRM_SIZES.find((f) => f.value === firmSize)?.label}` : undefined,
+                link: externalLink(roles.find((w) => w.companyUrl)?.companyUrl, 'Website'),
+                roles: roles.map((w) => ({
+                  title: w.title,
+                  detail: [formatDateRange(w.startMonth, w.startYear, w.isCurrent, w.endMonth, w.endYear), w.city]
+                    .filter(Boolean)
+                    .join(' · '),
+                  body: w.description,
+                })),
+              };
+            }
+          )}
         />
         <ReviewListRow
           label="Education"
@@ -334,7 +371,7 @@ export function ReviewSubmitStep({
               a layout it doesn't support. */}
           <label htmlFor="couponCode" className="flex items-center justify-between text-xs font-medium text-ink-2">
             <span>Coupon code</span>
-            <span className="font-normal text-ink-3">optional</span>
+            <span className="font-normal text-ink-3">{couponRequired ? 'required' : 'optional'}</span>
           </label>
           <div className="mt-1.5 flex gap-2">
             <input
@@ -358,7 +395,7 @@ export function ReviewSubmitStep({
             <Button
               type="button"
               variant="secondary"
-              onClick={handleApplyCoupon}
+              onClick={() => handleApplyCoupon()}
               disabled={!form.couponCode.trim() || couponStatus === 'applying'}
             >
               {couponStatus === 'applying' ? 'Applying…' : 'Apply'}
@@ -368,6 +405,28 @@ export function ReviewSubmitStep({
             <span className="mt-1.5 block text-xs text-error">Invalid or expired coupon code.</span>
           ) : (
             <p className="mt-1.5 text-xs text-ink-3">Apply a coupon code to your order.</p>
+          )}
+
+          {showSuggestion && (
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-input border border-dashed border-accent bg-[color-mix(in_oklab,var(--accent)_6%,transparent)] px-4 py-3 max-sm:flex-col max-sm:items-stretch">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-ink">
+                  Founding member code{' '}
+                  <span className="rounded bg-bg-card px-1.5 py-0.5 font-mono text-mono-label text-accent">
+                    {suggestedCoupon}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-ink-3">Your first year of membership, complimentary.</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleApplyCoupon(suggestedCoupon!)}
+                disabled={couponStatus === 'applying'}
+              >
+                {couponStatus === 'applying' ? 'Applying…' : 'Apply'}
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -477,6 +536,61 @@ export function ReviewSubmitStep({
           </div>
         </div>
       </div>
+
+      <Modal
+        open={couponPrompt}
+        onClose={() => setCouponPrompt(false)}
+        title={couponApplied ? 'Coupon applied' : 'Apply your coupon code'}
+      >
+        {couponApplied ? (
+          <>
+            <p className="text-sm text-ink-2">
+              🎉{' '}
+              {isFreeFromCoupon
+                ? 'Your first year of membership is complimentary.'
+                : `You saved ${formatCents(appliedCoupon!.discountAmountCents)}.`}{' '}
+              You can submit your application now.
+            </p>
+            <div className="mt-6 flex justify-end max-sm:flex-col">
+              <Button type="button" onClick={submitWithAppliedCoupon} disabled={saving}>
+                {saving ? 'Submitting…' : 'Submit application'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-ink-2">
+              {couponRequired
+                ? 'A coupon code must be applied before you submit your application.'
+                : 'You entered a coupon code but haven’t applied it yet.'}
+            </p>
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-input border border-dashed border-accent bg-[color-mix(in_oklab,var(--accent)_6%,transparent)] px-4 py-3">
+              <span className="font-mono text-mono-label text-accent">{promptCode}</span>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleApplyCoupon(promptCode)}
+                disabled={couponStatus === 'applying'}
+              >
+                {couponStatus === 'applying' ? 'Applying…' : 'Apply'}
+              </Button>
+            </div>
+            {couponStatus === 'invalid' && (
+              <p className="mt-2 text-xs text-error">
+                That code is invalid or expired.
+                {couponRequired && suggestedCoupon !== promptCode ? ` Try ${suggestedCoupon} instead.` : ''}
+              </p>
+            )}
+            {couponRequired && suggestedCoupon !== promptCode && couponStatus === 'invalid' && (
+              <div className="mt-3">
+                <Button type="button" size="sm" variant="secondary" onClick={() => handleApplyCoupon(suggestedCoupon!)}>
+                  Apply {suggestedCoupon}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
 
       {saveError && (
         <div className="mt-6">

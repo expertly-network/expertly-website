@@ -13,6 +13,7 @@ import { ReviewSubmitStep } from '@/components/apply/steps/ReviewSubmitStep';
 import { INITIAL_WIZARD_STATE, fromDto, toUpdateRequest, type WizardFormState } from '@/components/apply/types';
 import { importLinkedInPhoto, saveApplication } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
+import { validationFieldsMessage } from '@/lib/apply/save-errors';
 import { FOUNDING_DEFAULT_REFERENCE } from '@/lib/launch';
 import { ApiError } from '@/lib/api/client';
 import { hasLinkedInIdentity } from '@/lib/auth/linkedin';
@@ -25,8 +26,9 @@ const TOTAL_STEPS = 5;
 // login email is the default contact email — it applies equally to an applicant who signed up with
 // email/password and one who came through LinkedIn.
 // The backend's validation messages name raw fields ("peerReferences.0.email must be an email") —
-// never shown to an applicant. Each step validates its own fields before Next, so these only
-// surface for something left unfinished on another step.
+// never shown as-is; validationFieldsMessage turns them into readable field names, and these are
+// the fallback when it can't. Each step validates its own fields before Next, so they only surface
+// for something left unfinished on another step.
 const SAVE_ERROR_COPY = {
   VALIDATION_FAILED: 'Some details look incomplete or invalid. Please check each step and try again.',
   APPLICATION_INCOMPLETE: 'A few required details are still missing. Please check each step, then submit again.',
@@ -35,7 +37,6 @@ const SAVE_ERROR_COPY = {
 function initialForm(
   application: ApplicationDto | null,
   accountEmail: string,
-  linkCoupon: string | null,
   referencesRequired: boolean
 ): WizardFormState {
   const form: WizardFormState = {
@@ -44,11 +45,13 @@ function initialForm(
     importedFields: new Set<string>(),
   };
   if (!form.contactEmail && accountEmail) form.contactEmail = accountEmail;
-  // A code the applicant already typed wins; otherwise the one their invite link carried.
-  if (!form.couponCode && linkCoupon) form.couponCode = linkCoupon;
-  // Pre-launch, a brand-new application starts with the founder as Reference 1 (optional, editable).
-  // Only for a new one — a resumed draft keeps whatever the applicant saved, including clearing it.
-  if (!application && !referencesRequired) {
+  // Pre-launch, Reference 1 starts as the founder (optional, editable) until the applicant has
+  // been past the references (step 3). Not only for a brand-new application: connecting LinkedIn on
+  // step 1 (and the photo import on mount) creates the draft and reloads /apply, so nearly every
+  // applicant arrives at step 3 with a draft that has no references yet. Once they've moved on
+  // from step 3, whatever they saved there — including clearing it — is kept.
+  const beforeReferences = !application || (application.peerReferences.length === 0 && application.currentStep < 4);
+  if (!referencesRequired && beforeReferences) {
     form.peerReferences = [{ ...FOUNDING_DEFAULT_REFERENCE }, form.peerReferences[1]];
   }
   return form;
@@ -62,15 +65,15 @@ export function ApplicationWizard({
   initialApplication,
   accountEmail,
   categories,
-  linkCoupon = null,
+  suggestedCoupon = null,
   referencesRequired = true,
   previewMode = false,
 }: {
   initialApplication: ApplicationDto | null;
   accountEmail: string;
   categories: CategoryDto[];
-  /** From a `?coupon=` link, remembered across sign-up — pre-filled and auto-applied at review. */
-  linkCoupon?: string | null;
+  /** A code to offer at review (an invite link's, or the founding one) — offered, never auto-applied. */
+  suggestedCoupon?: string | null;
   /** False during the founding-cohort pre-launch (SITE_LAUNCHED=false): references are optional. */
   referencesRequired?: boolean;
   /** Local design preview only; disables all persistence and external imports. */
@@ -79,7 +82,7 @@ export function ApplicationWizard({
   const router = useRouter();
   const [step, setStep] = useState(initialApplication?.currentStep || 1);
   const [form, setForm] = useState<WizardFormState>(() =>
-    initialForm(initialApplication, accountEmail, linkCoupon, referencesRequired)
+    initialForm(initialApplication, accountEmail, referencesRequired)
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -107,10 +110,17 @@ export function ApplicationWizard({
         if (cancelled) return;
         // Tagged as imported so the LinkedIn profile import can later swap this low-res OAuth
         // picture for the scrape's full-size photo — a manual upload clears the tag.
+        // Only the photo is taken from the response. Merging the whole draft (as this used to) wiped
+        // what initialForm had pre-filled for a brand-new applicant, since that draft is still
+        // empty: the account email in Contact email, and the founder as Reference 1.
         setForm((prev) =>
-          prev.photoUrl
+          prev.photoUrl || !withPhoto.photoUrl
             ? prev
-            : { ...prev, ...fromDto(withPhoto), importedFields: new Set(prev.importedFields).add('photoUrl') }
+            : {
+                ...prev,
+                photoUrl: withPhoto.photoUrl,
+                importedFields: new Set(prev.importedFields).add('photoUrl'),
+              }
         );
       } catch {
         // Best-effort convenience only: the photo field stays empty and the applicant uploads one
@@ -155,7 +165,9 @@ export function ApplicationWizard({
       setStep(targetStep);
       scrollTop();
     } catch (err) {
-      setSaveError(apiErrorMessage(err, 'Failed to save — please try again.', SAVE_ERROR_COPY));
+      setSaveError(
+        validationFieldsMessage(err) ?? apiErrorMessage(err, 'Failed to save — please try again.', SAVE_ERROR_COPY)
+      );
     } finally {
       setSaving(false);
     }
@@ -166,7 +178,9 @@ export function ApplicationWizard({
     scrollTop();
   }
 
-  async function handleSubmit() {
+  // `couponCode` is what the review step actually applied ('' for none) — sent explicitly, since
+  // toUpdateRequest drops an empty code and the draft may still hold an older, unapplied one.
+  async function handleSubmit({ couponCode }: { couponCode: string }) {
     if (previewMode) {
       setSaveError('Design preview only — no application is submitted.');
       return;
@@ -174,7 +188,7 @@ export function ApplicationWizard({
     setSaving(true);
     setSaveError(null);
     try {
-      await saveApplication(toUpdateRequest(form, { status: 'submitted' }));
+      await saveApplication({ ...toUpdateRequest(form, { status: 'submitted' }), couponCode });
       router.push('/apply/submitted');
       router.refresh();
     } catch (err) {
@@ -182,7 +196,8 @@ export function ApplicationWizard({
         setSaveError('You already have an application in progress.');
       } else {
         setSaveError(
-          apiErrorMessage(err, 'Something went wrong submitting your application. Please try again.', SAVE_ERROR_COPY)
+          validationFieldsMessage(err) ??
+            apiErrorMessage(err, 'Something went wrong submitting your application. Please try again.', SAVE_ERROR_COPY)
         );
       }
       setSaving(false);
@@ -309,6 +324,7 @@ export function ApplicationWizard({
                   saveError={saveError}
                   onBack={() => goBack(4)}
                   onEditStep={goBack}
+                  suggestedCoupon={suggestedCoupon}
                   onSubmit={handleSubmit}
                 />
               )}

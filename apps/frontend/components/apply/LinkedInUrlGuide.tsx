@@ -18,7 +18,7 @@ const TEXT_STEPS: Record<GuideDevice, string[]> = {
   ],
   mobile: [
     'In the LinkedIn app, tap your photo → View profile.',
-    'Tap ⋯ → Share via… → Copy.',
+    'Tap → Share via → Copy.',
     'Paste it into the field below.',
   ],
 };

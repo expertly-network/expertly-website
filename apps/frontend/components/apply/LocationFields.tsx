@@ -59,6 +59,7 @@ export function LocationFields({
       <Select
         id="country"
         label="Country"
+        markRequired
         value={form.country}
         disabled={loading}
         onChange={(e) => {

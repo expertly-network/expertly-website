@@ -5,7 +5,7 @@ import { getCategoriesServer, getMyApplicationServer } from '@/lib/api/server';
 import { ApplicationWizard } from '@/components/apply/ApplicationWizard';
 import { homePathFor } from '@/lib/auth/roles';
 import { isSiteLaunched } from '@/lib/env';
-import { COUPON_COOKIE, cleanCouponCode } from '@/lib/launch';
+import { COUPON_COOKIE, FOUNDING_COUPON_CODE, cleanCouponCode } from '@/lib/launch';
 
 export default async function ApplyPage() {
   const profile = await getSessionUser();
@@ -32,8 +32,10 @@ export default async function ApplyPage() {
     redirect('/apply/submitted');
   }
   const draft = existing?.status === 'draft' ? existing : null;
-  // Set by middleware from a `?coupon=` link (the founding teaser's CTA).
+  // Offered (never auto-applied) at review: the code a `?coupon=` link carried (set by middleware),
+  // else, pre-launch, the founding cohort's own.
   const linkCoupon = cleanCouponCode((await cookies()).get(COUPON_COOKIE)?.value);
+  const suggestedCoupon = linkCoupon ?? (isSiteLaunched() ? null : FOUNDING_COUPON_CODE);
 
   return (
     <main className="relative min-h-screen">
@@ -41,7 +43,7 @@ export default async function ApplyPage() {
         initialApplication={draft}
         accountEmail={profile.email}
         categories={categories}
-        linkCoupon={linkCoupon}
+        suggestedCoupon={suggestedCoupon}
         referencesRequired={isSiteLaunched()}
       />
     </main>

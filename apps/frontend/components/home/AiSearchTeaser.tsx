@@ -1,14 +1,16 @@
 'use client';
 
-import { useRef } from 'react';
+import { useState } from 'react';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { SearchBox } from '@/components/search/SearchBox';
+import { SearchModal } from '@/components/home/SearchModal';
 
 // The panel's top row is a real search input: type, press Enter, and the AI search modal opens
-// with the results (POST /v1/search). "Try GrowXQ" just moves the cursor into that input.
+// with the results (POST /v1/search). "Try GrowXQ" opens that same modal directly, empty and ready
+// to type in, just like the floating island bar at the bottom of the page does.
 export function AiSearchTeaser() {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <section className="border-b border-line bg-bg-alt py-24">
@@ -49,14 +51,13 @@ export function AiSearchTeaser() {
               </span>
             </li>
           </ul>
-          <Button type="button" onClick={() => inputRef.current?.focus()} className="mt-8">
+          <Button type="button" onClick={() => setSearchOpen(true)} className="mt-8">
             Try GrowXQ →
           </Button>
         </div>
 
         <Card padding="md" className="!p-0 transition-shadow focus-within:shadow-[0_8px_28px_rgba(0,0,0,0.08)]">
           <SearchBox
-            inputRef={inputRef}
             placeholder="M&A tax advisor in Singapore under $500/hr"
             buttonLabel="Search"
             leading={
@@ -75,6 +76,7 @@ export function AiSearchTeaser() {
           </div>
         </Card>
       </PageContainer>
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </section>
   );
 }

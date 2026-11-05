@@ -169,7 +169,7 @@ async function CategoriesSection() {
 async function LatestArticlesSection() {
   let articles: ArticleListItemDto[];
   try {
-    articles = (await getArticlesServer({ pageSize: 5 })).items;
+    articles = (await getArticlesServer({ pageSize: 6 })).items;
   } catch {
     return null;
   }
@@ -309,8 +309,8 @@ export default async function HomePage() {
           </div>
           <p className="mt-12 text-sm text-ink-3">
             Still curious? Email us at{' '}
-            <a href="mailto:contact@growxq.com" className="text-accent underline">
-              contact@growxq.com
+            <a href="mailto:ask@growxq.com" className="text-accent underline">
+              ask@growxq.com
             </a>
             . We reply within one business day.
           </p>

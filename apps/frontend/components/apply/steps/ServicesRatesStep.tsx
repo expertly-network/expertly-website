@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { RATE_FLOOR, RATE_CEILING } from '@shared/consultation-rates';
 import { rateErrors } from '@/lib/apply/rate-errors';
 import { Input } from '@/components/ui/Input';
 import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
@@ -119,6 +118,7 @@ export function ServicesRatesStep({
           {preferenceFor(1) && isCustomService(preferenceFor(1)) && (
             <Input
               label="Describe this custom service"
+              markRequired
               value={customLabelFor(1)}
               onChange={(e) => setCustomLabel(1, e.target.value)}
             />
@@ -142,6 +142,7 @@ export function ServicesRatesStep({
           {preferenceFor(2) && isCustomService(preferenceFor(2)) && (
             <Input
               label="Describe this custom service (2nd preference)"
+              markRequired
               value={customLabelFor(2)}
               onChange={(e) => setCustomLabel(2, e.target.value)}
             />
@@ -149,6 +150,7 @@ export function ServicesRatesStep({
           {preferenceFor(3) && isCustomService(preferenceFor(3)) && (
             <Input
               label="Describe this custom service (3rd preference)"
+              markRequired
               value={customLabelFor(3)}
               onChange={(e) => setCustomLabel(3, e.target.value)}
             />
@@ -158,12 +160,8 @@ export function ServicesRatesStep({
 
       <div className="mt-8 border-t border-line pt-6">
         <span className="text-mono-label text-ink-3">CONSULTATION RATES</span>
-        <p className="mt-1.5 text-sm text-ink-3">Your typical hourly fee range in USD. You can adjust this anytime.</p>
+        <p className="mt-1.5 text-sm text-ink-3">Your typical hourly fee in USD. You can adjust this anytime.</p>
       </div>
-
-      <p className="mt-3 text-xs text-ink-3">
-        Enter $20–$500/hour. Your maximum must be greater than your minimum, with a gap of no more than $250.
-      </p>
       <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
         {(['min', 'max'] as const).map((bound) => {
           const field = bound === 'min' ? 'rateMinDollars' : 'rateMaxDollars';
@@ -172,14 +170,15 @@ export function ServicesRatesStep({
               key={field}
               id={field}
               label={bound === 'min' ? 'Min (USD / hour)' : 'Max (USD / hour)'}
-              type="number"
-              min={RATE_FLOOR}
-              max={RATE_CEILING}
-              step="0.01"
+              markRequired
+              // A plain text field, not type="number" — no spinner arrows, and digits only, so a
+              // decimal point or "e" can't be typed at all.
+              type="text"
+              inputMode="numeric"
               placeholder={bound === 'min' ? 'e.g. 50' : 'e.g. 100'}
               value={form[field]}
               onChange={(event) => {
-                update({ [field]: event.target.value });
+                update({ [field]: event.target.value.replace(/\D/g, '') });
                 setErrors((prev) => ({ ...prev, rateMinDollars: '', rateMaxDollars: '' }));
               }}
               error={errors[field]}
