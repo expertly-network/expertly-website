@@ -406,6 +406,6 @@ moved by hand. Until it is, the live facts elsewhere in this file (Coolify app n
    production: OAuth callbacks redirect only to these origins (and Open Graph link previews use the first).
 7. LinkedIn: the footer still links to `linkedin.com/company/expertly-network` until a GrowXQ
    company page exists; the LinkedIn OAuth app's name/logo is set in the LinkedIn developer portal.
-8. Mailbox: the site now shows `contact@growxq.com` (contact, event suggestions, suspended-account
+8. Mailbox: the site now shows `ask@growxq.com` (contact, event suggestions, suspended-account
    message) — make sure it receives mail.
 

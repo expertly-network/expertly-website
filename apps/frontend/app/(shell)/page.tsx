@@ -31,7 +31,7 @@ import type { ArticleListItemDto } from '@shared/article';
 export const metadata = {
   title: 'GrowXQ — Vetted finance & legal experts, on demand',
   description:
-    'A specialist network of verified senior finance and legal practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
+    'A trusted platform for verified senior finance and legal practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
 };
 
 const FAQ_MEMBERSHIP = [
@@ -41,7 +41,7 @@ const FAQ_MEMBERSHIP = [
   },
   {
     q: 'What types of professionals are on GrowXQ?',
-    a: 'Our network spans professionals across all finance and legal domains - including tax and transfer pricing advisors, M&A and transaction advisors, investment bankers, private equity and venture capital advisors, insolvency and restructuring professionals, corporate and commercial lawyers, dispute resolution and arbitration counsel, banking and finance lawyers, capital markets and securities lawyers, intellectual property and technology lawyers, company secretaries, compliance and governance professionals, forensic accountants, valuation experts, and cost accountants.',
+    a: 'Our network spans professionals across all finance, tax and legal domains - including tax and transfer pricing advisors, M&A and transaction advisors, investment bankers, private equity and venture capital advisors, insolvency and restructuring professionals, corporate and commercial lawyers, dispute resolution and arbitration counsel, banking and finance lawyers, capital markets and securities lawyers, intellectual property and technology lawyers, company secretaries, compliance and governance professionals, forensic accountants, valuation experts, and cost accountants.',
   },
   {
     q: 'How are members onboarded?',
@@ -53,7 +53,7 @@ const FAQ_MEMBERSHIP = [
   },
   {
     q: 'What does membership cost?',
-    a: 'Membership is a flat $499/year, with zero commission on any work you win. Occasionally, we offer promotional discount codes for new members - keep an eye on our website and social media channels for such offers.',
+    a: 'Membership is a flat $699/year, with zero commission on any work you win. Occasionally, we offer promotional discount codes for new members - keep an eye on our website and social media channels for such offers.',
   },
   {
     q: 'Can I publish articles on GrowXQ?',
@@ -148,7 +148,7 @@ async function CategoriesSection() {
         <div>
           <Eyebrow>Coverage</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">
-            <span className="text-accent">Specialists</span> across every corner of finance &amp; law.
+            <span className="text-accent">Specialists</span> across every corner of finance, tax &amp; law.
           </h2>
           <p className="mt-5 text-lede text-ink-3">
             From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find a verified expert for the
@@ -240,11 +240,11 @@ export default async function HomePage() {
             <div className="order-1 lg:order-2">
               <Eyebrow>Our network</Eyebrow>
               <h2 className="font-brand mt-4 text-section-title text-ink">
-                A specialist network of <span className="text-accent">verified</span> practitioners.
+                A trusted platform for <span className="text-accent">verified</span> practitioners.
               </h2>
               <p className="mt-5 text-lede text-ink-3">
-                Every member is credential-verified and peer-reviewed before they join. No junior associates, no
-                middlemen, just serious practitioners you can reach directly across every jurisdiction and practice
+                Every member is reasonably credential-verified and peer-reviewed before they join. No junior associates,
+                no middlemen, just serious practitioners you can reach directly across every jurisdiction and practice
                 areas.
               </p>
               <Button href="/members" className="mt-7">
@@ -267,7 +267,8 @@ export default async function HomePage() {
           <PageContainer>
             <Eyebrow dark>Where Our Members Practice</Eyebrow>
             <h2 className="font-brand mt-3.5 max-w-[760px] text-section-title text-bg-card">
-              Senior Professionals from firms that <span className="text-accent">set the standard.</span>
+              Senior Professionals from firms that
+              <span className="block text-accent">set the standard.</span>
             </h2>
             <p className="mt-4 max-w-xl text-lede text-white/60">
               From the Big Consulting firms to elite independent firms, our members are partners, founders, and senior

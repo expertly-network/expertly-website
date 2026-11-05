@@ -394,7 +394,7 @@ As a client or member, I want to suggest an event for the community calendar.
       registration URL too — enforced server-side (`400` naming every missing field) and mirrored
       client-side as inline per-field errors, not just a generic banner. See `docs/rest-api.md`'s
       "Publish requirements" subsection.
-- Not built: `/events`'s "Suggest an event" card is a `mailto:contact@growxq.com` link, not
+- Not built: `/events`'s "Suggest an event" card is a `mailto:ask@growxq.com` link, not
   a form — there's nowhere to submit a suggestion to yet. The public submission → pending-queue
   half of this story remains deferred.
 

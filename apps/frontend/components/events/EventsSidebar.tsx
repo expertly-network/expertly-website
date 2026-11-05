@@ -66,7 +66,7 @@ function SuggestEventCard({ dark }: { dark: boolean }) {
         Running or attending something relevant? Send us the details and our team will review it for the calendar.
       </p>
       <Button
-        href="mailto:contact@growxq.com?subject=Event%20suggestion"
+        href="mailto:ask@growxq.com?subject=Event%20suggestion"
         variant={dark ? 'secondary-dark' : 'secondary'}
         className="mt-4"
         fullWidth

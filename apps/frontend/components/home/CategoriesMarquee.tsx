@@ -4,10 +4,7 @@ import { MARQUEE_TILE_HEIGHT, Marquee } from '@/components/home/Marquee';
 import type { CategoryDto } from '@shared/category';
 import { mustHotlink } from '@/lib/images';
 
-// Member count per category isn't in the contract yet — flagged, not faked. Same tile size as
-// FeaturedMembers (280px × MARQUEE_TILE_HEIGHT); falls back to a
-// neutral dot when a category has no image (the old 3-value enum's color coding no longer
-// applies now that categories are real rows, not a fixed taxonomy).
+// Keep the scrolling coverage panel while allowing long practice-area names to wrap.
 export function CategoriesMarquee({ categories }: { categories: CategoryDto[] }) {
   if (categories.length === 0) return null;
 
@@ -15,12 +12,12 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
     <Marquee
       items={categories}
       rows={4}
-      speeds={[44, 52, 48, 56]}
+      fill={{ minPerRow: 6, secondsPerItem: 8 }}
       itemKey={(c) => c.id}
       renderItem={(c) => (
         <Link
           href={`/members?categoryId=${c.id}`}
-          className={`flex w-[280px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
+          className={`flex w-[340px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
         >
           {c.imageUrl ? (
             <Image
@@ -35,7 +32,7 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
             <span aria-hidden="true" className="h-2.5 w-2.5 flex-none rounded-full bg-accent" />
           )}
           <div className="min-w-0">
-            <div className="truncate text-[13.5px] font-medium text-ink">{c.name}</div>
+            <div className="text-[13.5px] leading-snug [overflow-wrap:anywhere] font-medium text-ink">{c.name}</div>
             <div className="font-mono text-[11px] text-ink-3">
               {c.services.length} service{c.services.length === 1 ? '' : 's'}
             </div>

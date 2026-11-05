@@ -9,11 +9,11 @@ export function FirmsBand({ members }: { members: MemberListItemDto[] }) {
   return (
     <Marquee
       items={firms}
-      rows={2}
-      speeds={[42, 50]}
+      rows={Math.min(2, firms.length)}
+      fill={{ minPerRow: 8, secondsPerItem: 6 }}
       itemKey={(f) => f}
       renderItem={(f) => (
-        <span className="flex h-14 w-[200px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 text-[15px] font-semibold tracking-tight text-white/70">
+        <span className="flex min-h-20 w-[240px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-[15px] leading-relaxed [overflow-wrap:anywhere] font-semibold tracking-tight text-white/70">
           {f}
         </span>
       )}

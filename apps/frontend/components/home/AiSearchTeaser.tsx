@@ -1,16 +1,46 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { SearchBox } from '@/components/search/SearchBox';
 import { SearchModal } from '@/components/home/SearchModal';
+import { DEMO_SCENARIOS, SearchDemoBody, useSearchDemo } from '@/components/home/SearchDemo';
 
 // The panel's top row is a real search input: type, press Enter, and the AI search modal opens
 // with the results (POST /v1/search). "Try GrowXQ" opens that same modal directly, empty and ready
 // to type in, just like the floating island bar at the bottom of the page does.
+// While idle, the panel plays a sample search (SearchDemo). It pauses as soon as the visitor
+// focuses or types in the input, and while the panel is off-screen.
 export function AiSearchTeaser() {
   const [searchOpen, setSearchOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [focused, setFocused] = useState(false);
+  const [hasText, setHasText] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(mq.matches);
+    const onChange = () => setReducedMotion(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const engaged = focused || hasText;
+  const { index, scenario, typed, stage } = useSearchDemo(engaged || !inView, reducedMotion);
+  const placeholder = engaged
+    ? DEMO_SCENARIOS[0].query
+    : scenario.query.slice(0, typed) + (stage === 'typing' && !reducedMotion ? '|' : '');
 
   return (
     <section className="border-b border-line bg-bg-alt py-24">
@@ -56,25 +86,42 @@ export function AiSearchTeaser() {
           </Button>
         </div>
 
-        <Card padding="md" className="!p-0 transition-shadow focus-within:shadow-[0_8px_28px_rgba(0,0,0,0.08)]">
-          <SearchBox
-            placeholder="M&A tax advisor in Singapore under $500/hr"
-            buttonLabel="Search"
-            leading={
-              <span aria-hidden="true" className="flex-none text-accent">
-                ⌕
+        <div
+          ref={panelRef}
+          className="min-w-0"
+          onFocusCapture={() => setFocused(true)}
+          onBlurCapture={() => setFocused(false)}
+        >
+          <Card padding="md" className="!p-0 transition-shadow focus-within:shadow-[0_8px_28px_rgba(0,0,0,0.08)]">
+            <SearchBox
+              placeholder={placeholder}
+              demo={!engaged}
+              onTextChange={(t) => setHasText(t.trim().length > 0)}
+              buttonLabel="Search"
+              leading={
+                <span aria-hidden="true" className="flex-none text-accent">
+                  ⌕
+                </span>
+              }
+              className="border-b border-line py-3 pl-5 pr-3"
+            />
+            <div className="relative h-[440px] sm:h-[400px]">
+              {engaged ? (
+                <div className="flex h-full items-center justify-center px-5 text-center text-xs text-ink-3">
+                  Type a question and press Enter. Results open with an answer in a few seconds.
+                </div>
+              ) : (
+                <SearchDemoBody index={index} scenario={scenario} stage={stage} />
+              )}
+            </div>
+            <div className="flex items-center justify-end border-t border-line px-5 py-3 text-[11px] text-ink-3 sm:justify-between">
+              <span className="hidden sm:inline">
+                {engaged ? '↵ search · esc close' : 'Example search · type your own above'}
               </span>
-            }
-            className="border-b border-line py-3 pl-5 pr-3"
-          />
-          <div className="flex h-[220px] items-center justify-center px-5 text-center text-xs text-ink-3">
-            Type a question and press Enter. Results open with an answer in a few seconds.
-          </div>
-          <div className="flex items-center justify-end border-t border-line px-5 py-3 text-[11px] text-ink-3 sm:justify-between">
-            <span className="hidden sm:inline">↵ search · esc close</span>
-            <span>Powered by GrowXQ</span>
-          </div>
-        </Card>
+              <span>Powered by GrowXQ</span>
+            </div>
+          </Card>
+        </div>
       </PageContainer>
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </section>

@@ -192,6 +192,31 @@ html.in-hero .hero-logo-handoff {
   animation: art-ai-pulse 2s infinite;
 }
 
+/* Home search panel demo (components/home/SearchDemo.tsx → SearchResults preview): result blocks
+   fade up one after another (each sets its own animation-delay); the body fades out at the bottom
+   when a response is taller than the panel. */
+@keyframes sd-row {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.sd-row {
+  animation: sd-row 0.35s ease-out both;
+}
+.sd-fade-bottom {
+  mask-image: linear-gradient(to bottom, black 85%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd-row {
+    animation: none;
+  }
+}
+
 /* Infinite horizontal marquee, used by the Featured Members / Practice Areas / Firms sections. */
 /* Membership page mock panels (components/membership/BenefitMocks.tsx): rows cascade in, hold,
    then fade before the loop restarts; mb-type types out the search line. Each row sets its own

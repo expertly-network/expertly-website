@@ -3,7 +3,7 @@ import { LogoImage } from '@/components/Logo';
 import { MEMBERSHIP_POLICY_URL } from '@/lib/legal';
 import { PRIVACY_POLICY_URL, USER_AGREEMENT_URL } from '@/lib/consent';
 
-const CONTACT_EMAIL = 'contact@growxq.com';
+const CONTACT_EMAIL = 'ask@growxq.com';
 
 type FooterLink = { label: string; href: string; external?: boolean };
 

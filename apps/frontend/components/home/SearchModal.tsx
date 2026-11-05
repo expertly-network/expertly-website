@@ -7,74 +7,14 @@ import { ApiError } from '@/lib/api/client';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { searchDirectory, sendSearchFeedback } from '@/lib/api/search';
 import { createClient } from '@/lib/supabase/client';
-import type {
-  ArticleSearchResult,
-  EventSearchResult,
-  MemberSearchResult,
-  SearchMatchDto,
-  SearchResponse,
-  SearchResult,
-  SearchScope,
-} from '@shared/search';
-import { formatDate } from '@/lib/dates';
+import type { SearchResponse, SearchScope } from '@shared/search';
+import { SearchResults } from '@/components/search/SearchResults';
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 500;
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 type Feedback = 'none' | 'sending' | 'sent' | 'failed';
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
-function formatEventDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : formatDate(d, { utc: true });
-}
-
-const MATCH_LABEL: Record<'strong' | 'good' | 'possible', string> = {
-  strong: 'Strong match',
-  good: 'Good match',
-  possible: 'Possible match',
-};
-
-// Shows how strong the AI judged a result (not a probability). Absent when no topic was searched.
-function MatchBadge({ match }: { match?: SearchMatchDto }) {
-  if (!match) return null;
-  const tone =
-    match.label === 'strong'
-      ? 'border-ink text-ink'
-      : match.label === 'good'
-        ? 'border-line-2 text-ink-2'
-        : 'border-line text-ink-3';
-  return (
-    <span className={`ml-2 flex-none whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] ${tone}`}>
-      {MATCH_LABEL[match.label]}
-    </span>
-  );
-}
-
-// The AI judge's one-line reason this result fits the question (absent for filter-only questions).
-function Reason({ text }: { text?: string }) {
-  if (!text) return null;
-  return <span className="mt-0.5 block text-xs leading-snug text-ink-2 line-clamp-2">{text}</span>;
-}
-
-function SectionLabel({ children }: { children: string }) {
-  return <div className="px-2.5 py-1.5 font-mono text-[10px] text-ink-4">{children}</div>;
-}
-
-const ROW = 'flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm text-ink hover:bg-bg-alt';
-
-// Results open in a new tab so the answer and the other results stay on screen — closing the modal
-// (or navigating away in this tab) after one click made the rest of the results unreachable.
-const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
 const PLACEHOLDER: Record<SearchScope, string> = {
   all: 'Ask anything — e.g. transfer pricing experts in Singapore',
@@ -228,83 +168,6 @@ export function SearchModal({
 
   if (!open) return null;
 
-  // Results come back best-first. 'best' = strong/good; 'related' = "you might also need". When no
-  // topic was searched there is no match info and everything is shown as one group.
-  const all: SearchResult[] = response?.results ?? [];
-  const best = all.filter((r) => r.match?.tier !== 'related');
-  const related = all.filter((r) => r.match?.tier === 'related');
-  const renderGroup = (list: SearchResult[]) => {
-    const ms = list.filter((r): r is MemberSearchResult => r.type === 'member');
-    const arts = list.filter((r): r is ArticleSearchResult => r.type === 'article');
-    const es = list.filter((r): r is EventSearchResult => r.type === 'event');
-    return (
-      <>
-        {ms.length > 0 && (
-          <div className="mb-2">
-            <SectionLabel>MEMBERS</SectionLabel>
-            {ms.map((m) => (
-              <Link key={m.id} href={`/members/${m.slug}`} className={ROW} {...NEW_TAB}>
-                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-neon text-xs font-semibold text-ink-2">
-                  {initialsOf(m.name)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center">
-                    <span className="block min-w-0 truncate font-medium">{m.name}</span>
-                    <MatchBadge match={m.match} />
-                  </span>
-                  {(m.headline || m.location) && (
-                    <span className="block truncate text-xs text-ink-3">
-                      {[m.headline, m.location].filter(Boolean).join(' · ')}
-                    </span>
-                  )}
-                  <Reason text={m.reason} />
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {arts.length > 0 && (
-          <div className="mb-2">
-            <SectionLabel>ARTICLES</SectionLabel>
-            {arts.map((a) => (
-              <Link key={a.id} href={`/articles/${a.slug}`} className={ROW} {...NEW_TAB}>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center">
-                    <span className="block min-w-0 truncate font-medium">{a.title}</span>
-                    <MatchBadge match={a.match} />
-                  </span>
-                  {a.excerpt && <span className="block truncate text-xs text-ink-3">{a.excerpt}</span>}
-                  <Reason text={a.reason} />
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {es.length > 0 && (
-          <div className="mb-2">
-            <SectionLabel>EVENTS</SectionLabel>
-            {es.map((ev) => (
-              <Link key={ev.id} href="/events" className={ROW} {...NEW_TAB}>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center">
-                    <span className="block min-w-0 truncate font-medium">{ev.title}</span>
-                    <MatchBadge match={ev.match} />
-                  </span>
-                  <span className="block truncate text-xs text-ink-3">
-                    {[formatEventDate(ev.startsAt), ev.location].filter(Boolean).join(' · ')}
-                  </span>
-                  <Reason text={ev.reason} />
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </>
-    );
-  };
-
   return (
     <div
       className="fixed inset-0 z-[300] flex items-start justify-center bg-ink/55 px-4 pb-5 pt-[8vh] sm:px-5 sm:pt-[10vh]"
@@ -396,23 +259,7 @@ export function SearchModal({
 
           {status === 'done' && response && (
             <>
-              <div className="px-2.5 pb-2 pt-2 text-sm leading-relaxed text-ink-2">{response.answer}</div>
-              {response.degraded.length > 0 && (
-                <div className="px-2.5 pb-2 text-xs text-ink-3">Results may be less precise than usual right now.</div>
-              )}
-              {response.results.length === 0 && (
-                <div className="px-2.5 pb-4 pt-2 text-sm text-ink-3">
-                  Nothing matched &ldquo;{trimmed}&rdquo;. Try different wording or fewer filters.
-                </div>
-              )}
-
-              {best.length > 0 && renderGroup(best)}
-              {related.length > 0 && (
-                <div className="mt-1 border-t border-line pt-1">
-                  <SectionLabel>YOU MIGHT ALSO NEED</SectionLabel>
-                  {renderGroup(related)}
-                </div>
-              )}
+              <SearchResults response={response} query={trimmed} />
 
               {response.logId && (
                 <div className="flex flex-wrap items-center gap-2 border-t border-line px-2.5 pb-1 pt-3 text-xs text-ink-3">

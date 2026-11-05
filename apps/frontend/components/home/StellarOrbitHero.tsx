@@ -6,7 +6,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui';
 
 // The homepage's animated hero section, with orbiting member-photo dots around a stat counter.
-const PART1 = "The Right Finance & Legal Expert\nIsn't Out of Reach,";
+const PART1 = "The Right Finance, Tax & Legal Expert\nIsn't Out of Reach,";
 const PART2 = "They're Already in Our Network.";
 
 type Ring = {
@@ -167,7 +167,7 @@ export function StellarOrbitHero({
               className="mx-auto mt-6 max-w-[460px] text-lede text-white/50 lg:mx-0"
               style={{ animation: 'hs-fade-in 0.7s ease 1.9s both' }}
             >
-              A specialist network of verified senior practitioners. Skip the referral chains and junior associates.
+              A trusted platform for verified senior practitioners. Skip the referral chains and junior associates.
               Search, verify credentials, and meet the right expert directly.
             </p>
 

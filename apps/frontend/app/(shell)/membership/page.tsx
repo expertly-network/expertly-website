@@ -291,7 +291,7 @@ export default async function MembershipPage() {
             </ul>
             <div className="flex items-center justify-between gap-4 bg-ink px-6 py-5">
               <div>
-                <div className="text-title font-semibold text-bg">From $499/year</div>
+                <div className="text-title font-semibold text-bg">From $699/year</div>
                 <div className="mt-0.5 text-caption text-white/50">No commission ever</div>
               </div>
               {showApply && (
@@ -389,7 +389,7 @@ export default async function MembershipPage() {
             </span>
             <div className="text-mono-label text-white/50">GrowXQ Membership · All Professionals</div>
             <div className="mt-4 flex items-baseline gap-1.5">
-              <span className="text-[44px] font-semibold leading-none tracking-[-0.03em] text-bg-card">$499</span>
+              <span className="text-[44px] font-semibold leading-none tracking-[-0.03em] text-bg-card">$699</span>
               <span className="text-sm text-white/50">/year</span>
             </div>
             <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 border-y border-white/10 py-5 text-sm text-white/75">

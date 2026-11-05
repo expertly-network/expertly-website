@@ -259,7 +259,7 @@ wizard step to resume on, pure UX convenience, not validated).
   `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
   from the client** — computed server-side exactly as before:
   - `selectedTier`: `yearsOfExperience > 12 → seasoned_professional`, else `budding_entrepreneur`.
-  - `listPriceCents`: flat `$499/year` or `$49/month` regardless of tier.
+  - `listPriceCents`: flat `$699/year` regardless of tier.
   - `couponCode` (optional, free text) checked against a small hardcoded map — an unrecognized
     code is rejected with `400` at submit time, not silently ignored.
   - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`.

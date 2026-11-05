@@ -11,7 +11,10 @@ const STEPS = [
     'Approve',
     'If the details in your application are in order and every check comes back clear, your membership is approved.',
   ],
-  ['Go live', 'Your verified profile joins the directory, with your tier shown beside your name.'],
+  [
+    'Go live',
+    'Your approved profile becomes visible in the member directory, where clients and peers can find you and see your experience tier: Budding or Seasoned Professional.',
+  ],
 ] as const;
 
 export function MembershipTiers() {

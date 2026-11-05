@@ -77,7 +77,7 @@ export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) 
               Send us their details and our team will reach out to them about membership.
             </p>
             <Button
-              href="mailto:contact@growxq.com?subject=Member%20referral"
+              href="mailto:ask@growxq.com?subject=Member%20referral"
               variant="secondary-dark"
               className="mt-4"
               fullWidth

@@ -16,6 +16,8 @@ export function SearchBox({
   buttonLabel = 'Find →',
   leading,
   inputRef,
+  demo = false,
+  onTextChange,
   className = '',
 }: {
   scope?: SearchScope;
@@ -25,6 +27,10 @@ export function SearchBox({
   leading?: ReactNode;
   /** Lets a parent focus the input (e.g. a "Try GrowXQ" button). */
   inputRef?: Ref<HTMLInputElement>;
+  /** A sample search is playing in the placeholder: show it as typed text with a live-looking button. */
+  demo?: boolean;
+  /** Notified of every edit, e.g. so a parent can tell whether the visitor has typed anything. */
+  onTextChange?: (text: string) => void;
   className?: string;
 }) {
   const [text, setText] = useState('');
@@ -48,15 +54,22 @@ export function SearchBox({
         <input
           ref={inputRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            onTextChange?.(e.target.value);
+          }}
           type="search"
           enterKeyHint="search"
           maxLength={MAX_QUERY_LENGTH}
           placeholder={placeholder}
           aria-label="Search GrowXQ"
-          className={HERO_SEARCH_INPUT_CLASS}
+          className={`${HERO_SEARCH_INPUT_CLASS} ${demo ? 'placeholder:text-ink' : ''}`}
         />
-        <button type="submit" disabled={!canSubmit} className={HERO_SEARCH_BUTTON_CLASS}>
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className={`${HERO_SEARCH_BUTTON_CLASS} ${demo ? 'disabled:cursor-default disabled:opacity-100' : ''}`}
+        >
           {buttonLabel}
         </button>
       </form>
