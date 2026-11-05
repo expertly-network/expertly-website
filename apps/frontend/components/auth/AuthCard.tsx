@@ -9,7 +9,7 @@ import { MemberBenefitsPanel } from '@/components/auth/MemberBenefitsPanel';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { Card } from '@/components/ui/Card';
 import { signInWithLinkedIn } from '@/lib/auth/linkedin';
-import { TERMS_OF_SERVICE_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
+import { USER_AGREEMENT_URL, PRIVACY_POLICY_URL } from '@/lib/consent';
 
 type AuthView = 'signin' | 'signup';
 
@@ -119,12 +119,12 @@ export function AuthCard({ initialMode, returnTo }: { initialMode: AuthMode; ret
           <p className="mt-5 text-center text-[13px] text-ink-3">
             By continuing, you agree to GrowXQ&apos;s{' '}
             <a
-              href={TERMS_OF_SERVICE_URL}
+              href={USER_AGREEMENT_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-ink-2"
             >
-              Terms of Service
+              User Agreement
             </a>{' '}
             and{' '}
             <a

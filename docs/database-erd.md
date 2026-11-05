@@ -109,9 +109,8 @@ immutable snapshot again, same as the original design. Approving an application
 | `discount_amount_cents` | int, default 0, check `>= 0` | |
 | `amount_due_cents` | int, nullable, check `>= 0` | stamped at the submit transition |
 | `payment_status` | enum `pending`\|`waived`\|`paid`, nullable | stamped at the submit transition; only `waived` is reachable without a real payment gateway |
-| `linkedin_import_consent` | bool, default `false` | |
-| `terms_version_agreed`, `privacy_version_agreed` | text, nullable | e.g. `"1.0"`; required at submit |
-| `background_check_consent` | bool, nullable | must be `true` at submit |
+| `linkedin_import_consent` | text, nullable | the active consent_policies version_id when ticked (optional, not required at submit) — see "Consent Policies" below |
+| `terms_version_agreed`, `privacy_version_agreed`, `background_check_consent` | text, nullable | the active consent_policies version_id when ticked; required at submit — see "Consent Policies" below |
 | `reviewed_by` | uuid FK → `profiles.id`, nullable | written by `PATCH /v1/admin/applications/:id` |
 | `reviewed_at`, `rejection_reason` | nullable | ditto |
 | `created_at`, `updated_at` | timestamptz | |
@@ -975,3 +974,38 @@ Downloadable starter documents. **All members-only.** Kits are `collections` row
 RLS on, all grants revoked from `anon`/`authenticated`; `collections_prune_item()` also fires on
 template delete. The `template-files` bucket is private with no storage policies — files are only
 reachable through 60-second signed URLs minted by the API.
+
+## Consent Policies
+
+Implemented schema: `0002_enums.sql` (`consent_policy_status`), `0004_tables.sql`
+(`consent_policies`, plus the `membership_applications` column changes below). Maps each of the
+4 consent PDFs (cookie policy, LinkedIn import consent, privacy policy, user agreement) to its
+current version and file, so the wizard's 4 consent links can open the right PDF and the backend
+can resolve the right version to record at submission time.
+
+- **consent_policies**: UUID PK; `slug` text unique (`cookie-policy`, `import-consent-policy`,
+  `privacy-policy`, `user-agreement`); `title` text; `version_id` free-text version string (e.g.
+  `1.0`); `status` enum (`active`, `inactive`) — exactly one row per slug should be `active` at a
+  time, admin-managed by hand (no admin UI yet, no DB-enforced uniqueness since there's no
+  concurrent writer); `file_path` text — an object name inside the **private** `User-Aggrement`
+  Storage bucket; `created_at` timestamptz.
+- RLS on (`consent_policies_select_all`, `using (true)`) as defense-in-depth only, same shape as
+  `service_lines`/`categories` — all table grants are revoked from `anon`/`authenticated`, so
+  every real read goes through the backend's service-role client, which mints a 5-minute signed
+  URL to the file (no `download` option, so browsers display it inline in a new tab).
+
+**`membership_applications` declaration columns** (one per wizard consent checkbox — see
+`docs/rest-api.md`'s Membership Applications section for how they're populated):
+- `terms_version_agreed`, `privacy_version_agreed`, `background_check_consent` — all `text`,
+  nullable. Each holds the exact `consent_policies.version_id` that was `active` the moment the
+  applicant submitted (resolved server-side, never trusted from the client, one batched query
+  for all three) — `NULL` means the application hasn't reached submission yet; non-null means
+  submitted, at that exact version. `background_check_consent`'s checkbox text also covers the
+  Cookie Policy — that document (not "background check" itself, which has no document of its
+  own) is what this column's version refers to; it has no separate column. (Converted from
+  `boolean` 2026-11-05; existing `true` rows were backfilled to `'1.0'`, the only version that
+  has ever existed for that document.)
+- `linkedin_import_consent` — `text`, nullable. Same pattern, but optional (no submission gate)
+  and resolved as soon as the applicant ticks it in step 1, not only at final submission — `NULL`
+  means declined/not yet consented, a version string means consented at that version. (Also
+  converted from `boolean` 2026-11-05, same backfill.)

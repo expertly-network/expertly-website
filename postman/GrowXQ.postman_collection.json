@@ -2432,6 +2432,33 @@
       ]
     },
     {
+      "name": "Consent Policies",
+      "item": [
+        {
+          "name": "GET /consent-policies/:slug — Signed PDF url",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/consent-policies/privacy-policy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consent-policies",
+                "privacy-policy"
+              ]
+            },
+            "description": "🌐 Public. Returns a 5-minute signed URL to the active PDF for the slug (cookie-policy, import-consent-policy, privacy-policy, user-agreement). 404 CONSENT_POLICY_NOT_FOUND if none active.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Admin",
       "item": [
         {

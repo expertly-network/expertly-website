@@ -37,6 +37,7 @@ const EXPECTED: Record<string, string> = {
   'GET /v1/templates/:id': 'public +OptionalResourceAuthGuard',
   'GET /v1/collections': 'public +OptionalResourceAuthGuard',
   'GET /v1/collections/:id': 'public +OptionalResourceAuthGuard',
+  'GET /v1/consent-policies/:slug': 'public',
   'POST /v1/templates/:id/download': 'member',
   'GET /v1/admin/perks': 'admin:manageResources',
   'GET /v1/admin/perks/:id': 'admin:manageResources',

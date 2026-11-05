@@ -233,13 +233,16 @@ export class MembersRepository {
     page: { limit: number; offset: number }
   ): Promise<{ ids: string[]; total: number }> {
     const { data, error } = await this.supabase.db.rpc('member_directory_ids', {
-      p_q: filters.q ?? null,
-      p_service_ids: filters.serviceIds?.length ? filters.serviceIds : null,
-      p_category_id: filters.categoryId ?? null,
-      p_countries: filters.countries?.length ? filters.countries : null,
-      p_rate_min_cents: filters.rateMinCents ?? null,
-      p_rate_max_cents: filters.rateMaxCents ?? null,
-      p_sort: filters.sort ?? null,
+      // Omitted (undefined) rather than explicit null — the SQL function's params all default to
+      // NULL, so these are equivalent on the wire; undefined is what the generated Args type
+      // (p_q?: string, etc.) actually expects.
+      p_q: filters.q ?? undefined,
+      p_service_ids: filters.serviceIds?.length ? filters.serviceIds : undefined,
+      p_category_id: filters.categoryId ?? undefined,
+      p_countries: filters.countries?.length ? filters.countries : undefined,
+      p_rate_min_cents: filters.rateMinCents ?? undefined,
+      p_rate_max_cents: filters.rateMaxCents ?? undefined,
+      p_sort: filters.sort ?? undefined,
       p_limit: page.limit,
       p_offset: page.offset,
     });

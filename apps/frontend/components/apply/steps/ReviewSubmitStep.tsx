@@ -6,7 +6,7 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { FIRM_SIZES, REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
-import { TERMS_OF_SERVICE_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
+import { USER_AGREEMENT_URL, PRIVACY_POLICY_URL, COOKIE_POLICY_URL } from '@/lib/consent';
 import { previewCoupon } from '@/lib/api/applications';
 import { ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
 import type { CouponPreviewResponse } from '@shared/membership-application';
@@ -188,7 +188,7 @@ export function ReviewSubmitStep({
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
-    if (!consentTerms) e.consentTerms = 'You must agree to the Terms of Service to submit.';
+    if (!consentTerms) e.consentTerms = 'You must agree to the User Agreement to submit.';
     if (!consentPrivacy) e.consentPrivacy = 'You must agree to the Privacy Policy to submit.';
     if (!form.backgroundCheckConsent) {
       e.backgroundCheckConsent = 'You must consent to background verification to submit.';
@@ -395,13 +395,13 @@ export function ReviewSubmitStep({
               <span className="text-ink-2">
                 I agree to the{' '}
                 <a
-                  href={TERMS_OF_SERVICE_URL}
+                  href={USER_AGREEMENT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-accent underline hover:text-ink"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Terms of Service
+                  User Agreement
                 </a>{' '}
                 (v{TERMS_VERSION}).
               </span>
@@ -458,7 +458,17 @@ export function ReviewSubmitStep({
               />
               <span className="text-ink-2">
                 I consent to GrowXQ verifying my professional credentials and background as part of the membership
-                review process.
+                review process. By continuing, you acknowledge our{' '}
+                <a
+                  href={COOKIE_POLICY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-accent underline hover:text-ink"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Cookie Policy
+                </a>
+                .
               </span>
             </label>
             {errors.backgroundCheckConsent && (

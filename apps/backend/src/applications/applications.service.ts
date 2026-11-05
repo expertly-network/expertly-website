@@ -29,6 +29,7 @@ import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
 import { incompleteEntryFields } from './application-completeness';
 import { env } from '../config/env';
+import { ConsentPoliciesService } from '../consent-policies/consent-policies.service';
 import { deriveRegion } from './constants/country-region';
 import { findLocationMismatch } from './location-check';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst } from '../common/work-history';
@@ -104,7 +105,6 @@ const WRITABLE_COLUMNS: Partial<Record<keyof ApplicationRow, keyof UpdateApplica
   linkedin_import_consent: 'linkedinImportConsent',
   terms_version_agreed: 'termsVersionAgreed',
   privacy_version_agreed: 'privacyVersionAgreed',
-  background_check_consent: 'backgroundCheckConsent',
   current_step: 'currentStep',
 };
 
@@ -130,7 +130,8 @@ export class ApplicationsService {
 
   constructor(
     private readonly applicationsRepository: ApplicationsRepository,
-    private readonly linkedInImportProvider: LinkedInImportProvider
+    private readonly linkedInImportProvider: LinkedInImportProvider,
+    private readonly consentPoliciesService: ConsentPoliciesService
   ) {}
 
   async saveOrSubmit(user: AuthenticatedUser, dto: UpdateApplicationDto): Promise<ApplicationDto> {
@@ -162,6 +163,16 @@ export class ApplicationsService {
     ][]) {
       const value = dto[key];
       if (value !== undefined) (patch as Record<string, unknown>)[column] = value;
+    }
+
+    // linkedin_import_consent holds the exact consent_policies version_id that was active the
+    // moment the applicant ticked it (null when unticked/declined) — resolved server-side here,
+    // on every save that touches this field (step 1, not only final submission), never trusted
+    // as a version string from the client.
+    if (dto.linkedinImportConsent !== undefined) {
+      patch.linkedin_import_consent = dto.linkedinImportConsent
+        ? (await this.consentPoliciesService.getActiveVersionIds(['import-consent-policy']))['import-consent-policy'] ?? null
+        : null;
     }
 
     // Work history is validated (no end-before-start; overlapping roles are allowed) and stored
@@ -205,7 +216,10 @@ export class ApplicationsService {
     }
 
     if (dto.status === 'submitted') {
-      this.assertComplete(merged);
+      // background_check_consent is no longer a WRITABLE_COLUMNS field (its stored value is a
+      // resolved consent_policies version, never the client's raw boolean) — the "did they tick
+      // it" signal for validation comes directly from the DTO, not from the row.
+      this.assertComplete(merged, dto.backgroundCheckConsent === true);
       // docs/auth.md Part 1b: a connected LinkedIn account is what verifies the applicant is the
       // person in the profile — enforced here, not only by the wizard.
       if (!(await this.applicationsRepository.hasLinkedInIdentity(user.id))) {
@@ -234,6 +248,22 @@ export class ApplicationsService {
       patch.discount_amount_cents = discountAmountCents;
       patch.amount_due_cents = amountDueCents;
       patch.payment_status = amountDueCents === 0 ? 'waived' : 'pending';
+
+      // assertComplete() above only confirmed the applicant ticked these boxes (using whatever
+      // boolean/placeholder the client sent, via merged) — the actual values stored are always
+      // resolved fresh from consent_policies here, overwriting patch, never taken from the
+      // client. One batched lookup for all three, rather than a separate round-trip each. The
+      // background-check checkbox's real consent IS the Cookie Policy (it has no document of
+      // its own — see ReviewSubmitStep.tsx's checkbox text) — that's what
+      // background_check_consent's version refers to once this overwrite runs.
+      const activeVersions = await this.consentPoliciesService.getActiveVersionIds([
+        'user-agreement',
+        'privacy-policy',
+        'cookie-policy',
+      ]);
+      patch.terms_version_agreed = activeVersions['user-agreement'] ?? null;
+      patch.privacy_version_agreed = activeVersions['privacy-policy'] ?? null;
+      patch.background_check_consent = dto.backgroundCheckConsent ? (activeVersions['cookie-policy'] ?? null) : null;
     }
 
     const saved = existing
@@ -696,7 +726,7 @@ export class ApplicationsService {
     return details;
   }
 
-  private assertComplete(row: ApplicationPatch) {
+  private assertComplete(row: ApplicationPatch, backgroundCheckConsentTicked: boolean) {
     const missing = REQUIRED_TO_SUBMIT.filter(([column]) => row[column] === null || row[column] === undefined).map(
       ([, key]) => key
     );
@@ -736,7 +766,7 @@ export class ApplicationsService {
     if (servicePreferences.length < 1) missing.push('servicePreferences');
     // Peer references aren't collected during the founding-cohort pre-launch.
     missing.push(...incompleteEntryFields(row, { requirePeerReferences: env().SITE_LAUNCHED !== 'false' }));
-    if (row.background_check_consent !== true) missing.push('backgroundCheckConsent must be true');
+    if (!backgroundCheckConsentTicked) missing.push('backgroundCheckConsent must be true');
     if (!row.terms_version_agreed) missing.push('termsVersionAgreed');
     if (!row.privacy_version_agreed) missing.push('privacyVersionAgreed');
 
@@ -819,8 +849,12 @@ export class ApplicationsService {
       state: row.state,
       city: row.city,
       linkedinUrl: row.linkedin_url,
-      linkedinImportConsent: row.linkedin_import_consent,
-      backgroundCheckConsent: row.background_check_consent,
+      // DTO keeps the boolean contract; the real consent_policies version_id lives only in the
+      // database column (linkedin_import_consent is now text: the version, or null).
+      linkedinImportConsent: row.linkedin_import_consent != null,
+      // DTO keeps the boolean contract; the real cookie-policy version_id lives only in the
+      // database column (background_check_consent is now text: the version, or null).
+      backgroundCheckConsent: row.background_check_consent != null,
       termsVersionAgreed: row.terms_version_agreed,
       privacyVersionAgreed: row.privacy_version_agreed,
       bio: row.bio,

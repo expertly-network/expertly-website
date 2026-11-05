@@ -498,11 +498,19 @@ create table public.membership_applications (
   amount_due_cents integer check (amount_due_cents >= 0),
   payment_status payment_status,
 
-  -- Declarations (step 5)
-  linkedin_import_consent boolean not null default false,
+  -- Declarations. Each of the 4 wizard consent checkboxes (step 1's LinkedIn import, step 5's
+  -- user agreement/privacy/background+cookie) has its own column, holding the exact
+  -- consent_policies.version_id that was 'active' at the moment the applicant submitted —
+  -- resolved server-side, never trusted from the client. NULL = not submitted/declined yet;
+  -- any value = submitted/consented, at that exact version. background_check_consent's checkbox
+  -- text covers the Cookie Policy — that document (not "background check" itself, which has no
+  -- document of its own) is what this column's version refers to. linkedin_import_consent is
+  -- optional (no submission gate, resolved as soon as it's ticked in step 1); the other three are
+  -- mandatory and only ever resolved at final submission.
+  linkedin_import_consent text,
   terms_version_agreed text,
   privacy_version_agreed text,
-  background_check_consent boolean,
+  background_check_consent text,
 
   -- Review — PATCH /v1/admin/applications/:id writes these on approve/reject.
   reviewed_by uuid references public.profiles (id) on delete set null,
@@ -1658,6 +1666,37 @@ values ('template-files', 'template-files', false, 15728640,   -- 15 MB (TEMPLAT
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
               'application/vnd.openxmlformats-officedocument.presentationml.presentation'])
 on conflict (id) do nothing;
+
+-- ── consent_policies ─────────────────────────────────────────────────────────
+-- One row per version of each of the 4 consent PDFs (cookie policy, LinkedIn import consent,
+-- privacy policy, user agreement). Exactly one row per slug should be 'active' at a time — not
+-- DB-enforced (admin-managed by hand, no admin UI yet), kept simple since there's no concurrent
+-- writer. file_path is an object name inside the private `User-Aggrement` Storage bucket.
+create table public.consent_policies (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  version_id text not null,
+  status public.consent_policy_status not null default 'active',
+  file_path text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.consent_policies enable row level security;
+revoke all on table public.consent_policies from anon, authenticated;
+
+-- Defense-in-depth only, same shape as service_lines/categories — the browser key gets no actual
+-- table grant (revoked above); every real read goes through NestJS on the service-role key.
+create policy consent_policies_select_all
+  on public.consent_policies for select
+  using (true);
+
+insert into public.consent_policies (slug, title, version_id, status, file_path) values
+  ('cookie-policy', 'Cookie Policy', '1.0', 'active', 'GrowXQ - Cookie_Policy.pdf'),
+  ('import-consent-policy', 'LinkedIn Profile Import Consent Policy', '1.0', 'active', 'GrowXQ - LinkedIn Profile Import Consent Policy.pdf'),
+  ('privacy-policy', 'Privacy Policy', '1.0', 'active', 'GrowXQ - Privacy_Policy.pdf'),
+  ('user-agreement', 'User Agreement', '1.0', 'active', 'GrowXQ - User Agreement.pdf')
+on conflict (slug) do nothing;
 
 -- ============================================================================
 -- Least privilege for the browser key. The frontend ships the public anon key, so anything granted

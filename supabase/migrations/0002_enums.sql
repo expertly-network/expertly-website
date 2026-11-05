@@ -62,3 +62,7 @@ create type public.member_edit_section as enum (
   'key_clients', 'testimonials', 'awards'
 );
 create type public.member_edit_status as enum ('pending', 'verified', 'rejected');
+
+-- ── consent_policies ─────────────────────────────────────────────────────────
+
+create type public.consent_policy_status as enum ('active', 'inactive');
