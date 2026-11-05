@@ -171,7 +171,9 @@ export class ApplicationsService {
     // as a version string from the client.
     if (dto.linkedinImportConsent !== undefined) {
       patch.linkedin_import_consent = dto.linkedinImportConsent
-        ? (await this.consentPoliciesService.getActiveVersionIds(['import-consent-policy']))['import-consent-policy'] ?? null
+        ? ((await this.consentPoliciesService.getActiveVersionIds(['import-consent-policy']))[
+            'import-consent-policy'
+          ] ?? null)
         : null;
     }
 
