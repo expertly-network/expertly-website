@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LogoImage } from '@/components/Logo';
 import { PRIVACY_POLICY_URL, USER_AGREEMENT_URL } from '@/lib/consent';
-import { OG_IMAGE_SRC } from '@/lib/brand';
+import { OG_FOUNDING_IMAGE_SRC } from '@/lib/brand';
 import { isSiteLaunched } from '@/lib/env';
 import { FOUNDING_COUPON_CODE } from '@/lib/launch';
 
@@ -15,12 +15,22 @@ export const metadata = {
   title: 'Hi, Founding Member! Your seat at the table is held, for now!',
   description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
   robots: { index: false, follow: false },
+  // Invitations are shared as the bare site URL (middleware serves this page at `/`), so the card
+  // points there rather than at /welcome.
   openGraph: {
     siteName: 'GrowXQ',
     type: 'website',
+    url: '/',
     title: 'Hi, Founding Member! Your seat at the table is held, for now!',
     description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
-    images: [{ url: OG_IMAGE_SRC, width: 1200, height: 630, alt: 'GrowXQ' }],
+    images: [{ url: OG_FOUNDING_IMAGE_SRC, width: 1200, height: 630, alt: 'GrowXQ founding cohort invitation' }],
+  },
+  // Also replaces the root layout's `twitter`, which would otherwise keep the generic logo card.
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Hi, Founding Member! Your seat at the table is held, for now!',
+    description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
+    images: [OG_FOUNDING_IMAGE_SRC],
   },
 };
 

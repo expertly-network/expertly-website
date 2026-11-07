@@ -12,6 +12,8 @@ export const FAVICON_SRC = {
 // Raster fallbacks: link-preview crawlers (WhatsApp, LinkedIn, Slack, Google) ignore SVG icons.
 export const FAVICON_PNG_SRC = `/brand/favicon-192.png?v=${LOGO_VERSION}`;
 export const OG_IMAGE_SRC = `/brand/og-image.png?v=${LOGO_VERSION}`;
+// The pre-launch teaser's share card (app/welcome/page.tsx): the invitation, not just the logo.
+export const OG_FOUNDING_IMAGE_SRC = `/brand/og-founding.png?v=${LOGO_VERSION}`;
 export const LOGO_ASPECT_RATIO = 299 / 61;
 export const LOGO_MARK_ASPECT_RATIO = 62 / 61;
 export const BRAND_ICON_SRC = FAVICON_SRC.dark;
