@@ -156,8 +156,8 @@ body {
   }
 }
 
-/* Hero → sidebar wordmark handoff — only one logo shown at a time while a stellar hero is
-   in view. */
+/* Show the full homepage logo only at the top; hand off to the aligned sidebar mark
+   after a small scroll. */
 html.in-hero .sidebar-logo-mark,
 html.in-hero .sidebar-logo-text {
   opacity: 0 !important;

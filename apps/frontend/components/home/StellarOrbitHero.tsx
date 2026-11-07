@@ -139,7 +139,7 @@ export function StellarOrbitHero({
         }}
       />
 
-      <div className="relative z-[1] mx-auto flex w-full max-w-[1520px] flex-1 items-center px-6 py-12 lg:px-16 lg:py-10">
+      <div className="relative z-[1] mx-auto flex w-full max-w-[1520px] flex-1 items-center px-6 py-12 lg:px-16 lg:pb-10 lg:pt-[98px]">
         <div className="flex w-full flex-col items-center gap-16 lg:flex-row lg:items-center lg:justify-between">
           {/* Left */}
           <div

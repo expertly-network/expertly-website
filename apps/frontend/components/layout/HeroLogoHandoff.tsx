@@ -1,59 +1,42 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { LogoImage } from '@/components/Logo';
 
-// Crossfades the sidebar's collapsed logo mark with a floating full logo while a stellar hero
-// is in view. Desktop only: below 1024px there's no sidebar, and the mobile top bar has its own
-// logo (showing this there drew a second, overlapping logo). Safe on any page — if no #hero-stellar element exists, this is a no-op.
+// Desktop only: the mobile header reserves its own logo space.
 export function HeroLogoHandoff() {
+  const pathname = usePathname();
+
   useEffect(() => {
-    let intersectionObserver: IntersectionObserver | null = null;
-
-    // A MutationObserver waits for #hero-stellar to stream in, since it may not exist at mount.
-    function attach(heroSection: Element) {
-      intersectionObserver = new IntersectionObserver(
-        ([entry]) => {
-          document.documentElement.classList.toggle('in-hero', entry.isIntersecting);
-        },
-        { threshold: 0, rootMargin: '0px 0px -15% 0px' }
+    const update = () => {
+      document.documentElement.classList.toggle(
+        'in-hero',
+        !!document.getElementById('hero-stellar') && window.scrollY < 24
       );
-      intersectionObserver.observe(heroSection);
-    }
+    };
 
-    const existing = document.getElementById('hero-stellar');
-    if (existing) {
-      attach(existing);
-      return () => {
-        intersectionObserver?.disconnect();
-        document.documentElement.classList.remove('in-hero');
-      };
-    }
-
-    const mutationObserver = new MutationObserver(() => {
-      const heroSection = document.getElementById('hero-stellar');
-      if (heroSection) {
-        mutationObserver.disconnect();
-        attach(heroSection);
-      }
-    });
-    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    // The homepage hero can stream in after the shell mounts.
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('scroll', update, { passive: true });
+    update();
 
     return () => {
-      mutationObserver.disconnect();
-      intersectionObserver?.disconnect();
+      observer.disconnect();
+      window.removeEventListener('scroll', update);
       document.documentElement.classList.remove('in-hero');
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <Link
       href="/"
       aria-label="GrowXQ home"
-      className="hero-logo-handoff fixed left-6 top-7 z-[75] hidden items-center min-[1024px]:inline-flex"
+      className="hero-logo-handoff fixed left-[15px] top-5 z-[75] hidden items-center min-[1024px]:inline-flex"
     >
-      <LogoImage surface="dark" height={30} />
+      <LogoImage surface="dark" height={26} priority />
     </Link>
   );
 }
