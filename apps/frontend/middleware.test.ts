@@ -121,8 +121,11 @@ describe('pre-launch gate (SITE_LAUNCHED=false)', () => {
     expect(res.headers.get('location')).toBe('https://growxq.test/apply');
   });
 
-  it('shows a signed-out visitor the teaser and keeps closed pages closed', async () => {
-    expect((await go('/')).headers.get('x-middleware-rewrite')).toBe('https://growxq.test/welcome');
+  it('shows a signed-out visitor Coming soon at /, keeps /invitation open and closed pages closed', async () => {
+    expect((await go('/')).headers.get('x-middleware-rewrite')).toBe('https://growxq.test/coming-soon');
+    const invitation = await go('/invitation');
+    expect(invitation.headers.get('location')).toBeNull();
+    expect(invitation.headers.get('x-middleware-rewrite')).toBeNull();
     expect((await go('/articles')).headers.get('location')).toBe('https://growxq.test/');
   });
 

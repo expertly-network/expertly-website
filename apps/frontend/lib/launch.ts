@@ -1,9 +1,9 @@
 // Pre-launch (SITE_LAUNCHED=false — see isSiteLaunched in lib/env.ts): the only pages that stay
-// open (`/` serves the teaser to everyone). Everything else redirects — to /apply for a signed-in
-// visitor, else to the teaser at `/`.
+// open (`/` serves the Coming soon page to everyone; invitees are sent the founding-cohort page at
+// /invitation). Everything else redirects — to /apply for a signed-in visitor, else to `/`.
 // /admin stays open so applications can be reviewed; it's admin-only on its own.
 const PRELAUNCH_PREFIXES = [
-  '/welcome',
+  '/invitation',
   '/login',
   '/auth',
   '/forgot-password',
@@ -38,6 +38,6 @@ export function cleanCouponCode(raw: string | null | undefined): string | null {
 export const FOUNDING_DEFAULT_REFERENCE = {
   name: 'Mukesh Kumar M',
   relationship: 'Friend / Colleague',
-  email: 'mukeshlunawat@gmail.com',
+  email: 'mukesh@m2k.co.in',
   phone: '+91 98844 61718',
 };

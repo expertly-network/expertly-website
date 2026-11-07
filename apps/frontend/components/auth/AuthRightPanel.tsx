@@ -2,7 +2,7 @@ import { Eyebrow } from '@/components/ui/Eyebrow';
 
 // Written for the founding cohort: there are no real stats or testimonials yet, so instead of
 // social proof the panel tells an applicant what a founding seat brings. Privileges mirror the
-// PERKS list on /welcome.
+// PERKS list on /invitation.
 const PRIVILEGES: [string, string][] = [
   ['Founding Member status', 'In before GrowXQ is public, a distinction nobody who joins later can have.'],
   ['Your first year, complimentary', 'Membership is on us for the whole of year one.'],

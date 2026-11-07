@@ -73,7 +73,7 @@ body {
   letter-spacing: -0.005em;
 }
 
-/* Stellar Orbit hero keyframes, used only by components/home/StellarOrbitHero.tsx. */
+/* Hero keyframes: components/home/StellarOrbitHero.tsx and app/coming-soon/page.tsx. */
 @keyframes hs-fade-up {
   from {
     opacity: 0;

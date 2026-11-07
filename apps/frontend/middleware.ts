@@ -78,7 +78,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const { pathname } = request.nextUrl;
-  // A `?coupon=` link (the founding teaser's CTA) — remembered so it survives the redirect to
+  // A `?coupon=` link (the founding invitation's CTA) — remembered so it survives the redirect to
   // login/sign-up and an OAuth round trip, then pre-filled by /apply.
   const linkCoupon = cleanCouponCode(request.nextUrl.searchParams.get('coupon'));
   if (linkCoupon) {
@@ -96,11 +96,11 @@ export async function middleware(request: NextRequest) {
     return next;
   };
 
-  // Pre-launch: every visitor, signed in or not, sees the teaser at `/` (served in place of the
-  // home page), so the logo always leads back to it. A signed-in visitor who opens any closed page
+  // Pre-launch: every visitor, signed in or not, sees the Coming soon page at `/` (served in place
+  // of the home page); invitees are sent /invitation directly. A signed-in visitor who opens any closed page
   // is sent to their application instead (/apply forwards anyone who has already applied to
-  // /apply/submitted); a signed-out one goes to the teaser. Admins skip the gate entirely — they
-  // need the whole site to prepare it for launch (the teaser stays reachable for them at /welcome).
+  // /apply/submitted); a signed-out one goes to `/`. Admins skip the gate entirely — they
+  // need the whole site to prepare it for launch (the Coming soon page stays reachable for them at /coming-soon).
   if (!isSiteLaunched() && role !== 'admin') {
     if (userId && !isOpenBeforeLaunch(pathname)) {
       return withSessionCookies(NextResponse.redirect(new URL('/apply', request.url)));
@@ -112,11 +112,11 @@ export async function middleware(request: NextRequest) {
       const headers = new Headers(request.headers);
       headers.set('x-nonce', nonce);
       headers.set('Content-Security-Policy', csp);
-      const teaser = withSessionCookies(
-        NextResponse.rewrite(new URL('/welcome', request.url), { request: { headers } })
+      const comingSoon = withSessionCookies(
+        NextResponse.rewrite(new URL('/coming-soon', request.url), { request: { headers } })
       );
-      teaser.headers.set('Content-Security-Policy', csp);
-      return teaser;
+      comingSoon.headers.set('Content-Security-Policy', csp);
+      return comingSoon;
     }
   }
 
@@ -136,6 +136,6 @@ export const config = {
   // Skips Next's static/image assets, the deploy healthcheck, public/fonts, and any static file by
   // extension — none of them render HTML (no CSP needed) or need a session refresh.
   matcher: [
-    '/((?!_next/static|_next/image|api/health|fonts/|favicon.ico|.*\\.(?:ttf|woff2?|otf|pdf|svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
+    '/((?!_next/static|_next/image|api/health|fonts/|favicon.ico|.*\\.(?:ttf|woff2?|otf|pdf|svg|png|jpg|jpeg|gif|webp|ico|txt|xml|mp4|webm)$).*)',
   ],
 };

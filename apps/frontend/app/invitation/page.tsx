@@ -7,20 +7,19 @@ import { OG_FOUNDING_IMAGE_SRC } from '@/lib/brand';
 import { isSiteLaunched } from '@/lib/env';
 import { FOUNDING_COUPON_CODE } from '@/lib/launch';
 
-// The pre-launch teaser. middleware.ts serves it at `/` while SITE_LAUNCHED=false, so invitees see
-// this instead of the home page. It's written to the founding cohort: a held seat, what founding
+// The pre-launch founding-cohort invitation, at /invitation — the link invitees are sent (the
+// public `/` shows the Coming soon page while SITE_LAUNCHED=false). It's written to the founding cohort: a held seat, what founding
 // members receive, and one way in, the application. Once launched it doesn't exist.
 
 export const metadata = {
   title: 'Hi, Founding Member! Your seat at the table is held, for now!',
   description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
   robots: { index: false, follow: false },
-  // Invitations are shared as the bare site URL (middleware serves this page at `/`), so the card
-  // points there rather than at /welcome.
+  // Invitations are shared as the /invitation link; the card points there.
   openGraph: {
     siteName: 'GrowXQ',
     type: 'website',
-    url: '/',
+    url: '/invitation',
     title: 'Hi, Founding Member! Your seat at the table is held, for now!',
     description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
     images: [{ url: OG_FOUNDING_IMAGE_SRC, width: 1200, height: 630, alt: 'GrowXQ founding cohort invitation' }],
@@ -355,7 +354,7 @@ export default function WelcomePage() {
             rel="noopener noreferrer"
             className="underline-offset-2 hover:text-white/80 hover:underline"
           >
-            Terms
+            User &amp; Member Policy
           </a>{' '}
           ·{' '}
           <a
