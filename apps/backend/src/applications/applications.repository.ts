@@ -392,8 +392,8 @@ export class ApplicationsRepository {
   }
 
   // Short-lived read URLs for vetting documents, keyed by path. Documents uploaded before the
-  // private bucket existed live under `members/application/…` in the public bucket until
-  // scripts/migrate-application-documents.mjs moves them; those are signed from there.
+  // private bucket existed live under `members/application/…` in the public bucket; those are
+  // still signed from there.
   async createSignedDocumentUrls(paths: string[], expiresInSeconds: number): Promise<Record<string, string>> {
     const urls: Record<string, string> = {};
     const unique = [...new Set(paths)];
