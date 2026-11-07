@@ -575,3 +575,65 @@ end;
 $$;
 
 revoke execute on function public.collections_prune_item() from public, anon, authenticated;
+
+-- ============================================================================
+-- Email queue (apps/backend/src/email/email-sender.service.ts). Claims up to p_limit messages that
+-- are due — queued with next_attempt_at passed, or stuck in 'sending' past the lease (a worker
+-- died mid-send) — by setting status='sending' and stamping claimed_at. Like search_outbox_claim,
+-- the stamp is the claim (PostgREST calls are separate transactions); the sender only finishes a
+-- row whose claimed_at still matches. plpgsql so the body isn't checked against email_messages,
+-- which 0004 creates later.
+-- ============================================================================
+create or replace function public.email_claim(p_limit integer default 50, p_lease interval default '5 minutes')
+ returns table(id uuid, claimed_at timestamptz)
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  -- A lease that has expired 6 times: stop re-sending (the provider may have accepted it already).
+  update public.email_messages m
+     set status = 'failed', claimed_at = null,
+         last_error = 'Delivery state unknown: the send lease expired repeatedly'
+   where m.status = 'sending' and m.claimed_at < now() - p_lease and m.claim_count >= 6;
+
+  return query
+  update public.email_messages m
+     set status = 'sending', claimed_at = clock_timestamp(), claim_count = m.claim_count + 1
+   where m.id in (
+     select q.id from public.email_messages q
+      where (q.status = 'queued' and q.next_attempt_at <= now())
+         or (q.status = 'sending' and q.claimed_at < now() - p_lease and q.claim_count < 6)
+      order by q.next_attempt_at
+      limit least(greatest(p_limit, 1), 500)
+      for update skip locked)
+  returning m.id, m.claimed_at;
+end $function$;
+
+revoke execute on function public.email_claim(integer, interval) from public, anon, authenticated;
+grant execute on function public.email_claim(integer, interval) to service_role;
+
+-- Serialize delivery updates and suppressions. Repeated or out-of-order events cannot regress
+-- a complaint/bounce to delivered; suppression and status commit in the same transaction.
+-- Suppression keys off the recipient address the provider reports (p_email), so a complaint or
+-- hard bounce is honoured even when no message row matches (an event that lands before
+-- provider_message_id was written, or a send made from the Resend dashboard).
+create or replace function public.email_apply_event(p_provider_id text, p_status text, p_suppress boolean, p_at timestamptz, p_email text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_id uuid; v_email text; v_status text;
+begin
+  if p_status not in ('delivered', 'bounced', 'complained') then return; end if;
+  select id, to_email, status::text into v_id, v_email, v_status from public.email_messages where provider_message_id = p_provider_id for update;
+  v_email := coalesce(lower(nullif(btrim(p_email), '')), v_email);
+  if p_suppress and v_email is not null then
+    insert into public.email_suppressions(email, reason) values (v_email, p_status)
+    on conflict (email) do update set reason = case when email_suppressions.reason = 'complained' then 'complained' else excluded.reason end;
+  end if;
+  if v_id is null then return; end if;
+  if v_status = 'complained' or (v_status = 'bounced' and p_status = 'delivered') then return; end if;
+  update public.email_messages set status = p_status::public.email_message_status,
+    delivered_at = case when p_status = 'delivered' then coalesce(delivered_at, p_at) else delivered_at end
+  where id = v_id;
+end $$;
+revoke all on function public.email_apply_event(text, text, boolean, timestamptz, text) from public, anon, authenticated;
+grant execute on function public.email_apply_event(text, text, boolean, timestamptz, text) to service_role;

@@ -518,3 +518,27 @@ embeddings" premise was superseded; see `docs/rest-api.md` "AI search".)
 - [x] Rate limited per user (10/min, 100/hour; feedback 30/min) with `429` + `retryAfterSeconds`
 - [x] Thumbs up/down feedback on an answer, scoped to the asker's own log entry
 - [ ] Search modal checked at 375px and 1440px (root `CLAUDE.md` Code Quality Bar)
+
+## US-19 — Email engine: Resend templates, app-owned triggers (backend implemented locally)
+
+As a super administrator, I design and edit emails in Resend's template editor and choose which
+published template each app event sends. As an applicant/member, I receive a founding submission
+acknowledgement or an enabled renewal reminder.
+
+- [x] Email content (subject, HTML, versions, previews, test sends) lives in Resend as published
+      templates; designs to paste in are in `docs/email-templates/`.
+- [x] Super-admin-only automations: switch each app event on/off and point it at a Resend template
+      alias.
+- [x] Automatic founding submission event (per application), regular submission toggle, hourly UTC
+      renewal window scan.
+- [x] Queue with concurrent claims and fencing, retry/backoff, lease ceiling, failed retry (fresh
+      provider idempotency key) and queued cancel.
+- [x] Resend/log providers, safe configuration validation, worker opt-in for shared-database ownership.
+- [x] Signed raw-body webhook handling, delivery history, permanent-bounce/complaint suppression
+      (keyed on the reported recipient).
+- [x] Shared types, REST/ERD/deployment documentation and Postman requests.
+- [ ] Templates published in Resend, sending domain verified, tracked real delivery/webhook proof.
+
+Announcements/newsletters go through Resend Broadcasts (audiences and unsubscribe handled there),
+not this API. In-app notifications and additional approval/launch automations are separate scope.
+Activation steps are in `docs/deployment.md`.

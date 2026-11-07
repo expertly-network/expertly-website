@@ -124,3 +124,33 @@ describe('parseCorsOrigins', () => {
     expect(parseCorsOrigins(undefined)).toEqual([]);
   });
 });
+
+describe('email configuration (API and worker)', () => {
+  it.each(['api', 'worker'])('requires Resend configuration in the %s process', async (entry) => {
+    vi.stubEnv('EMAIL_PROVIDER', 'resend');
+    vi.stubEnv('RESEND_API_KEY', '');
+    vi.stubEnv('EMAIL_FROM', '');
+    vi.stubEnv('SITE_URL', '');
+    vi.stubEnv('OPENAI_API_KEY', SECRET);
+    const module = await loadEnvModule();
+    expect(() => (entry === 'api' ? module.loadApiEnv() : module.loadWorkerEnv())).toThrow(ExitCalled);
+    expect(logged).toContain('RESEND_API_KEY is required when EMAIL_PROVIDER=resend');
+    expect(logged).toContain('EMAIL_FROM is required when EMAIL_PROVIDER=resend');
+    expect(logged).toContain('SITE_URL is required when EMAIL_PROVIDER=resend');
+  });
+  it.each(['api', 'worker'])('refuses a production redirect in the %s process', async (entry) => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('CORS_ORIGINS', 'https://example.com');
+    vi.stubEnv('OPENAI_API_KEY', SECRET);
+    vi.stubEnv('EMAIL_REDIRECT_TO', 'dev@example.com');
+    const module = await loadEnvModule();
+    expect(() => (entry === 'api' ? module.loadApiEnv() : module.loadWorkerEnv())).toThrow(ExitCalled);
+    expect(logged).toContain('EMAIL_REDIRECT_TO is forbidden when NODE_ENV=production');
+  });
+  it('defaults to simulated sending and disabled worker consumption', async () => {
+    vi.stubEnv('EMAIL_PROVIDER', '');
+    vi.stubEnv('EMAIL_WORKER_ENABLED', '');
+    const { loadApiEnv } = await loadEnvModule();
+    expect(loadApiEnv()).toMatchObject({ EMAIL_PROVIDER: 'log', EMAIL_WORKER_ENABLED: 'false' });
+  });
+});

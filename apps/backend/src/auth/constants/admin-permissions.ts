@@ -11,7 +11,8 @@ export type AdminPermission =
   | 'manageMembers'
   | 'manageConsultations'
   | 'manageResources'
-  | 'manageTaxonomy';
+  | 'manageTaxonomy'
+  | 'manageEmails';
 
 const ALL_PERMISSIONS: AdminPermission[] = [
   'viewDashboard',
@@ -25,6 +26,7 @@ const ALL_PERMISSIONS: AdminPermission[] = [
   'manageConsultations',
   'manageResources',
   'manageTaxonomy',
+  'manageEmails',
 ];
 
 // Maps each admin role to its allowed permissions.

@@ -1,3 +1,4 @@
+import { EmailService } from '../email/email.service';
 import { validRatesCents } from '@shared/consultation-rates';
 import { withUniqueSlugRetry } from '../common/slugify';
 import {
@@ -131,7 +132,8 @@ export class ApplicationsService {
   constructor(
     private readonly applicationsRepository: ApplicationsRepository,
     private readonly linkedInImportProvider: LinkedInImportProvider,
-    private readonly consentPoliciesService: ConsentPoliciesService
+    private readonly consentPoliciesService: ConsentPoliciesService,
+    private readonly emailService: EmailService
   ) {}
 
   async saveOrSubmit(user: AuthenticatedUser, dto: UpdateApplicationDto): Promise<ApplicationDto> {
@@ -271,6 +273,21 @@ export class ApplicationsService {
     const saved = existing
       ? await this.applicationsRepository.updateById(existing.id, patch)
       : await this.applicationsRepository.insert({ ...patch, applicant_id: user.id });
+
+    if (patch.status === 'submitted') {
+      const key = process.env.SITE_LAUNCHED === 'false' ? 'founding_application_submitted' : 'application_submitted';
+      try {
+        // Keyed per application: re-submitting the same one never queues twice, but a fresh
+        // application after a rejection gets its own confirmation.
+        await this.emailService.enqueueAutomation(
+          key,
+          { profileId: user.id },
+          { idempotencyKey: `${key}:${saved.id}` }
+        );
+      } catch {
+        this.logger.error(`Application ${saved.id}: confirmation email enqueue failed`);
+      }
+    }
 
     // Resolve details from the saved row when this call didn't touch service_preferences.
     if (dto.servicePreferences === undefined) {

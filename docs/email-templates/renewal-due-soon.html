@@ -1,0 +1,25 @@
+<!--
+  Resend template — alias: renewal-due-soon
+  Subject: Your GrowXQ membership renewal is approaching
+  Variables to declare in Resend (give NAME a fallback such as "there"):
+    NAME, SITE_URL, RENEWAL_DATE
+  Paste everything below this comment into the template's HTML editor. Source of truth for the
+  design; the copy that's actually sent is whatever is published in Resend.
+-->
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px 12px;background:#f4f4f1">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;background:rgb(255, 255, 255);border:1px solid rgb(224, 225, 215);border-radius:14px;overflow:hidden;border-collapse:separate;font-family:Geist, Helvetica, Arial, sans-serif;color:rgb(46, 48, 51);max-width:600px;margin:0px auto">
+    <tbody><tr><td style="background-color:#0b0b0c;background-image:radial-gradient(70% 140% at 12% 130%,rgba(0,166,130,.42),transparent 70%),radial-gradient(55% 120% at 92% 135%,rgba(0,166,130,.28),transparent 70%);padding:28px 28px 26px">
+      <img src="{{{SITE_URL}}}/brand/email/logo-dark.png" alt="GrowXQ" height="30" style="display:block;height:30px;width:auto;border:0" />
+
+
+    </td></tr>
+    <tr><td style="padding:28px 28px 32px;font-size:15px;line-height:1.65;color:rgb(46, 48, 51)"><h1 style="font-family:Georgia,serif;font-weight:500;color:#0b0b0c">Hello, {{{NAME}}}.</h1><p>Your membership renewal is due on {{{RENEWAL_DATE}}}.</p><p>Reply to this email if you need help with your renewal.</p></td></tr>
+
+    <tr><td style="background:#0b0b0c;padding:26px 28px;text-align:center">
+      <img src="{{{SITE_URL}}}/brand/email/logo-dark.png" alt="GrowXQ" height="20" style="display:inline-block;height:20px;width:auto;border:0;opacity:.9" />
+      <div style="margin-top:14px;font-size:13px;line-height:1.7;color:rgba(255,255,255,.6)">Questions? Reply to this email or write to us at <a href="mailto:ask@growxq.com" style="color:#5fd3b5;text-decoration:none">ask@growxq.com</a></div>
+    </td></tr>
+  </tbody></table>
+</body></html>

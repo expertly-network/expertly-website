@@ -1,3 +1,4 @@
+import { EmailModule } from '../email/email.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentPoliciesModule } from '../consent-policies/consent-policies.module';
@@ -9,7 +10,7 @@ import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provid
 import { N8nLinkedInImportProvider } from './linkedin-import/n8n-linkedin-import.provider';
 
 @Module({
-  imports: [AuthModule, ConsentPoliciesModule],
+  imports: [AuthModule, ConsentPoliciesModule, EmailModule],
   controllers: [ApplicationsController, AdminApplicationsController],
   providers: [
     ApplicationsService,

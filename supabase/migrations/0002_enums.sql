@@ -66,3 +66,9 @@ create type public.member_edit_status as enum ('pending', 'verified', 'rejected'
 -- ── consent_policies ─────────────────────────────────────────────────────────
 
 create type public.consent_policy_status as enum ('active', 'inactive');
+
+-- ── email engine ──────────────────────────────────────────────────────────────
+
+create type public.email_message_status as enum (
+  'queued', 'sending', 'sent', 'delivered', 'bounced', 'complained', 'failed', 'cancelled', 'suppressed'
+);

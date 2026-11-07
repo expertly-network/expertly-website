@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
   loadWorkerEnv();
   const app = await NestFactory.createApplicationContext(SearchWorkerModule);
   app.enableShutdownHooks();
-  logger.log('Search worker running.');
+  logger.log('Worker running (search, email, renewal reminders).');
 }
 
 bootstrap().catch((err: unknown) => {

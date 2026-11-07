@@ -146,6 +146,15 @@ const EXPECTED: Record<string, string> = {
   'GET /v1/admin/ai-generations': 'admin:manageArticles',
   'GET /v1/admin/ai-generations/:id': 'admin:manageArticles',
 
+  // Email engine
+  'GET /v1/admin/email/automations': 'admin:manageEmails',
+  'PATCH /v1/admin/email/automations/:key': 'admin:manageEmails',
+  'GET /v1/admin/email/messages': 'admin:manageEmails',
+  'GET /v1/admin/email/messages/:id': 'admin:manageEmails',
+  'POST /v1/admin/email/messages/:id/cancel': 'admin:manageEmails',
+  'POST /v1/admin/email/messages/:id/retry': 'admin:manageEmails',
+  'POST /v1/email/webhooks/resend': 'public',
+
   // AI search (own throttler on top of the global per-user limit)
   'POST /v1/search': 'authed +SearchThrottlerGuard',
 };

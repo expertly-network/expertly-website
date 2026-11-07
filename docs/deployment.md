@@ -300,16 +300,9 @@ is required (the Docker images use `node:22-alpine`, which is current).
    - adds `updated_at` triggers on `categories`/`services`, CHECK constraints, composite/trigram/FK
      indexes, drops two unused indexes, rewrites RLS policies to `to authenticated` +
      `(select auth.uid())`.
-2. **Move existing vetting documents** out of the public bucket (from `apps/backend`, with the
-   backend `.env`): `node --env-file=.env scripts/migrate-application-documents.mjs --dry-run`, then
-   the same without `--dry-run`. `--dry-run` simulates the whole run (plan, copy checks, row
-   rewrites, deletions) without writing anything — read its output first. The script copies every
-   document into the private bucket and verifies each copy before rewriting any row; any
-   download/upload error other than a genuine "object not found" **aborts** the run before
-   anything is rewritten or deleted. A public copy is deleted only once no application row
-   references it and a private copy of the same size is verified. Legacy objects shared by two
-   applications of the same applicant (same `document-<n>` key) go to the row whose size matches,
-   else the newest application. Idempotent — re-run after fixing whatever aborted it.
+2. **Legacy vetting documents** — documents uploaded before the private bucket existed sit under
+   `members/application/…` in the public bucket. The API still signs them from there; the one-off
+   script that moved them was removed (2026-11-07, pre-production — no real applicants yet).
 3. **Backend env** (Coolify → backend app → Environment):
    - `CORS_ORIGINS` — comma-separated frontend origins, e.g.
      `https://expertly.network,https://www.expertly.network,https://dev.expertly.network`.
@@ -409,3 +402,66 @@ moved by hand. Until it is, the live facts elsewhere in this file (Coolify app n
 8. Mailbox: the site now shows `ask@growxq.com` (contact, event suggestions, suspended-account
    message) — make sure it receives mail.
 
+
+## Email engine activation
+
+Email content lives in Resend (templates); this backend queues and sends by template alias. The
+email schema is in the migration files and already applied to the shared dev Supabase.
+
+| Environment variable | Where | Behavior |
+|---|---|---|
+| `EMAIL_PROVIDER` | API + worker | `log` (default, simulated delivery) or `resend` |
+| `EMAIL_WORKER_ENABLED` | worker | `false` by default; `true` only on the ONE worker that consumes this database's email queue |
+| `RESEND_API_KEY` | API + worker | Required when provider is `resend`; backend secret only |
+| `EMAIL_FROM` | API + worker | Required with Resend, e.g. `GrowXQ <insiders@growxq.com>`; overrides the template's sender; newline-free |
+| `EMAIL_REPLY_TO` | API + worker | Defaults to `ask@growxq.com`; must be an email address |
+| `SITE_URL` | API + worker | Required with Resend. This environment's public frontend URL — sent as the `SITE_URL` template variable, so template images/links resolve per environment |
+| `RESEND_WEBHOOK_SECRET` | API | Signing secret of the Resend webhook; absent means the webhook returns 503 |
+| `EMAIL_REDIRECT_TO` | local only | Sends every email to this address instead; forbidden when `NODE_ENV=production` |
+
+**Shared database ownership:** a worker with `EMAIL_WORKER_ENABLED=true` consumes every queued
+message in its database. Keep it `false` on local machines pointed at the shared dev database
+while the dev worker is running, and keep exactly one consumer per Resend API key.
+
+The worker ticks every five seconds, handles up to 50 messages per run, claims two at a time,
+and spaces request starts by at least 550ms with at most two in flight. Each provider request
+has a 10-second timeout. Retry delays are 1m, 5m, 30m, 2h; the fifth failure is terminal; provider
+rejections fail immediately. Leases expire after five minutes; six expiries fail the message as
+"delivery state unknown". Graceful shutdown waits for sends in flight. Hourly renewal scans use
+UTC calendar dates. No recipient addresses, variable values, credentials or provider response
+bodies are logged.
+
+Setup per environment:
+
+1. **Resend domain:** add the sending domain, publish its SPF/DKIM DNS records and wait for
+   verification.
+2. **Resend templates:** create and *publish* one template per automation with the alias it
+   expects — `founding-seat-held`, `application-received`, `renewal-due-soon` — pasting the HTML
+   and subject from `docs/email-templates/<alias>.html`. Declare the variables listed at the top
+   of each file (give `NAME` a fallback such as `there`). A template edited later takes effect on
+   the next send once republished.
+3. **Environment:** set the variables above on the API and the worker. The template images are
+   the frontend's `public/brand/email/*.png`, deployed with the frontend; confirm
+   `<SITE_URL>/brand/email/logo-dark.png` loads.
+4. **Webhook:** register `https://<api-domain>/v1/email/webhooks/resend` for `email.delivered`,
+   `email.bounced`, `email.complained`; put its signing secret in `RESEND_WEBHOOK_SECRET` on the
+   API. Keep request bodies unmodified through the proxy (signature validation uses the raw body).
+5. **Verify:** submit an application with a test account. Its `email_messages` row should go
+   `queued` → `sent` → `delivered` (`GET /v1/admin/email/messages` in Postman). A row that ends
+   `failed` with `Resend HTTP 404/422` means the template isn't published or declares a variable
+   the event doesn't send — fix it in Resend, then `POST /admin/email/messages/:id/retry`.
+6. Review regular application and renewal copy in Resend before enabling those two automations
+   (`PATCH /admin/email/automations/:key`).
+
+Reliability limits: automatic queue keys deduplicate for the lifetime of the row. Resend's
+send-idempotency cache lasts 24 hours. Webhooks for ids not yet recorded are acknowledged without a
+status change (suppression still applies). Application submission intentionally succeeds even if
+enqueue fails; monitor the corresponding error log.
+
+Local verification: `pnpm --filter ./apps/backend test`, `pnpm typecheck`, and backend lint/build.
+The queue/webhook SQL itself is exercised only against a real database (the dev Supabase) — the
+unit tests mock it.
+
+Provider references: [send API](https://resend.com/docs/api-reference/emails/send-email),
+[webhook verification](https://resend.com/docs/webhooks/verify-webhooks-requests),
+[idempotency behavior](https://resend.com/docs/dashboard/emails/idempotency-keys).

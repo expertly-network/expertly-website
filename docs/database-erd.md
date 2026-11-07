@@ -214,7 +214,7 @@ service like "M&A Tax" means the same thing everywhere, so regional filtering be
   unguessable key, and are only ever returned as 15-minute signed URLs to the applicant and to admins
   with `manageApplications`. They used to sit in the public bucket at `document-<n>.<ext>`, which made
   them downloadable by anyone who knew a member's id (public via `GET /v1/members`);
-  `apps/backend/scripts/migrate-application-documents.mjs` moves any such legacy objects.
+  Any legacy objects left there are still signed from the public bucket by the API.
 - **No `storage.objects` policies on any bucket** (2026-10-29). Only the service-role backend writes
   to Storage — directly, or by minting a one-time signed upload URL (`member-proofs`), neither of
   which needs a policy. The earlier owner-folder `for all` policies let any signed-in user write
@@ -1009,3 +1009,41 @@ can resolve the right version to record at submission time.
   and resolved as soon as the applicant ticks it in step 1, not only at final submission — `NULL`
   means declined/not yet consented, a version string means consented at that version. (Also
   converted from `boolean` 2026-11-05, same backfill.)
+
+## Email engine
+
+Email **content** lives in Resend as published templates (designs in `docs/email-templates/`);
+these tables only decide when and to whom, and keep the queue and history. Schema is in
+`0002_enums.sql` (`email_message_status`), `0003_functions.sql` and `0004_tables.sql` under the
+current pre-production convention. All three tables have RLS enabled, no browser policies and no
+anon/authenticated grants; only the backend's service role reads or writes them.
+
+| Table | Purpose / principal columns |
+|---|---|
+| `email_automations` | Fixed text key (`AutomationKey` in `apps/backend/src/email/automations.ts`); name/description; `resend_template` (id or alias of a published Resend template, `^[A-Za-z0-9_-]{1,100}$`); enabled; updated_by/updated_at |
+| `email_messages` | UUID id; `automation_key` FK; `resend_template` snapshot (retargeting an automation doesn't rewrite history); optional recipient_profile_id; lower-case to_email; resolved template `variables` JSON (`NAME`, `SITE_URL`, …); unique optional idempotency_key; status; next_attempt_at; attempts; claimed_at; claim_count (claims of the current attempt, capped at 6); manual_retries (admin retries; selects a fresh provider idempotency key); provider_message_id; last_error; sent_at/delivered_at; created_at |
+| `email_suppressions` | Lower-case email PK; reason (`bounced`/`complained`/`manual`); created_at |
+
+Message statuses: `queued`, `sending`, `sent`, `delivered`, `bounced`, `complained`, `failed`,
+`cancelled`, `suppressed`. The due queue has a partial index on `next_attempt_at`; provider ids,
+automation keys, recipients, addresses and descending creation time are indexed. Profile deletion
+nulls `recipient_profile_id` while preserving delivery history.
+
+Service-role-only RPCs:
+
+- `email_claim(p_limit=50, p_lease='5 minutes')` → `(id, claimed_at)[]`; due or expired-lease rows,
+  `FOR UPDATE SKIP LOCKED`; returns a fencing timestamp. Worker completion checks both status and
+  this exact timestamp so a stale worker cannot overwrite a newer claim. Increments `claim_count`;
+  a lease that has expired with `claim_count` ≥ 6 is set to `failed` ("Delivery state unknown")
+  instead of reclaimed.
+- `email_apply_event(p_provider_id, p_status, p_suppress, p_at, p_email default null)` → void;
+  serializes status changes and suppression insertion in one transaction; complaints outrank
+  bounces, which outrank delivery. Suppresses `p_email` (the provider-reported recipient) even
+  when no message has that provider id.
+
+Seeds: three automations — `founding_application_submitted` → `founding-seat-held` (enabled),
+`application_submitted` → `application-received`, `renewal_due_soon` → `renewal-due-soon` (both
+disabled). Reruns don't overwrite an admin's choice. The aliases must exist as published templates
+in Resend. Template images are served by the frontend from `apps/frontend/public/brand/email/`
+and referenced as `{{{SITE_URL}}}/brand/email/…`.
+

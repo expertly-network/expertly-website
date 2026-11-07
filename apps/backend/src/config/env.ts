@@ -37,6 +37,15 @@ const baseShape = {
   SUPABASE_URL: httpUrl,
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
+  EMAIL_WORKER_ENABLED: z.enum(['true', 'false']).default('false'),
+  EMAIL_PROVIDER: z.enum(['resend', 'log']).default('log'),
+  RESEND_API_KEY: optionalString,
+  RESEND_WEBHOOK_SECRET: optionalString,
+  EMAIL_FROM: optionalString.refine((value) => !value || !/[\r\n]/.test(value), 'must be a single line'),
+  EMAIL_REPLY_TO: z.string().email().optional(),
+  EMAIL_REDIRECT_TO: z.string().email().optional(),
+  SITE_URL: httpUrl.optional(),
+
   // Article AI drafting (src/ai/). All optional: unset disables the feature (its endpoints 503).
   AI_PROVIDER: z.enum(['openai', 'anthropic', 'google']).optional(),
   AI_MODEL: optionalString,
@@ -70,8 +79,20 @@ const apiSchema = z.object({
 
 // Cross-variable rules, checked on the raw input so they're reported alongside (not only after)
 // per-variable errors. Fail closed: production never falls back to "any origin" for CORS.
-function apiCrossChecks(raw: Record<string, string>): string[] {
+function emailCrossChecks(raw: Record<string, string>): string[] {
   const problems: string[] = [];
+  if (raw.EMAIL_PROVIDER === 'resend') {
+    for (const name of ['RESEND_API_KEY', 'EMAIL_FROM', 'SITE_URL']) {
+      if (!raw[name]) problems.push(`${name} is required when EMAIL_PROVIDER=resend`);
+    }
+  }
+  if (raw.NODE_ENV === 'production' && raw.EMAIL_REDIRECT_TO)
+    problems.push('EMAIL_REDIRECT_TO is forbidden when NODE_ENV=production');
+  return problems;
+}
+
+function apiCrossChecks(raw: Record<string, string>): string[] {
+  const problems: string[] = emailCrossChecks(raw);
   if (raw.NODE_ENV === 'production' && parseCorsOrigins(raw.CORS_ORIGINS).length === 0) {
     problems.push('CORS_ORIGINS is required when NODE_ENV=production');
   }
@@ -133,7 +154,7 @@ export function loadApiEnv(): ApiEnv {
 
 /** Validates the search worker's environment; exits the process (code 1) if it's invalid. */
 export function loadWorkerEnv(): WorkerEnv {
-  return validateOrExit(workerSchema, 'search worker');
+  return validateOrExit(workerSchema, 'worker', emailCrossChecks);
 }
 
 /**

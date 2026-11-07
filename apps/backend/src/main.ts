@@ -29,7 +29,7 @@ function corsOrigins(raw: string | undefined): string[] | true {
 // A caller-supplied X-Request-Id is kept only if it looks like an id (it ends up in log lines);
 // anything else gets a fresh UUID.
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
-function requestId(raw: IncomingMessage): string {
+function requestId(raw: Pick<IncomingMessage, 'headers'>): string {
   const header = raw.headers['x-request-id'];
   return typeof header === 'string' && REQUEST_ID_PATTERN.test(header) ? header : randomUUID();
 }
@@ -70,7 +70,8 @@ async function bootstrap() {
       routerOptions: { maxParamLength: 500 },
       bodyLimit: 1024 * 1024,
       genReqId: requestId,
-    })
+    }),
+    { rawBody: true }
   );
 
   registerRequestLogging(app.getHttpAdapter().getInstance());

@@ -1,0 +1,22 @@
+import type { MessageRow } from './email.repository';
+export const messageFixture = (patch: Partial<MessageRow> = {}): MessageRow => ({
+  id: 'message-1',
+  automation_key: 'founding_application_submitted',
+  resend_template: 'founding-seat-held',
+  recipient_profile_id: 'profile-1',
+  to_email: 'person@example.com',
+  variables: { NAME: 'Alex', SITE_URL: 'https://example.com' },
+  idempotency_key: 'automation-key',
+  status: 'sending',
+  next_attempt_at: '2026-11-07T00:00:00Z',
+  attempts: 0,
+  claimed_at: '2026-11-07T00:00:01Z',
+  claim_count: 1,
+  manual_retries: 0,
+  provider_message_id: null,
+  last_error: null,
+  sent_at: null,
+  delivered_at: null,
+  created_at: '2026-11-07T00:00:00Z',
+  ...patch,
+});

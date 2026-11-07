@@ -1699,6 +1699,93 @@ insert into public.consent_policies (slug, title, version_id, status, file_path)
 on conflict (slug) do nothing;
 
 -- ============================================================================
+-- Email engine (apps/backend/src/email/). Email content lives in Resend as published templates;
+-- this database decides WHEN to send and to WHOM, and keeps the queue and history.
+-- email_automations maps a fixed app event to a Resend template alias; email_messages is both the
+-- send queue (drained by the worker through email_claim()) and the history. Backend-only (service
+-- role); RLS on with no policies, so the browser key can read none of it. See docs/database-erd.md
+-- "Email engine".
+-- ============================================================================
+
+-- One row per app event the backend can fire (keys are fixed in code: AutomationKey in
+-- apps/backend/src/email/automations.ts). Admins switch them on/off and choose the template.
+create table public.email_automations (
+  key             text primary key,
+  name            text not null,
+  description     text,
+  -- The id or alias of a PUBLISHED Resend template (docs/email-templates/ has the designs).
+  resend_template text not null check (resend_template ~ '^[A-Za-z0-9_-]{1,100}$'),
+  enabled         boolean not null default false,
+  updated_by      uuid references public.profiles (id) on delete set null,
+  updated_at      timestamptz not null default now()
+);
+create index email_automations_updated_by_idx on public.email_automations (updated_by);
+create trigger email_automations_set_updated_at before update on public.email_automations
+  for each row execute function public.set_updated_at();
+
+-- The queue and the history: one row per recipient per email.
+create table public.email_messages (
+  id                   uuid primary key default gen_random_uuid(),
+  automation_key       text not null references public.email_automations (key) on delete restrict,
+  -- The template it was (or will be) sent with — snapshotted, so retargeting an automation
+  -- doesn't rewrite history.
+  resend_template      text not null,
+  recipient_profile_id uuid references public.profiles (id) on delete set null,
+  to_email             text not null check (to_email = lower(to_email)),
+  -- The Resend template variables, fully resolved (NAME, SITE_URL, …).
+  variables            jsonb not null default '{}',
+  -- e.g. founding_application_submitted:<applicationId> — the same automatic email can't queue twice.
+  idempotency_key      text unique,
+  status               public.email_message_status not null default 'queued',
+  next_attempt_at      timestamptz not null default now(),
+  attempts             integer not null default 0,
+  claimed_at           timestamptz,
+  -- Claims of the current attempt. A lease that keeps expiring (the provider may already have
+  -- accepted the email) is reclaimed at most 6 times — ~30 min, well inside Resend's 24h
+  -- idempotency window — then failed as "delivery state unknown" instead of re-sent forever.
+  claim_count          integer not null default 0,
+  -- Admin retries of a failed message. Each one sends under a fresh provider idempotency key;
+  -- automatic retries reuse the key so a timed-out-but-accepted send is never duplicated.
+  manual_retries       integer not null default 0,
+  provider_message_id  text,
+  last_error           text,
+  sent_at              timestamptz,
+  delivered_at         timestamptz,
+  created_at           timestamptz not null default now()
+);
+create index email_messages_due_idx on public.email_messages (next_attempt_at)
+  where status in ('queued', 'sending');
+create index email_messages_provider_idx on public.email_messages (provider_message_id)
+  where provider_message_id is not null;
+create index email_messages_automation_idx on public.email_messages (automation_key);
+create index email_messages_recipient_idx on public.email_messages (recipient_profile_id);
+create index email_messages_created_at_idx on public.email_messages (created_at desc);
+create index email_messages_to_email_idx on public.email_messages (to_email);
+
+-- Addresses we must not send to (hard bounces, spam complaints, manual blocks). Lower-cased.
+create table public.email_suppressions (
+  email      text primary key check (email = lower(email)),
+  reason     text not null check (reason in ('bounced', 'complained', 'manual')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.email_automations  enable row level security;
+alter table public.email_messages     enable row level security;
+alter table public.email_suppressions enable row level security;
+
+-- Seeds: inserted once; reruns never overwrite an admin's choice. The aliases must exist as
+-- published templates in Resend before an automation is switched on.
+insert into public.email_automations (key, name, description, resend_template, enabled) values
+  ('founding_application_submitted', 'Founding application submitted',
+   'Pre-launch (SITE_LAUNCHED=false) confirmation when an application is submitted.', 'founding-seat-held', true),
+  ('application_submitted', 'Application submitted',
+   'Post-launch confirmation when an application is submitted.', 'application-received', false),
+  ('renewal_due_soon', 'Renewal due soon',
+   'Sent once per renewal cycle, 30 days before a membership''s anniversary. Supplies RENEWAL_DATE.',
+   'renewal-due-soon', false)
+on conflict (key) do nothing;
+
+-- ============================================================================
 -- Least privilege for the browser key. The frontend ships the public anon key, so anything granted
 -- to anon/authenticated is readable straight through Supabase's auto-generated REST API — bypassing
 -- the NestJS API's field filtering (contact details, client emails and private proof paths inside

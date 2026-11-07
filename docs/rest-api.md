@@ -507,8 +507,7 @@ profile. Additive, no version bump.
 `aiSummary: string | null` — a 3-to-5-point summary (one sentence of ~15–35 words per point)
 rendered as the "AI Summary" callout on the detail page and on the signed-out preview (one bullet
 per `\n`-separated line), sourced from `articles.ai_summary`. Since 2026-10-31 a reply with fewer
-than 3 points is split into sentences, then retried once. Older one-line summaries can be
-regenerated with `apps/backend/scripts/backfill-ai-summaries.mjs`.
+than 3 points is split into sentences, then retried once.
 Generated once, server-side, by `ArticlesService.generateSummaryIfNeeded()` (`AiService.
 summarizeArticle`) the first time an article transitions to `status: 'published'` — fired async
 and never awaited by the publish/approve request, so it never blocks or fails that response; on
@@ -1942,3 +1941,64 @@ resolves the real active version for each ticked consent server-side — `termsV
 `privacyVersionAgreed` sent by the client are only checked for truthiness (did they tick the
 box), never stored as-is; the actual value written is always looked up fresh from
 `consent_policies` at the moment of submission.
+
+## Email engine
+
+Backend: `apps/backend/src/email/`; shared contract: `packages/shared-types/email.ts`. **Email
+content lives in Resend** — subject, HTML, versions, previews and test sends are done in Resend's
+template editor (designs to paste in: `docs/email-templates/`). This API only decides *when* and *to
+whom*: each app event (automation) points at a published Resend template by id or alias, and every
+send is queued, retried and recorded here. Announcements/newsletters use Resend Broadcasts, not
+this API.
+
+All `/v1/admin/email/*` endpoints require an active admin session plus `manageEmails` (super_admin
+only; legacy null admin_role keeps the existing super-admin behavior).
+
+| Method | Path under `/v1/admin/email` | Request / response |
+|---|---|---|
+| GET | `/automations` | `EmailAutomationDto[]` — key, name, description, enabled, `resendTemplate`, the `variables` the event supplies |
+| PATCH | `/automations/:key` | `{ enabled?, resendTemplate? }` → `EmailAutomationDto`; `resendTemplate` matches `^[A-Za-z0-9_-]{1,100}$` |
+| GET | `/messages` | `EmailMessageListResponse` (`{ items, total }`) and `X-Total-Count` |
+| GET | `/messages/:id` | `EmailMessageDto` |
+| POST | `/messages/:id/cancel` | Queued only → 204; atomic status precondition |
+| POST | `/messages/:id/retry` | Failed only → 204; clears attempts/error/lease and queues immediately under a fresh provider idempotency key |
+
+Message list filters: `status`, `automationKey`, `email` (exact, case-insensitive); `page` (default
+1) and `pageSize` (default 20, 1–100).
+
+**Template variables.** Every email is sent with `NAME` (the recipient's first name, `there` when
+blank — Resend reserves `FIRST_NAME`) and `SITE_URL` (the backend's `SITE_URL`, so image and link
+paths resolve per environment: `{{{SITE_URL}}}/brand/email/logo-dark.png`). `renewal_due_soon`
+also sends `RENEWAL_DATE` (e.g. `7 Dec 2026`). A template must declare only these; a declared
+variable with no fallback that the event doesn't send makes Resend reject the send (the message
+fails with `Resend HTTP 422` — fix the template, then retry the message).
+
+**Automations.** `founding_application_submitted` → `founding-seat-held` (initially enabled),
+`application_submitted` → `application-received` (initially disabled), `renewal_due_soon` →
+`renewal-due-soon` (initially disabled). A successful application submission chooses the founding
+automation when `SITE_LAUNCHED=false`, otherwise the regular one; enqueue failures are logged
+without failing the saved submission. Renewal reminders go to active members with a null/non-paid
+payment override, within the 30 days before their 12-month anniversary. Each message snapshots
+the template it was queued with. Duplicate protection: one message per application/event (a new
+application after a rejection gets its own confirmation) and per member/renewal due date.
+
+**Delivery.** The worker (`EMAIL_WORKER_ENABLED=true`) sends `template: { id, variables }` with
+`from`/`reply_to` from the environment. A failed attempt is retried with backoff (1 min, 5 min,
+30 min, 2 h; 5 attempts) unless the provider rejected it (4xx other than 429), which is final.
+Automatic retries reuse the provider idempotency key; admin retries get a fresh one. A send lease
+that expires 6 times (the provider may already have accepted the email) is failed with
+`last_error` "Delivery state unknown…" rather than re-sent, so a recipient can't be mailed twice
+once Resend's 24-hour idempotency window has passed. Suppressed addresses are skipped.
+
+Public provider endpoint: `POST /v1/email/webhooks/resend` → 204. Requires valid `svix-id`,
+`svix-timestamp`, `svix-signature` over the exact raw body, with ±5-minute tolerance. Handles
+`email.delivered`, `email.bounced`, `email.complained`; other events/unknown message ids are
+acknowledged without a state change. Permanent bounces and complaints suppress the address the
+provider reports (`data.to[0]`), even when no message matches; transient bounces only update
+history. A late delivery cannot undo a bounce/complaint. No webhook secret → 503
+`EMAIL_WEBHOOK_NOT_CONFIGURED`; invalid signature → 401 `EMAIL_WEBHOOK_SIGNATURE_INVALID`. The
+webhook is exempt from account authentication; the signature is mandatory.
+
+Error codes: 400 `EMAIL_VARIABLES_INVALID` (internal: an event supplied an undeclared variable);
+404 `EMAIL_NOT_FOUND`; 409 `EMAIL_WRITE_CONFLICT`, `EMAIL_MESSAGE_NOT_CANCELLABLE`,
+`EMAIL_MESSAGE_NOT_RETRYABLE`; 500 `EMAIL_DATABASE_ERROR`.

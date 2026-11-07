@@ -267,8 +267,7 @@ Every piece of code must meet this standard before being considered done:
 - Matches the design tokens in `docs/design-system.md` — no hardcoded hex values
 
 **Not yet applicable:** there's no caching layer or ISR-revalidation endpoint built yet (no Redis,
-no `/revalidate` route) and no email sending — don't add "invalidate cache" / "revalidate ISR" /
-"send email" steps to a mutation until that infrastructure actually exists; note the gap instead
+no `/revalidate` route) — do not add "invalidate cache" / "revalidate ISR" steps to a mutation until that infrastructure actually exists; note the gap instead
 if a feature seems to need one of these.
 
 **Design standard:** Linear, Vercel, Stripe — premium, clean,
@@ -300,3 +299,9 @@ At the end of any session touching backend or frontend:
 □ Confirm no hardcoded credentials or keys
 □ Confirm pnpm typecheck passes
 ```
+**Email infrastructure:** email content lives in **Resend** as published templates (designs in
+`docs/email-templates/`); `apps/backend/src/email/` owns when/to whom — automations mapping app
+events to a template alias, the queue, retries, signed webhooks and suppression. Feature triggers
+enqueue through `EmailService.enqueueAutomation`; a new trigger adds an `AutomationKey` + its
+variables in `automations.ts` and a seed row. Don't rebuild template storage/rendering here. See
+US-19 and `docs/deployment.md` for activation.

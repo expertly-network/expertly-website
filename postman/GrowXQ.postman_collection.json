@@ -147,6 +147,42 @@
     {
       "key": "templateId",
       "value": ""
+    },
+    {
+      "key": "emailAutomationKey",
+      "value": "founding_application_submitted",
+      "type": "string",
+      "description": "Fixed automation key."
+    },
+    {
+      "key": "emailMessageId",
+      "value": "",
+      "type": "string",
+      "description": "ID from GET /admin/email/messages."
+    },
+    {
+      "key": "emailProviderMessageId",
+      "value": "",
+      "type": "string",
+      "description": "Resend provider ID from message history."
+    },
+    {
+      "key": "svixId",
+      "value": "",
+      "type": "string",
+      "description": "Signed webhook event ID."
+    },
+    {
+      "key": "svixTimestamp",
+      "value": "",
+      "type": "string",
+      "description": "Current signed Unix timestamp (seconds)."
+    },
+    {
+      "key": "svixSignature",
+      "value": "",
+      "type": "string",
+      "description": "Valid v1,base64 HMAC signature over exact body."
     }
   ],
   "item": [
@@ -4448,9 +4484,234 @@
               ]
             }
           ]
+        },
+        {
+          "name": "Email",
+          "description": "Super-admin only (manageEmails). Versioned templates, automations, sending and history.",
+          "item": [
+            {
+              "name": "GET /admin/email/automations — List automation switches",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/email/automations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "email",
+                    "automations"
+                  ]
+                },
+                "description": "Each automation's Resend template alias, whether it's on, and the template variables it sends (NAME, SITE_URL, +RENEWAL_DATE for renewals). Email content is edited in Resend, not here."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/email/automations/{{emailAutomationKey}} — Configure an automation",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/email/automations/{{emailAutomationKey}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "email",
+                    "automations",
+                    "{{emailAutomationKey}}"
+                  ]
+                },
+                "description": "Switch an app event on/off and/or point it at a different published Resend template (id or alias, `^[A-Za-z0-9_-]{1,100}$`). Turn enabled on only once the template is published in Resend and declares only the variables GET /admin/email/automations lists for this event.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"enabled\": false,\n  \"resendTemplate\": \"application-received\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/email/messages — Read paginated delivery history",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/email/messages?page=1&pageSize=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "email",
+                    "messages"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "20"
+                    },
+                    {
+                      "key": "status",
+                      "value": "queued",
+                      "disabled": true
+                    },
+                    {
+                      "key": "automationKey",
+                      "value": "founding_application_submitted",
+                      "disabled": true
+                    },
+                    {
+                      "key": "email",
+                      "value": "{{testEmail}}",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Returns {items,total} and X-Total-Count. Filters: status, automationKey, email (exact, case-insensitive)."
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/email/messages/{{emailMessageId}} — Read one message and its delivery state",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/email/messages/{{emailMessageId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "email",
+                    "messages",
+                    "{{emailMessageId}}"
+                  ]
+                },
+                "description": "Delivery state of one message: template alias, status, attempts, last error, provider id. The email itself is visible in the Resend dashboard (search by providerMessageId)."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/email/messages/{{emailMessageId}}/cancel — Cancel a queued message",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/email/messages/{{emailMessageId}}/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "email",
+                    "messages",
+                    "{{emailMessageId}}",
+                    "cancel"
+                  ]
+                },
+                "description": "204 on success; 409 if the worker has already claimed it or it is no longer queued."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/email/messages/{{emailMessageId}}/retry — Retry a failed message",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/email/messages/{{emailMessageId}}/retry",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "email",
+                    "messages",
+                    "{{emailMessageId}}",
+                    "retry"
+                  ]
+                },
+                "description": "204 on success; failed messages only. Resets attempts and re-queues immediately, sending under a fresh provider idempotency key so Resend does not answer with the earlier failed attempt. Does not bypass suppression."
+              },
+              "response": []
+            }
+          ]
         }
       ],
       "description": "Every 🛡️ admin-only route (role `admin` + the matching permission, e.g. manageTaxonomy/manageEvents), kept separate from the public/member folders above instead of mixed in with them. Sub-folders mirror the same resource names (Categories & Services, Membership Applications, Articles, Events, Members & Profiles, Consultations) so the layout stays familiar."
+    },
+    {
+      "name": "Email",
+      "item": [
+        {
+          "name": "POST /email/webhooks/resend — Resend delivery events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "svix-id",
+                "value": "{{svixId}}"
+              },
+              {
+                "key": "svix-timestamp",
+                "value": "{{svixTimestamp}}"
+              },
+              {
+                "key": "svix-signature",
+                "value": "{{svixSignature}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/email/webhooks/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "email",
+                "webhooks",
+                "resend"
+              ]
+            },
+            "description": "Public route, authenticated by Svix HMAC over the exact raw request body. Example fails 401 unless signature headers are generated for these exact bytes and a current timestamp. Use Resend webhook testing for a valid request. Unknown IDs and unrelated events return 204. Permanent bounces and complaints suppress `data.to[0]` even when no message row matches (e.g. events arriving before the send was recorded).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"email.delivered\",\n  \"data\": {\n    \"email_id\": \"{{emailProviderMessageId}}\",\n    \"to\": [\n      \"person@example.com\"\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

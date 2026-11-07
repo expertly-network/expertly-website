@@ -75,7 +75,8 @@ through `0004_tables.sql` — pre-production four-file convention, see
 | `peer_connect_matches`, `peer_connect_member_preferences` | 🧱 Schema only | none — see Section 6 |
 | Perks / learnings / collections | ✅ Backend + frontend; templates deferred | `0004_tables.sql`, `0005_seed_resources.sql` |
 | Newsletter subscriptions, signup-source tracking | 📋 Roadmap — no schema yet | none |
-| Notifications (any kind) | 🔭 Beyond-roadmap — no schema | none |
+| Email notifications | Backend implemented locally; activation pending | Automations → Resend templates, queue, webhooks/suppression; content edited in Resend; see US-19 |
+| In-app notifications | 🔭 Beyond-roadmap — no schema | none |
 | Vector embeddings / AI search | ✅ Built | `search_documents`, `search_outbox`, `search_query_log` (see `docs/database-erd.md` "AI search") |
 
 The `events`/`consultation_requests`/`peer_connect_*` tables were created in the initial schema
@@ -163,7 +164,10 @@ as a starting point for a future dedicated design session each — **none of thi
 build from as-is**; each needs the same "read the design fresh, derive the real model" treatment
 before it's real.
 
-### 8.1 — Notifications
+### 8.1 — In-app notifications
+
+Email delivery now has a backend implementation (US-19). The general in-app notification feed
+and additional feature triggers below remain future work.
 Every roadmap feature above has at least one "you'll be notified" trigger point with nothing behind
 it yet: new consultation request, request completed/declined, Peer Connect match revealed,
 reschedule proposed/accepted/declined, member profile-edit approved/rejected, application status
@@ -227,6 +231,7 @@ What to read for a given task. "Docs" lists what to open; "User stories" points 
 | Newsletter / signup-source | `docs/roadmap.md` §Smaller/adjacent | US-15 |
 | Design tokens / components | `docs/design-system.md` | — |
 | AI search (API + background worker) | `docs/rest-api.md` "AI search", `docs/database-erd.md` "AI search", `docs/deployment.md` (worker app) | US-18 |
+| Email engine | `docs/rest-api.md` "Email engine", `docs/database-erd.md` "Email engine", `docs/deployment.md` "Email engine activation" | US-19 |
 | Deployment / CI | `docs/deployment.md` | — |
 | Anything not yet scoped | Section 8, then `docs/roadmap.md`'s methodology | US-16, US-17 |
 

@@ -410,6 +410,117 @@ export type Database = {
           },
         ]
       }
+      email_automations: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          key: string
+          name: string
+          resend_template: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          key: string
+          name: string
+          resend_template: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          name?: string
+          resend_template?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      email_messages: {
+        Row: {
+          attempts: number
+          automation_key: string
+          claim_count: number
+          claimed_at: string | null
+          created_at: string
+          delivered_at: string | null
+          id: string
+          idempotency_key: string | null
+          last_error: string | null
+          manual_retries: number
+          next_attempt_at: string
+          provider_message_id: string | null
+          recipient_profile_id: string | null
+          resend_template: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["email_message_status"]
+          to_email: string
+          variables: Json
+        }
+        Insert: {
+          attempts?: number
+          automation_key: string
+          claim_count?: number
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          last_error?: string | null
+          manual_retries?: number
+          next_attempt_at?: string
+          provider_message_id?: string | null
+          recipient_profile_id?: string | null
+          resend_template: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["email_message_status"]
+          to_email: string
+          variables?: Json
+        }
+        Update: {
+          attempts?: number
+          automation_key?: string
+          claim_count?: number
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          last_error?: string | null
+          manual_retries?: number
+          next_attempt_at?: string
+          provider_message_id?: string | null
+          recipient_profile_id?: string | null
+          resend_template?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["email_message_status"]
+          to_email?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
+      email_suppressions: {
+        Row: {
+          created_at: string
+          email: string
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           category_ids: string[]
@@ -1572,6 +1683,14 @@ export type Database = {
     }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      email_apply_event: { Args: { p_provider_id: string; p_status: string; p_suppress: boolean; p_at: string; p_email?: string }; Returns: undefined }
+      email_claim: {
+        Args: { p_lease?: string; p_limit?: number }
+        Returns: {
+          claimed_at: string
+          id: string
+        }[]
+      }
       member_directory_ids: {
         Args: {
           p_category_id?: string
@@ -1681,6 +1800,16 @@ export type Database = {
       billing_period: "monthly" | "annual"
       consent_policy_status: "active" | "inactive"
       consultation_status: "pending" | "completed" | "declined"
+      email_message_status:
+        | "queued"
+        | "sending"
+        | "sent"
+        | "delivered"
+        | "bounced"
+        | "complained"
+        | "failed"
+        | "cancelled"
+        | "suppressed"
       event_status: "draft" | "published"
       member_edit_section:
         | "headline_bio"
@@ -1853,6 +1982,17 @@ export const Constants = {
       billing_period: ["monthly", "annual"],
       consent_policy_status: ["active", "inactive"],
       consultation_status: ["pending", "completed", "declined"],
+      email_message_status: [
+        "queued",
+        "sending",
+        "sent",
+        "delivered",
+        "bounced",
+        "complained",
+        "failed",
+        "cancelled",
+        "suppressed",
+      ],
       event_status: ["draft", "published"],
       member_edit_section: [
         "headline_bio",

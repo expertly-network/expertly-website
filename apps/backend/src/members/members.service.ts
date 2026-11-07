@@ -1,3 +1,4 @@
+import { computeDueState } from './renewal';
 import { randomUUID } from 'node:crypto';
 import { AdminAccessService } from '../auth/admin-access.service';
 import {
@@ -20,7 +21,6 @@ import type {
   MemberListItemDto,
   MemberProfileEditDto,
   MyMemberProfileDto,
-  RenewalDueState,
   UploadResponse,
 } from '@shared/member';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
@@ -106,10 +106,6 @@ interface ItemDecision {
   decision: MemberEditItemDecision;
   reason: string | null;
 }
-
-// Membership runs 12 months from membership_started_at; flagged "due-soon" 30 days out.
-const RENEWAL_PERIOD_MONTHS = 12;
-const RENEWAL_REMINDER_DAYS = 30;
 
 @Injectable()
 export class MembersService {
@@ -359,7 +355,7 @@ export class MembersService {
       applicationId: row.application_id,
       membershipStartedAt: row.membership_started_at,
       renewalPaymentStatus: row.renewal_payment_status,
-      renewalDueState: this.computeDueState(row.membership_started_at),
+      renewalDueState: computeDueState(row.membership_started_at),
     }));
   }
 
@@ -382,7 +378,7 @@ export class MembersService {
       applicationId: updated.application_id,
       membershipStartedAt: updated.membership_started_at,
       renewalPaymentStatus: updated.renewal_payment_status,
-      renewalDueState: this.computeDueState(updated.membership_started_at),
+      renewalDueState: computeDueState(updated.membership_started_at),
     };
   }
 
@@ -834,20 +830,6 @@ export class MembersService {
       }
     }
     return paths;
-  }
-
-  private computeDueState(membershipStartedAt: string): RenewalDueState {
-    const start = new Date(membershipStartedAt);
-    const due = new Date(start);
-    due.setMonth(due.getMonth() + RENEWAL_PERIOD_MONTHS);
-
-    const now = new Date();
-    const reminderStart = new Date(due);
-    reminderStart.setDate(reminderStart.getDate() - RENEWAL_REMINDER_DAYS);
-
-    if (now >= due) return 'overdue';
-    if (now >= reminderStart) return 'due-soon';
-    return 'active';
   }
 
   private fullName(profile?: ProfileIdentityRow): string {
