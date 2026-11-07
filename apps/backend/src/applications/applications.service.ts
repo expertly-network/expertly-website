@@ -85,6 +85,7 @@ const WRITABLE_COLUMNS: Partial<Record<keyof ApplicationRow, keyof UpdateApplica
   first_name: 'firstName',
   last_name: 'lastName',
   contact_email: 'contactEmail',
+  work_email: 'workEmail',
   phone_country_code: 'phoneCountryCode',
   phone: 'phone',
   // region is deliberately absent: it's derived server-side from country (see saveOrSubmit),
@@ -113,6 +114,7 @@ const REQUIRED_TO_SUBMIT: [keyof ApplicationRow, string][] = [
   ['first_name', 'firstName'],
   ['last_name', 'lastName'],
   ['contact_email', 'contactEmail'],
+  ['work_email', 'workEmail'],
   ['country', 'country'],
   ['linkedin_url', 'linkedinUrl'],
   ['bio', 'bio'],
@@ -281,7 +283,8 @@ export class ApplicationsService {
         // application after a rejection gets its own confirmation.
         await this.emailService.enqueueAutomation(
           key,
-          { profileId: user.id },
+          // The work email (required to submit) is the only address GrowXQ emails.
+          { profileId: user.id, workEmail: saved.work_email },
           { idempotencyKey: `${key}:${saved.id}` }
         );
       } catch {
@@ -663,6 +666,8 @@ export class ApplicationsService {
       // here) — same effective default as before, just no longer implicit.
       membership_started_at: dto.membershipStartedAt ?? new Date().toISOString(),
       contact_email: application.contact_email,
+      // The application's work email becomes the member's — the address all GrowXQ email goes to.
+      work_email: application.work_email,
       // member_profiles.contact_phone is one field (unlike the application's split
       // phone_country_code/phone) — same join convention the frontend already uses for display.
       contact_phone: application.phone ? `${application.phone_country_code ?? ''} ${application.phone}`.trim() : null,
@@ -866,6 +871,7 @@ export class ApplicationsService {
       firstName: row.first_name,
       lastName: row.last_name,
       contactEmail: row.contact_email,
+      workEmail: row.work_email,
       phoneCountryCode: row.phone_country_code,
       phone: row.phone,
       region: row.region,

@@ -177,6 +177,11 @@ export function ApplicationReviewDetail({
               <div className="mt-1 text-xs text-ink-3">{application.contactEmail}</div>
             </div>
           </div>
+          <ReviewRow
+            label="Work email"
+            value={application.workEmail ?? '—'}
+            previous={prev ? (prev.workEmail ?? '—') : undefined}
+          />
           <ReviewRow label="Phone" value={phoneOf(application)} previous={prev ? phoneOf(prev) : undefined} />
           <ReviewRow label="Location" value={locationOf(application)} previous={prev ? locationOf(prev) : undefined} />
           <ReviewRow

@@ -211,7 +211,7 @@ export function ReviewSubmitStep({
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
-    if (!consentTerms) e.consentTerms = 'You must agree to the User Agreement to submit.';
+    if (!consentTerms) e.consentTerms = 'You must agree to the User & Member Policy to submit.';
     if (!consentPrivacy) e.consentPrivacy = 'You must agree to the Privacy Policy to submit.';
     if (!form.backgroundCheckConsent) {
       e.backgroundCheckConsent = 'You must consent to background verification to submit.';
@@ -270,6 +270,7 @@ export function ReviewSubmitStep({
             <div className="mt-1 text-xs text-ink-3 [overflow-wrap:anywhere]">{form.contactEmail}</div>
           </div>
         </div>
+        <ReviewRow label="Work email" value={form.workEmail || '—'} />
         <ReviewRow label="Phone" value={form.phone ? `${form.phoneCountryCode} ${form.phone}` : '—'} />
         <ReviewRow label="Location" value={[location, regionLabel].filter(Boolean).join(' · ') || '—'} />
         <ReviewRow label="LinkedIn" value={form.linkedinUrl} href={externalHref(form.linkedinUrl) ?? undefined} />
@@ -460,7 +461,7 @@ export function ReviewSubmitStep({
                   className="font-medium text-accent underline hover:text-ink"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  User Agreement
+                  User &amp; Member Policy
                 </a>{' '}
                 (v{TERMS_VERSION}).
               </span>

@@ -25,7 +25,7 @@ const COPY: Record<AuthMode, Record<AuthView, { title: string; sub: string }> & 
     },
     // Passive clickwrap — no checkbox, no separate confirmation step. Continuing (any path:
     // email or LinkedIn) is itself the acceptance; see the linked version of this text below.
-    foot: "By continuing, you agree to GrowXQ's Terms of Service.",
+    foot: "By continuing, you agree to GrowXQ's User & Member Policy.",
   },
   member: {
     signin: {
@@ -124,7 +124,7 @@ export function AuthCard({ initialMode, returnTo }: { initialMode: AuthMode; ret
               rel="noopener noreferrer"
               className="underline hover:text-ink-2"
             >
-              User Agreement
+              User &amp; Member Policy
             </a>{' '}
             and{' '}
             <a

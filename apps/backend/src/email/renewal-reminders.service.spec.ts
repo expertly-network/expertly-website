@@ -17,10 +17,11 @@ describe('renewal reminders', () => {
       renewalCandidates: vi
         .fn()
         .mockResolvedValueOnce([
-          { id: 'due', membership_started_at: '2025-12-07T00:00:00Z' },
-          { id: 'queued-already', membership_started_at: '2025-12-06T00:00:00Z' },
-          { id: 'later', membership_started_at: '2026-01-07T00:00:00Z' },
-          { id: 'overdue', membership_started_at: '2025-11-01T00:00:00Z' },
+          { id: 'due', membership_started_at: '2025-12-07T00:00:00Z', work_email: 'due@work.example' },
+          { id: 'no-work-email', membership_started_at: '2025-12-07T00:00:00Z', work_email: null },
+          { id: 'queued-already', membership_started_at: '2025-12-06T00:00:00Z', work_email: 'q@work.example' },
+          { id: 'later', membership_started_at: '2026-01-07T00:00:00Z', work_email: 'l@work.example' },
+          { id: 'overdue', membership_started_at: '2025-11-01T00:00:00Z', work_email: 'o@work.example' },
         ])
         .mockResolvedValue([]),
       findExistingIdempotencyKeys: vi.fn().mockResolvedValue(new Set(['renewal_due_soon:queued-already:2026-12-06'])),
@@ -39,10 +40,15 @@ describe('renewal reminders', () => {
       'renewal_due_soon:due:2026-12-07',
       'renewal_due_soon:queued-already:2026-12-06',
     ]);
-    expect(email.enqueuePrepared).toHaveBeenCalledExactlyOnceWith(prepared, expect.objectContaining({ id: 'due' }), {
-      idempotencyKey: 'renewal_due_soon:due:2026-12-07',
-      variables: { RENEWAL_DATE: '7 Dec 2026' },
-    });
+    expect(email.enqueuePrepared).toHaveBeenCalledExactlyOnceWith(
+      prepared,
+      expect.objectContaining({ id: 'due' }),
+      'due@work.example',
+      {
+        idempotencyKey: 'renewal_due_soon:due:2026-12-07',
+        variables: { RENEWAL_DATE: '7 Dec 2026' },
+      }
+    );
   });
   it('does not scan when disabled', async () => {
     const repo = { renewalCandidates: vi.fn() };

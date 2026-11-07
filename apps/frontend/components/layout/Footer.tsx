@@ -19,7 +19,7 @@ const PAGE_LINKS: FooterLink[] = [
 ];
 
 const LEGAL_LINKS: FooterLink[] = [
-  { label: 'User Agreement', href: USER_AGREEMENT_URL },
+  { label: 'User & Member Policy', href: USER_AGREEMENT_URL },
   { label: 'Membership Policy', href: MEMBERSHIP_POLICY_URL },
   { label: 'Privacy Policy', href: PRIVACY_POLICY_URL },
 ];

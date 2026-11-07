@@ -24,6 +24,7 @@ function setup() {
     first_name: 'Alex',
     last_name: 'Morgan',
     contact_email: user.email,
+    work_email: 'jane@work.example',
     phone: '9876543210',
     country: 'Other',
     state: 'Other',
@@ -92,7 +93,7 @@ describe('application submission emails', () => {
     expect(result.status).toBe('submitted');
     expect(email.enqueueAutomation).toHaveBeenCalledWith(
       key,
-      { profileId: user.id },
+      { profileId: user.id, workEmail: 'jane@work.example' },
       { idempotencyKey: `${key}:application-1` }
     );
     expect(repo.updateById.mock.invocationCallOrder[0]).toBeLessThan(

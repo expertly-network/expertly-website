@@ -42,6 +42,8 @@ export function IdentityStep({
     if (!form.photoUrl) e.photo = 'Profile photo is required.';
     if (!form.firstName.trim()) e.firstName = 'First name is required.';
     if (!form.lastName.trim()) e.lastName = 'Last name is required.';
+    if (!form.workEmail.trim()) e.workEmail = 'Work email is required.';
+    else if (!EMAIL_PATTERN.test(form.workEmail.trim())) e.workEmail = 'Enter a valid email address.';
     if (!form.contactEmail.trim()) e.contactEmail = 'Contact email is required.';
     else if (!EMAIL_PATTERN.test(form.contactEmail.trim())) e.contactEmail = 'Enter a valid email address.';
     // Same rule the backend applies at submit: 6-15 digits, whatever the spacing/punctuation.
@@ -185,11 +187,28 @@ export function IdentityStep({
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
+            label="Work email"
+            markRequired
+            name="workEmail"
+            type="email"
+            autoComplete="work email"
+            placeholder="you@company.com"
+            hint="All GrowXQ emails go here."
+            value={form.workEmail}
+            onChange={(e) => {
+              update({ workEmail: e.target.value });
+              clearError('workEmail');
+            }}
+            error={errors.workEmail}
+            required
+          />
+          <Input
             label="Contact email"
             markRequired
             name="contactEmail"
             type="email"
             placeholder="you@example.com"
+            hint="Kept on file only — we don't send email here."
             value={form.contactEmail}
             onChange={(e) => {
               update({ contactEmail: e.target.value });
@@ -198,6 +217,9 @@ export function IdentityStep({
             error={errors.contactEmail}
             required
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="phone" className="text-xs font-medium text-ink-2">
               WhatsApp / Phone

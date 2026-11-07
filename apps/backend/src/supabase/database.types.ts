@@ -959,6 +959,7 @@ export type Database = {
           bio: string | null
           city: string | null
           contact_email: string | null
+          work_email: string | null
           country: string | null
           coupon_code: string | null
           created_at: string
@@ -1001,6 +1002,7 @@ export type Database = {
           bio?: string | null
           city?: string | null
           contact_email?: string | null
+          work_email?: string | null
           country?: string | null
           coupon_code?: string | null
           created_at?: string
@@ -1043,6 +1045,7 @@ export type Database = {
           bio?: string | null
           city?: string | null
           contact_email?: string | null
+          work_email?: string | null
           country?: string | null
           coupon_code?: string | null
           created_at?: string

@@ -433,6 +433,9 @@ create table public.membership_applications (
   first_name text,
   last_name text,
   contact_email citext,
+  -- The applicant's work address: required to submit, copied to member_profiles.work_email on
+  -- approval, and the ONLY address GrowXQ sends email to (contact_email is kept on file only).
+  work_email citext,
   phone_country_code text,
   phone text,
   region application_region,
@@ -1695,7 +1698,7 @@ insert into public.consent_policies (slug, title, version_id, status, file_path)
   ('cookie-policy', 'Cookie Policy', '1.0', 'active', 'GrowXQ - Cookie_Policy.pdf'),
   ('import-consent-policy', 'LinkedIn Profile Import Consent Policy', '1.0', 'active', 'GrowXQ - LinkedIn Profile Import Consent Policy.pdf'),
   ('privacy-policy', 'Privacy Policy', '1.0', 'active', 'GrowXQ - Privacy_Policy.pdf'),
-  ('user-agreement', 'User Agreement', '1.0', 'active', 'GrowXQ - User Agreement.pdf')
+  ('user-agreement', 'User & Member Policy', '1.0', 'active', 'GrowXQ - User Agreement.pdf')
 on conflict (slug) do nothing;
 
 -- ============================================================================

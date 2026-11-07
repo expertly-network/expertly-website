@@ -62,6 +62,7 @@ export interface ProfileRow {
 export interface RenewalRow {
   id: string;
   membership_started_at: string;
+  work_email: string | null;
 }
 
 function check(error: { code?: string } | null): void {
@@ -203,7 +204,7 @@ export class EmailRepository {
   }
   async renewalCandidates(afterId?: string): Promise<RenewalRow[]> {
     let query = this.members()
-      .select('id:profile_id,membership_started_at')
+      .select('id:profile_id,membership_started_at,work_email')
       .eq('status', 'active')
       .or('renewal_payment_status.is.null,renewal_payment_status.neq.paid')
       .order('profile_id')

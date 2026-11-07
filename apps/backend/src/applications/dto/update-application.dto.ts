@@ -55,6 +55,12 @@ export class UpdateApplicationDto {
   @MaxLength(EMAIL_MAX)
   contactEmail?: string;
 
+  // Where every GrowXQ email goes; required to submit (REQUIRED_TO_SUBMIT).
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(EMAIL_MAX)
+  workEmail?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(10)

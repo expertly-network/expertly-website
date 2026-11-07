@@ -36,7 +36,7 @@ describe('EmailService', () => {
     expect(
       await service.enqueueAutomation(
         'founding_application_submitted',
-        { profileId: 'profile-1' },
+        { profileId: 'profile-1', workEmail: 'Alex@Work.example' },
         { idempotencyKey: 'k' }
       )
     ).toBe('queued');
@@ -44,7 +44,7 @@ describe('EmailService', () => {
       automation_key: 'founding_application_submitted',
       resend_template: 'founding-seat-held',
       recipient_profile_id: 'profile-1',
-      to_email: 'alex@example.com',
+      to_email: 'alex@work.example',
       variables: { NAME: 'Alex', SITE_URL: 'https://example.com' },
       idempotency_key: 'k',
     });
@@ -56,7 +56,7 @@ describe('EmailService', () => {
     expect(
       await service.enqueueAutomation(
         'founding_application_submitted',
-        { profileId: 'profile-1' },
+        { profileId: 'profile-1', workEmail: 'Alex@Work.example' },
         { idempotencyKey: 'k' }
       )
     ).toBe('duplicate');
@@ -65,20 +65,38 @@ describe('EmailService', () => {
     expect(
       await service.enqueueAutomation(
         'founding_application_submitted',
-        { profileId: 'profile-1' },
+        { profileId: 'profile-1', workEmail: 'Alex@Work.example' },
         { idempotencyKey: 'k' }
       )
     ).toBe('disabled');
+  });
+  it('sends only to the work email: none means nothing is queued', async () => {
+    const { repo, service } = setup();
+    for (const workEmail of [null, undefined, '  ']) {
+      expect(
+        await service.enqueueAutomation(
+          'founding_application_submitted',
+          { profileId: 'profile-1', workEmail },
+          {
+            idempotencyKey: 'k',
+          }
+        )
+      ).toBe('no_work_email');
+    }
+    expect(repo.insertMessage).not.toHaveBeenCalled();
   });
   it('accepts only the variables an automation is declared to supply', async () => {
     const { service } = setup();
     const prepared = { key: 'renewal_due_soon' as const, resendTemplate: 'renewal-due-soon' };
     const profile = { id: 'profile-1', email: 'a@example.com', first_name: 'A' };
     await expect(
-      service.enqueuePrepared(prepared, profile, { idempotencyKey: 'k', variables: { RENEWAL_DATE: '7 Dec 2026' } })
+      service.enqueuePrepared(prepared, profile, 'a@work.example', {
+        idempotencyKey: 'k',
+        variables: { RENEWAL_DATE: '7 Dec 2026' },
+      })
     ).resolves.toBe('queued');
     await expect(
-      service.enqueuePrepared(prepared, profile, { idempotencyKey: 'k', variables: { OTHER: 'x' } })
+      service.enqueuePrepared(prepared, profile, 'a@work.example', { idempotencyKey: 'k', variables: { OTHER: 'x' } })
     ).rejects.toMatchObject({ response: { code: 'EMAIL_VARIABLES_INVALID' } });
   });
   it('retargets an automation and lists the variables it supplies', async () => {

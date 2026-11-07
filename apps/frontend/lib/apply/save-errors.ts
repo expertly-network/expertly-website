@@ -12,6 +12,7 @@ const FIELD_LABELS: Record<string, string> = {
   firstName: 'First name',
   lastName: 'Last name',
   contactEmail: 'Contact email',
+  workEmail: 'Work email',
   phone: 'Phone number',
   phoneCountryCode: 'Phone country code',
   region: 'Location',

@@ -17,6 +17,7 @@ export interface WizardFormState {
   firstName: string;
   lastName: string;
   contactEmail: string;
+  workEmail: string;
   phoneCountryCode: string;
   phone: string;
   region: ApplicationRegion | '';
@@ -56,6 +57,7 @@ export function toUpdateRequest(
     firstName: form.firstName || undefined,
     lastName: form.lastName || undefined,
     contactEmail: form.contactEmail.trim() || undefined,
+    workEmail: form.workEmail.trim() || undefined,
     // Sent independently of `phone` — the LinkedIn import can default this from the applicant's
     // country before they've typed a number at all; gating it on `phone` being non-empty (as this
     // used to) meant that default was silently dropped on save and reverted to '+1' on the next
@@ -102,6 +104,7 @@ export function fromDto(app: ApplicationDto): Partial<WizardFormState> {
     firstName: app.firstName ?? '',
     lastName: app.lastName ?? '',
     contactEmail: app.contactEmail ?? '',
+    workEmail: app.workEmail ?? '',
     phoneCountryCode: app.phoneCountryCode ?? '+1',
     phone: app.phone ?? '',
     region: app.region ?? '',
@@ -157,6 +160,7 @@ export const INITIAL_WIZARD_STATE: WizardFormState = {
   firstName: '',
   lastName: '',
   contactEmail: '',
+  workEmail: '',
   phoneCountryCode: '+1',
   phone: '',
   region: '',

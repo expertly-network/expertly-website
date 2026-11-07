@@ -88,7 +88,8 @@ immutable snapshot again, same as the original design. Approving an application
 | `current_step` | smallint, default `1` | which wizard step to resume on; only meaningful while `status = 'draft'` |
 | `photo_path` | text, nullable | Storage path within the `application-assets` bucket. That bucket is **public**, so this resolves to a plain, permanent URL at read time (`ApplicationsRepository.getPublicUrl()`) — never a signed URL. |
 | `first_name`, `last_name` | text, nullable | nullable so a draft can be incomplete; required by the time `status` becomes `submitted` (enforced in `ApplicationsService`, not the DB) |
-| `contact_email` | citext, nullable | deliberately separate from `profiles.email` (work vs. login email) |
+| `contact_email` | citext, nullable | deliberately separate from `profiles.email`; kept on file only — never emailed (2026-11-08) |
+| `work_email` | citext, nullable | **Added 2026-11-08.** Required to submit; copied to `member_profiles.work_email` on approval. The **only** address GrowXQ sends email to (no fallback to `contact_email` or `profiles.email`) |
 | `phone_country_code`, `phone` | text | optional, always |
 | `region` | enum (7 values: `asia_pacific`…`africa`), nullable | **not client-settable** (2026-09-26) — derived server-side from `country` via a fixed map (`apps/backend/src/applications/constants/country-region.ts`); required at submit except when `country = 'Other'`, which has no defensible region and stays `null` |
 | `country` | text, nullable | free text in the design (fixed option list + "Other"), not its own lookup table yet; required at submit |
@@ -588,7 +589,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `is_available` | bool, default `true` | Member-controlled via `PATCH /v1/members/:id` (`isAvailable`; applies immediately, no review). |
 | `availability_notes` | text, nullable | Same endpoint; ≤200 chars, shown under the status. |
 | `contact_email`, `contact_phone`, `linkedin_url`, `website` | nullable | editable via the `contact` self-edit section |
-| `work_email` | citext, nullable | Optional professional address, separate from `contact_email` (application / LinkedIn-sourced). Editable via the `contact` section; shown on the profile contact tab only when set. |
+| `work_email` | citext, nullable | Seeded from the application's `work_email` on approval (2026-11-08); the only address GrowXQ emails (renewal reminders etc. — a member without one gets none). Editable via the `contact` section (e.g. after changing companies); shown on the profile contact tab only when set. |
 | `is_verified` | bool, default `false` | the overall "GrowXQ Verified" badge — distinct from the per-item `is_verified` flags on credentials/testimonials |
 | `photo_path` | text, nullable | Same convention as `membership_applications.photo_path`: a Storage path within the (public) `application-assets` bucket, copied verbatim from the source application's `photo_path` on approval — same bucket, same file, nothing to move. Or a legacy/seed full external URL. Resolved to a plain, permanent URL at read time (`MembersService`/`ArticlesRepository`) — **never a signed URL**, since this column is read back directly with no read-time refresh. (An earlier version of this column, named `photo_url`, held a baked-in 1-hour signed URL that went dead an hour after approval — that was the original bug this design fixes.) Since 2026-10-21 the member can replace it via `PATCH /v1/members/:id` (`photoUploadPath`), which writes a new `members/<id>/profile-photo-<uuid>.<ext>` path in the same bucket (live immediately, no review). |
 | `status` | enum `active`\|`deactivated` | admin-controlled; deactivating does not delete the row |
@@ -979,7 +980,7 @@ reachable through 60-second signed URLs minted by the API.
 
 Implemented schema: `0002_enums.sql` (`consent_policy_status`), `0004_tables.sql`
 (`consent_policies`, plus the `membership_applications` column changes below). Maps each of the
-4 consent PDFs (cookie policy, LinkedIn import consent, privacy policy, user agreement) to its
+4 consent PDFs (cookie policy, LinkedIn import consent, privacy policy, User & Member Policy — slug `user-agreement`) to its
 current version and file, so the wizard's 4 consent links can open the right PDF and the backend
 can resolve the right version to record at submission time.
 

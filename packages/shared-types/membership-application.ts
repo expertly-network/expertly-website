@@ -83,6 +83,8 @@ export class UpdateApplicationRequest {
   @ApiPropertyOptional() firstName?: string;
   @ApiPropertyOptional() lastName?: string;
   @ApiPropertyOptional() contactEmail?: string;
+  /** Work address — required to submit; every GrowXQ email is sent here. */
+  @ApiPropertyOptional() workEmail?: string;
   @ApiPropertyOptional() phoneCountryCode?: string;
   @ApiPropertyOptional() phone?: string;
   @ApiPropertyOptional({ enum: APPLICATION_REGIONS }) region?: ApplicationRegion;
@@ -134,6 +136,7 @@ export class ApplicationDto {
   @ApiProperty({ nullable: true, type: String }) firstName!: string | null;
   @ApiProperty({ nullable: true, type: String }) lastName!: string | null;
   @ApiProperty({ nullable: true, type: String }) contactEmail!: string | null;
+  @ApiProperty({ nullable: true, type: String }) workEmail!: string | null;
   @ApiProperty({ nullable: true, type: String }) phoneCountryCode!: string | null;
   @ApiProperty({ nullable: true, type: String }) phone!: string | null;
   @ApiProperty({ nullable: true, enum: APPLICATION_REGIONS }) region!: ApplicationRegion | null;
@@ -239,6 +242,7 @@ export class AdminApplicationListItemDto {
   @ApiProperty() firstName!: string;
   @ApiProperty() lastName!: string;
   @ApiProperty() contactEmail!: string;
+  @ApiProperty({ nullable: true, type: String }) workEmail!: string | null;
   @ApiProperty({ nullable: true, type: String }) phoneCountryCode!: string | null;
   @ApiProperty({ nullable: true, type: String }) phone!: string | null;
   @ApiProperty({ nullable: true, type: String }) linkedinUrl!: string | null;

@@ -57,9 +57,12 @@ export class EmailService {
     const a = await this.repo.findAutomation(key);
     return a?.enabled ? { key, resendTemplate: a.resend_template } : null;
   }
+  /** Queues one email to `recipient.email` — always the recipient's WORK email (the only address
+   *  GrowXQ sends to); `profile` supplies the name. */
   async enqueuePrepared(
     prepared: PreparedAutomation,
     profile: ProfileRow,
+    recipientEmail: string,
     opts: { idempotencyKey: string; variables?: Record<string, string> }
   ): Promise<'queued' | 'duplicate'> {
     const extra = opts.variables ?? {};
@@ -74,21 +77,24 @@ export class EmailService {
       automation_key: prepared.key,
       resend_template: prepared.resendTemplate,
       recipient_profile_id: profile.id,
-      to_email: profile.email.toLowerCase(),
+      to_email: recipientEmail.trim().toLowerCase(),
       variables: { ...extra, ...standardVariables({ firstName: profile.first_name }, this.config.siteUrl) },
       idempotency_key: opts.idempotencyKey,
     });
     return inserted ? 'queued' : 'duplicate';
   }
+  /** `recipient.workEmail` is the only address used — no fallback to the login or contact email;
+   *  without one nothing is queued ('no_work_email'). */
   async enqueueAutomation(
     key: AutomationKey,
-    recipient: { profileId: string },
+    recipient: { profileId: string; workEmail: string | null | undefined },
     opts: { idempotencyKey: string; variables?: Record<string, string> }
-  ): Promise<'queued' | 'duplicate' | 'disabled'> {
+  ): Promise<'queued' | 'duplicate' | 'disabled' | 'no_work_email'> {
     const prepared = await this.prepareAutomation(key);
     if (!prepared) return 'disabled';
+    if (!recipient.workEmail?.trim()) return 'no_work_email';
     const profile = required((await this.repo.findProfiles([recipient.profileId]))[0]);
-    return this.enqueuePrepared(prepared, profile, opts);
+    return this.enqueuePrepared(prepared, profile, recipient.workEmail, opts);
   }
 
   private messageDto(m: MessageRow): EmailMessageDto {

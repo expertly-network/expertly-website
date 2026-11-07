@@ -231,6 +231,9 @@ wizard step to resume on, pure UX convenience, not validated).
   pre-launch; the wizard hides the section). Otherwise up to 2 entries while a draft, exactly 2 required to submit; each is
   `{ name, relationship, email, phone? }` (blanks allowed in a draft, all three required to submit).
 - `phone` — optional while a draft, required to submit (6–15 digits, any spacing/punctuation).
+- `workEmail` (added 2026-11-08) — optional while a draft, **required to submit** (email, ≤ 254). It is
+  returned on `MembershipApplicationDto`/admin list rows, copied to the member profile's `workEmail`
+  on approval, and is the only address GrowXQ emails (`contactEmail` is kept on file only).
 - `servicePreferences[].serviceId` is validated against a live, `is_active` `services` query
   whenever a call actually includes `servicePreferences` — the DB has no FK to catch an invalid id
   (see `docs/database-erd.md`). Not re-validated on calls that don't touch this field (a
@@ -242,7 +245,7 @@ wizard step to resume on, pure UX convenience, not validated).
 - `bio` — up to 2000 characters (raised from 500 on 2026-09-26 — the old limit was silently
   truncating a normal-length professional bio mid-sentence).
 - Field bounds (2026-10-30, `400 VALIDATION_FAILED`): `firstName`/`lastName` ≤ 100,
-  `phoneCountryCode` ≤ 10, `phone` ≤ 40, `country`/`state`/`city` ≤ 100, `contactEmail` ≤ 254,
+  `phoneCountryCode` ≤ 10, `phone` ≤ 40, `country`/`state`/`city` ≤ 100, `contactEmail`/`workEmail` ≤ 254,
   `linkedinUrl` ≤ 2048, `couponCode` ≤ 50, `termsVersionAgreed`/`privacyVersionAgreed` ≤ 50,
   `rateMinCents`/`rateMaxCents` whole dollars (a multiple of 100) from 1000 to 500000 ($10–$5,000/hour, 2026-11-05; no limit on the gap between them). `workExperiences[]`: `title`/`company` ≤ 200, `city` ≤ 100,
   `companyUrl` ≤ 2048, `startYear`/`endYear` 1900–2100. `educations[]`: `institution`/`degree`/
@@ -1972,6 +1975,10 @@ paths resolve per environment: `{{{SITE_URL}}}/brand/email/logo-dark.png`). `ren
 also sends `RENEWAL_DATE` (e.g. `7 Dec 2026`). A template must declare only these; a declared
 variable with no fallback that the event doesn't send makes Resend reject the send (the message
 fails with `Resend HTTP 422` — fix the template, then retry the message).
+
+**Recipient.** Every email goes to the recipient's **work email** only — the application's
+`workEmail` for submission confirmations, `member_profiles.work_email` for renewal reminders. There
+is no fallback to the contact or login email; without a work email nothing is queued.
 
 **Automations.** `founding_application_submitted` → `founding-seat-held` (initially enabled),
 `application_submitted` → `application-received` (initially disabled), `renewal_due_soon` →

@@ -50,7 +50,7 @@ export function InviteOnlyAuthCard({ returnTo, emailSignIn }: { returnTo: string
       <p className="mt-5 text-center text-[13px] text-ink-3">
         By continuing, you agree to GrowXQ&apos;s{' '}
         <a href={USER_AGREEMENT_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-2">
-          User Agreement
+          User &amp; Member Policy
         </a>{' '}
         and{' '}
         <a href={PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-2">

@@ -107,9 +107,17 @@ of fields.
       exactly 2 required to submit
 - [x] WhatsApp / phone number is required (2026-11-01 — it was optional only because the
       `apply.html` prototype labelled it so); 6–15 digits, checked on the Identity step and at submit
+- [x] Work email is required (2026-11-08) on both the invitation (pre-launch) and regular form,
+      next to contact email. It's the only address GrowXQ emails (confirmations, reminders, future
+      notifications) and becomes the member's work email on approval; contact email is kept on file
+      only and never emailed
 - [x] Founding-cohort pre-launch (`SITE_LAUNCHED=false`, set on both frontend and backend): peer
       references are optional (a started card must be complete) and a new application starts with
       the founder pre-filled as Reference 1, editable; not required at submit (2026-11-01)
+- [x] Pre-launch routing (2026-11-08): `/` shows a Coming soon page (animated logo, Sign in link) to
+      everyone but admins; invitees are sent the founding-cohort page at `/invitation`, whose share
+      preview points there. Consent copy reads "User & Member Policy" (combined document; the
+      `user-agreement` slug and current PDF stay until the merged PDF is uploaded)
 - [x] Experience under 5 years shows a non-blocking warning on the Background step — membership
       is 5+ years (5–12 Budding Professional, 12+ Seasoned; computed, adjustable at approval)
 - [x] Overall years of experience is pre-filled from the roles (earliest start → today, whole

@@ -19,11 +19,17 @@ export class RenewalRemindersService {
       const members = await this.repo.renewalCandidates(afterId);
       if (!members.length) break;
       afterId = members[members.length - 1].id;
+      // Sent to the member's work email only; a member without one gets no reminder.
       const due = members
-        .filter((m) => computeDueState(m.membership_started_at, now) === 'due-soon')
+        .filter((m) => computeDueState(m.membership_started_at, now) === 'due-soon' && m.work_email?.trim())
         .map((m) => {
           const date = renewalDueDate(m.membership_started_at);
-          return { id: m.id, date, key: `renewal_due_soon:${m.id}:${date.toISOString().slice(0, 10)}` };
+          return {
+            id: m.id,
+            workEmail: m.work_email as string,
+            date,
+            key: `renewal_due_soon:${m.id}:${date.toISOString().slice(0, 10)}`,
+          };
         });
       // A member sits in the 30-day window for ~720 hourly scans; skip the ones already queued
       // this cycle in one query instead of re-rendering and re-inserting each of them.
@@ -35,7 +41,7 @@ export class RenewalRemindersService {
         const profile = profiles.get(d.id);
         if (!profile) continue;
         try {
-          const result = await this.email.enqueuePrepared(prepared, profile, {
+          const result = await this.email.enqueuePrepared(prepared, profile, d.workEmail, {
             idempotencyKey: d.key,
             variables: {
               RENEWAL_DATE: d.date.toLocaleDateString('en-GB', {
