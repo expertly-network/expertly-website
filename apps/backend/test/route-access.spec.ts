@@ -86,6 +86,7 @@ const EXPECTED: Record<string, string> = {
   // Members
   'GET /v1/members': 'public',
   'GET /v1/members/me/profile': 'member',
+  'GET /v1/members/:slug/preview': 'public',
   'GET /v1/members/:slug': 'authed',
   'POST /v1/members/:id/uploads': 'member rl=upload',
   'POST /v1/members/:id/edits': 'member rl=write',

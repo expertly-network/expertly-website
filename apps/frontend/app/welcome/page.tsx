@@ -144,8 +144,8 @@ export default function WelcomePage() {
           </h1>
           <p className="m-0 max-w-[540px] text-[clamp(17px,1.6vw,20px)] text-white/70 text-pretty">
             We’re holding a spot for you as a founding member of GrowXQ. We’re personally inviting up to 100
-            professionals to be part of this first group, the Founding Cohort. Once the group comes together, you’ll
-            get a private first look at what we’re building.
+            professionals to be part of this first group, the Founding Cohort. Once the group comes together, you’ll get
+            a private first look at what we’re building.
           </p>
           <div className="flex flex-wrap items-center gap-x-7 gap-y-5 max-sm:flex-col max-sm:items-stretch max-sm:pt-2">
             <FoundingSeatCta />
@@ -306,7 +306,9 @@ export default function WelcomePage() {
             <Eyebrow>The cohort</Eyebrow>
             <h2 className="m-0 font-brand text-headline font-normal text-balance">One hundred seats. Not one more.</h2>
             <p className="m-0 max-w-[500px] text-white/70 text-pretty">
-              Apply for membership and join a circle of professionals with exceptional quotient. GrowXQ doesn&apos;t just recognise your potential. It helps you grow your professional trajectory, with access to a wide range of professionals and the chance to connect with the best in the field.
+              Apply for membership and join a circle of professionals with exceptional quotient. GrowXQ doesn&apos;t
+              just recognise your potential. It helps you grow your professional trajectory, with access to a wide range
+              of professionals and the chance to connect with the best in the field.
             </p>
             <p className="m-0 box-border w-full max-w-[500px] border-t border-[var(--wl-line)] pt-6 text-[15px] text-white/55 text-pretty">
               Seats go in the order applications are completed.

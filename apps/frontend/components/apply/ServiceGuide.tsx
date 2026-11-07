@@ -50,8 +50,8 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
       <Modal open={open} onClose={() => setOpen(false)} title="How services are organised" size="xl">
         <p className="text-sm text-ink-3">
           Services are organised in three levels: the <strong className="font-semibold text-ink">category</strong> is
-          the broad area, the <strong className="font-semibold text-ink">subcategory</strong> is the practice within
-          it, and the <strong className="font-semibold text-ink">service</strong> is the specific issue you solve. Your
+          the broad area, the <strong className="font-semibold text-ink">subcategory</strong> is the practice within it,
+          and the <strong className="font-semibold text-ink">service</strong> is the specific issue you solve. Your
           preferences are services.
         </p>
         <div className="mt-4">
@@ -103,7 +103,9 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
                           {line.name}
                         </th>
                       )}
-                      <td className="border-r border-line px-4 py-3 align-top font-medium text-ink-2 max-sm:px-3">{s.name}</td>
+                      <td className="border-r border-line px-4 py-3 align-top font-medium text-ink-2 max-sm:px-3">
+                        {s.name}
+                      </td>
                       <td className="px-4 py-3 align-top max-sm:px-3">
                         {s.problems.length > 0 ? (
                           <ul className="flex flex-wrap gap-1.5" aria-label={`Services under ${s.name}`}>
