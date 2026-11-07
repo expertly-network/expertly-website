@@ -1,4 +1,4 @@
-import { FAVICON_SRC } from '@/lib/brand';
+import { FAVICON_PNG_SRC, FAVICON_SRC, OG_IMAGE_SRC } from '@/lib/brand';
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import localFont from 'next/font/local';
@@ -26,10 +26,19 @@ export const metadata: Metadata = {
     icon: [
       { url: FAVICON_SRC.light, type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
       { url: FAVICON_SRC.dark, type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+      { url: FAVICON_PNG_SRC, type: 'image/png', sizes: '192x192' },
     ],
   },
   title: 'GrowXQ',
   description: 'Connecting clients with vetted expert members',
+  // The share card. A route that sets its own `openGraph` replaces this whole object, so it must
+  // repeat `images` (see welcome/page.tsx).
+  openGraph: {
+    siteName: 'GrowXQ',
+    type: 'website',
+    images: [{ url: OG_IMAGE_SRC, width: 1200, height: 630, alt: 'GrowXQ' }],
+  },
+  twitter: { card: 'summary_large_image', images: [OG_IMAGE_SRC] },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

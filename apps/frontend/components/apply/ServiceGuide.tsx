@@ -5,9 +5,17 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import type { CategoryDto } from '@shared/category';
 
-// The "?" beside the service preferences: the whole taxonomy in one place — service line
-// (shown as Category) → category (Solution) → service (Problem) — searchable, so an applicant
+// The "?" beside the service preferences: the whole taxonomy in one place, as a three-column table —
+// service line (shown as Category) → category (Subcategory) → services — searchable, so an applicant
 // can see where a service sits before ranking it.
+// Alphabetical, except a catch-all "Other (please specify)" stays last.
+function byName(a: string, b: string): number {
+  const aOther = a.toLowerCase().startsWith('other');
+  const bOther = b.toLowerCase().startsWith('other');
+  if (aOther !== bOther) return aOther ? 1 : -1;
+  return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+}
+
 export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -22,6 +30,11 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
     line.solutions.push({ id: c.id, name: c.name, problems });
     lines.set(c.serviceLineId, line);
   }
+  const sortedLines = [...lines.entries()].sort(([, a], [, b]) => byName(a.name, b.name));
+  for (const [, line] of sortedLines) {
+    line.solutions.sort((a, b) => byName(a.name, b.name));
+    for (const s of line.solutions) s.problems.sort(byName);
+  }
 
   return (
     <>
@@ -34,12 +47,12 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
       >
         ?
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title="How services are organised" size="lg">
+      <Modal open={open} onClose={() => setOpen(false)} title="How services are organised" size="xl">
         <p className="text-sm text-ink-3">
           Services are organised in three levels: the <strong className="font-semibold text-ink">category</strong> is
-          the broad area, the <strong className="font-semibold text-ink">solution</strong> is the practice within it,
-          and the <strong className="font-semibold text-ink">problem</strong> is the specific issue you solve. Your
-          preferences are problems.
+          the broad area, the <strong className="font-semibold text-ink">subcategory</strong> is the practice within
+          it, and the <strong className="font-semibold text-ink">service</strong> is the specific issue you solve. Your
+          preferences are services.
         </p>
         <div className="mt-4">
           <Input
@@ -47,7 +60,7 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search categories, solutions or problems"
+            placeholder="Search categories, subcategories or services"
           />
         </div>
         {lines.size === 0 ? (
@@ -55,38 +68,60 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
             {categories.length ? 'Nothing matches — try a shorter search.' : 'Services are temporarily unavailable.'}
           </p>
         ) : (
-          <div className="mt-5 space-y-6">
-            {[...lines.entries()].map(([id, line]) => (
-              <section key={id}>
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-bg">
+          // Below sm the Category column folds into a full-width row above its subcategories, so the
+          // services column keeps enough width at 375px.
+          <div className="mt-5 overflow-hidden rounded-card border border-line">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-bg-alt text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+                <tr>
+                  <th scope="col" className="w-[22%] border-r border-line px-4 py-2.5 max-sm:hidden">
                     Category
-                  </span>
-                  {line.name}
-                </h3>
-                <div className="mt-3 space-y-3 border-l border-line pl-4">
-                  {line.solutions.map((s) => (
-                    <div key={s.id}>
-                      <p className="text-sm font-medium text-ink-2">
-                        <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-4">
-                          Solution
-                        </span>
-                        {s.name}
-                      </p>
-                      {s.problems.length > 0 && (
-                        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`Problems under ${s.name}`}>
-                          {s.problems.map((p) => (
-                            <li key={p} className="rounded-full bg-bg-alt px-2.5 py-1 text-xs text-ink-2">
-                              {p}
-                            </li>
-                          ))}
-                        </ul>
+                  </th>
+                  <th scope="col" className="w-[24%] border-r border-line px-4 py-2.5 max-sm:w-[38%] max-sm:px-3">
+                    Subcategory
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 max-sm:px-3">
+                    Services
+                  </th>
+                </tr>
+              </thead>
+              {sortedLines.map(([id, line]) => (
+                <tbody key={id} className="border-t border-line">
+                  <tr className="sm:hidden">
+                    <th scope="colgroup" colSpan={2} className="bg-bg-alt/60 px-3 py-2 font-semibold text-ink">
+                      {line.name}
+                    </th>
+                  </tr>
+                  {line.solutions.map((s, i) => (
+                    <tr key={s.id} className={i > 0 ? 'border-t border-line' : 'max-sm:border-t max-sm:border-line'}>
+                      {i === 0 && (
+                        <th
+                          scope="rowgroup"
+                          rowSpan={line.solutions.length}
+                          className="border-r border-line px-4 py-3 align-top font-semibold text-ink max-sm:hidden"
+                        >
+                          {line.name}
+                        </th>
                       )}
-                    </div>
+                      <td className="border-r border-line px-4 py-3 align-top font-medium text-ink-2 max-sm:px-3">{s.name}</td>
+                      <td className="px-4 py-3 align-top max-sm:px-3">
+                        {s.problems.length > 0 ? (
+                          <ul className="flex flex-wrap gap-1.5" aria-label={`Services under ${s.name}`}>
+                            {s.problems.map((p) => (
+                              <li key={p} className="rounded-full bg-bg-alt px-2.5 py-1 text-xs text-ink-2">
+                                {p}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-xs text-ink-4">—</span>
+                        )}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </section>
-            ))}
+                </tbody>
+              ))}
+            </table>
           </div>
         )}
       </Modal>

@@ -9,6 +9,9 @@ export const FAVICON_SRC = {
   light: `/brand/favicon-on-light.svg?v=${LOGO_VERSION}`,
   dark: `/brand/favicon-on-dark.svg?v=${LOGO_VERSION}`,
 } as const;
+// Raster fallbacks: link-preview crawlers (WhatsApp, LinkedIn, Slack, Google) ignore SVG icons.
+export const FAVICON_PNG_SRC = `/brand/favicon-192.png?v=${LOGO_VERSION}`;
+export const OG_IMAGE_SRC = `/brand/og-image.png?v=${LOGO_VERSION}`;
 export const LOGO_ASPECT_RATIO = 299 / 61;
 export const LOGO_MARK_ASPECT_RATIO = 62 / 61;
 export const BRAND_ICON_SRC = FAVICON_SRC.dark;

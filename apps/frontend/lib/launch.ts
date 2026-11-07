@@ -10,6 +10,7 @@ const PRELAUNCH_PREFIXES = [
   '/reset-password',
   '/apply',
   '/legal',
+  '/consent',
   '/admin',
   '/api',
 ];

@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LogoImage } from '@/components/Logo';
+import { PRIVACY_POLICY_URL, USER_AGREEMENT_URL } from '@/lib/consent';
+import { OG_IMAGE_SRC } from '@/lib/brand';
 import { isSiteLaunched } from '@/lib/env';
 import { FOUNDING_COUPON_CODE } from '@/lib/launch';
 
@@ -13,6 +15,13 @@ export const metadata = {
   title: 'Hi, Founding Member! Your seat at the table is held, for now!',
   description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
   robots: { index: false, follow: false },
+  openGraph: {
+    siteName: 'GrowXQ',
+    type: 'website',
+    title: 'Hi, Founding Member! Your seat at the table is held, for now!',
+    description: 'GrowXQ founding cohort: 100 seats, first year complimentary.',
+    images: [{ url: OG_IMAGE_SRC, width: 1200, height: 630, alt: 'GrowXQ' }],
+  },
 };
 
 // This page's dark palette, derived from the two brand tokens (--ink, --accent) rather than new hexes:
@@ -114,28 +123,14 @@ export default function WelcomePage() {
       className="min-h-[100dvh] bg-ink text-[17px] leading-[1.6] max-sm:leading-[1.75] text-[var(--wl-text)]"
     >
       {/* Top bar */}
-      <header className={`${SECTION} flex items-start justify-between gap-3 py-6 sm:items-center sm:gap-6 sm:py-7`}>
+      <header className={`${SECTION} flex items-center justify-between gap-3 py-6 sm:gap-6 sm:py-7`}>
         <div className="flex min-w-0 flex-col items-start gap-2">
           <LogoImage surface="dark" height={44} className="max-sm:![--logo-h:32px]" priority />
         </div>
-        <nav
-          aria-label="Invitation"
-          className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4"
-        >
-          <span className="order-last text-[10px] leading-normal text-white/60 sm:order-none sm:text-eyebrow sm:uppercase sm:tracking-[0.12em]">
-            <span className="hidden sm:inline">By invitation only</span>
-            <span className="sm:hidden">Invitation only</span>
-          </span>
-          <Link
-            href="/login"
-            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded border border-[var(--wl-line)] px-4 text-label font-medium text-[var(--wl-text)] transition-colors hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-          >
-            Sign in{' '}
-            <span aria-hidden="true" className="ml-2">
-              &rarr;
-            </span>
-          </Link>
-        </nav>
+        <span className="shrink-0 text-[10px] leading-normal text-white/60 sm:text-eyebrow sm:uppercase sm:tracking-[0.12em]">
+          <span className="hidden sm:inline">By invitation only</span>
+          <span className="sm:hidden">Invitation only</span>
+        </span>
       </header>
 
       {/* Hero */}
@@ -148,8 +143,9 @@ export default function WelcomePage() {
             Something is being built for <span className="text-accent">Professionals, like you</span>
           </h1>
           <p className="m-0 max-w-[540px] text-[clamp(17px,1.6vw,20px)] text-white/70 text-pretty">
-            We are seating a founding cohort of up to 100 professionals, each one chosen by hand. What we are building
-            stays private until the cohort is formed, and you will see it before anyone else does.
+            We’re holding a spot for you as a founding member of GrowXQ. We’re personally inviting up to 100
+            professionals to be part of this first group, the Founding Cohort. Once the group comes together, you’ll
+            get a private first look at what we’re building.
           </p>
           <div className="flex flex-wrap items-center gap-x-7 gap-y-5 max-sm:flex-col max-sm:items-stretch max-sm:pt-2">
             <FoundingSeatCta />
@@ -310,8 +306,7 @@ export default function WelcomePage() {
             <Eyebrow>The cohort</Eyebrow>
             <h2 className="m-0 font-brand text-headline font-normal text-balance">One hundred seats. Not one more.</h2>
             <p className="m-0 max-w-[500px] text-white/70 text-pretty">
-              Every founding seat is assigned by invitation. When the last one is taken, the cohort closes, and
-              membership opens to everyone else behind you.
+              Apply for membership and join a circle of professionals with exceptional quotient. GrowXQ doesn&apos;t just recognise your potential. It helps you grow your professional trajectory, with access to a wide range of professionals and the chance to connect with the best in the field.
             </p>
             <p className="m-0 box-border w-full max-w-[500px] border-t border-[var(--wl-line)] pt-6 text-[15px] text-white/55 text-pretty">
               Seats go in the order applications are completed.
@@ -342,13 +337,23 @@ export default function WelcomePage() {
         <LogoImage surface="dark" height={36} className="max-[600px]:![--logo-h:30px] min-[700px]:col-span-full" />
         <p className="m-0 text-label font-normal leading-normal text-white/50">
           The platform is designed to comply with applicable professional conduct rules.{' '}
-          <Link href="/legal/terms" className="underline-offset-2 hover:text-white/80 hover:underline">
+          <a
+            href={USER_AGREEMENT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline-offset-2 hover:text-white/80 hover:underline"
+          >
             Terms
-          </Link>{' '}
+          </a>{' '}
           ·{' '}
-          <Link href="/legal/privacy" className="underline-offset-2 hover:text-white/80 hover:underline">
+          <a
+            href={PRIVACY_POLICY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline-offset-2 hover:text-white/80 hover:underline"
+          >
             Privacy
-          </Link>
+          </a>
         </p>
         <p className="m-0 text-caption text-white/55 min-[700px]:text-right">
           Questions? Write to{' '}
