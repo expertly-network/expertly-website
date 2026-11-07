@@ -24,15 +24,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrlOrDefault()),
   icons: {
     icon: [
-      { url: FAVICON_SRC.light, type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
-      { url: FAVICON_SRC.dark, type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+      // The black tile everywhere (it reads on light and dark tab bars alike); the PNG and
+      // /favicon.ico are rendered from the same artwork.
+      { url: FAVICON_SRC.dark, type: 'image/svg+xml' },
       { url: FAVICON_PNG_SRC, type: 'image/png', sizes: '192x192' },
     ],
   },
   title: 'GrowXQ',
   description: 'Connecting clients with vetted expert members',
   // The share card. A route that sets its own `openGraph` replaces this whole object, so it must
-  // repeat `images` (see welcome/page.tsx).
+  // repeat `images` (see invitation/page.tsx).
   openGraph: {
     siteName: 'GrowXQ',
     type: 'website',
