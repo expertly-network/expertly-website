@@ -29,6 +29,12 @@ export class MembersController {
     return items;
   }
 
+  @Public()
+  @Get(':slug/preview')
+  findPreview(@Param('slug') slug: string): Promise<MemberListItemDto> {
+    return this.membersService.findPreviewBySlug(slug);
+  }
+
   // 👤 Member — the caller's own profile id + slug. Two segments, so it never collides with a
   // single-segment slug read below.
   @Roles('member')

@@ -3,9 +3,9 @@ import { mustHotlink } from '@/lib/images';
 import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { formatRate, formatTenure } from '@/lib/members/format';
-import type { MemberDto } from '@shared/member';
+import type { MemberListItemDto } from '@shared/member';
 
-export function ArticleAuthorSidebar({ author }: { author: MemberDto }) {
+export function ArticleAuthorSidebar({ author }: { author: MemberListItemDto }) {
   const location = [author.city, author.country].filter(Boolean).join(', ');
   const primaryService = author.services[0];
   // Headline and firm joined only when both exist — avoids a stray "·" when one is missing.

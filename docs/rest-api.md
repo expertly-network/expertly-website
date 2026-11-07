@@ -1152,6 +1152,16 @@ no member profile; `403` for clients. Two path segments, so it can never collide
 Backs the frontend's `/members/me` route, which redirects to `/members/<slug>` (the home hero's
 "View my profile" button for members).
 
+### 🌐 `GET /v1/members/:slug/preview`
+
+_Added 2026-11-07._ Public teaser for the signed-out profile page — **Response `200`:**
+`MemberListItemDto` (the same directory-card fields `GET /v1/members` already returns publicly:
+name, photo, headline, firm, location, services, tier, years of experience, rate range, bio). Never
+includes contact details, work history, credentials, testimonials or any other `MemberDto`-only
+field. `404 MEMBER_NOT_FOUND` under the same visibility rule as the full read (listing and account
+both active, not deleted) — no owner/admin exception, since the caller is anonymous. Also used for
+the article author sidebar when the reader is signed out.
+
 ### 🔒 `GET /v1/members/:slug`
 
 **Visibility (2026-10-29):** `404 MEMBER_NOT_FOUND` unless both the listing

@@ -161,6 +161,11 @@ export async function getMembersPageServer(
   return { items, total: Number.isFinite(total) ? total : items.length };
 }
 
+export const getMemberPreviewServer = cache(async (slug: string): Promise<MemberListItemDto | null> => {
+  const res = await publicGet(`/members/${encodeURIComponent(slug)}/preview`, 'Failed to load member preview.');
+  return res ? ((await res.json()) as MemberListItemDto) : null;
+});
+
 // Returns a member's full profile by slug, or null if signed out or not found. cache()d per request:
 // generateMetadata, the page, and the article author sidebar all ask for the same profile.
 export const getMemberServer = cache(

@@ -347,3 +347,31 @@ describe('MembersService.adminReviewEdit — key-client logos', () => {
     expect(repo.uploadPublicAsset).not.toHaveBeenCalled();
   });
 });
+
+describe('MembersService public preview', () => {
+  it('returns directory fields without protected profile details', async () => {
+    const { service } = setup();
+    const dto = await service.findPreviewBySlug('jane-doe');
+    expect(dto.name).toBe('Jane Doe');
+    for (const field of [
+      'contactEmail',
+      'workEmail',
+      'contactPhone',
+      'linkedinUrl',
+      'workExperiences',
+      'engagements',
+    ]) {
+      expect(dto).not.toHaveProperty(field);
+    }
+  });
+  it('hides missing, inactive, suspended, and deleted profiles', async () => {
+    for (const options of [
+      { row: null },
+      { row: detailRow({ status: 'deactivated' }) },
+      { account: identity({ status: 'suspended' }) },
+      { account: identity({ deleted_at: '2026-01-01T00:00:00Z' }) },
+    ]) {
+      await expect(setup(options).service.findPreviewBySlug('jane-doe')).rejects.toMatchObject({ status: 404 });
+    }
+  });
+});

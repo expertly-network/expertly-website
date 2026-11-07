@@ -149,6 +149,20 @@ export class MembersService {
     return { items: rows.map((row) => this.toListDto(row, profilesById, servicesByMember)), total };
   }
 
+  async findPreviewBySlug(slug: string): Promise<MemberListItemDto> {
+    const row = await this.membersRepository.findDetailBySlug(slug);
+    if (!row) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+    const [profiles, services] = await Promise.all([
+      this.membersRepository.findProfilesByIds([row.profile_id]),
+      this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
+    ]);
+    const account = profiles.get(row.profile_id);
+    if (row.status !== 'active' || account?.status !== 'active' || account.deleted_at) {
+      throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+    }
+    return this.toListDto(row, profiles, services);
+  }
+
   async findMine(user: AuthenticatedUser): Promise<MyMemberProfileDto> {
     const found = (await this.membersRepository.findSlugAndPhotoByProfileIds([user.id])).get(user.id);
     if (!found)

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getMemberServer, getMyMemberEditsServer } from '@/lib/api/server';
+import { getMemberServer, getMemberPreviewServer, getMyMemberEditsServer } from '@/lib/api/server';
 import { ProfileAuthWall } from '@/components/members/ProfileAuthWall';
 import { ProfileClient } from './ProfileClient';
 
@@ -24,7 +24,9 @@ export default async function MemberProfilePage(props: { params: Promise<{ slug:
   const params = await props.params;
   const [sessionUser, member] = await Promise.all([getSessionUser(), getMemberServer(params.slug)]);
   if (!sessionUser) {
-    return <ProfileAuthWall />;
+    const preview = await getMemberPreviewServer(params.slug);
+    if (!preview) notFound();
+    return <ProfileAuthWall member={preview} />;
   }
   if (!member) {
     notFound();

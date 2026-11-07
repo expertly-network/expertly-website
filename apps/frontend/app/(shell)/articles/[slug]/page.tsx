@@ -3,8 +3,14 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getArticlePreviewServer, getArticleServer, getArticlesServer, getMemberServer } from '@/lib/api/server';
-import { ArticlePreview } from '@/components/articles/ArticlePreview';
+import {
+  getArticlePreviewServer,
+  getArticleServer,
+  getArticlesServer,
+  getMemberPreviewServer,
+  getMemberServer,
+} from '@/lib/api/server';
+import { SignInGate, TeaserFade } from '@/components/shared/LockedContent';
 import { ArticleAiSummary } from '@/components/articles/ArticleAiSummary';
 import { ArticleByline } from '@/components/articles/ArticleByline';
 import { ArticleJsonLd } from '@/components/articles/ArticleJsonLd';
@@ -33,7 +39,7 @@ const RELATED_COUNT = 4;
 
 // Same-service articles first, backfilled with the latest others — two small cached queries
 // instead of loading every article to pick 4.
-async function loadRelated(article: ArticleDto): Promise<ArticleListItemDto[]> {
+async function loadRelated(article: ArticleListItemDto): Promise<ArticleListItemDto[]> {
   const serviceIds = article.services.map((s) => s.id);
   const [sameService, latest] = await Promise.all([
     serviceIds.length > 0
@@ -84,21 +90,8 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
   const params = await props.params;
   const sessionUser = await getSessionUser();
 
-  // A signed-out visitor gets a teaser (title + excerpt), never the full body. The URL key is the
-  // slug; a legacy UUID URL (old shared links, admin tables) is permanently redirected to it.
-  if (!sessionUser) {
-    const preview = await getArticlePreviewServer(params.slug);
-    if (!preview) notFound();
-    if (preview.slug !== params.slug) permanentRedirect(`/articles/${preview.slug}`);
-    return (
-      <>
-        <ArticleJsonLd article={preview} />
-        <ArticlePreview article={preview} />
-      </>
-    );
-  }
-
-  const article = await getArticleServer(params.slug);
+  // Public previews never include the protected article body.
+  const article = sessionUser ? await getArticleServer(params.slug) : await getArticlePreviewServer(params.slug);
   if (!article) {
     notFound();
   }
@@ -106,13 +99,17 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
 
   const [author, relatedArticles] = await Promise.all([
     // Authors without a member profile (no slug) get no author sidebar.
-    article.authorSlug ? getMemberServer(article.authorSlug) : Promise.resolve(null),
+    article.authorSlug
+      ? sessionUser
+        ? getMemberServer(article.authorSlug)
+        : getMemberPreviewServer(article.authorSlug)
+      : Promise.resolve(null),
     loadRelated(article),
   ]);
 
   return (
     <div>
-      {article.status === 'published' && <ArticleJsonLd article={article} />}
+      {(!('status' in article) || article.status === 'published') && <ArticleJsonLd article={article} />}
       <div className="relative h-[320px] w-full overflow-hidden max-[640px]:h-[220px]">
         <Image
           src={article.coverImageUrl}
@@ -145,7 +142,7 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
       <PageContainer className="grid items-start gap-10 py-10 lg:grid-cols-[1fr_312px]">
         <article className="overflow-hidden rounded-3xl border border-line bg-bg-card shadow-[0_1px_2px_rgba(0,0,0,0.02),0_24px_48px_-30px_rgba(0,0,0,0.22)]">
           <div className="px-6 pb-10 pt-8 min-[640px]:px-12 min-[640px]:pb-14 min-[640px]:pt-10">
-            {article.status !== 'published' && (
+            {'status' in article && article.status !== 'published' && (
               <div className="mb-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <Badge variant="warning">{STATUS_NOTICE[article.status].label}</Badge>
                 <span className="text-sm text-amber-700">{STATUS_NOTICE[article.status].body}</span>
@@ -158,23 +155,41 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
               showAuthor={!author}
               actions={
                 <>
-                  {(article.authorId === sessionUser.id || sessionUser.role === 'admin') && (
+                  {(article.authorId === sessionUser?.id || sessionUser?.role === 'admin') && (
                     <Button href={`/articles/write?edit=${article.id}`} variant="secondary" size="sm">
                       Edit
                     </Button>
                   )}
-                  {article.status === 'published' && <ArticleShareBar title={article.title} />}
+                  {(!('status' in article) || article.status === 'published') && (
+                    <ArticleShareBar title={article.title} />
+                  )}
                 </>
               }
             />
 
             <ArticleAiSummary summary={article.aiSummary} className="mt-7" />
 
-            <div
-              className={`${ARTICLE_PROSE} mt-8`}
-              // Safe — article.body is sanitized server-side before storage.
-              dangerouslySetInnerHTML={{ __html: article.body }}
-            />
+            {sessionUser && 'body' in article && typeof article.body === 'string' ? (
+              <div className={`${ARTICLE_PROSE} mt-8`} dangerouslySetInnerHTML={{ __html: article.body }} />
+            ) : (
+              <>
+                {article.excerpt && (
+                  <TeaserFade className="mt-8">
+                    <p className={ARTICLE_PROSE}>{article.excerpt}</p>
+                  </TeaserFade>
+                )}
+                <SignInGate
+                  className={article.excerpt ? '-mt-4' : 'mt-8'}
+                  eyebrow="Locked content"
+                  title="Read the full analysis."
+                  description={`Sign in to read the rest${
+                    author ? ` and see ${author.name.split(' ')[0]}’s full profile` : ''
+                  }.`}
+                  perks={['Full article', 'Expert profiles', 'Consultations']}
+                  buttonLabel="Sign in to keep reading"
+                />
+              </>
+            )}
 
             <p className="mt-9 rounded-[10px] border border-line bg-bg-alt px-[18px] py-3.5 text-mono-label leading-[1.65] text-ink-4">
               {LEGAL_DISCLAIMER}

@@ -1517,6 +1517,34 @@
           "response": []
         },
         {
+          "name": "GET /members/{{memberSlug}}/preview — Public profile teaser (signed out)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberSlug}}/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberSlug}}",
+                "preview"
+              ]
+            },
+            "description": "🌐 Public, no auth. Returns `MemberListItemDto` — the directory-card fields only (no contact details, work history, credentials or testimonials). Backs the signed-out member profile page and the signed-out article author sidebar. `404 MEMBER_NOT_FOUND` unless the listing and account are both active and not deleted."
+          },
+          "response": []
+        },
+        {
           "name": "GET /members/{{memberSlug}} — Get member profile by slug",
           "request": {
             "method": "GET",
