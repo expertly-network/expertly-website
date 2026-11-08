@@ -637,3 +637,21 @@ begin
 end $$;
 revoke all on function public.email_apply_event(text, text, boolean, timestamptz, text) from public, anon, authenticated;
 grant execute on function public.email_apply_event(text, text, boolean, timestamptz, text) to service_role;
+
+-- One profile view (POST /v1/members/:slug/views): adds 1 to today's (UTC) ('member', id,
+-- 'profile_views') counter in daily_stats. Only active profiles count, and a signed-in member opening their own
+-- profile doesn't. Returns whether the view was counted. One statement, so concurrent views
+-- can't lose an increment.
+create or replace function public.record_member_profile_view(p_slug text, p_viewer_id uuid default null)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare v_member_id uuid;
+begin
+  select profile_id into v_member_id from public.member_profiles where slug = p_slug and status = 'active';
+  if v_member_id is null or v_member_id = p_viewer_id then return false; end if;
+  insert into public.daily_stats (subject_type, subject_id, metric, day, count)
+  values ('member', v_member_id, 'profile_views', (now() at time zone 'utc')::date, 1)
+  on conflict (subject_type, subject_id, metric, day) do update set count = daily_stats.count + 1;
+  return true;
+end $$;
+revoke all on function public.record_member_profile_view(text, uuid) from public, anon, authenticated;
+grant execute on function public.record_member_profile_view(text, uuid) to service_role;

@@ -1,5 +1,6 @@
 import { MEMBERSHIP_TIERS } from '@/lib/members/tiers';
 import { Button } from '@/components/ui';
+import { TierBadge } from '@/components/members/TierBadge';
 import { SidebarDarkCard, SidebarJoinCard, SidebarStatsCard } from '@/components/shared/SidebarCards';
 
 const STATS = [
@@ -35,7 +36,7 @@ const STATS = [
 // Static trust-signal marketing copy, not data.
 export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) {
   return (
-    <aside className="sticky top-6 flex flex-col gap-4 max-[1023px]:static max-[1023px]:order-first">
+    <aside className="sticky top-6 flex flex-col gap-4 max-[1023px]:static max-[1023px]:order-first max-[639px]:order-none">
       <SidebarStatsCard
         title="Every member is individually vetted."
         intro="Our screening covers credentials, years in practice, jurisdiction expertise, and a peer review by existing members. No self-serve listings."
@@ -43,20 +44,15 @@ export function DirectorySidebar({ showApply = true }: { showApply?: boolean }) 
       />
       <section className="rounded-card border border-line bg-bg-card p-6" aria-labelledby="directory-tiers-title">
         <h3 id="directory-tiers-title" className="text-title text-ink">
-          Budding and Seasoned Professionals
+          Membership Tier
         </h3>
-        <p className="mt-3 text-sm text-ink-3">Every member carries a tier based on their professional experience.</p>
-        <dl className="mt-5 space-y-5">
+        <dl className="mt-5 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3">
           {MEMBERSHIP_TIERS.map((tier) => (
-            <div key={tier.key}>
+            <div key={tier.key} className="contents">
               <dt>
-                <span
-                  className={`inline-flex rounded-full border px-2.5 py-1 text-caption font-semibold ${tier.badgeClass}`}
-                >
-                  {tier.name}
-                </span>
+                <TierBadge tier={tier.key} size="md" />
               </dt>
-              <dd className="mt-2 text-sm text-ink-3">{tier.summary}</dd>
+              <dd className="text-sm text-ink-3">{tier.summary}</dd>
             </div>
           ))}
         </dl>

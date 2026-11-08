@@ -1062,6 +1062,35 @@ create policy member_profiles_select_auth_admin
   using (true);
 
 -- ============================================================================
+-- daily_stats — the one home for counters: how many times `metric` happened to one subject
+-- (a member, later an article, …) on one UTC day. A new statistic is new rows (a new metric
+-- and/or subject_type, added to the checks below), never a new table or column. A daily rollup
+-- rather than one row per event: the planned stats are totals and per-period counts, which never
+-- need individual hits, and the table stays small however popular a subject gets.
+--
+-- subject_id has no foreign key — it points at a different table per subject_type — so stats
+-- outlive a deleted subject. Harmless: rows are tiny and only ever read for a known subject.
+-- Deliberately not columns on the subject's own table: member_profiles' update triggers (search
+-- re-index, updated_at) must not fire on every view.
+--
+-- In use (2026-11-08, collected, not shown anywhere yet):
+--   ('member', member_profiles.profile_id, 'profile_views') — profile opened by anyone, signed in
+--   or not, except the member themself; written by record_member_profile_view() (0003_functions.sql).
+-- ============================================================================
+
+create table public.daily_stats (
+  subject_type text not null check (subject_type in ('member')),
+  subject_id uuid not null,
+  metric text not null check (metric in ('profile_views')),
+  day date not null,
+  count integer not null default 0 check (count >= 0),
+  primary key (subject_type, subject_id, metric, day)
+);
+
+-- Service-role only (no policies): stats aren't public data.
+alter table public.daily_stats enable row level security;
+
+-- ============================================================================
 -- member_services — services a member is approved/listed for. A real join table (not a
 -- jsonb array like member_profiles' sections above): the directory search filters by service,
 -- and this needs a real FK the jsonb sections don't. References member_profiles(profile_id)

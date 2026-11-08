@@ -1,27 +1,28 @@
-import { Button, Card, Eyebrow } from '@/components/ui';
+import { Button, Card, Eyebrow, SwipeRow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
 export function DualCta() {
   return (
-    <section className="border-b border-line py-24">
+    <section className="border-b border-line py-10 sm:py-24">
       <PageContainer>
         <Eyebrow>Two Ways In</Eyebrow>
         <h2 className="font-brand mt-4 text-section-title text-ink">
           One <span className="text-accent">platform</span>. Two powerful paths.
         </h2>
-        <p className="mt-5 max-w-2xl text-lede text-ink-3">
+        <p className="mt-5 hidden max-w-2xl text-lede text-ink-3 sm:block">
           Whether you need the expertise or you are the expertise - GrowXQ is built to deliver real value, both ways.
         </p>
-        <div className="mt-14 grid gap-4 lg:grid-cols-2">
+        {/* Phones: the two paths side by side as a swipeable row, the second card peeking in. */}
+        <SwipeRow label="Two ways in" itemWidth="86%" className="mt-6 sm:mt-14 sm:gap-4 lg:grid-cols-2">
           {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
-          <Card padding="xl" className="!bg-bg-alt">
+          <Card padding="xl" className="flex min-w-0 snap-start flex-col !bg-bg-alt max-sm:!p-6">
             <div className="text-mono-label text-ink-3">For Clients &amp; Businesses</div>
-            <h3 className="font-brand mt-6 text-heading text-ink">
+            <h3 className="font-brand mt-4 sm:mt-6 text-heading text-ink">
               Find the right <span className="text-accent">expert</span>. Fast.
             </h3>
-            <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-ink-2">
+            <ul className="mb-6 mt-4 flex flex-col gap-2.5 text-sm sm:mb-10 sm:mt-7 sm:gap-3.5 sm:text-[15px] text-ink-2">
               {[
-                'Browse finance & legal professionals, vetted before listing',
+                'Browse finance, tax & law professionals, vetted before listing',
                 'Read expert articles on tax, law, M&A and compliance',
                 'Request consultations from their profile, no middlemen',
                 'Transparent rates upfront, before you commit',
@@ -34,11 +35,11 @@ export function DualCta() {
                 </li>
               ))}
             </ul>
-            <Button href="/members" className="mt-10">
+            <Button href="/members" className="mt-auto self-start">
               Browse members
             </Button>
           </Card>
-          <Card padding="xl" className="relative overflow-hidden bg-ink">
+          <Card padding="xl" className="relative flex min-w-0 snap-start flex-col overflow-hidden bg-ink max-sm:!p-6">
             <div
               className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full"
               style={{
@@ -46,12 +47,12 @@ export function DualCta() {
               }}
               aria-hidden="true"
             />
-            <div className="relative">
-              <div className="text-mono-label text-white/60">For Finance &amp; Legal Pros</div>
-              <h3 className="font-brand mt-6 text-heading text-bg">
+            <div className="relative flex flex-1 flex-col">
+              <div className="text-mono-label text-white/60">For Finance, Tax &amp; Law Pros</div>
+              <h3 className="font-brand mt-4 sm:mt-6 text-heading text-bg">
                 Build your professional <span className="text-accent">presence</span>.
               </h3>
-              <ul className="mt-7 flex flex-col gap-3.5 text-[15px] text-white/80">
+              <ul className="mb-6 mt-4 flex flex-col gap-2.5 text-sm sm:mb-10 sm:mt-7 sm:gap-3.5 sm:text-[15px] text-white/80">
                 {[
                   'Get discovered by clients worldwide searching by expertise',
                   'Publish articles and establish your authority',
@@ -66,12 +67,12 @@ export function DualCta() {
                   </li>
                 ))}
               </ul>
-              <Button href="/apply" variant="secondary-dark" className="mt-10">
+              <Button href="/apply" variant="secondary-dark" className="mt-auto self-start">
                 Apply now
               </Button>
             </div>
           </Card>
-        </div>
+        </SwipeRow>
       </PageContainer>
     </section>
   );

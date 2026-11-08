@@ -1,9 +1,22 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
+import { optionalUserId } from '../auth/optional-user-id';
 import { MemberDto, MemberListItemDto, MemberProfileEditDto, MyMemberProfileDto, UploadResponse } from '@shared/member';
 import { MembersService } from './members.service';
 import { CreateMemberEditDto } from './dto/create-member-edit.dto';
@@ -33,6 +46,16 @@ export class MembersController {
   @Get(':slug/preview')
   findPreview(@Param('slug') slug: string): Promise<MemberListItemDto> {
     return this.membersService.findPreviewBySlug(slug);
+  }
+
+  // 🌐 Public — counts one view of a member's profile (the profile page calls it once per visit,
+  // signed in or not). Always 204, even for an unknown slug or the member viewing themself, which
+  // simply don't count — so the response says nothing about either.
+  @Public()
+  @HttpCode(204)
+  @Post(':slug/views')
+  async recordView(@Param('slug') slug: string, @Headers('authorization') authorization?: string): Promise<void> {
+    await this.membersService.recordProfileView(slug, await optionalUserId(authorization));
   }
 
   // 👤 Member — the caller's own profile id + slug. Two segments, so it never collides with a

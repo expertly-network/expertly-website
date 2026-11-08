@@ -12,6 +12,7 @@ export const MARQUEE_TILE_HEIGHT = 'h-[104px]';
 export function Marquee<T>({
   items,
   rows,
+  mobileRows,
   speeds,
   fill,
   renderItem,
@@ -19,12 +20,27 @@ export function Marquee<T>({
 }: {
   items: T[];
   rows: number;
+  /** Re-bucket the full list on phones; do not simply hide desktop rows and lose items. */
+  mobileRows?: number;
   speeds?: number[];
   /** minPerRow: tiles per row before doubling; secondsPerItem: time for one tile to scroll past. */
   fill?: { minPerRow: number; secondsPerItem: number };
   renderItem: (item: T) => ReactNode;
   itemKey: (item: T) => string;
 }) {
+  if (mobileRows !== undefined) {
+    const shared = { items, speeds, fill, renderItem, itemKey };
+    return (
+      <>
+        <div className="sm:hidden">
+          <Marquee {...shared} rows={mobileRows} />
+        </div>
+        <div className="hidden sm:block">
+          <Marquee {...shared} rows={rows} />
+        </div>
+      </>
+    );
+  }
   let buckets: T[][];
   let durationFor: (ri: number) => number;
 
@@ -46,13 +62,19 @@ export function Marquee<T>({
   }
 
   return (
-    <div className="marquee-fade flex flex-col gap-3 overflow-hidden">
+    <div className="marquee-fade group/marquee flex flex-col gap-3 overflow-hidden">
       {buckets.map((row, ri) => {
         if (row.length === 0) return null;
         const doubled = [...row, ...row];
         return (
-          <div key={ri} className={`overflow-hidden ${ri % 2 ? 'marquee-row-reverse' : ''}`}>
-            <div className="marquee-track flex w-max gap-3" style={{ animationDuration: `${durationFor(ri)}s` }}>
+          <div
+            key={ri}
+            className={`overflow-hidden motion-reduce:overflow-x-auto ${ri % 2 ? 'marquee-row-reverse' : ''}`}
+          >
+            <div
+              className="marquee-track flex w-max gap-3 group-hover/marquee:[animation-play-state:paused] group-focus-within/marquee:[animation-play-state:paused]"
+              style={{ animationDuration: `${durationFor(ri)}s` }}
+            >
               {doubled.map((item, i) => (
                 <div key={`${itemKey(item)}-${i}`}>{renderItem(item)}</div>
               ))}

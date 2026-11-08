@@ -3,6 +3,14 @@ export type MemberSort = 'featured' | 'tenure' | 'rate_asc' | 'rate_desc';
 
 export const DEFAULT_SORT: MemberSort = 'featured';
 
+/** Sort choices offered by the directory (desktop dropdown and phone filter sheet). */
+export const MEMBER_SORT_OPTIONS: { value: MemberSort; label: string }[] = [
+  { value: 'featured', label: 'Featured' },
+  { value: 'tenure', label: 'Most experienced' },
+  { value: 'rate_asc', label: 'Rate: low → high' },
+  { value: 'rate_desc', label: 'Rate: high → low' },
+];
+
 // One directory page (the API's maximum page size).
 export const MEMBER_LIST_PAGE_SIZE = 50;
 

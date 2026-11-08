@@ -12,12 +12,13 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
     <Marquee
       items={categories}
       rows={4}
+      mobileRows={2}
       fill={{ minPerRow: 6, secondsPerItem: 8 }}
       itemKey={(c) => c.id}
       renderItem={(c) => (
         <Link
           href={`/members?categoryId=${c.id}`}
-          className={`flex w-[340px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
+          className={`flex w-[280px] sm:w-[340px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
         >
           {c.imageUrl ? (
             <Image
@@ -26,7 +27,7 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
               alt=""
               width={64}
               height={64}
-              className="h-16 w-16 flex-none rounded-xl object-cover"
+              className="h-12 w-12 sm:h-16 sm:w-16 flex-none rounded-xl object-cover"
             />
           ) : (
             <span aria-hidden="true" className="h-2.5 w-2.5 flex-none rounded-full bg-accent" />

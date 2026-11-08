@@ -55,7 +55,7 @@ export default async function EventsPage(props: { searchParams: Promise<{ q?: st
         }
       />
 
-      <section className="py-12">
+      <section className="pb-12 pt-3 sm:pt-12">
         <PageContainer className="grid items-start gap-14 lg:grid-cols-[1fr_320px]">
           <EventsList key={q ?? ''} remote={{ total: firstPage.total }} query={q} categories={categories} />
           <div className="lg:sticky lg:top-6 lg:self-start">

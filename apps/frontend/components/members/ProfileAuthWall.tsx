@@ -48,12 +48,12 @@ export function ProfileAuthWall({ member }: { member: MemberListItemDto }) {
           {/* Mirrors ProfileTabs' bar; locked tabs send the visitor to sign in. */}
           <nav
             aria-label="Profile sections"
-            className="mb-4 overflow-hidden rounded-panel border border-line bg-bg-card shadow-panel"
+            className="-mx-5 mb-4 overflow-hidden border-y border-line bg-bg-card sm:mx-0 sm:rounded-panel sm:border sm:shadow-panel"
           >
-            <div className="flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex overflow-x-auto px-2 sm:px-0">
               <span
                 aria-current="page"
-                className="flex-none whitespace-nowrap border-b-2 border-ink-2 px-5 py-3.5 font-mono text-profile-item font-medium text-ink"
+                className="flex-none whitespace-nowrap border-b-2 border-ink-2 px-3 py-3.5 font-mono sm:px-5 text-profile-item font-medium text-ink"
               >
                 About
               </span>
@@ -61,7 +61,7 @@ export function ProfileAuthWall({ member }: { member: MemberListItemDto }) {
                 <SignInLink
                   key={label}
                   title={`Sign in to view ${label}`}
-                  className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-5 py-3.5 font-mono text-profile-item font-medium text-ink-4 transition-colors hover:text-ink-2"
+                  className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 py-3.5 font-mono text-profile-item font-medium text-ink-4 sm:px-5 transition-colors hover:text-ink-2"
                 >
                   <LockIcon size={13} />
                   {label}
@@ -70,9 +70,10 @@ export function ProfileAuthWall({ member }: { member: MemberListItemDto }) {
             </div>
           </nav>
 
-          <div className="rounded-panel border border-line bg-bg-card p-6 shadow-panel max-[640px]:p-4">
+          {/* Phones: no panel frame, like ProfileTabs. */}
+          <div className="sm:rounded-panel sm:border sm:border-line sm:bg-bg-card sm:p-6 sm:shadow-panel">
             {member.bio && (
-              <div className="max-[640px]:px-1">
+              <div>
                 <div className="mb-3 font-mono text-profile-label font-semibold text-ink-3">About</div>
                 <TeaserFade>
                   <p className="whitespace-pre-line text-profile-body text-ink-2">{member.bio}</p>

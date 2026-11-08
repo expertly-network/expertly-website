@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { PerkDto, CollectionDto } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card, Select } from '@/components/ui';
+import { Badge, Button, Card, CompactRow, CompactRowList, Select, SwipeRow } from '@/components/ui';
 import { ResourceHero } from './ResourceHero';
 import { ResourceImage } from './ResourceImage';
 import { ResourceDialog } from './ResourceDialog';
@@ -59,7 +59,7 @@ export function PerksLibrary({
   return (
     <div>
       <ResourceHero
-        title="Member perks,"
+        title="Perks,"
         accent="negotiated for you."
         search={{
           id: 'perk-search',
@@ -84,12 +84,12 @@ export function PerksLibrary({
               </div>
               <p className="text-sm text-ink-3">Curated stacks. Tools that work together.</p>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 xl:grid-cols-5">
+            <SwipeRow label="Practice toolkits" itemWidth="70%" className="sm:grid-cols-2 sm:gap-3 xl:grid-cols-5">
               {stacks.map((s, i) => (
                 <button
                   key={s.id}
                   onClick={() => setStack(s)}
-                  className="group w-60 shrink-0 sm:w-auto min-w-0 rounded-card border border-line bg-bg-alt/50 p-5 text-left transition-colors hover:border-accent"
+                  className="group min-w-0 snap-start rounded-card border border-line bg-bg-alt/50 p-5 text-left transition-colors hover:border-accent"
                 >
                   <div className="mb-5 flex -space-x-2">
                     {s.items.slice(0, 3).map((p) => (
@@ -114,7 +114,7 @@ export function PerksLibrary({
                   </h3>
                 </button>
               ))}
-            </div>
+            </SwipeRow>
           </section>
         )}
         <div className="mb-6 grid items-end gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -157,70 +157,105 @@ export function PerksLibrary({
             </Button>
           </Card>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((p) => (
-              <article
-                key={p.id}
-                className="flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card"
-              >
-                <button
+          <>
+            {/* Phones: compact rows — tapping opens the same details drawer. Comparing (a wide table)
+                stays a larger-screen feature. */}
+            <CompactRowList label="Perks">
+              {filtered.map((p) => (
+                <CompactRow
+                  key={p.id}
                   onClick={() => {
                     setNotice('');
                     setSelected(p);
                   }}
-                  className="group text-left"
-                >
-                  <div className="relative">
-                    <ResourceImage src={p.coverImageUrl} className="aspect-[16/8] w-full object-cover" />
-                    <span className="absolute bottom-3 left-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-line bg-white p-2">
+                  leading={
+                    <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-line bg-white p-2">
                       <ResourceImage src={p.logoUrl} width={48} height={48} className="h-full w-full object-contain" />
                     </span>
-                    {p.isFeatured && (
-                      <span className="absolute right-3 top-3">
-                        <Badge variant="surface">GrowXQ pick</Badge>
-                      </span>
-                    )}
-                  </div>
-                  <div className="px-5 pb-3 pt-4">
-                    <p className="text-xs text-ink-3">{p.category}</p>
-                    <h3 className="mt-1 text-title group-hover:text-accent">{p.name}</h3>
-                    <p className="mt-2 line-clamp-2 text-sm text-ink-3">{p.tagline}</p>
-                  </div>
-                </button>
-                <div className="mt-auto px-5 pb-4">
-                  <p className="mb-4 border-t border-line pt-3 text-xs font-medium text-accent">{status(p)}</p>
-                  <div className="flex items-center justify-between gap-3">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="!px-0"
-                      onClick={() => {
-                        setNotice('');
-                        setSelected(p);
-                      }}
-                    >
-                      View details ↗
-                    </Button>
-                    {signedIn && (
-                      <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs text-ink-3">
-                        <input
-                          type="checkbox"
-                          checked={compared.includes(p.id)}
-                          disabled={compared.length >= 3 && !compared.includes(p.id)}
-                          onChange={(e) =>
-                            setCompared((ids) => (e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id)))
-                          }
-                          className="h-4 w-4 accent-accent"
-                          aria-label={`Compare ${p.name}`}
+                  }
+                  eyebrow={
+                    <>
+                      {p.category}
+                      {p.isFeatured && <span className="text-ink-3"> · GrowXQ pick</span>}
+                    </>
+                  }
+                  title={p.name}
+                  meta={status(p)}
+                />
+              ))}
+            </CompactRowList>
+            <div className="hidden gap-5 sm:grid sm:grid-cols-2 xl:grid-cols-3">
+              {filtered.map((p) => (
+                <article
+                  key={p.id}
+                  className="flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card"
+                >
+                  <button
+                    onClick={() => {
+                      setNotice('');
+                      setSelected(p);
+                    }}
+                    className="group text-left"
+                  >
+                    <div className="relative">
+                      <ResourceImage src={p.coverImageUrl} className="aspect-[16/8] w-full object-cover" />
+                      <span className="absolute bottom-3 left-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-line bg-white p-2">
+                        <ResourceImage
+                          src={p.logoUrl}
+                          width={48}
+                          height={48}
+                          className="h-full w-full object-contain"
                         />
-                        Compare
-                      </label>
-                    )}
+                      </span>
+                      {p.isFeatured && (
+                        <span className="absolute right-3 top-3">
+                          <Badge variant="surface">GrowXQ pick</Badge>
+                        </span>
+                      )}
+                    </div>
+                    <div className="px-5 pb-3 pt-4">
+                      <p className="text-xs text-ink-3">{p.category}</p>
+                      <h3 className="mt-1 text-title group-hover:text-accent">{p.name}</h3>
+                      <p className="mt-2 line-clamp-2 text-sm text-ink-3">{p.tagline}</p>
+                    </div>
+                  </button>
+                  <div className="mt-auto px-5 pb-4">
+                    <p className="mb-4 border-t border-line pt-3 text-xs font-medium text-accent">{status(p)}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="!px-0"
+                        onClick={() => {
+                          setNotice('');
+                          setSelected(p);
+                        }}
+                      >
+                        View details ↗
+                      </Button>
+                      {signedIn && (
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs text-ink-3">
+                          <input
+                            type="checkbox"
+                            checked={compared.includes(p.id)}
+                            disabled={compared.length >= 3 && !compared.includes(p.id)}
+                            onChange={(e) =>
+                              setCompared((ids) =>
+                                e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id)
+                              )
+                            }
+                            className="h-4 w-4 accent-accent"
+                            aria-label={`Compare ${p.name}`}
+                          />
+                          Compare
+                        </label>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
+                </article>
+              ))}
+            </div>
+          </>
         )}
         <div className="mb-2 mt-8 rounded-card bg-bg-alt p-6 text-sm text-ink-3">
           <strong className="text-ink">More offers on the way.</strong> New offers appear here as soon as they go live.

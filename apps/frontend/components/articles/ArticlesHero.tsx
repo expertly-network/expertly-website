@@ -8,10 +8,10 @@ export function ArticlesHero() {
       eyebrow="Knowledge base"
       title={
         <>
-          Insights from the people who actually <span className="text-accent">practice.</span>
+          Insights from <span className="text-accent">practitioners.</span>
         </>
       }
-      lede="Peer-reviewed analysis and expert commentary from verified finance & legal professionals."
+      lede="Peer-reviewed analysis and expert commentary from verified finance, tax & law professionals."
       search={<ArticlesHeroSearch />}
     />
   );

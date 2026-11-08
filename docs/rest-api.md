@@ -748,7 +748,8 @@ check — "member or admin" fits the ranked model directly.
   id with no matching row is tolerated and saved as `null` (the audit insert is fire-and-forget
   and may have failed — that must never block saving). When set, `creationMode` is forced to
   `'ai'`. `POST` only — not part of `UpdateArticleRequest`, and `PATCH` never changes the link.
-- `excerpt`, `readTimeMinutes` are never accepted — always server-derived from `body`.
+- `excerpt`, `readTimeMinutes` are never accepted — always server-derived from `body`. `excerpt` is
+  plain text (tags stripped, HTML entities decoded — `M&A`, not `M&amp;A`); render it as text.
 - `body` must be 800–2000 words (from the design's own "Write it yourself" validation copy) —
   only enforced when the resulting status isn't `'draft'` — checked in `ArticlesService`, not
   expressible as a class-validator decorator for a single field.
@@ -1163,6 +1164,18 @@ includes contact details, work history, credentials, testimonials or any other `
 field. `404 MEMBER_NOT_FOUND` under the same visibility rule as the full read (listing and account
 both active, not deleted) — no owner/admin exception, since the caller is anonymous. Also used for
 the article author sidebar when the reader is signed out.
+
+### 🌐 `POST /v1/members/:slug/views`
+
+_Added 2026-11-08._ Counts one view of a member's profile — the profile page calls it from the
+browser once per tab session per profile, for signed-out and signed-in readers alike. No request
+body. **Response `204`**, always: an unknown or inactive slug, or a signed-in member viewing their
+own profile, is simply not counted (so the response reveals neither). Public, but a bearer token is
+read if sent — verified locally, only to recognise the self-view. Stored as a per-UTC-day counter in
+`daily_stats` (`'member'`, member id, `'profile_views'`) (`docs/database-erd.md`). Not exposed by any read endpoint yet —
+collected now so the stat exists once it's worth showing. Not rate-limited beyond the edge limit
+(anonymous calls aren't counted by `RateLimitGuard`), so treat the number as an engagement signal,
+not an audited figure.
 
 ### 🔒 `GET /v1/members/:slug`
 

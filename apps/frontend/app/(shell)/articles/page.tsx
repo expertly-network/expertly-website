@@ -8,7 +8,7 @@ import { SuccessNotice } from '@/components/shared/SuccessNotice';
 
 export const metadata = {
   title: 'Articles — GrowXQ',
-  description: 'Peer-reviewed analysis and expert commentary from verified finance & legal professionals.',
+  description: 'Peer-reviewed analysis and expert commentary from verified finance, tax & law professionals.',
 };
 
 function canWriteArticles(role: string | undefined): boolean {
@@ -43,7 +43,7 @@ export default async function ArticlesPage(props: {
     <div>
       <ArticlesHero />
 
-      <section className="py-12">
+      <section className="pb-12 pt-3 sm:pt-12">
         <PageContainer>
           {searchParams.saved === 'draft' && (
             <div className="mb-6">

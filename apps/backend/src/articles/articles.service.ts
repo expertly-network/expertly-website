@@ -21,7 +21,7 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { AdminArticleReviewDto } from './dto/admin-article-review.dto';
 import { sanitizeArticleBody } from './sanitize-article-body';
-import { countArticleWords, stripHtml, MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS } from './word-count';
+import { countArticleWords, decodeHtmlEntities, stripHtml, MAX_ARTICLE_WORDS, MIN_ARTICLE_WORDS } from './word-count';
 import { AiService } from '../ai/ai.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AiDraftGenerationsRepository } from '../ai/ai-draft-generations.repository';
@@ -462,7 +462,8 @@ function toListDto(
     authorFirmName: author?.firmName ?? null,
     status: row.status,
     title: row.title,
-    excerpt: row.excerpt,
+    // Excerpts saved before stripHtml decoded entities still hold `&amp;` etc.
+    excerpt: decodeHtmlEntities(row.excerpt),
     aiSummary: row.ai_summary,
     creationMode: row.creation_mode,
     readTimeMinutes: row.read_time_minutes,

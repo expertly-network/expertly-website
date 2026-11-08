@@ -2,11 +2,35 @@
 import { useState } from 'react';
 import type { LearningDto, CollectionDto } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card, Select } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CompactRow,
+  CompactRowList,
+  MobileFilterBar,
+  Select,
+  SwipeRow,
+  type FilterChip,
+} from '@/components/ui';
 import { ResourceHero } from './ResourceHero';
 import { ResourceImage } from './ResourceImage';
 import { ResourceDialog } from './ResourceDialog';
 import { ExternalLink } from '@/components/shared/ExternalLink';
+import { LearningFiltersSheet } from './LearningFiltersSheet';
+import {
+  ALL_TOPICS,
+  AUDIENCE_OPTIONS,
+  DEFAULT_LEARNING_FILTERS,
+  LENGTH_OPTIONS,
+  LEVEL_OPTIONS,
+  matchesLearning,
+  topicOptions,
+  type LearningFilters,
+} from './learning-filters';
+
+const lockLabel = (v: LearningDto) =>
+  v.canWatch ? 'Watch now ↗' : v.lockReason === 'sign_in' ? 'Sign in to watch' : 'Members only';
 
 function embedUrl(video: LearningDto): string | null {
   if (!video.canWatch || !video.videoUrl || video.videoProvider !== 'youtube') return null;
@@ -25,27 +49,37 @@ function embedUrl(video: LearningDto): string | null {
 }
 export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[]; playlists: CollectionDto[] }) {
   const [q, setQ] = useState('');
-  const [category, setCategory] = useState('All topics');
+  const [category, setCategory] = useState(ALL_TOPICS);
   const [audience, setAudience] = useState('all');
   const [level, setLevel] = useState('all');
   const [length, setLength] = useState('all');
   const [current, setCurrent] = useState<LearningDto | null>(null);
   const [queue, setQueue] = useState<LearningDto[]>([]);
   const [pathName, setPathName] = useState('Video library');
+  const [sheetOpen, setSheetOpen] = useState(false);
   const featured = videos.find((v) => v.isFeatured && v.canWatch) || videos.find((v) => v.isFeatured) || videos[0];
-  const filtered = videos.filter(
-    (v) =>
-      (category === 'All topics' || v.category === category) &&
-      (audience === 'all' || !v.audiences.length || v.audiences.includes(audience as 'tax' | 'legal' | 'audit')) &&
-      (level === 'all' || v.level === level) &&
-      (length === 'all' ||
-        (length === 'short'
-          ? v.durationMinutes < 10
-          : length === 'medium'
-            ? v.durationMinutes >= 10 && v.durationMinutes <= 20
-            : v.durationMinutes > 20)) &&
-      `${v.title} ${v.summary} ${v.channel || ''}`.toLowerCase().includes(q.toLowerCase())
-  );
+  const filters: LearningFilters = { topic: category, audience, level, length };
+  const filtered = videos.filter((v) => matchesLearning(v, filters, q));
+  function applyFilters(f: LearningFilters) {
+    setCategory(f.topic);
+    setAudience(f.audience);
+    setLevel(f.level);
+    setLength(f.length);
+  }
+  const labelOf = (opts: { value: string; label: string }[], v: string) => opts.find((o) => o.value === v)?.label ?? v;
+  // Phone chips, one per non-default filter.
+  const chips: FilterChip[] = [
+    ...(category !== ALL_TOPICS ? [{ key: 'topic', label: category, onRemove: () => setCategory(ALL_TOPICS) }] : []),
+    ...(audience !== 'all'
+      ? [{ key: 'audience', label: labelOf(AUDIENCE_OPTIONS, audience), onRemove: () => setAudience('all') }]
+      : []),
+    ...(level !== 'all'
+      ? [{ key: 'level', label: labelOf(LEVEL_OPTIONS, level), onRemove: () => setLevel('all') }]
+      : []),
+    ...(length !== 'all'
+      ? [{ key: 'length', label: labelOf(LENGTH_OPTIONS, length), onRemove: () => setLength('all') }]
+      : []),
+  ];
   function play(v: LearningDto, list: LearningDto[] = filtered, name = 'Video library') {
     setQueue(list);
     setPathName(name);
@@ -94,7 +128,8 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
                 </div>
               </div>
             </button>
-            <Card padding="md" className="flex flex-col justify-between">
+            {/* Secondary on phones (rules: hide secondary copy) — the featured video and the list carry the page. */}
+            <Card padding="md" className="hidden flex-col justify-between sm:flex">
               <div>
                 <p className="text-eyebrow text-accent">A little learning, often.</p>
                 <h2 className="mb-3 mt-3 text-heading">Make room for your next skill.</h2>
@@ -127,7 +162,7 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
             <p className="mb-5 mt-2 text-sm text-ink-3">
               Short playlists in a sensible order. Build a skill, one useful session at a time.
             </p>
-            <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 xl:grid-cols-5">
+            <SwipeRow label="Learning paths" itemWidth="70%" className="sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
               {playlists.map((p) => {
                 const items = p.items.filter((v): v is LearningDto => 'canWatch' in v);
                 return (
@@ -135,7 +170,7 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
                     key={p.id}
                     disabled={!items.length}
                     onClick={() => play(items[0], items, p.title)}
-                    className="group flex w-60 shrink-0 sm:w-auto min-w-0 flex-col rounded-card border border-line p-4 text-left transition-colors hover:border-accent disabled:opacity-50"
+                    className="group flex min-w-0 snap-start flex-col rounded-card border border-line p-4 text-left transition-colors hover:border-accent disabled:opacity-50"
                   >
                     <div className="relative mb-4 h-20 w-full">
                       {items
@@ -161,38 +196,59 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
                   </button>
                 );
               })}
-            </div>
+            </SwipeRow>
           </section>
         )}
-        <div className="mb-5 grid items-end gap-4 sm:grid-cols-3">
+        {/* Phones: sticky Filters bar + chips (must be a direct child of the page container to stay sticky). */}
+        <MobileFilterBar
+          activeCount={chips.length}
+          countLabel={`${filtered.length} ${filtered.length === 1 ? 'video' : 'videos'}`}
+          onOpen={() => setSheetOpen(true)}
+          chips={chips}
+        />
+        <div className="mb-4 sm:hidden" />
+        {sheetOpen && (
+          <LearningFiltersSheet
+            videos={videos}
+            query={q}
+            value={filters}
+            onApply={(f) => {
+              applyFilters(f);
+              setSheetOpen(false);
+            }}
+            onClose={() => setSheetOpen(false)}
+          />
+        )}
+        <div className="mb-5 hidden items-end gap-4 sm:grid sm:grid-cols-3">
           <Select
             id="learning-audience"
             label="Your profession"
             value={audience}
             onChange={(e) => setAudience(e.target.value)}
           >
-            <option value="all">All professions</option>
-            <option value="tax">Tax & accounting</option>
-            <option value="legal">Law</option>
-            <option value="audit">Audit</option>
+            {AUDIENCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </Select>
           <Select id="learning-level" label="Level" value={level} onChange={(e) => setLevel(e.target.value)}>
-            <option value="all">All levels</option>
-            {['beginner', 'intermediate', 'advanced'].map((l) => (
-              <option key={l} value={l}>
-                {l[0].toUpperCase() + l.slice(1)}
+            {LEVEL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </Select>
           <Select id="learning-length" label="Length" value={length} onChange={(e) => setLength(e.target.value)}>
-            <option value="all">Any length</option>
-            <option value="short">Under 10 minutes</option>
-            <option value="medium">10–20 minutes</option>
-            <option value="long">Over 20 minutes</option>
+            {LENGTH_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </Select>
         </div>
-        <div role="group" aria-label="Learning topics" className="mb-6 flex gap-2 overflow-x-auto pb-2">
-          {['All topics', ...Array.from(new Set(videos.map((v) => v.category)))].map((c) => (
+        <div role="group" aria-label="Learning topics" className="mb-6 hidden gap-2 overflow-x-auto pb-2 sm:flex">
+          {topicOptions(videos).map((c) => (
             <button
               key={c}
               aria-pressed={category === c}
@@ -203,9 +259,9 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
             </button>
           ))}
         </div>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-title">{category === 'All topics' ? 'All videos' : category}</h2>
-          <p aria-live="polite" className="text-xs text-ink-3">
+        <div className="mb-3 flex items-center justify-between sm:mb-5">
+          <h2 className="text-title">{category === ALL_TOPICS ? 'All videos' : category}</h2>
+          <p aria-live="polite" className="hidden text-xs text-ink-3 sm:block">
             {filtered.length} {filtered.length === 1 ? 'video' : 'videos'}
           </p>
         </div>
@@ -216,51 +272,71 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
               variant="ghost"
               onClick={() => {
                 setQ('');
-                setCategory('All topics');
-                setAudience('all');
-                setLevel('all');
-                setLength('all');
+                applyFilters(DEFAULT_LEARNING_FILTERS);
               }}
             >
               Clear filters
             </Button>
           </Card>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => play(v)}
-                className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-accent"
-              >
-                <div className="relative w-full">
-                  <ResourceImage src={v.thumbnailUrl} className="aspect-video w-full object-cover" />
-                  <span className="absolute bottom-3 right-3 rounded-lg bg-ink/90 px-2 py-1 text-xs text-white">
-                    {v.durationMinutes} min
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-ink"
-                  >
-                    {v.canWatch ? '▶' : '⌑'}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col p-5">
-                  <p className="mb-2 text-xs text-accent">
-                    {v.category} <span className="text-ink-3">· {v.level}</span>
-                  </p>
-                  <h3 className="text-title group-hover:text-accent">{v.title}</h3>
-                  <p className="mb-4 mt-2 line-clamp-2 text-sm text-ink-3">{v.summary}</p>
-                  <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-ink-3">
-                    <span>{v.channel}</span>
-                    <span className="font-medium text-accent">
-                      {v.canWatch ? 'Watch now ↗' : v.lockReason === 'sign_in' ? 'Sign in to watch' : 'Members only'}
+          <>
+            <CompactRowList label="Videos">
+              {filtered.map((v) => (
+                <CompactRow
+                  key={v.id}
+                  onClick={() => play(v)}
+                  leading={
+                    <span className="relative block h-[63px] w-28 overflow-hidden rounded-lg bg-bg-alt">
+                      <ResourceImage src={v.thumbnailUrl} className="h-full w-full object-cover" />
+                      <span className="absolute bottom-1 right-1 rounded bg-ink/90 px-1.5 py-0.5 text-[10px] text-white">
+                        {v.durationMinutes} min
+                      </span>
+                    </span>
+                  }
+                  eyebrow={
+                    <>
+                      {v.category} <span className="capitalize text-ink-3">· {v.level}</span>
+                    </>
+                  }
+                  title={v.title}
+                  meta={[v.channel, lockLabel(v)].filter(Boolean).join(' · ')}
+                />
+              ))}
+            </CompactRowList>
+            <div className="hidden gap-5 sm:grid sm:grid-cols-2 xl:grid-cols-3">
+              {filtered.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => play(v)}
+                  className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-accent"
+                >
+                  <div className="relative w-full">
+                    <ResourceImage src={v.thumbnailUrl} className="aspect-video w-full object-cover" />
+                    <span className="absolute bottom-3 right-3 rounded-lg bg-ink/90 px-2 py-1 text-xs text-white">
+                      {v.durationMinutes} min
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-ink"
+                    >
+                      {v.canWatch ? '▶' : '⌑'}
                     </span>
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                  <div className="flex flex-1 flex-col p-5">
+                    <p className="mb-2 text-xs text-accent">
+                      {v.category} <span className="text-ink-3">· {v.level}</span>
+                    </p>
+                    <h3 className="text-title group-hover:text-accent">{v.title}</h3>
+                    <p className="mb-4 mt-2 line-clamp-2 text-sm text-ink-3">{v.summary}</p>
+                    <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-ink-3">
+                      <span>{v.channel}</span>
+                      <span className="font-medium text-accent">{lockLabel(v)}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
         )}
         <div className="my-8 rounded-card bg-bg-alt p-6">
           <Badge variant="brand">GrowXQ Originals · Coming soon</Badge>

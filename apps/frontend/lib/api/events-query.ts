@@ -32,3 +32,8 @@ export function toIsoDate(d: Date): string {
   const dd = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
+
+// Mirrors EVENTS_PAGE_SIZE_MAX in packages/shared-types/event.ts (the API's @Max on `pageSize`).
+// Kept here because shared-types is `import type`-only on the frontend: its runtime pulls in
+// NestJS/Swagger, which can't be bundled for the browser.
+export const EVENTS_API_MAX_PAGE_SIZE = 1000;

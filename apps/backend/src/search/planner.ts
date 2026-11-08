@@ -36,7 +36,7 @@ export const PLAN_SCHEMA: OpenAiJsonSchema = {
 
 export function plannerPrompt(today: string): string {
   return `You turn a user's question about a professional-network directory into a search plan.
-The directory has three kinds of items: members (finance, tax and legal professionals), articles, and events.
+The directory has three kinds of items: members (finance, tax & law professionals), articles, and events.
 Today's date is ${today}.
 Rules:
 - doc_types: only the kinds the user asks for. If unclear, include all three.

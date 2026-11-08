@@ -43,18 +43,19 @@ export function AiSearchTeaser() {
     : scenario.query.slice(0, typed) + (stage === 'typing' && !reducedMotion ? '|' : '');
 
   return (
-    <section className="border-b border-line bg-bg-alt py-24">
-      <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
+    <section className="border-b border-line bg-bg-alt py-10 sm:py-24">
+      <PageContainer className="grid gap-6 sm:gap-12 lg:grid-cols-2 lg:items-center">
         <div>
           <Eyebrow>GrowXQ · Intelligent Discovery</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">
             Ask in plain English. Get <span className="text-accent">exactly</span> who &amp; what you need.
           </h2>
-          <p className="mt-5 max-w-[480px] text-lede text-ink-3">
+          <p className="mt-4 max-w-[480px] text-lede text-ink-3 sm:mt-5">
             One query searches the entire network at once, no filters to fiddle with, no jargon required. Describe the
             matter and GrowXQ search surfaces the right people, the relevant reading, and the events worth your time.
           </p>
-          <ul className="mt-6 flex flex-col gap-3 text-[15px] text-ink-3">
+          {/* The three result types are visible in the demo panel right below on phones. */}
+          <ul className="mt-6 hidden flex-col gap-3 text-[15px] text-ink-3 sm:flex">
             <li className="flex items-start gap-3">
               <span aria-hidden="true" className="mt-0.5 flex-none text-accent">
                 ✓
@@ -81,7 +82,7 @@ export function AiSearchTeaser() {
               </span>
             </li>
           </ul>
-          <Button type="button" onClick={() => setSearchOpen(true)} className="mt-8">
+          <Button type="button" onClick={() => setSearchOpen(true)} className="mt-6 sm:mt-8">
             Try GrowXQ →
           </Button>
         </div>
@@ -105,7 +106,7 @@ export function AiSearchTeaser() {
               }
               className="border-b border-line py-3 pl-5 pr-3"
             />
-            <div className="relative h-[440px] sm:h-[400px]">
+            <div className="relative h-[320px] sm:h-[400px]">
               {engaged ? (
                 <div className="flex h-full items-center justify-center px-5 text-center text-xs text-ink-3">
                   Type a question and press Enter. Results open with an answer in a few seconds.

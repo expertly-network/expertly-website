@@ -2,10 +2,20 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Card, DateRangePicker, FilterPopover, startOfDay, type DateRange } from '@/components/ui';
+import {
+  Button,
+  Card,
+  DateRangePicker,
+  FilterPopover,
+  MobileFilterBar,
+  startOfDay,
+  type DateRange,
+  type FilterChip,
+} from '@/components/ui';
 import { ALL_COUNTRIES } from '@/lib/members/countries';
 import { EventRow } from '@/components/events/EventRow';
-import type { EventDto, EventFormat, EventOrganiserDto, ListEventsQuery } from '@shared/event';
+import { EventFiltersSheet, type EventDateChoice, type EventFilters } from '@/components/events/EventFiltersSheet';
+import type { EventDto, EventOrganiserDto } from '@shared/event';
 import type { CategoryDto } from '@shared/category';
 import { EVENT_TYPES } from '@/lib/events/format';
 import { getEventDays, getEventOrganisers, listEventsPage } from '@/lib/api/events';
@@ -13,92 +23,22 @@ import { toIsoDate } from '@/lib/api/events-query';
 import { EventsMonthSection, MonthHeading } from '@/components/events/EventsMonthSection';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { formatMonthYear } from '@/lib/dates';
+import {
+  DATE_PRESETS,
+  FORMAT_TOGGLES,
+  formatsForToggles,
+  presetRange,
+  toQuery,
+  type DatePreset,
+  type FormatToggle,
+} from '@/lib/events/filters';
 
-type DatePreset = 'upcoming' | 'past' | 'this_month' | 'next_3_months' | 'all';
-
-// Quick picks offered next to the calendar; each resolves to a from–to range when chosen.
-const DATE_PRESETS: { value: DatePreset; label: string; range: () => DateRange }[] = [
-  { value: 'upcoming', label: 'Upcoming', range: () => ({ from: startOfDay(new Date()), to: null }) },
-  {
-    value: 'this_month',
-    label: 'This month',
-    range: () => {
-      const t = new Date();
-      return { from: new Date(t.getFullYear(), t.getMonth(), 1), to: new Date(t.getFullYear(), t.getMonth() + 1, 0) };
-    },
-  },
-  {
-    value: 'next_3_months',
-    label: 'Next 3 months',
-    range: () => {
-      const from = startOfDay(new Date());
-      const to = new Date(from);
-      to.setMonth(to.getMonth() + 3);
-      return { from, to };
-    },
-  },
-  {
-    value: 'past',
-    label: 'Past events',
-    range: () => {
-      const to = startOfDay(new Date());
-      to.setDate(to.getDate() - 1);
-      return { from: null, to };
-    },
-  },
-  { value: 'all', label: 'All dates', range: () => ({ from: null, to: null }) },
-];
-
-function presetRange(preset: DatePreset): DateRange {
-  return (DATE_PRESETS.find((p) => p.value === preset) ?? DATE_PRESETS[0]).range();
-}
-
-// Two format toggles; a hybrid event counts as both. The list keeps events having every selected
-// format: In Person → in-person + hybrid, Online → online + hybrid, both → hybrid only. The API
-// still stores three values (in_person / virtual / hybrid), so the toggles map onto them here.
-type FormatToggle = 'in_person' | 'online';
-
-const FORMAT_TOGGLES: { value: FormatToggle; label: string }[] = [
-  { value: 'in_person', label: 'In Person' },
-  { value: 'online', label: 'Online' },
-];
-
-export function formatsForToggles(toggles: FormatToggle[]): EventFormat[] | undefined {
-  const inPerson = toggles.includes('in_person');
-  const online = toggles.includes('online');
-  if (inPerson && online) return ['hybrid'];
-  if (inPerson) return ['in_person', 'hybrid'];
-  if (online) return ['virtual', 'hybrid'];
-  return undefined;
-}
+// Re-exported for existing importers (EventsList.test.ts).
+export { formatsForToggles };
 
 // Day key (local) for the picker's "has events" dots.
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-// The filters as an API query (dates as local calendar days).
-function toQuery(
-  range: DateRange,
-  country: string[],
-  format: FormatToggle[],
-  type: string[],
-  q: string | undefined,
-  lines: string[],
-  topics: string[],
-  organisers: string[]
-): ListEventsQuery {
-  return {
-    organiser: organisers.length ? organisers : undefined,
-    q,
-    serviceLineId: lines.length ? lines : undefined,
-    categoryId: topics.length ? topics : undefined,
-    from: range.from ? toIsoDate(range.from) : undefined,
-    to: range.to ? toIsoDate(range.to) : undefined,
-    country: country.length ? country : undefined,
-    format: formatsForToggles(format),
-    type: type.length ? type : undefined,
-  };
 }
 
 // Two modes. Public /events (`remote`): the calendar is far too large to ship whole, so every filter
@@ -214,7 +154,11 @@ export function EventsList({
       const rangeStart = dateRange.from;
       const firstStart = new Date(first.items[0].startDate);
       const start = rangeStart && rangeStart > firstStart ? rangeStart : firstStart;
-      const end = new Date((last.items[0] ?? first.items[0]).startDate);
+      const lastStart = new Date((last.items[0] ?? first.items[0]).startDate);
+      // Never past the range's end: a month beyond it would ask the API for an empty (from > to)
+      // window, which it rejects with a 400.
+      const rangeEnd = dateRange.to;
+      const end = rangeEnd && rangeEnd < lastStart ? rangeEnd : lastStart;
       const months: Date[] = [];
       for (let m = new Date(start.getFullYear(), start.getMonth(), 1); m <= end; m.setMonth(m.getMonth() + 1)) {
         months.push(new Date(m));
@@ -227,7 +171,7 @@ export function EventsList({
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [remoteQuery, dateRange.from]);
+  }, [remoteQuery, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (remote) void loadMonths();
@@ -340,6 +284,105 @@ export function EventsList({
     />
   );
 
+  // Phones: one Filters button opens a bottom sheet holding every filter above.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const currentWhen: EventDateChoice = useMemo(() => {
+    const match = DATE_PRESETS.find((p) => {
+      const r = p.range();
+      return (
+        (r.from?.getTime() ?? null) === (dateRange.from?.getTime() ?? null) &&
+        (r.to?.getTime() ?? null) === (dateRange.to?.getTime() ?? null)
+      );
+    });
+    return match ? match.value : 'custom';
+  }, [dateRange]);
+  const sheetValue: EventFilters = {
+    when: currentWhen,
+    lines: lineFilter,
+    topics: topicFilter,
+    countries: countryFilter,
+    organisers: organiserFilter,
+    types: typeFilter,
+    formats: formatFilter,
+  };
+  const rangeFor = useCallback(
+    (when: EventDateChoice) => (when === 'custom' ? dateRange : presetRange(when)),
+    [dateRange]
+  );
+  const applySheet = (next: EventFilters) => {
+    setDateRange(rangeFor(next.when));
+    setLineFilter(next.lines);
+    setTopicFilter(next.topics);
+    setCountryFilter(next.countries);
+    setOrganiserFilter(next.organisers);
+    setTypeFilter(next.types);
+    setFormatFilter(next.formats);
+  };
+  const countFor = useCallback(
+    async (f: EventFilters) =>
+      (
+        await listEventsPage({
+          ...toQuery(rangeFor(f.when), f.countries, f.formats, f.types, query, f.lines, f.topics, f.organisers),
+          page: 1,
+          pageSize: 1,
+        })
+      ).total,
+    [rangeFor, query]
+  );
+  const activeFilterCount =
+    (isDefaultRange ? 0 : 1) +
+    countryFilter.length +
+    formatFilter.length +
+    organiserFilter.length +
+    typeFilter.length +
+    lineFilter.length +
+    topicFilter.length;
+  const chips: FilterChip[] = [
+    ...(isDefaultRange
+      ? []
+      : [
+          {
+            key: 'when',
+            label: DATE_PRESETS.find((p) => p.value === currentWhen)?.label ?? 'Custom dates',
+            onRemove: () => setDateRange(defaultRange),
+          },
+        ]),
+    ...formatFilter.map((f) => ({
+      key: `format-${f}`,
+      label: FORMAT_TOGGLES.find((t) => t.value === f)?.label ?? f,
+      onRemove: () => setFormatFilter((prev) => prev.filter((v) => v !== f)),
+    })),
+    ...lineFilter.map((id) => ({
+      key: `line-${id}`,
+      label: lineOptions.find((o) => o.value === id)?.label ?? id,
+      onRemove: () => {
+        const next = lineFilter.filter((v) => v !== id);
+        setLineFilter(next);
+        setTopicFilter((prev) => prev.filter((t) => next.length === 0 || next.includes(lineByTopicId.get(t) ?? '')));
+      },
+    })),
+    ...topicFilter.map((id) => ({
+      key: `topic-${id}`,
+      label: topicNameById.get(id) ?? id,
+      onRemove: () => setTopicFilter((prev) => prev.filter((v) => v !== id)),
+    })),
+    ...countryFilter.map((c) => ({
+      key: `country-${c}`,
+      label: c,
+      onRemove: () => setCountryFilter((prev) => prev.filter((v) => v !== c)),
+    })),
+    ...typeFilter.map((t) => ({
+      key: `type-${t}`,
+      label: t,
+      onRemove: () => setTypeFilter((prev) => prev.filter((v) => v !== t)),
+    })),
+    ...organiserFilter.map((o) => ({
+      key: `organiser-${o}`,
+      label: o,
+      onRemove: () => setOrganiserFilter((prev) => prev.filter((v) => v !== o)),
+    })),
+  ];
+
   const resetFilters = () => {
     setDateRange(defaultRange);
     setCountryFilter([]);
@@ -352,7 +395,32 @@ export function EventsList({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-[18px] pt-3.5">
+      {/* Phones: Filters button + count (sticky) and removable chips (the hero search too); larger
+          screens use the dropdowns below. */}
+      <MobileFilterBar
+        activeCount={activeFilterCount}
+        countLabel={
+          showCount ? `${resultCount.toLocaleString('en-GB')} ${resultCount === 1 ? 'event' : 'events'}` : 'Loading…'
+        }
+        onOpen={() => setSheetOpen(true)}
+        chips={query ? [{ key: 'query', label: `“${query}”`, href: '/events' }, ...chips] : chips}
+      />
+      {sheetOpen && (
+        <EventFiltersSheet
+          categories={categories}
+          organiserOptions={organiserOptions}
+          value={sheetValue}
+          defaultWhen={defaultDatePreset}
+          countFor={remote ? countFor : undefined}
+          onApply={(next) => {
+            applySheet(next);
+            setSheetOpen(false);
+          }}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
+
+      <div className="hidden flex-wrap items-center gap-2.5 border-b border-line pb-[18px] pt-3.5 sm:flex">
         <DateRangePicker
           prefix="When:"
           value={dateRange}
@@ -434,7 +502,7 @@ export function EventsList({
         })}
       </div>
 
-      <div className="flex min-h-9 items-center justify-between gap-3 pt-4">
+      <div className="hidden min-h-9 items-center justify-between gap-3 pt-4 sm:flex">
         <span className="flex flex-wrap items-center gap-2 text-sm text-ink-3" aria-live="polite">
           {showCount && (
             <span>

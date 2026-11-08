@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import type { CollectionDto, TemplateDto, TemplateFileType } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card } from '@/components/ui';
+import { Badge, Button, Card, CompactRow, CompactRowList, SwipeRow } from '@/components/ui';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { getTemplateDownload } from '@/lib/api/resources';
 import { ResourceHero } from './ResourceHero';
@@ -163,7 +163,7 @@ export function TemplatesLibrary({
               </div>
               <p className="text-sm text-ink-3">Curated sets of templates that work together.</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SwipeRow label="Template kits" itemWidth="82%" className="sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               {visibleKits.map((k) => {
                 const items = k.items.filter(isTemplate);
                 return (
@@ -171,9 +171,9 @@ export function TemplatesLibrary({
                     key={k.id}
                     type="button"
                     onClick={() => setKit(k)}
-                    className="group min-w-0 overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-line-2"
+                    className="group min-w-0 snap-start overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-line-2"
                   >
-                    <div className="relative h-60 overflow-hidden bg-[color-mix(in_oklab,var(--accent)_8%,var(--bg-alt))] px-6 pt-5">
+                    <div className="relative h-44 sm:h-60 overflow-hidden bg-[color-mix(in_oklab,var(--accent)_8%,var(--bg-alt))] px-6 pt-5">
                       <PaperStack
                         items={items}
                         className="h-full translate-y-5 transition-transform duration-300 group-hover:translate-y-2"
@@ -192,7 +192,7 @@ export function TemplatesLibrary({
                   </button>
                 );
               })}
-            </div>
+            </SwipeRow>
           </section>
         )}
 
@@ -235,43 +235,63 @@ export function TemplatesLibrary({
             </Button>
           </Card>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => open(t)}
-                className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-line-2"
-              >
-                <div className="relative aspect-[16/11] overflow-hidden bg-bg-alt px-7 pt-7">
-                  <Paper
-                    template={t}
-                    sizes={480}
-                    className="h-[118%] w-full transition-transform duration-300 group-hover:-translate-y-2"
-                  />
-                  <span className="absolute left-4 top-4 rounded-full bg-ink px-2.5 py-1 text-[10px] font-semibold uppercase text-white">
-                    {t.fileType}
-                  </span>
-                  {t.isFeatured && (
-                    <span className="absolute right-4 top-4">
-                      <Badge variant="surface">GrowXQ pick</Badge>
+          <>
+            {/* Phones: compact rows with a small first-page preview; tapping opens the same dialog. */}
+            <CompactRowList label="Templates">
+              {filtered.map((t) => (
+                <CompactRow
+                  key={t.id}
+                  onClick={() => open(t)}
+                  leading={<Paper template={t} sizes={160} className="h-[72px] w-14" />}
+                  eyebrow={
+                    <>
+                      {t.category} · {FILE_LABEL[t.fileType]}
+                      {t.isFeatured && <span className="text-ink-3"> · GrowXQ pick</span>}
+                    </>
+                  }
+                  title={t.title}
+                  meta={`${formatSize(t.fileSizeBytes)} · ${t.canDownload ? 'Download ↓' : 'Members only'}`}
+                />
+              ))}
+            </CompactRowList>
+            <div className="hidden gap-5 sm:grid sm:grid-cols-2 xl:grid-cols-3">
+              {filtered.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => open(t)}
+                  className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card text-left transition-colors hover:border-line-2"
+                >
+                  <div className="relative aspect-[16/11] overflow-hidden bg-bg-alt px-7 pt-7">
+                    <Paper
+                      template={t}
+                      sizes={480}
+                      className="h-[118%] w-full transition-transform duration-300 group-hover:-translate-y-2"
+                    />
+                    <span className="absolute left-4 top-4 rounded-full bg-ink px-2.5 py-1 text-[10px] font-semibold uppercase text-white">
+                      {t.fileType}
                     </span>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col p-5">
-                  <p className="text-xs text-ink-3">
-                    {t.category} · {FILE_LABEL[t.fileType]}
-                  </p>
-                  <h3 className="mt-1 text-title group-hover:text-accent">{t.title}</h3>
-                  <p className="mt-2 line-clamp-2 text-sm text-ink-3">{t.description}</p>
-                  <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs">
-                    <span className="text-ink-3">{formatSize(t.fileSizeBytes)}</span>
-                    <span className="font-medium text-accent">{t.canDownload ? 'Download ↓' : 'Members only'}</span>
+                    {t.isFeatured && (
+                      <span className="absolute right-4 top-4">
+                        <Badge variant="surface">GrowXQ pick</Badge>
+                      </span>
+                    )}
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                  <div className="flex flex-1 flex-col p-5">
+                    <p className="text-xs text-ink-3">
+                      {t.category} · {FILE_LABEL[t.fileType]}
+                    </p>
+                    <h3 className="mt-1 text-title group-hover:text-accent">{t.title}</h3>
+                    <p className="mt-2 line-clamp-2 text-sm text-ink-3">{t.description}</p>
+                    <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs">
+                      <span className="text-ink-3">{formatSize(t.fileSizeBytes)}</span>
+                      <span className="font-medium text-accent">{t.canDownload ? 'Download ↓' : 'Members only'}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </PageContainer>
 

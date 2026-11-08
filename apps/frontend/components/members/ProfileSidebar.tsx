@@ -38,7 +38,14 @@ export function ProfileSidebar({
         </Card>
       )}
 
-      <Card padding="sm" className="shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+      {/* Visitors below 1024px get the fee + Request Consultation from the sticky MobileCtaBar, the
+          availability note in the header and the firm website in the Contact tab, so this card
+          isn't repeated under every tab. Members viewing their own profile keep it: it holds their
+          availability controls. */}
+      <Card
+        padding="sm"
+        className={`shadow-[0_2px_10px_rgba(0,0,0,0.06)] ${isOwnProfile ? '' : 'max-[1023px]:hidden'}`}
+      >
         <div className={`${LABEL} mb-1`}>Consultation Fee</div>
         {/* `.mp-fee-main` / `.mp-fee-max` / `.mp-fee-hr` */}
         {/* One size and weight for the whole range — min and max read as a single quote. */}

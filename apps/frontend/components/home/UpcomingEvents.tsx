@@ -1,4 +1,4 @@
-import { Card, Badge } from '@/components/ui';
+import { Card, Badge, SwipeRow } from '@/components/ui';
 import {
   formatEventMonth,
   formatEventDay,
@@ -8,12 +8,13 @@ import {
 } from '@/lib/events/format';
 import type { EventDto } from '@shared/event';
 
-// A simpler card list in place of a full calendar widget.
+// A simpler card list in place of a full calendar widget: a swipeable row on phones (the next card
+// peeks in from the edge), a two-column grid up to the calendar breakpoint.
 export function UpcomingEvents({ events }: { events: EventDto[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <SwipeRow label="Upcoming events" itemWidth="82%" className="sm:grid-cols-2 sm:gap-4">
       {events.slice(0, 4).map((e) => (
-        <Card key={e.id} padding="md" className="flex h-full gap-4">
+        <Card key={e.id} padding="md" className="flex h-full min-w-0 snap-start gap-4 max-sm:!p-5">
           <div className="flex-none text-center">
             <div className="font-mono text-[11px] text-accent">{formatEventMonth(e.startDate)}</div>
             <div className="text-xl font-semibold text-ink">{formatEventDay(e.startDate)}</div>
@@ -37,6 +38,6 @@ export function UpcomingEvents({ events }: { events: EventDto[] }) {
           </div>
         </Card>
       ))}
-    </div>
+    </SwipeRow>
   );
 }

@@ -410,6 +410,30 @@ export type Database = {
           },
         ]
       }
+      daily_stats: {
+        Row: {
+          count: number
+          day: string
+          metric: string
+          subject_id: string
+          subject_type: string
+        }
+        Insert: {
+          count?: number
+          day: string
+          metric: string
+          subject_id: string
+          subject_type: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          metric?: string
+          subject_id?: string
+          subject_type?: string
+        }
+        Relationships: []
+      }
       email_automations: {
         Row: {
           description: string | null
@@ -1710,6 +1734,10 @@ export type Database = {
           profile_id: string
           total_count: number
         }[]
+      }
+      record_member_profile_view: {
+        Args: { p_slug: string; p_viewer_id?: string }
+        Returns: boolean
       }
       search_enqueue: {
         Args: { p_id: string; p_type: string }

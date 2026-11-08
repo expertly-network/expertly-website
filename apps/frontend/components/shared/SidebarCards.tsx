@@ -9,13 +9,21 @@ export interface SidebarStat {
   label: ReactNode;
 }
 
+// The number a stat leads with ("1,233" -> 1233, "100%" -> 100, "20+" -> 20); 0 if there isn't one.
+function statValue(num: SidebarStat['num']): number {
+  const match = num.replace(/,/g, '').match(/\d+(\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
+
+// Stats are always shown biggest number first, whatever order the caller lists them in.
 export function SidebarStatsCard({ title, intro, stats }: { title: string; intro: string; stats: SidebarStat[] }) {
+  const sorted = [...stats].sort((a, b) => statValue(b.num) - statValue(a.num));
   return (
     <Card padding="md">
       <h3 className="text-title text-ink">{title}</h3>
       <p className="mt-3 text-sm text-ink-3">{intro}</p>
       <div className="mt-2">
-        {stats.map((stat, i) => (
+        {sorted.map((stat, i) => (
           <div key={i} className="flex items-start gap-3 border-t border-line py-3.5">
             <div className="min-w-[4rem] flex-none text-[26px] font-semibold leading-none tracking-[-0.03em] text-accent">
               {stat.num}

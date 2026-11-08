@@ -7,7 +7,7 @@ export const MEMBERSHIP_TIERS = [
     name: 'Budding',
     label: MEMBER_TIER_LABEL.budding_entrepreneur,
     range: 'Usually 5 to 12 years in practice',
-    summary: 'Usually 5 to 12 years of professional experience.',
+    summary: '5–12 years in practice',
     description:
       'You have built a solid practice and a growing list of clients who trust you. Your verified profile puts that record in front of new clients, and your work speaks for itself.',
     badgeClass: 'border-line bg-bg-alt text-ink-2',
@@ -17,7 +17,7 @@ export const MEMBERSHIP_TIERS = [
     name: 'Seasoned',
     label: MEMBER_TIER_LABEL.seasoned_professional,
     range: 'Usually more than 12 years in practice',
-    summary: 'Usually more than 12 years of professional experience.',
+    summary: '12+ years in practice',
     description:
       'You have led engagements, built a reputation and seen most situations before. Clients can rely on that depth for their most complex work.',
     badgeClass: 'border-warn-line bg-warn-soft text-warn',

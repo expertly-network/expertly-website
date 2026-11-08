@@ -159,6 +159,13 @@ export class MembersService {
     return this.toListDto(row, profiles, services);
   }
 
+  // One profile view; see record_member_profile_view() (0003_functions.sql) for what counts.
+  async recordProfileView(slug: string, viewerId: string | null): Promise<void> {
+    // Slugs are short kebab-case; anything else can't match, so skip the round trip.
+    if (!/^[a-z0-9-]{1,200}$/.test(slug)) return;
+    await this.membersRepository.recordProfileView(slug, viewerId);
+  }
+
   async findMine(user: AuthenticatedUser): Promise<MyMemberProfileDto> {
     const found = (await this.membersRepository.findSlugAndPhotoByProfileIds([user.id])).get(user.id);
     if (!found)

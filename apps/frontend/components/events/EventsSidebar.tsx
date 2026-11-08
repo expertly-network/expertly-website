@@ -40,7 +40,7 @@ export function EventsSidebar({ stats, showApply = true }: { stats: EventStatsRe
     <aside className="flex flex-col gap-4">
       <SidebarStatsCard
         title="Events worth your time."
-        intro="Only events relevant to finance and legal professionals make the calendar."
+        intro="Only events relevant to finance, tax & law professionals make the calendar."
         stats={figures}
       />
 

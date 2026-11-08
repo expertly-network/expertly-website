@@ -38,7 +38,8 @@ export function LogoImage({
 
 // Symbol height + surface per usage context.
 const VARIANTS = {
-  nav: { surface: 'light', height: 30 },
+  // The mobile top bar is dark ink on every page, so it carries the light-on-dark lockup.
+  nav: { surface: 'dark', height: 30 },
   auth: { surface: 'light', height: 30 },
   sidebar: { surface: 'dark', height: 26 },
 } as const;

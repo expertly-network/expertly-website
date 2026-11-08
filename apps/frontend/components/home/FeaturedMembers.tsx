@@ -12,6 +12,7 @@ export function FeaturedMembers({ members }: { members: MemberListItemDto[] }) {
     <Marquee
       items={members}
       rows={4}
+      mobileRows={2}
       // 6 × 292px tiles ≈ 1750px per row, wider than the panel at any breakpoint, so a short
       // member list repeats to fill every row; one shared pace (~24px/s) for all four rows.
       fill={{ minPerRow: 6, secondsPerItem: 12 }}

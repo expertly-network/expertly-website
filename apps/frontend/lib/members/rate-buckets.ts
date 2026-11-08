@@ -12,3 +12,8 @@ export const RATE_BUCKETS: RateBucket[] = [
   { label: '$500 – $600/hr', rateMinCents: 50_000, rateMaxCents: 60_000 },
   { label: '$600/hr and up', rateMinCents: 60_000 },
 ];
+
+/** The bucket matching a filter's rate range, if it is one of RATE_BUCKETS. */
+export function rateBucketFor(range: { rateMinCents?: number; rateMaxCents?: number }): RateBucket | undefined {
+  return RATE_BUCKETS.find((b) => b.rateMinCents === range.rateMinCents && b.rateMaxCents === range.rateMaxCents);
+}

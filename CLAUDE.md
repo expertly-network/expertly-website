@@ -258,6 +258,8 @@ Every piece of code must meet this standard before being considered done:
   prototype has no mobile layout to reference (see "Design source of truth" above), so this is
   work you do, not work you copy. A page/component isn't done until both widths have been
   actually checked, not just "should probably work."
+  The concrete phone rules and the shared components that implement them (filter sheet, swipe
+  row, sticky offset, compact rows) are in `apps/frontend/CLAUDE.md` → "Mobile-first rules".
 - Loading states shown (skeleton or spinner)
 - Error states handled (not just happy path)
 - Empty states handled (list with no items)

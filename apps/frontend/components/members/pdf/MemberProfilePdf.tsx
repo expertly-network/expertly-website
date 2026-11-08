@@ -7,28 +7,11 @@ import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-hist
 import { toTextBlocks } from '@/lib/text/text-blocks';
 import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
 import { formatDate } from '@/lib/dates';
+import { PDF_COLORS, PDF_FONT_FAMILY } from '@/lib/pdf/theme';
 
 // The downloadable member profile — a single-column, read-top-to-bottom document rather than
-// the web page's tabbed layout. Rendered by @react-pdf/renderer, which draws to PDF primitives
-// and can't read CSS variables or Tailwind classes, so the palette below mirrors the tokens in
-// app/globals.css by value. Keep the two in sync if a brand color changes.
-const C = {
-  ink: '#0b0b0c',
-  ink2: '#2e3033',
-  ink3: '#62695f',
-  ink4: '#899085',
-  line: '#e0e1d7',
-  line2: '#cbd0c2',
-  bgAlt: '#efeee7',
-  accent: '#00a682',
-  band: '#0b0b0c', // header band, same as the web profile's `.mp-header-band`
-  white: '#ffffff',
-  seasonedText: '#b45309',
-  seasonedBg: '#fef3c7',
-};
-
-export const PDF_FONT_FAMILY = 'Geist';
-export const PDF_HEADING_FONT_FAMILY = 'Cormorant Garamond';
+// the web page's tabbed layout. Palette and fonts are shared with the article PDF (lib/pdf/theme.ts).
+const C = PDF_COLORS;
 
 const s = StyleSheet.create({
   page: {
@@ -38,7 +21,6 @@ const s = StyleSheet.create({
     paddingTop: 44 + 22, // band height + breathing room, so page 2+ clears the fixed band
     paddingBottom: 56,
     paddingHorizontal: 0,
-    lineHeight: 1.45,
   },
 
   // Brand strip
@@ -58,7 +40,10 @@ const s = StyleSheet.create({
   brand: { width: 100, height: 100 / LOGO_ASPECT_RATIO },
   bandNote: { color: 'rgba(255,255,255,0.7)', fontSize: 8.5 },
 
-  body: { paddingHorizontal: 40 },
+  // lineHeight lives here, not on the page: inherited into the fixed footer, it makes react-pdf
+  // (4.9) silently drop the whole footer, page numbers included. fontSize repeats the page's
+  // because react-pdf resolves an inherited lineHeight against the declaring element's size.
+  body: { paddingHorizontal: 40, fontSize: 10, lineHeight: 1.45 },
 
   // Identity block
   identity: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
@@ -75,7 +60,7 @@ const s = StyleSheet.create({
     paddingTop: 22,
   },
   identityText: { flex: 1 },
-  // Explicit lineHeight: the page's 1.45 isn't applied to this line box, so the badge row below
+  // Explicit lineHeight: the body's 1.45 isn't applied to this line box, so the badge row below
   // started inside the name's descenders.
   name: {
     fontSize: 20,
@@ -98,7 +83,7 @@ const s = StyleSheet.create({
     gap: 3,
   },
   chipText: { fontSize: 7, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1 },
-  verifiedChip: { backgroundColor: '#dbf2ed' },
+  verifiedChip: { backgroundColor: C.accentTint },
   verifiedText: { color: C.accent },
   seasonedChip: { backgroundColor: C.seasonedBg },
   seasonedText: { color: C.seasonedText },

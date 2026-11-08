@@ -110,6 +110,7 @@ function setup({
     findProofFileSize: vi.fn(),
     downloadProofFile: vi.fn(),
     uploadPublicAsset: vi.fn(),
+    recordProfileView: vi.fn().mockResolvedValue(undefined),
   } as unknown as RepoMock;
   const adminAccess = { hasFreshPermission: vi.fn().mockResolvedValue(managesMembers) };
   const service = new MembersService(
@@ -373,5 +374,26 @@ describe('MembersService public preview', () => {
     ]) {
       await expect(setup(options).service.findPreviewBySlug('jane-doe')).rejects.toMatchObject({ status: 404 });
     }
+  });
+});
+
+describe('MembersService.recordProfileView', () => {
+  it('records the view with the signed-in viewer, so the database can skip self-views', async () => {
+    const { service, repo } = setup();
+    await service.recordProfileView('jane-doe', VIEWER_ID);
+    expect(repo.recordProfileView).toHaveBeenCalledWith('jane-doe', VIEWER_ID);
+  });
+
+  it('records an anonymous view with no viewer', async () => {
+    const { service, repo } = setup();
+    await service.recordProfileView('jane-doe', null);
+    expect(repo.recordProfileView).toHaveBeenCalledWith('jane-doe', null);
+  });
+
+  it('skips a slug that cannot exist without touching the database', async () => {
+    const { service, repo } = setup();
+    await service.recordProfileView('../../etc', null);
+    await service.recordProfileView('x'.repeat(201), null);
+    expect(repo.recordProfileView).not.toHaveBeenCalled();
   });
 });

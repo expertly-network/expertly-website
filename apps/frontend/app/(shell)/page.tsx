@@ -19,29 +19,30 @@ import { Testimonials } from '@/components/home/Testimonials';
 import { DualCta } from '@/components/home/DualCta';
 import { MembershipTiers } from '@/components/home/MembershipTiers';
 import { Newsletter } from '@/components/home/Newsletter';
-import { FaqGroup } from '@/components/home/Faq';
+import { HomeFaq } from '@/components/home/Faq';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { canApplyForMembership } from '@/lib/auth/roles';
+import { MobileViewAll } from '@/components/home/MobileViewAll';
 import { Button, Eyebrow } from '@/components/ui';
 import type { MemberListItemDto } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
 import type { ArticleListItemDto } from '@shared/article';
 
 export const metadata = {
-  title: 'GrowXQ — Vetted finance & legal experts, on demand',
+  title: 'GrowXQ — Vetted finance, tax & law experts, on demand',
   description:
-    'A trusted platform for verified senior finance and legal practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
+    'A trusted platform for verified senior finance, tax & law practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
 };
 
 const FAQ_MEMBERSHIP = [
   {
     q: 'Who can join GrowXQ?',
-    a: "GrowXQ is open to practising finance and legal professionals across the world with at least five years of experience - applications below that are not accepted. Members with 5 to 12 years join as Budding Professionals and those with more than 12 as Seasoned Professionals; our team confirms the tier on the strength of each member's experience and work. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers, GrowXQ is the right place for you.",
+    a: "GrowXQ is open to practising finance, tax & law professionals across the world with at least five years of experience - applications below that are not accepted. Members with 5 to 12 years join as Budding Professionals and those with more than 12 as Seasoned Professionals; our team confirms the tier on the strength of each member's experience and work. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers, GrowXQ is the right place for you.",
   },
   {
     q: 'What types of professionals are on GrowXQ?',
-    a: 'Our network spans professionals across all finance, tax and legal domains - including tax and transfer pricing advisors, M&A and transaction advisors, investment bankers, private equity and venture capital advisors, insolvency and restructuring professionals, corporate and commercial lawyers, dispute resolution and arbitration counsel, banking and finance lawyers, capital markets and securities lawyers, intellectual property and technology lawyers, company secretaries, compliance and governance professionals, forensic accountants, valuation experts, and cost accountants.',
+    a: 'Our network spans professionals across all finance, tax & law domains - including tax and transfer pricing advisors, M&A and transaction advisors, investment bankers, private equity and venture capital advisors, insolvency and restructuring professionals, corporate and commercial lawyers, dispute resolution and arbitration counsel, banking and finance lawyers, capital markets and securities lawyers, intellectual property and technology lawyers, company secretaries, compliance and governance professionals, forensic accountants, valuation experts, and cost accountants.',
   },
   {
     q: 'How are members onboarded?',
@@ -120,8 +121,8 @@ async function loadFeaturedMembers(): Promise<MemberListItemDto[]> {
 // Stand-in for a split (copy + panel) section while its data streams in.
 function SectionSkeleton({ dark = false }: { dark?: boolean }) {
   return (
-    <section className={`border-b border-line py-24 ${dark ? 'bg-ink' : ''}`} aria-busy="true">
-      <PageContainer className="grid animate-pulse gap-12 lg:grid-cols-2 lg:items-center">
+    <section className={`border-b border-line py-10 sm:py-24 ${dark ? 'bg-ink' : ''}`} aria-busy="true">
+      <PageContainer className="grid animate-pulse gap-6 sm:gap-12 lg:grid-cols-2 lg:items-center">
         <div className="flex flex-col gap-4">
           <div className={`h-3 w-28 rounded ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
           <div className={`h-10 w-4/5 rounded-md ${dark ? 'bg-white/10' : 'bg-bg-alt'}`} />
@@ -143,22 +144,22 @@ async function CategoriesSection() {
   }
   if (categories.length === 0) return null;
   return (
-    <section className="border-b border-line py-24">
-      <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
+    <section className="border-b border-line py-10 sm:py-24">
+      <PageContainer className="grid gap-6 sm:gap-12 lg:grid-cols-2 lg:items-center">
         <div>
           <Eyebrow>Coverage</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">
             <span className="text-accent">Specialists</span> across every corner of finance, tax &amp; law.
           </h2>
-          <p className="mt-5 text-lede text-ink-3">
+          <p className="mt-4 text-lede text-ink-3 sm:mt-5">
             From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find a verified expert for the
             exact matter in front of you, in the jurisdiction that counts, not a generalist who&apos;s close enough.
           </p>
-          <Button href="/members" className="mt-7">
+          <Button href="/members" className="mt-6 sm:mt-7">
             Explore all categories
           </Button>
         </div>
-        <div className="overflow-hidden rounded-3xl bg-bg-alt py-6">
+        <div className="-mx-5 overflow-hidden bg-bg-alt py-4 sm:mx-0 sm:rounded-3xl sm:py-6">
           <CategoriesMarquee categories={categories} />
         </div>
       </PageContainer>
@@ -175,24 +176,25 @@ async function LatestArticlesSection() {
   }
   if (articles.length === 0) return null;
   return (
-    <section className="border-b border-line py-24">
+    <section className="border-b border-line py-10 sm:py-24">
       <PageContainer>
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between gap-4">
           <div>
             <Eyebrow>Knowledge base</Eyebrow>
             <h2 className="font-brand mt-4 text-section-title text-ink">
               Latest <span className="text-accent">articles</span>
             </h2>
-            <p className="mt-4 max-w-xl text-lede text-ink-3">
+            <p className="mt-4 hidden max-w-xl text-lede text-ink-3 sm:block">
               Thoughtful perspectives from people working through the same challenges, regulations, transactions, and
               decisions you face every day.
             </p>
           </div>
-          <Button href="/articles" variant="secondary">
+          <MobileViewAll href="/articles" />
+          <Button href="/articles" variant="secondary" className="hidden sm:inline-flex">
             View all
           </Button>
         </div>
-        <div className="mt-8">
+        <div className="mt-5 sm:mt-8">
           <LatestArticles articles={articles} />
         </div>
       </PageContainer>
@@ -232,9 +234,9 @@ export default async function HomePage() {
 
       {/* Featured members — split layout, panel on the left */}
       {members.length > 0 && (
-        <section className="border-b border-line py-24">
-          <PageContainer className="grid gap-12 lg:grid-cols-2 lg:items-center">
-            <div className="order-2 overflow-hidden rounded-3xl bg-bg-alt py-6 lg:order-1">
+        <section className="border-b border-line py-10 sm:py-24">
+          <PageContainer className="grid gap-6 sm:gap-12 lg:grid-cols-2 lg:items-center">
+            <div className="order-2 -mx-5 overflow-hidden bg-bg-alt py-4 sm:mx-0 sm:rounded-3xl sm:py-6 lg:order-1">
               <FeaturedMembers members={members} />
             </div>
             <div className="order-1 lg:order-2">
@@ -242,12 +244,12 @@ export default async function HomePage() {
               <h2 className="font-brand mt-4 text-section-title text-ink">
                 A trusted platform for <span className="text-accent">verified</span> practitioners.
               </h2>
-              <p className="mt-5 text-lede text-ink-3">
+              <p className="mt-4 text-lede text-ink-3 sm:mt-5">
                 Every member is reasonably credential-verified and peer-reviewed before they join. No junior associates,
                 no middlemen, just serious practitioners you can reach directly across every jurisdiction and practice
                 areas.
               </p>
-              <Button href="/members" className="mt-7">
+              <Button href="/members" className="mt-6 sm:mt-7">
                 {/* Not "{n}+ members": `members` is a capped featured page, not the directory size. */}
                 Browse all members
               </Button>
@@ -263,7 +265,7 @@ export default async function HomePage() {
 
       {/* Firms band */}
       {members.length > 0 && (
-        <section className="border-b border-line bg-ink py-24">
+        <section className="border-b border-line bg-ink py-10 sm:py-24">
           <PageContainer>
             <Eyebrow dark>Where Our Members Practice</Eyebrow>
             <h2 className="font-brand mt-3.5 max-w-[760px] text-section-title text-bg-card">
@@ -275,7 +277,7 @@ export default async function HomePage() {
               professional at respected firms across 20+ jurisdictions.
             </p>
           </PageContainer>
-          <div className="mt-10">
+          <div className="mt-6 sm:mt-10">
             <FirmsBand members={members} />
           </div>
         </section>
@@ -298,17 +300,14 @@ export default async function HomePage() {
       <Newsletter />
 
       {/* FAQ */}
-      <section className="py-24">
+      <section className="py-10 sm:py-24">
         <PageContainer>
           <Eyebrow>Questions</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">
             Common <span className="text-accent">questions</span>.
           </h2>
-          <div className="mt-10 grid gap-12 lg:grid-cols-2">
-            <FaqGroup title="Joining & membership" items={FAQ_MEMBERSHIP} />
-            <FaqGroup title="For clients & users" items={FAQ_CLIENTS} />
-          </div>
-          <p className="mt-12 text-sm text-ink-3">
+          <HomeFaq membership={FAQ_MEMBERSHIP} clients={FAQ_CLIENTS} />
+          <p className="mt-6 text-sm text-ink-3 sm:mt-12">
             Still curious? Email us at{' '}
             <a href="mailto:ask@growxq.com" className="text-accent underline">
               ask@growxq.com

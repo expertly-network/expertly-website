@@ -631,6 +631,23 @@ with no way to approve fewer — now the admin explicitly picks exactly one via
 `AdminApplicationReviewRequest.approvedServiceId`, so a member's `member_services` reflects one
 deliberately-approved service, not everything they applied with.
 
+### `daily_stats` (2026-11-08)
+
+The one home for counters, for any kind of subject: `subject_type text`, `subject_id uuid`,
+`metric text`, `day date` (UTC), `count integer ≥ 0`, PK `(subject_type, subject_id, metric, day)`.
+A new statistic is new rows — a new `metric` and/or `subject_type`, added to the two check
+constraints — never a new table or column. In use: `('member', member_profiles.profile_id,
+'profile_views')` — how often the profile was opened, by anyone. `subject_id` has no foreign key
+(it points at a different table per type), so rows outlive a deleted subject; harmless, since
+they're tiny and only read for a known subject. A daily rollup
+rather than a row per event — the planned stats are totals and per-period counts, which never need
+individual hits, and the table stays small however popular a profile gets. Deliberately not a
+column on `member_profiles`: its triggers (`search_sync_member_profiles` re-indexes for AI search,
+`set_member_profiles_updated_at`) would fire on every view. Written only by `record_member_profile_view(p_slug, p_viewer_id)` (security definer,
+`service_role` only), one upsert per view so concurrent views can't lose an increment; it ignores
+inactive profiles and the member viewing themself. RLS on, no policies (service-role only). Nothing
+reads it yet. Total views: `select sum(count) from daily_stats where subject_type = 'member' and metric = 'profile_views' and subject_id = …`.
+
 ### 8 jsonb sections on `member_profiles`
 
 **Revisited this session** — an earlier version of this doc argued these needed to be real child

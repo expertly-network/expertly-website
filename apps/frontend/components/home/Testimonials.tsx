@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { mustHotlink } from '@/lib/images';
 import { useState } from 'react';
-import { Card, Eyebrow } from '@/components/ui';
+import { Card, Eyebrow, SwipeRow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
 // Marketing placeholder — not real testimonials.
@@ -66,7 +66,7 @@ export function Testimonials() {
   const items = TESTIMONIALS[tab];
 
   return (
-    <section className="relative overflow-hidden border-b border-line bg-ink py-24">
+    <section className="relative overflow-hidden border-b border-line bg-ink py-10 sm:py-24">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-[10%] -top-[20%] h-[500px] w-[500px] rounded-full"
@@ -81,15 +81,18 @@ export function Testimonials() {
           <span className="text-accent">Trusted</span> by professionals worldwide.
         </h2>
 
-        <div className="mb-8 mt-8 inline-flex rounded-full border border-white/15 p-1" role="tablist">
+        <div
+          className="mb-5 mt-6 inline-flex rounded-full border border-white/15 p-1 sm:mb-8 sm:mt-8"
+          role="group"
+          aria-label="Testimonial audience"
+        >
           {(['members', 'clients'] as const).map((t) => (
             <button
               key={t}
               type="button"
-              role="tab"
-              aria-selected={tab === t}
+              aria-pressed={tab === t}
               onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={`min-h-11 rounded-full px-4 py-1.5 text-sm font-medium transition-colors sm:min-h-0 ${
                 tab === t ? 'bg-bg-card text-ink' : 'text-white/60 hover:text-white'
               }`}
             >
@@ -98,9 +101,13 @@ export function Testimonials() {
           ))}
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <SwipeRow
+          key={tab}
+          label={`${tab === 'members' ? 'Member' : 'Client'} testimonials`}
+          className="sm:grid-cols-2 sm:gap-5"
+        >
           {items.map((t) => (
-            <Card key={t.name} padding="lg" className="flex flex-col gap-7">
+            <Card key={t.name} padding="lg" className="flex min-w-0 snap-start flex-col gap-5 max-sm:!p-5 sm:gap-7">
               <blockquote className="text-lede text-ink-2">&ldquo;{t.quote}&rdquo;</blockquote>
               {/* Anchors attribution to the bottom so every card's photo/name row lines up. */}
               <figcaption className="mt-auto flex items-center gap-3">
@@ -114,12 +121,13 @@ export function Testimonials() {
                 />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-ink">{t.name}</div>
-                  <div className="truncate text-xs text-ink-3">{t.role}</div>
+                  <div className="text-xs text-ink-3 sm:truncate">{t.role}</div>
                 </div>
               </figcaption>
             </Card>
           ))}
-        </div>
+        </SwipeRow>
+        <p className="mt-3 text-caption text-white/60 sm:hidden">Swipe to read more →</p>
       </PageContainer>
     </section>
   );

@@ -19,6 +19,7 @@ vi.mock('@/components/ui', () => ({
   startOfDay: (date: Date) => new Date(new Date(date).setHours(0, 0, 0, 0)),
   DateRangePicker: () => null,
   FilterPopover: () => null,
+  MobileFilterBar: () => null,
   Card: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick: () => void }) =>
     React.createElement('button', { onClick }, children),
@@ -81,7 +82,7 @@ afterEach(async () => {
 });
 
 const loadMoreButtons = () =>
-  Array.from(container.querySelectorAll('button')).filter((b) => b.textContent?.startsWith('Load more'));
+  Array.from(container.querySelectorAll('button')).filter((b) => /^Show (all|\d)/.test(b.textContent ?? ''));
 const bringIntoView = () => act(async () => observers.forEach((fire) => fire()));
 const clickButton = (text: string) =>
   act(async () =>
@@ -90,48 +91,59 @@ const clickButton = (text: string) =>
       ?.click()
   );
 
-// Requests are routed by query: pageSize 1 is the first/last-match lookup, pageSize 6 a month page.
+// Requests are routed by query: pageSize 1 is the first/last-match lookup, anything else a month batch.
 type Q = { from?: string; to?: string; page?: number; pageSize?: number };
 
-describe('events grouped by month with per-month "Load more"', () => {
-  it('shows every month from the first to the last match, each with its own Load more', async () => {
-    const dec = Array.from({ length: 8 }, (_, i) => event(`d${i}`, '2026-12-05T12:00:00Z'));
+describe('events grouped by month with per-month growing "Load more" batches', () => {
+  it('shows every month from the first to the last match, opening each month in growing batches', async () => {
+    const dec = Array.from({ length: 40 }, (_, i) => event(`d${i}`, '2026-12-05T12:00:00Z'));
     vi.mocked(listEventsPage).mockImplementation(async (q: Q) => {
       if (q.pageSize === 1)
         return q.page === 1
-          ? { items: [dec[0]], total: 9 }
-          : { items: [event('j0', '2027-01-10T12:00:00Z')], total: 9 };
+          ? { items: [dec[0]], total: 41 }
+          : { items: [event('j0', '2027-01-10T12:00:00Z')], total: 41 };
       if (q.from?.startsWith('2026-12')) {
+        const size = q.pageSize ?? 50;
         const page = q.page ?? 1;
-        return { items: dec.slice((page - 1) * 6, page * 6), total: 8 };
+        return { items: dec.slice((page - 1) * size, page * size), total: dec.length };
       }
       return { items: [event('j0', '2027-01-10T12:00:00Z')], total: 1 };
     });
 
-    await act(async () => root.render(React.createElement(EventsList, { remote: { total: 9 } })));
+    await act(async () => root.render(React.createElement(EventsList, { remote: { total: 41 } })));
     await bringIntoView();
 
     expect(container.textContent).toContain('December 2026');
     expect(container.textContent).toContain('January 2027');
-    expect(container.textContent).toContain('Event d5');
-    expect(container.textContent).not.toContain('Event d6');
+    // A month opens with its first 10 events.
+    expect(container.textContent).toContain('Event d9');
+    expect(container.textContent).not.toContain('Event d10');
     // December has more; January (one event) has no button.
-    expect(loadMoreButtons().length).toBe(1);
+    expect(loadMoreButtons().map((b) => b.textContent)).toEqual(['Show 25 more · 30 left']);
     expect(listEventsPage).toHaveBeenCalledWith(
-      expect.objectContaining({ from: '2026-12-01', to: '2026-12-31', page: 1, pageSize: 6 })
+      expect.objectContaining({ from: '2026-12-01', to: '2026-12-31', page: 1, pageSize: 10 })
     );
 
     // Later months only list events that start in them (no repeats of a running event).
     expect(listEventsPage).toHaveBeenCalledWith(
-      expect.objectContaining({ from: '2027-01-01', startFrom: '2027-01-01', pageSize: 6 })
+      expect.objectContaining({ from: '2027-01-01', startFrom: '2027-01-01', pageSize: 10 })
     );
     expect(listEventsPage).not.toHaveBeenCalledWith(
       expect.objectContaining({ from: '2026-12-01', startFrom: expect.anything() })
     );
 
-    await clickButton('Load more from December 2026');
-    expect(listEventsPage).toHaveBeenLastCalledWith(expect.objectContaining({ from: '2026-12-01', page: 2 }));
-    expect(container.textContent).toContain('Event d7');
+    // +25: the month's first 35 in one request.
+    await clickButton('Show 25 more');
+    expect(listEventsPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ from: '2026-12-01', page: 1, pageSize: 35 })
+    );
+    expect(container.textContent).toContain('Event d34');
+    expect(container.textContent).not.toContain('Event d35');
+    // The next batch (+50) covers the rest, so the button offers all of it.
+    expect(loadMoreButtons().map((b) => b.textContent)).toEqual(['Show all 5 remaining']);
+
+    await clickButton('Show all 5 remaining');
+    expect(container.textContent).toContain('Event d39');
     expect(loadMoreButtons().length).toBe(0);
   });
 

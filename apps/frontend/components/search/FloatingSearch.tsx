@@ -40,7 +40,9 @@ export function FloatingSearch() {
     const footer = document.querySelector('footer[aria-label="Site footer"]');
     const onScroll = () => {
       const nearFooter = !!footer && footer.getBoundingClientRect().top < window.innerHeight - 16;
-      setVisible(window.scrollY > 620 && !nearFooter);
+      const hero = pathname === '/' ? document.getElementById('hero-stellar') : null;
+      const pastHero = hero ? hero.getBoundingClientRect().bottom <= 0 : window.scrollY > 620;
+      setVisible(pastHero && !nearFooter);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -81,6 +83,7 @@ export function FloatingSearch() {
           ✦
         </span>
         <span className="text-sm font-medium tracking-[-0.01em] max-[560px]:hidden">{label}</span>
+        {pathname === '/' && <span className="text-sm font-medium min-[561px]:hidden">Ask GrowXQ</span>}
         <span className="rounded-[7px] bg-white/10 px-2 py-1 font-mono text-[11px] text-white/70 max-[560px]:hidden">
           ⌘K
         </span>

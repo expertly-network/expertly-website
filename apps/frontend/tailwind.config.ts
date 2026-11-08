@@ -96,10 +96,11 @@ const config: Config = {
         // across the prototype's non-hero pages. One named size each,
         // rather than reproducing every prototype variant.
         heading: ['32px', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '500' }],
-        // `.art-detail-title` — the article detail page's own clamp range, distinct from
-        // `headline` (32-56px, too large here — this was the "title size is huge" bug).
+        // The article detail page's <h1>. Started as the prototype's `.art-detail-title`
+        // (24-38px); topped out at 32px on 2026-11-08 so it matches `heading`, the other page
+        // titles — at 38px long titles ran to three heavy lines above the byline.
         'article-title': [
-          'clamp(24px, 2.8vw, 38px)',
+          'clamp(22px, 2.4vw, 32px)',
           { lineHeight: '1.12', letterSpacing: '-0.025em', fontWeight: '500' },
         ],
         title: ['18px', { lineHeight: '1.25', letterSpacing: '-0.012em', fontWeight: '500' }],

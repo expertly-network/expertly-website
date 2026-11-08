@@ -252,6 +252,15 @@ export class MembersRepository {
     return { ids: rows.map((r) => r.profile_id), total: Number(rows[0]?.total_count ?? 0) };
   }
 
+  // Adds one view to today's bucket for an active profile, unless the viewer is its owner.
+  async recordProfileView(slug: string, viewerId: string | null): Promise<void> {
+    const { error } = await this.supabase.db.rpc('record_member_profile_view', {
+      p_slug: slug,
+      p_viewer_id: viewerId ?? undefined,
+    });
+    if (error) throw new InternalServerErrorException('Failed to record the profile view.');
+  }
+
   // The rows for one directory page (≤ 50 ids), returned in the given order.
   async findActiveByIdsInOrder(ids: string[]): Promise<MemberProfileRow[]> {
     const { data, error } = await this.memberProfiles()

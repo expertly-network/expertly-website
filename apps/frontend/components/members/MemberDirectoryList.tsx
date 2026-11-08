@@ -52,11 +52,11 @@ export function MemberDirectoryList({
 
   return (
     <div>
-      <p className="mb-4 font-mono text-xs text-ink-3">
+      <p className="mb-4 hidden font-mono text-xs text-ink-3 sm:block">
         {total} member{total === 1 ? '' : 's'}
         {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}
       </p>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3 sm:gap-5">
         {members.map((member) => (
           <MemberCard
             key={member.id}

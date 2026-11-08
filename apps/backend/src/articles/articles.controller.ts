@@ -76,7 +76,7 @@ function validationMessages(errors: ValidationError[]): string[] {
   return errors.flatMap((e) => [...Object.values(e.constraints ?? {}), ...validationMessages(e.children ?? [])]);
 }
 
-const DEFAULT_COVER_IMAGE_QUERY = 'finance legal professional office';
+const DEFAULT_COVER_IMAGE_QUERY = 'finance tax law professional office';
 
 @Controller('articles')
 export class ArticlesController {

@@ -16,9 +16,23 @@ export const MAX_ARTICLE_BODY_LENGTH = 100_000;
 export const BLOCK_TAG =
   /<\/?(?:p|div|h[1-6]|li|ul|ol|blockquote|pre|br|hr|tr|td|th|table|figure|figcaption|section|article)\b[^>]*>/gi;
 
-// Strips HTML tags, leaving plain text.
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+// sanitize-html re-escapes text (`&` -> `&amp;`), which is right for HTML output but wrong for
+// plain text such as the stored excerpt, where it showed up literally ("M&amp;A").
+export function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code: string) => {
+    if (code[0] === '#') {
+      const n = code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : match;
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+}
+
+// Strips HTML tags, leaving plain (entity-decoded) text.
 export function stripHtml(html: string): string {
-  return sanitizeHtml(html.replace(BLOCK_TAG, ' $&'), { allowedTags: [], allowedAttributes: {} });
+  return decodeHtmlEntities(sanitizeHtml(html.replace(BLOCK_TAG, ' $&'), { allowedTags: [], allowedAttributes: {} }));
 }
 
 export function countArticleWords(body: string): number {

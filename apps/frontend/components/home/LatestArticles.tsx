@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui';
 import { formatArticleDate, formatReadTime, formatAuthorDesignation } from '@/lib/articles/format';
 import type { ArticleListItemDto } from '@shared/article';
+import { ArticleListRow } from '@/components/articles/ArticleListRow';
 import { mustHotlink } from '@/lib/images';
 
 function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36 | 60 }) {
@@ -29,75 +30,91 @@ function AuthorAvatar({ article, size }: { article: ArticleListItemDto; size: 36
   );
 }
 
-// First article featured large, the rest in a compact list.
+// Phones: a news-app style list (headline, byline, small cover on the right) of the newest few.
+// Larger screens: the first article featured large, the rest in a compact list.
+const MOBILE_COUNT = 4;
+
 export function LatestArticles({ articles }: { articles: ArticleListItemDto[] }) {
   if (articles.length === 0) return null;
   const [featured, ...rest] = articles;
   const featuredDesignation = formatAuthorDesignation(featured.authorHeadline, featured.authorFirmName);
 
   return (
-    <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr]">
-      <Link href={`/articles/${featured.slug}`} className="flex flex-col gap-5">
-        <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[300px]">
-          {featured.coverImageUrl ? (
-            <Image
-              src={featured.coverImageUrl}
-              unoptimized={mustHotlink(featured.coverImageUrl)}
-              alt=""
-              fill
-              sizes="(min-width: 1024px) 55vw, 100vw"
-              className="object-cover"
-            />
-          ) : null}
-          {featured.services[0] && (
-            <div className="absolute left-4 top-4">
-              <Badge variant="emphasis">{featured.services[0].name}</Badge>
-            </div>
-          )}
-        </div>
-        <div>
-          <div className="font-mono text-[11px] text-ink-3">
-            {formatArticleDate(featured.createdAt)} · {formatReadTime(featured.readTimeMinutes)}
-          </div>
-          <h3 className="mt-3.5 text-heading text-ink">{featured.title}</h3>
-          <div className="mt-5 flex items-center gap-3">
-            <AuthorAvatar article={featured} size={60} />
-            <div>
-              <div className="text-sm font-medium text-ink">{featured.authorName}</div>
-              {featuredDesignation && (
-                <div className="mt-0.5 font-mono text-[11px] text-ink-3">{featuredDesignation}</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </Link>
-
-      <div className="flex flex-col divide-y divide-line">
-        {rest.map((a, i) => {
-          const designation = formatAuthorDesignation(a.authorHeadline, a.authorFirmName);
-          return (
-            <Link key={a.id} href={`/articles/${a.slug}`} className="flex gap-4 py-4 lg:first:pt-0 lg:last:pb-0">
-              <div className="font-mono text-sm text-ink-4">0{i + 2}</div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-title text-ink">{a.title}</h4>
-                {/* Author on the left, date · read time on the right; stacked under the author on mobile. */}
-                <div className="mt-2.5 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <AuthorAvatar article={a} size={36} />
-                    <div className="min-w-0 leading-tight">
-                      <div className="text-caption text-ink-2">{a.authorName}</div>
-                      {designation && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>}
-                    </div>
-                  </div>
-                  <div className="whitespace-nowrap font-mono text-[11px] text-ink-3">
-                    {formatArticleDate(a.createdAt)} · {formatReadTime(a.readTimeMinutes)}
-                  </div>
-                </div>
+    <>
+      <ul className="divide-y divide-line border-y border-line sm:hidden">
+        {articles.slice(0, MOBILE_COUNT).map((a) => (
+          <li key={a.id}>
+            <ArticleListRow article={a} />
+          </li>
+        ))}
+      </ul>
+      <div className="hidden gap-12 sm:grid lg:grid-cols-[1.3fr_1fr]">
+        <Link href={`/articles/${featured.slug}`} className="flex flex-col gap-5">
+          <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-2xl border border-line bg-bg-alt lg:min-h-[300px]">
+            {featured.coverImageUrl ? (
+              <Image
+                src={featured.coverImageUrl}
+                unoptimized={mustHotlink(featured.coverImageUrl)}
+                alt=""
+                fill
+                sizes="(min-width: 1024px) 55vw, 100vw"
+                className="object-cover"
+              />
+            ) : null}
+            {featured.services[0] && (
+              <div className="absolute left-4 top-4">
+                <Badge variant="emphasis">{featured.services[0].name}</Badge>
               </div>
-            </Link>
-          );
-        })}
+            )}
+          </div>
+          <div>
+            <div className="font-mono text-[11px] text-ink-3">
+              {formatArticleDate(featured.createdAt)} · {formatReadTime(featured.readTimeMinutes)}
+            </div>
+            <h3 className="mt-3.5 text-heading text-ink">{featured.title}</h3>
+            <div className="mt-5 flex items-center gap-3">
+              <AuthorAvatar article={featured} size={60} />
+              <div>
+                <div className="text-sm font-medium text-ink">{featured.authorName}</div>
+                {featuredDesignation && (
+                  <div className="mt-0.5 font-mono text-[11px] text-ink-3">{featuredDesignation}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <div className="flex flex-col divide-y divide-line">
+          {rest.map((a, i) => (
+            <ArticleRow key={a.id} a={a} position={i + 2} />
+          ))}
+        </div>
       </div>
-    </div>
+    </>
+  );
+}
+
+function ArticleRow({ a, position }: { a: ArticleListItemDto; position: number }) {
+  const designation = formatAuthorDesignation(a.authorHeadline, a.authorFirmName);
+  return (
+    <Link href={`/articles/${a.slug}`} className="flex gap-4 py-4 lg:first:pt-0 lg:last:pb-0">
+      <div className="font-mono text-sm text-ink-4">{String(position).padStart(2, '0')}</div>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-title text-ink">{a.title}</h4>
+        {/* Author on the left, date · read time on the right. */}
+        <div className="mt-2.5 flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <AuthorAvatar article={a} size={36} />
+            <div className="min-w-0 leading-tight">
+              <div className="text-caption text-ink-2">{a.authorName}</div>
+              {designation && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{designation}</div>}
+            </div>
+          </div>
+          <div className="whitespace-nowrap font-mono text-[11px] text-ink-3">
+            {formatArticleDate(a.createdAt)} · {formatReadTime(a.readTimeMinutes)}
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }

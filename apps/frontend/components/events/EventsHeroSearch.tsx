@@ -9,6 +9,7 @@ import {
   HERO_SEARCH_INPUT_CLASS,
   HeroSearchDot,
 } from '@/components/layout/PageHero';
+import { usePhoneText } from '@/lib/hooks/usePhoneText';
 
 // Keyword search that filters the events list below straight away (?q=, GET /v1/events?q=). The
 // slower, conversational AI search is one click away underneath, seeded with the same text.
@@ -18,6 +19,8 @@ export function EventsHeroSearch({ initialQuery = '' }: { initialQuery?: string 
   const [text, setText] = useState(initialQuery);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
+  // The full example is cut off beside the Find button at phone widths.
+  const placeholder = usePhoneText('Search events, e.g. GST, transfer pricing, Singapore…', 'Search events, e.g. GST…');
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +42,7 @@ export function EventsHeroSearch({ initialQuery = '' }: { initialQuery?: string 
           maxLength={200}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Search events, e.g. GST, transfer pricing, Singapore…"
+          placeholder={placeholder}
           className={HERO_SEARCH_INPUT_CLASS}
         />
         <button type="submit" className={HERO_SEARCH_BUTTON_CLASS}>

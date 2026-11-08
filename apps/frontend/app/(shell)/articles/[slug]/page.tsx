@@ -16,6 +16,7 @@ import { ArticleByline } from '@/components/articles/ArticleByline';
 import { ArticleJsonLd } from '@/components/articles/ArticleJsonLd';
 import { ArticleAuthorSidebar } from '@/components/articles/ArticleAuthorSidebar';
 import { ArticleShareBar } from '@/components/articles/ArticleShareBar';
+import { ArticleDownloadButton } from '@/components/articles/ArticleDownloadButton';
 import { RelatedArticles } from '@/components/articles/RelatedArticles';
 import { ArticleNewsletterCard } from '@/components/articles/ArticleNewsletterCard';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -23,6 +24,7 @@ import { Badge, Button } from '@/components/ui';
 import type { ArticleDto, ArticleListItemDto } from '@shared/article';
 import { mustHotlink } from '@/lib/images';
 import { ARTICLE_PROSE } from '@/lib/articles/prose';
+import { ARTICLE_LEGAL_DISCLAIMER } from '@/lib/articles/format';
 
 // Only the author/admin can open a non-published article (the API 404s everyone else), so this
 // banner is what tells them it isn't public — and why there's nothing to share yet.
@@ -31,9 +33,6 @@ const STATUS_NOTICE: Record<Exclude<ArticleDto['status'], 'published'>, { label:
   pending_review: { label: 'Pending review', body: 'The GrowXQ team is reviewing this article — it isn’t public yet.' },
   rejected: { label: 'Not approved', body: 'This article wasn’t approved. Edit and resubmit it to publish.' },
 };
-
-const LEGAL_DISCLAIMER =
-  'The views expressed in this article are those of the author and do not constitute legal, tax, or financial advice. This content is published for informational purposes only. Readers should seek independent professional advice before acting on any information contained herein.';
 
 const RELATED_COUNT = 4;
 
@@ -96,6 +95,9 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
     notFound();
   }
   if (article.slug !== params.slug) permanentRedirect(`/articles/${article.slug}`);
+  // The full article, body included — signed-in readers only (the preview never carries the body).
+  const fullArticle: ArticleDto | null =
+    sessionUser && 'body' in article && typeof article.body === 'string' ? { ...article, body: article.body } : null;
 
   const [author, relatedArticles] = await Promise.all([
     // Authors without a member profile (no slug) get no author sidebar.
@@ -139,9 +141,11 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
         </PageContainer>
       </div>
 
-      <PageContainer className="grid items-start gap-10 py-10 lg:grid-cols-[1fr_312px]">
-        <article className="overflow-hidden rounded-3xl border border-line bg-bg-card shadow-[0_1px_2px_rgba(0,0,0,0.02),0_24px_48px_-30px_rgba(0,0,0,0.22)]">
-          <div className="px-6 pb-10 pt-8 min-[640px]:px-12 min-[640px]:pb-14 min-[640px]:pt-10">
+      <PageContainer className="grid items-start gap-10 pb-10 pt-6 sm:pt-10 lg:grid-cols-[1fr_312px]">
+        {/* Phones: the article sits straight on the page (no card frame) so the text gets the full
+            width; from 640px it is a raised card. */}
+        <article className="sm:overflow-hidden sm:rounded-3xl sm:border sm:border-line sm:bg-bg-card sm:shadow-[0_1px_2px_rgba(0,0,0,0.02),0_24px_48px_-30px_rgba(0,0,0,0.22)]">
+          <div className="sm:px-12 sm:pb-14 sm:pt-10">
             {'status' in article && article.status !== 'published' && (
               <div className="mb-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <Badge variant="warning">{STATUS_NOTICE[article.status].label}</Badge>
@@ -160,6 +164,8 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
                       Edit
                     </Button>
                   )}
+                  {/* Readers without the full body (signed out) would get an empty PDF. */}
+                  {fullArticle && <ArticleDownloadButton article={fullArticle} />}
                   {(!('status' in article) || article.status === 'published') && (
                     <ArticleShareBar title={article.title} />
                   )}
@@ -169,8 +175,8 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
 
             <ArticleAiSummary summary={article.aiSummary} className="mt-7" />
 
-            {sessionUser && 'body' in article && typeof article.body === 'string' ? (
-              <div className={`${ARTICLE_PROSE} mt-8`} dangerouslySetInnerHTML={{ __html: article.body }} />
+            {fullArticle ? (
+              <div className={`${ARTICLE_PROSE} mt-8`} dangerouslySetInnerHTML={{ __html: fullArticle.body }} />
             ) : (
               <>
                 {article.excerpt && (
@@ -192,7 +198,7 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
             )}
 
             <p className="mt-9 rounded-[10px] border border-line bg-bg-alt px-[18px] py-3.5 text-mono-label leading-[1.65] text-ink-4">
-              {LEGAL_DISCLAIMER}
+              {ARTICLE_LEGAL_DISCLAIMER}
             </p>
           </div>
         </article>

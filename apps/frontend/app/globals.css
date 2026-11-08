@@ -31,6 +31,16 @@
   --cta-hover: var(--accent-2);
 }
 
+/* No visible scrollbars anywhere — pages, side panels, sheets, swipe rows, lists. Content still
+   scrolls (wheel, trackpad, touch, keyboard); only the bar is hidden. Firefox/modern Chromium use
+   `scrollbar-width`, older WebKit the pseudo-element. Don't re-add per-element scrollbar classes. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* Geist is the default for all product text, including headings. Marketing headings opt
    into Cormorant Garamond with font-brand; the logo retains its own brand treatment. */
 
@@ -38,6 +48,16 @@
 @keyframes drawerIn {
   from {
     transform: translateX(102%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* BottomSheet (components/ui/BottomSheet.tsx) slides up from the bottom. */
+@keyframes sheetUp {
+  from {
+    transform: translateY(102%);
   }
   to {
     transform: none;
@@ -125,11 +145,14 @@ body {
 
 /* Orbit ring border — a 1px gradient "border" via the padding-box + mask-composite:exclude
    trick, faded top-to-bottom. No `position` rule here — the ring div already gets
-   `position: absolute` from its own Tailwind class in StellarOrbitHero.tsx. */
+   `position: absolute` from its own Tailwind class in StellarOrbitHero.tsx.
+   z-index -1: the spinning ring is its own stacking context, so this keeps the line beneath the
+   ring's member photos instead of painting across them. */
 .hs-orbit-ring::after {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-radius: 9999px;
   padding: 1px;
   background: linear-gradient(

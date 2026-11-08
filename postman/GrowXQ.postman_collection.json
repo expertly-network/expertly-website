@@ -1581,6 +1581,34 @@
           "response": []
         },
         {
+          "name": "POST /members/{{memberSlug}}/views — Count one profile view",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberSlug}}/views",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberSlug}}",
+                "views"
+              ]
+            },
+            "description": "🌐 Public; a bearer token is optional (sent, it's verified locally only so a member viewing their own profile isn't counted). No body. Always `204 No Content` — an unknown/inactive slug or a self-view simply isn't counted. Adds 1 to today's (UTC) `('member', id, 'profile_views')` counter in `daily_stats`. The profile page fires this once per tab session per profile. To test the anonymous path, set this request's Auth to No Auth."
+          },
+          "response": []
+        },
+        {
           "name": "GET /members/{{memberSlug}} — Get member profile by slug",
           "request": {
             "method": "GET",

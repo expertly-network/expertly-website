@@ -160,7 +160,7 @@ export function ProfileHeader({
       </Link>
 
       <div className="overflow-hidden rounded-card border border-line bg-bg-card shadow-panel">
-        <div className="relative h-[112px] overflow-hidden bg-ink">
+        <div className="relative h-20 overflow-hidden bg-ink sm:h-[112px]">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -bottom-[30px] -left-10 h-[200px] w-[200px] rounded-full"
@@ -176,8 +176,8 @@ export function ProfileHeader({
           />
         </div>
 
-        <div className="relative px-6 pb-6">
-          <div className="relative z-[2] -mt-16 flex items-end justify-between">
+        <div className="relative px-5 pb-5 sm:px-6 sm:pb-6">
+          <div className="relative z-[2] -mt-12 flex items-end justify-between sm:-mt-16">
             <div className="relative flex-none">
               {member.photoUrl ? (
                 <Image
@@ -187,10 +187,10 @@ export function ProfileHeader({
                   width={144}
                   height={144}
                   priority
-                  className="h-36 w-36 rounded-2xl border-4 border-bg-card object-cover object-top shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+                  className="h-24 w-24 rounded-2xl border-4 border-bg-card object-cover object-top shadow-[0_8px_32px_rgba(0,0,0,0.18)] sm:h-36 sm:w-36"
                 />
               ) : (
-                <div className="flex h-36 w-36 items-center justify-center rounded-2xl border-4 border-bg-card bg-ink text-4xl font-bold text-bg-card shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+                <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-bg-card bg-ink text-3xl font-bold text-bg-card shadow-[0_8px_32px_rgba(0,0,0,0.18)] sm:h-36 sm:w-36 sm:text-4xl">
                   {member.initials}
                 </div>
               )}
@@ -211,7 +211,7 @@ export function ProfileHeader({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 sm:pr-36">
+          <div className="mt-3 flex flex-wrap items-center gap-2.5 sm:mt-4 sm:pr-36">
             <span className="text-[clamp(22px,3vw,30px)] font-bold leading-[1.1] tracking-[-0.02em] text-ink">
               {member.name}
             </span>
@@ -226,7 +226,7 @@ export function ProfileHeader({
 
           {designation && <p className="mt-1 text-base font-medium text-ink-3 sm:pr-36">{designation}</p>}
 
-          <div className="mt-4 flex flex-wrap gap-4 text-profile-item text-ink-3 sm:pr-36">
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-profile-item text-ink-3 sm:mt-4 sm:gap-4 sm:pr-36">
             {location && (
               <span className="inline-flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-none text-accent">
@@ -262,10 +262,29 @@ export function ProfileHeader({
             )}
           </div>
 
+          {/* Below 1024px the sidebar's fee card is hidden for visitors, so its availability note
+              (e.g. "Away 13–20 Nov") moves up here. */}
+          {!isOwnProfile && member.availabilityNotes && (
+            <p className="mt-3 flex items-start gap-1.5 text-caption leading-relaxed text-ink-3 sm:pr-36 min-[1024px]:hidden">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="mt-0.5 flex-none text-accent"
+              >
+                <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              {member.availabilityNotes}
+            </p>
+          )}
+
           {/* `.mp-profile-actions` — pinned bottom-right of the header card from sm up; a
               full-width row under the stats on phones, where there's no room beside them. */}
           <div className="absolute bottom-6 right-6 hidden flex-col gap-2 sm:flex">{actions}</div>
-          <div className="mt-5 flex gap-2 sm:hidden">{actions}</div>
+          <div className="mt-4 flex gap-2 sm:hidden">{actions}</div>
         </div>
       </div>
     </div>

@@ -32,17 +32,6 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
       </p>
     ),
   },
-  'membership-policy': {
-    title: 'Membership Policy',
-    draft: true,
-    body: (
-      <p>
-        This Membership Policy sets out how members are vetted and verified, the standards of conduct expected of
-        members, and how membership is renewed or ended. The full policy is being finalised with legal review and will
-        be published here.
-      </p>
-    ),
-  },
   'linkedin-data-use': {
     title: 'LinkedIn Profile Data Use',
     draft: true,

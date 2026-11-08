@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countArticleWords, stripHtml } from './word-count';
+import { countArticleWords, decodeHtmlEntities, stripHtml } from './word-count';
 
 describe('countArticleWords', () => {
   it('keeps a word boundary between adjacent block elements', () => {
@@ -22,5 +22,17 @@ describe('stripHtml', () => {
     expect(stripHtml('<h2>Title</h2><p>Body <a href="https://x.test">link</a></p>').replace(/\s+/g, ' ').trim()).toBe(
       'Title Body link'
     );
+  });
+
+  it('returns plain text, not HTML-escaped text', () => {
+    expect(stripHtml('<p>Mergers &amp; acquisitions (M&amp;A) &lt;2026&gt; &quot;rules&quot;</p>').trim()).toBe(
+      'Mergers & acquisitions (M&A) <2026> "rules"'
+    );
+  });
+});
+
+describe('decodeHtmlEntities', () => {
+  it('decodes named and numeric entities and leaves unknown ones alone', () => {
+    expect(decodeHtmlEntities('M&amp;A &#39;24 &#x2013; &copy;')).toBe("M&A '24 – &copy;");
   });
 });

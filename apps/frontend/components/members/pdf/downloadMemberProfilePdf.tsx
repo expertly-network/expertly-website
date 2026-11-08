@@ -1,81 +1,19 @@
-import { LOGO_SRC } from '@/lib/brand';
-import { Font, pdf } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { MemberDto, MemberRecommendationDto } from '@shared/member';
 import { apiFetch } from '@/lib/api/client';
-import { MemberProfilePdf, PDF_FONT_FAMILY, PDF_HEADING_FONT_FAMILY, type PdfRecommendation } from './MemberProfilePdf';
+import { fileStem, loadImageAsPng, loadPdfLogo, publicSiteUrl, registerPdfFonts, saveBlob } from '@/lib/pdf/browser';
+import { MemberProfilePdf, type PdfRecommendation } from './MemberProfilePdf';
 
 // Client-only: builds the member profile PDF in the browser and saves it. Imported lazily from
 // ProfileHeader's PDF button so none of this (or @react-pdf/renderer) is in the page bundle.
 
-let fontsRegistered = false;
-
-// Geist TTFs copied from the `geist` package into public/fonts/pdf/ — react-pdf needs TTF/WOFF,
-// not the woff2 next/font serves to the page.
-function registerFonts() {
-  if (fontsRegistered) return;
-  const base = `${window.location.origin}/fonts/pdf`;
-  Font.register({
-    family: PDF_FONT_FAMILY,
-    fonts: [
-      { src: `${base}/Geist-Regular.ttf`, fontWeight: 400 },
-      { src: `${base}/Geist-Medium.ttf`, fontWeight: 500 },
-      { src: `${base}/Geist-SemiBold.ttf`, fontWeight: 600 },
-      { src: `${base}/Geist-Bold.ttf`, fontWeight: 700 },
-    ],
-  });
-  Font.register({
-    family: PDF_HEADING_FONT_FAMILY,
-    src: `${window.location.origin}/fonts/brand/CormorantGaramond-Medium.ttf`,
-    fontWeight: 400,
-  });
-  // react-pdf hyphenates long words by default ("consul-tation"); a profile reads better without.
-  Font.registerHyphenationCallback((word) => [word]);
-  fontsRegistered = true;
-}
-
 export function memberProfileUrl(slug: string): string {
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
-  return `${origin.replace(/\/$/, '')}/members/${slug}`;
-}
-
-// Re-encodes an image as PNG for react-pdf. Photos are cropped square and top-anchored;
-// the logo keeps its original proportions. react-pdf only embeds JPEG/PNG, and uploaded avatars may be WebP. Resolves
-// null if the image can't be loaded or the canvas is tainted by a non-CORS host, so the PDF
-// falls back to initials instead of failing outright.
-function loadImageAsPng(url: string, size = 320, cropSquare = true): Promise<string | null> {
-  return new Promise((resolve) => {
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const side = Math.min(img.naturalWidth, img.naturalHeight);
-        const sx = (img.naturalWidth - side) / 2;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = cropSquare ? size : Math.max(1, Math.round((size * img.naturalHeight) / img.naturalWidth));
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(null);
-        if (cropSquare) ctx.drawImage(img, sx, 0, side, side, 0, 0, size, size);
-        else ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/png'));
-      } catch {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+  return publicSiteUrl(`/members/${slug}`);
 }
 
 function fileNameFor(member: MemberDto): string {
-  const base =
-    member.slug ||
-    member.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  return `${base}-growxq-profile.pdf`;
+  return `${member.slug || fileStem(member.name)}-growxq-profile.pdf`;
 }
 
 // The profile page's visible recommendations (same endpoint MemberRecommendations uses), with each
@@ -103,7 +41,7 @@ async function loadRecommendations(memberId: string): Promise<PdfRecommendation[
 }
 
 export async function downloadMemberProfilePdf(member: MemberDto): Promise<void> {
-  registerFonts();
+  registerPdfFonts();
   const profileUrl = memberProfileUrl(member.slug);
 
   const [qrDataUrl, photoDataUrl, recommendations, logoDataUrl] = await Promise.all([
@@ -115,10 +53,8 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
     }),
     member.photoUrl ? loadImageAsPng(member.photoUrl) : Promise.resolve(null),
     loadRecommendations(member.id),
-    loadImageAsPng(`${window.location.origin}${LOGO_SRC.dark}`, 1196, false),
+    loadPdfLogo(),
   ]);
-
-  if (!logoDataUrl) throw new Error('Could not load the logo for the PDF. Please try again.');
 
   const blob = await pdf(
     <MemberProfilePdf
@@ -132,13 +68,5 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
     />
   ).toBlob();
 
-  const objectUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = objectUrl;
-  a.download = fileNameFor(member);
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Give the browser a moment to start the download before releasing the blob.
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+  saveBlob(blob, fileNameFor(member));
 }

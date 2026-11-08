@@ -119,7 +119,7 @@ export function ReviewsTab({
               <div
                 ref={gridRef}
                 onScroll={measure}
-                className="grid max-h-[360px] grid-cols-4 gap-4 overflow-y-auto scroll-smooth [scrollbar-width:none] max-[1100px]:max-h-[736px] max-[1100px]:grid-cols-2 max-[560px]:max-h-[1488px] max-[560px]:grid-cols-1 [&::-webkit-scrollbar]:hidden"
+                className="grid max-h-[360px] grid-cols-4 gap-4 overflow-y-auto scroll-smooth max-[1100px]:max-h-[736px] max-[1100px]:grid-cols-2 max-[560px]:max-h-[1488px] max-[560px]:grid-cols-1"
               >
                 {member.testimonials.map((t) => (
                   <button

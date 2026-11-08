@@ -16,7 +16,7 @@ const PAGE_SIZE = MEMBER_LIST_PAGE_SIZE;
 export const metadata = {
   title: 'Members — GrowXQ',
   description:
-    'Hire verified finance & legal counsel. Every practitioner is individually credential-verified and peer-reviewed.',
+    'Hire verified finance, tax & law counsel. Every practitioner is individually credential-verified and peer-reviewed.',
 };
 
 export default async function MembersPage(props: {
@@ -42,7 +42,7 @@ export default async function MembersPage(props: {
         eyebrow="Member directory"
         title={
           <>
-            Hire verified <span className="text-accent">finance &amp; legal</span> counsel.
+            Hire verified <span className="text-accent">finance, tax &amp; law</span> counsel.
           </>
         }
         lede="Every practitioner below has been individually credential-verified and peer-reviewed. No agencies, no intermediaries, direct access only."
@@ -50,11 +50,11 @@ export default async function MembersPage(props: {
         decoration={<HeroConstellation />}
       />
 
-      <PageContainer className="py-10">
+      <PageContainer className="pb-10 pt-3 sm:pt-10">
         <div className="grid grid-cols-[1fr_320px] items-start gap-8 max-[1023px]:grid-cols-1">
           <div>
-            <DirectoryFilterBar categories={categories} filters={filters} />
-            <div className="mt-6">
+            <DirectoryFilterBar categories={categories} filters={filters} total={total} />
+            <div className="mt-4 sm:mt-6">
               <MemberDirectoryList
                 members={members}
                 total={total}

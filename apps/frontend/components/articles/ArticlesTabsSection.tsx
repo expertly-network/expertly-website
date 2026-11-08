@@ -41,9 +41,11 @@ export function ArticlesTabsSection({
 
   return (
     <div>
-      <ArticlesTabsNav canWrite={canWrite} active={tab} onTabChange={changeTab} />
+      {/* Only members/admins have a second tab (My Articles) and the Write button; for everyone else
+          a lone "Browse Articles" tab would be an inert control, so the list starts straight away. */}
+      {canWrite && <ArticlesTabsNav canWrite={canWrite} active={tab} onTabChange={changeTab} />}
 
-      <div className="mt-8">
+      <div className={canWrite ? 'mt-8' : ''}>
         {tab === 'browse' ? (
           articles.length > 0 || initialServiceFilter.length > 0 ? (
             <ArticlesGrid

@@ -9,12 +9,15 @@ import {
   HeroSearchDot,
 } from '@/components/layout/PageHero';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
+import { usePhoneText } from '@/lib/hooks/usePhoneText';
 
 // Submits the same q filter param the rest of the directory's URL-driven filter state uses.
 export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(filters.q ?? '');
+  // The full example is cut off beside the Find button at phone widths.
+  const placeholder = usePhoneText('Search by name, practice, location, firm…', 'Name, practice, city…');
 
   // The URL is the source of truth — when it changes elsewhere (e.g. "Reset filters" clears every
   // param), the box follows instead of keeping stale text like "zzzxqq".
@@ -38,7 +41,7 @@ export function DirectoryHeroSearch({ filters }: { filters: MemberFilters }) {
         id="directory-search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name, practice, location, firm…"
+        placeholder={placeholder}
         type="search"
         className={HERO_SEARCH_INPUT_CLASS}
       />

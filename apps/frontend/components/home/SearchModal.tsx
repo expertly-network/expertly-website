@@ -40,6 +40,7 @@ export function SearchModal({
   scope?: SearchScope;
 }) {
   const pathname = usePathname();
+  const isHome = pathname === '/';
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -196,7 +197,7 @@ export function SearchModal({
             disabled={signedIn === false}
             placeholder={PLACEHOLDER[scope]}
             aria-label="Your question"
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-3 disabled:cursor-not-allowed"
+            className={`min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-3 disabled:cursor-not-allowed ${isHome ? 'min-h-11 text-base sm:text-[15px]' : 'text-[15px]'}`}
           />
           <button
             type="submit"
@@ -209,9 +210,18 @@ export function SearchModal({
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="hidden flex-none rounded-md border border-line-2 bg-bg-alt px-[7px] py-[3px] font-mono text-[10.5px] font-semibold text-ink-3 sm:block"
+            className={`flex-none rounded-md border border-line-2 bg-bg-alt px-[7px] py-[3px] font-mono text-[10.5px] font-semibold text-ink-3 sm:block ${isHome ? 'min-h-11 min-w-11 sm:min-h-0 sm:min-w-0' : 'hidden'}`}
           >
-            esc
+            {isHome ? (
+              <>
+                <span className="text-base sm:hidden" aria-hidden="true">
+                  ×
+                </span>
+                <span className="hidden sm:inline">esc</span>
+              </>
+            ) : (
+              'esc'
+            )}
           </button>
         </form>
 

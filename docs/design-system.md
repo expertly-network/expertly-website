@@ -42,11 +42,12 @@ The footer logo and contact details align with the same left and right gutters.
 
 ## Footer
 
-The first footer's compact, centred layout on a dark ink band with a soft brand-green glow: the
-GrowXQ logo, then three centred rows — the main pages (Articles … Membership); Terms &
-Conditions, Membership Policy, Privacy Policy; Contact us (mailto) and LinkedIn — then a small
-copyright line. The page's `<main>` is at least one screen tall, so the footer always starts below
-the fold, even on a page with little content.
+`components/layout/Footer.tsx`, on a dark ink band with a soft brand-green glow, everything centred:
+the GrowXQ logo, then three labelled link columns — Explore
+(Members, Articles, Events), Resources (Learnings, Perks, Templates), Company (Membership, Contact
+us mailto, LinkedIn); then a hairline-separated, centred bottom bar with the legal pages (User & Member
+Policy, Privacy Policy) and the copyright line. The page's `<main>` is at least
+one screen tall, so the footer always starts below the fold, even on a page with little content.
 
 ## Fonts
 
@@ -142,7 +143,7 @@ letter-spacing + weight together.
 | `text-section-title` | 28–44px (clamp) | 1.08 | -0.02em | 500 | Section heading | theme.css `.section-title` |
 | `text-lede` | 15–17px (clamp) | 1.55 | -0.005em | 400 | **The standard body-paragraph size, used app-wide** for any section/page-intro paragraph that sits directly under a heading and explains what that section is about (pair with `text-ink-3`) — home page section paragraphs, every page hero's subhead, auth card subheads, application-wizard step descriptions. NOT for card/list-item-level text (a member bio excerpt, an FAQ answer, article body prose, sidebar meta) — those stay at `text-sm`/`text-caption`, matching the design's own smaller sizing there. | theme.css `.lede` |
 | `text-heading` | 32px | 1.1 | -0.02em | 500 | Page/card heading (e.g. `/login`'s "Get started with GrowXQ.") | This app — consolidated from `auth-title` and similar 28–32px headings |
-| `text-article-title` | 24–38px (clamp) | 1.12 | -0.025em | 500 | Article detail page `<h1>` only — deliberately its own, smaller-topped clamp than `text-headline`, matching `.art-detail-title` | theme.css `.art-detail-title` |
+| `text-article-title` | 22–32px (clamp) | 1.12 | -0.025em | 500 | Article detail page `<h1>` only — tops out at the same 32px as `text-heading` (reduced from the prototype's 24–38px on 2026-11-08: long titles were overpowering the page) | theme.css `.art-detail-title` (sizes diverge on purpose) |
 | `text-title` | 18px | 1.25 | -0.012em | 500 | Card/item title | This app — consolidated from 17–19px card-title variants across the prototype |
 | `text-stat` | 28px | normal | -0.02em | 500 | Stat numbers (e.g. "20+ Verified experts") | This app — from `auth-stats b` |
 | `text-label` | 12px | normal | normal | 500 | Form field labels | This app — from `auth-field label` |
@@ -271,12 +272,53 @@ optional. The Membership page keeps its own marketing hero with the pricing pane
 height, with or without a submit button). Page-specific art goes in `decoration`. Don't hand-roll
 a new hero; extend `PageHero` instead.
 
+## Phone-width patterns
+
+The rules for when to use these live in `apps/frontend/CLAUDE.md` → "Mobile-first rules". This is
+the catalogue of the shared pieces (all hidden or reset from `sm` up unless noted):
+
+| Pattern | Use | Where |
+|---|---|---|
+| Swipe row | A list of cards → horizontal snap row, next card peeking in | `components/ui/SwipeRow.tsx` (children get `snap-start min-w-0`; desktop grid via `className`) — Testimonials, `UpcomingEvents`, `DualCta`, learning paths, perk toolkits, template kits |
+| Phone filters | Many filter dropdowns → one sticky "Filters" bar + bottom sheet + chips | `components/ui/MobileFilterBar.tsx` + `components/ui/FilterSheet.tsx` (+ `lib/hooks/useLiveCount.ts` for "Show N …") — articles, events, members, learnings. `MobileFilterBar` must be a direct child of the page/list container, or it only sticks inside its wrapper |
+| Sticky under the top bar | Anything pinned below the 62px mobile top bar | `STICKY_UNDER_MOBILE_BAR` in `lib/ui/mobile.ts` — never repeat `top-[61px]` |
+| Shorter copy | Text that would truncate on a phone (search placeholders) | `lib/hooks/usePhoneText.ts` — articles, events, members heroes |
+| Inline "View all" | A section's full-width secondary button → text link on the heading row | `components/home/MobileViewAll.tsx` |
+| Compact row | Big cards → scannable rows | `components/ui/CompactRow.tsx` + `CompactRowList` (leading visual, eyebrow, title, meta, chevron) — Learnings videos, Perks, Templates; `ArticleListRow` (home + /articles); `MemberCard` / `EventRow` phone layouts |
+| Bottom sheet | Short focused task on phones | `components/ui/BottomSheet.tsx` |
+| Full-bleed panel | Rounded inset panels drop their inset | `-mx-5 sm:mx-0 sm:rounded-3xl` |
+
+Notes: directory entries (`MemberCard`) become a scannable row on phones — photo (tier badge pinned to
+its bottom edge), name + verified, primary service in accent, firm · location, then rate and
+experience (rate never truncates), with a chevron; no bio or action button in the row, because the
+profile carries both plus a sticky Request Consultation bar. On the member profile, phones get
+sticky short-label tabs and a frameless tab panel, and visitors below 1024px don't see the sidebar
+fee card (the sticky bar carries fee + Request; the availability note moves into the header).
+Secondary intro paragraphs on list sections are `hidden sm:block`.
+
 ## Side drawer
 
 `components/ui/SideDrawer.tsx` — a right-hand detail panel (native `<dialog>`, 520px wide, full
 width on phones, dimmed/blurred backdrop, pinned footer). Use it for "open an item's details
 without leaving the list" (perks: `components/resources/PerkDrawer.tsx`). Centred `Modal` /
 `ResourceDialog` remain for short tasks and comparisons.
+
+## Bottom sheet & phone filters
+
+`components/ui/BottomSheet.tsx` — the phone counterpart to `SideDrawer`: a panel that slides up from
+the bottom (native `<dialog>`, rounded top, max 88% of the screen, title + close button header,
+pinned footer that respects the iPhone home-indicator inset).
+
+`components/ui/FilterSheet.tsx` builds the shopping-site filter pattern on it: `FilterSheet` (the
+sheet plus "Clear all" and a live "Show N {noun}" button), `FilterSheetSection` (collapsible, with a
+selected-count badge), `FilterSheetOptions` (checkboxes, or radios with `single`) and
+`FilterSheetSearch` (search box for long lists). The parent keeps a draft and commits it on apply.
+On the page it is opened from `MobileFilterBar` (a sticky "Filters" bar with the result count,
+then removable chips); the live count comes from `useLiveCount`. Desktop keeps `FilterPopover`
+dropdowns.
+Used by the articles list (`ArticleFiltersSheet`), the events list (`EventFiltersSheet`, also on
+the admin events list, without the live count) and the member directory (`MemberFiltersSheet`,
+which writes the URL like the desktop dropdowns).
 
 ## Changing something
 

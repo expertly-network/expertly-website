@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from '@/lib/api/client';
+import { ApiError, apiFetch, apiFetchPage } from '@/lib/api/client';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
 import type {
   CreateMemberEditRequest,
@@ -28,8 +28,18 @@ export function getMembers(params: GetMembersParams): Promise<MemberListItemDto[
   return apiFetch<MemberListItemDto[]>(`/members${buildMembersQueryString(params)}`);
 }
 
+/** A directory page plus the total match count (X-Total-Count) — e.g. the phone filter sheet's live count. */
+export function getMembersPage(params: GetMembersParams): Promise<{ items: MemberListItemDto[]; total: number }> {
+  return apiFetchPage<MemberListItemDto>(`/members${buildMembersQueryString(params)}`, 'X-Total-Count');
+}
+
 export function getMember(slug: string): Promise<MemberDto> {
   return apiFetch<MemberDto>(`/members/${encodeURIComponent(slug)}`);
+}
+
+// Counts one view of a member's profile (POST /v1/members/:slug/views — always 204).
+export async function recordMemberProfileView(slug: string): Promise<void> {
+  await apiFetch<void>(`/members/${encodeURIComponent(slug)}/views`, { method: 'POST' });
 }
 
 export function getMyMemberEdits(id: string): Promise<MemberProfileEditDto[]> {

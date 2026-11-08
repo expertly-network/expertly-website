@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { getMemberServer, getMemberPreviewServer, getMyMemberEditsServer } from '@/lib/api/server';
 import { ProfileAuthWall } from '@/components/members/ProfileAuthWall';
+import { ProfileViewBeacon } from '@/components/members/ProfileViewBeacon';
 import { ProfileClient } from './ProfileClient';
 
 // Resolved before the page streams, so an unknown slug's notFound() here returns a real HTTP 404
@@ -26,7 +27,12 @@ export default async function MemberProfilePage(props: { params: Promise<{ slug:
   if (!sessionUser) {
     const preview = await getMemberPreviewServer(params.slug);
     if (!preview) notFound();
-    return <ProfileAuthWall member={preview} />;
+    return (
+      <>
+        <ProfileViewBeacon slug={preview.slug} />
+        <ProfileAuthWall member={preview} />
+      </>
+    );
   }
   if (!member) {
     notFound();
@@ -36,12 +42,16 @@ export default async function MemberProfilePage(props: { params: Promise<{ slug:
   const edits = isOwnProfile ? await getMyMemberEditsServer(member.id) : [];
 
   return (
-    <ProfileClient
-      member={member}
-      edits={edits}
-      isOwnProfile={isOwnProfile}
-      viewerName={`${sessionUser.first_name} ${sessionUser.last_name}`.trim()}
-      viewerEmail={sessionUser.email}
-    />
+    <>
+      {/* The member opening their own profile isn't a view (the API ignores it too). */}
+      {!isOwnProfile && <ProfileViewBeacon slug={member.slug} />}
+      <ProfileClient
+        member={member}
+        edits={edits}
+        isOwnProfile={isOwnProfile}
+        viewerName={`${sessionUser.first_name} ${sessionUser.last_name}`.trim()}
+        viewerEmail={sessionUser.email}
+      />
+    </>
   );
 }
