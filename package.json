@@ -10,7 +10,9 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"apps/backend/{src,scripts}/**/*.{ts,mjs}\" \"apps/frontend/{app,components,lib}/**/*.{ts,tsx}\" \"apps/frontend/*.{ts,js}\" \"packages/shared-types/*.ts\"",
-    "format:check": "prettier --check \"apps/backend/{src,scripts}/**/*.{ts,mjs}\" \"apps/frontend/{app,components,lib}/**/*.{ts,tsx}\" \"apps/frontend/*.{ts,js}\" \"packages/shared-types/*.ts\""
+    "format:check": "prettier --check \"apps/backend/{src,scripts}/**/*.{ts,mjs}\" \"apps/frontend/{app,components,lib}/**/*.{ts,tsx}\" \"apps/frontend/*.{ts,js}\" \"packages/shared-types/*.ts\"",
+    "verify": "pnpm audit --prod --audit-level=high && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "verify:full": "pnpm verify && pnpm build"
   },
   "devDependencies": {
     "prettier": "3.6.2",

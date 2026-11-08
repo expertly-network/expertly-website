@@ -152,8 +152,13 @@ trustworthy. See `postman/README.md` for exactly how to edit/export it.
    contract as given, don't modify it.
 3. Flag anything the prototype leaves ambiguous (conflicting copy, no stated access rule, etc.)
    rather than guessing, in whichever session hits it.
-4. Need a new table/schema change? It goes in **`supabase/migrations/`** — see that folder's
-   `README.md` for the numbering/apply convention.
+4. Need a new table/schema change? **Production is live: from 2026-11-09 on, every schema change
+   is a new numbered file** in `supabase/migrations/` (`0007_…`, `0008_…`) — never edit `0001`–`0006`
+   (the go-live baseline: everything built through 2026-11-08 is folded into those).
+   Migrations must be additive and safe on live data (defaults/backfills for new `not null`
+   columns, no drops or renames that running code still reads), run in one transaction, end with
+   `notify pgrst, 'reload schema';`, and are applied to dev first, then production, before the code
+   that needs them is deployed. See that folder's `README.md`.
 
 ## Session protocol
 
@@ -287,6 +292,24 @@ admin CRUD — the public suggestion-queue submission flow is the one piece stil
 (notifications, admin/ops overview dashboard, renewal billing). AI search is built
 (`docs/rest-api.md` "AI search").
 
+## Before every push — `pnpm verify`, never just the files you touched
+
+Pushing to `main` runs CI (`.github/workflows/`), and a failing step means **no Docker images and
+no dev deploy** — the push silently doesn't ship. So before any push (and before telling the user
+something is ready to push), run from the repo root:
+
+```
+pnpm verify        # = CI's steps, in CI's order: audit → format:check → lint → typecheck → test
+pnpm verify:full   # + pnpm build — only when the user's dev server isn't running
+                   #   (a build overwrites apps/frontend/.next and breaks the running dev server)
+```
+
+Run it over the **whole repo**, exactly as CI does — not Prettier/ESLint on just the edited files:
+a whitespace-only change elsewhere fails `format:check` (it blocked `ae6c2a5` on 2026-11-08). If
+it fails, fix and re-run until it passes; don't push red. After pushing, confirm the CI run for
+that commit went green (`gh run list --branch main --limit 1`) before saying it's on dev. If CI
+gains a step, add it to `verify` in the root `package.json` in the same change.
+
 ## Session closing checklist
 
 At the end of any session touching backend or frontend:
@@ -299,7 +322,7 @@ At the end of any session touching backend or frontend:
 □ Confirm postman/GrowXQ.postman_collection.json was updated to match — any contract
   change (§ "Postman collection") that lands without it is incomplete
 □ Confirm no hardcoded credentials or keys
-□ Confirm pnpm typecheck passes
+□ Confirm `pnpm verify` passes (see "Before every push" below)
 ```
 **Email infrastructure:** email content lives in **Resend** as published templates (designs in
 `docs/email-templates/`); `apps/backend/src/email/` owns when/to whom — automations mapping app

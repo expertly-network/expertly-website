@@ -280,8 +280,9 @@ font/image host or API origin the browser talks to means updating the CSP direct
 `GET /v1/members` returns 500 and document uploads fail until the database is updated. Node ≥ 22.12
 is required (the Docker images use `node:22-alpine`, which is current).
 
-1. **Database** — the changes are folded into `supabase/migrations/0001`–`0004` (pre-production
-   convention, no patch files). Bring an existing database up to date with a one-off, idempotent
+1. **Database** — (historical: this rollout predates go-live, when changes were folded into
+   `supabase/migrations/0001`–`0004`. From 2026-11-09 every change is a new numbered migration —
+   see `supabase/migrations/README.md`.) Bring an existing database up to date with a one-off, idempotent
    catch-up script run once in the SQL Editor (one transaction, `lock_timeout` 5 s — re-run if it
    times out), or rebuild it from the migrations. Needs pgvector ≥ 0.8.0
    (`select extversion from pg_extension where extname = 'vector';` — Supabase ships 0.8.x). The

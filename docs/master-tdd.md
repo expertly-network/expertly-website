@@ -60,8 +60,8 @@ is the compiler-enforced contract between the two.
 ## Section 3 — Database schema
 
 Source of truth: `docs/database-erd.md`. Current schema: `supabase/migrations/0001_extensions.sql`
-through `0004_tables.sql` — pre-production four-file convention, see
-`supabase/migrations/README.md`.
+through `0004_tables.sql` (the go-live baseline: everything through 2026-11-08, frozen) plus numbered
+migrations from `0007` — from 2026-11-09 every change is a new file; see `supabase/migrations/README.md`.
 
 | Table | Status | Backend module |
 |---|---|---|

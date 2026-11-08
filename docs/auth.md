@@ -609,6 +609,6 @@ enabled by default on every table in this repo means the grant alone is not suff
   firing, just failing partway through.) Also enable **"Allow manual linking"** under
   Authentication → Settings — required for `supabase.auth.linkIdentity()` (Part 1b above); without
   it, the applicant-side "Connect your LinkedIn" call fails.
-- Schema lives in `supabase/migrations/0001_extensions.sql` → `0004_tables.sql` (pre-production,
-  four-file convention — see that folder's `README.md`), applied manually via the Supabase SQL
+- Schema lives in `supabase/migrations/0001_extensions.sql` → `0004_tables.sql` (the go-live
+  baseline) plus numbered migrations from `0007` — see that folder's `README.md`, applied manually via the Supabase SQL
   Editor, not automatically on deploy.
