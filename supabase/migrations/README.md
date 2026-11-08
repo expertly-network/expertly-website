@@ -31,8 +31,20 @@ deploy the code that needs it. Record which numbered files each environment has 
 **How production reached the baseline.** Before go-live, changes were folded back into the
 existing files (pre-production convention). Production — running the `2dcf1ee` images at go-live — was
 brought up to the `0001`–`0006` baseline (as of `ae6c2a5`) once with
-`supabase/catchup/2026-11-08-prod-2dcf1ee-to-baseline.sql` (idempotent, one transaction, guarded). New
+a one-off catch-up script (idempotent, one transaction, guarded), run manually. New
 environments are built from scratch instead (below), so that script is history, not a step.
+
+**The one exception so far (2026-11-08): service taxonomy.** The client's final taxonomy sheet
+replaced the `service_lines`/`categories`/`services` seed in `0004` in place — lookup data only, and
+production still held nothing but seed rows. Databases built before that (dev, production) were
+brought over once by a manually run catch-up script (guarded, idempotent, one transaction,
+self-checking against the sheet); a fresh build already has it and skips the script.
+Applied: dev 2026-11-08. Don't treat this as precedent — once real data references a table, its
+changes go in a numbered migration.
+
+**Catch-up scripts are not kept in the repo.** They're one-off SQL the owner runs by hand per
+environment; `supabase/catchup/` is git-ignored so a local copy can sit there without being
+committed.
 
 **Baseline layout** (dependency order, not feature order):
 

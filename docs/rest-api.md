@@ -124,7 +124,7 @@ Backing `apps/backend/src/applications/`, `apps/backend/src/categories/`,
 ### 🌐 `GET /v1/service-lines`
 
 Since 2026-10-31 the taxonomy has three levels: **service line** (Tax, Corporate Secretarial,
-Finance, Legal, Other) → **category** → **service**, from the client's `Services.xlsx`. This
+Finance, Legal, Other) → **category** → **service**, from the client's taxonomy sheet (see `docs/database-erd.md`). This
 returns the active tree: `ServiceLineDto[]` — `{ id, name, sortOrder, categories: CategoryDto[] }`,
 lines in order, empty lines omitted. Used by the service-line ("Tax / Finance / Legal") filters.
 

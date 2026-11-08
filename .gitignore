@@ -16,3 +16,5 @@ supabase/.temp/
 supabase/trigger_embeddings_via_api.py
 # Content images live in Supabase Storage; keep local exports out of source control.
 supabase/seed-assets/
+# One-off catch-up SQL, run manually per environment — kept local, never committed.
+supabase/catchup/

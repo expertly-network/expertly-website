@@ -94,7 +94,7 @@ const RULES: { category: string; patterns: RegExp[] }[] = [
     ],
   },
   {
-    category: 'Investment Banking',
+    category: 'Investment bank & valuation',
     patterns: [
       /\bIPOs?\b|\binitial public offering/i,
       /\binvestment bank/i,

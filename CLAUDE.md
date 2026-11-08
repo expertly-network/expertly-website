@@ -154,7 +154,8 @@ trustworthy. See `postman/README.md` for exactly how to edit/export it.
    rather than guessing, in whichever session hits it.
 4. Need a new table/schema change? **Production is live: from 2026-11-09 on, every schema change
    is a new numbered file** in `supabase/migrations/` (`0007_…`, `0008_…`) — never edit `0001`–`0006`
-   (the go-live baseline: everything built through 2026-11-08 is folded into those).
+   (the go-live baseline: everything built through 2026-11-08 is folded into those; the one
+   deliberate exception, the 2026-11-08 service-taxonomy seed, is explained in that folder's README).
    Migrations must be additive and safe on live data (defaults/backfills for new `not null`
    columns, no drops or renames that running code still reads), run in one transaction, end with
    `notify pgrst, 'reload schema';`, and are applied to dev first, then production, before the code

@@ -160,7 +160,9 @@ has something to check against. `customLabel` is required when the referenced se
 
 ### `service_lines`
 
-Top level of the three-level taxonomy (2026-10-31, from `Services.xlsx`): `id`, `name` (unique),
+Top level of the three-level taxonomy (from the client's sheet — currently "Service Line & Category
+List - Final.xlsx", 2026-11-08; its Category/Sub Category/Service columns are our
+service_lines/categories/services): `id`, `name` (unique),
 `sort_order`, `is_active`, `created_at`, `updated_at`. Seeded: Tax, Corporate Secretarial, Finance,
 Legal, Other (the last holds the catch-all "Others" category). Public `select` RLS policy.
 
@@ -171,17 +173,29 @@ client-supplied, real two-level taxonomy (17 categories, 138 services), not a ba
 `docs/superpowers/specs/2026-09-19-category-service-taxonomy-design.md` for the full rationale and
 seed data.
 
-**`categories`**: `id`, `service_line_id` (FK → `service_lines.id`, not null — 2026-10-31; the
-"Legal - " name prefix was dropped, "Other taxes" became "Other taxes & duties", and Finance →
-"Investment Banking" (Funding, IPO, IPO advisors) was added: 18 categories, 141 services),
-`name` (unique), `sort_order`, `image_url` (nullable, decorative-only —
-unlike the old `practice_areas` seed, no images are seeded for the 17 categories today; stays null
-until an admin sets one via the taxonomy admin CRUD), `is_active`, `created_at`, `updated_at`.
+**Current seed (2026-11-08): 19 categories, 161 services** (18 from the sheet plus the catch-all
+"Others"). History: 17/138 at first; 18/141 on 2026-10-31 (service lines added, Finance →
+"Investment Banking"); then the Final sheet — "Investment Banking" renamed "Investment bank &
+valuation", Finance → "Wealth Management" added, services renamed/merged/retired. That last change
+was folded into the `0004` baseline as a one-off exception; databases built before it were brought
+over by a one-off catch-up script run manually (not kept in the repo), which renamed in place
+(ids kept) and merged by moving references then setting `is_active = false`. Merged/retired:
+IPO advisors → Equity capital markets (including IPO); Bankruptcy/Restructuring and
+Restructuring/Insolvency → Insolvency and bankruptcy; Privacy & Data Security: Privacy → Data
+Protection & Privacy; Projects, Infrastructure & Energy → Energy, Infrastructure & Natural
+Resources; Corporate "Startups & Emerging Companies" → the Sector-Specific one; Private Aircraft →
+Aviation; Wealth Managers and Notary retired with no successor. So an
+upgraded database has 9 inactive leftover services a fresh build doesn't — harmless, reads by id
+still resolve them.
+
+**`categories`**: `id`, `service_line_id` (FK → `service_lines.id`, not null), `name` (unique), `sort_order`, `image_url` (nullable, decorative-only —
+Unsplash crops are seeded for every category except Wealth Management, which stays null until an
+admin sets one via the taxonomy admin CRUD), `is_active`, `created_at`, `updated_at`.
 
 **`services`**: `id`, `category_id` (FK → `categories.id`, no `ON DELETE` clause — deleting a
 category with services fails with a `23503` FK violation, caught and turned into `409
 CATEGORY_HAS_SERVICES`), `name`, `sort_order`, `is_custom` (true for the one "<<Custom Field>>"
-placeholder row a category may have — only 6 of the 17 categories have one; selecting it reveals a
+placeholder row a category may have — 6 of the 19 categories have one; selecting it reveals a
 free-text input, stored as a `customLabel`/`customServiceLabels` sidecar on whichever table
 references the id), `is_active`, `created_at`, `updated_at`. `unique(category_id, name)` — names
 repeat across categories in the source list (e.g. "Startups & Emerging Companies"), so uniqueness
