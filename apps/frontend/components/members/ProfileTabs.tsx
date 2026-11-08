@@ -49,10 +49,7 @@ export function ProfileTabs({
       <div
         className={`sticky ${STICKY_UNDER_MOBILE_BAR} z-10 -mx-5 mb-4 overflow-hidden border-y border-line bg-bg-card sm:static sm:mx-0 sm:rounded-panel sm:border sm:shadow-panel`}
       >
-        <div
-          role="tablist"
-          className="flex overflow-x-auto px-2 sm:px-0"
-        >
+        <div role="tablist" className="flex overflow-x-auto px-2 sm:px-0">
           {TABS.map((tab) => (
             <button
               key={tab.key}
