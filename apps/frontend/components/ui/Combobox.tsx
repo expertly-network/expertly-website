@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { matchesWords, queryWords } from '@/lib/text/word-search';
 
 export interface ComboboxOption {
   value: string;
@@ -276,27 +277,8 @@ export function Combobox({
   );
 }
 
-// Each query word must be the start of some word in "context label", so "m&a tax" finds
-// "M&A / Transaction Tax" but not "Fund & Investment Management Tax". "&" is kept as part of a word
-// ("M & A" reads as "m&a"); a query word typed without one also matches with it dropped, so "ma"
-// still finds "M&A".
-function words(s: string): string[] {
-  return s
-    .toLowerCase()
-    .replace(/\s*&\s*/g, '&')
-    .replace(/[^a-z0-9&]+/g, ' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean);
-}
-
-function filterOptions(options: ComboboxOption[], query: string): ComboboxOption[] {
-  const queryWords = words(query);
-  if (queryWords.length === 0) return options;
-  return options.filter((o) => {
-    const optionWords = words(`${o.context ?? ''} ${o.label}`);
-    return queryWords.every((q) =>
-      optionWords.some((w) => w.startsWith(q) || (!q.includes('&') && w.replace(/&/g, '').startsWith(q)))
-    );
-  });
+export function filterOptions(options: ComboboxOption[], query: string): ComboboxOption[] {
+  const q = queryWords(query);
+  if (q.length === 0) return options;
+  return options.filter((o) => matchesWords(`${o.context ?? ''} ${o.label}`, q));
 }

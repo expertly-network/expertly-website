@@ -3,38 +3,16 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { serviceGuideLines } from '@/lib/apply/service-guide';
 import type { CategoryDto } from '@shared/category';
 
 // The "?" beside the service preferences: the whole taxonomy in one place, as a three-column table —
 // service line (shown as Category) → category (Subcategory) → services — searchable, so an applicant
 // can see where a service sits before ranking it.
-// Alphabetical, except a catch-all "Other (please specify)" stays last.
-function byName(a: string, b: string): number {
-  const aOther = a.toLowerCase().startsWith('other');
-  const bOther = b.toLowerCase().startsWith('other');
-  if (aOther !== bOther) return aOther ? 1 : -1;
-  return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
-}
-
 export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const q = query.trim().toLowerCase();
-
-  const lines = new Map<string, { name: string; solutions: { id: string; name: string; problems: string[] }[] }>();
-  for (const c of categories) {
-    const matchesSolution = !q || c.name.toLowerCase().includes(q) || c.serviceLineName.toLowerCase().includes(q);
-    const problems = c.services.map((s) => s.name).filter((name) => matchesSolution || name.toLowerCase().includes(q));
-    if (!problems.length && !matchesSolution) continue;
-    const line = lines.get(c.serviceLineId) ?? { name: c.serviceLineName, solutions: [] };
-    line.solutions.push({ id: c.id, name: c.name, problems });
-    lines.set(c.serviceLineId, line);
-  }
-  const sortedLines = [...lines.entries()].sort(([, a], [, b]) => byName(a.name, b.name));
-  for (const [, line] of sortedLines) {
-    line.solutions.sort((a, b) => byName(a.name, b.name));
-    for (const s of line.solutions) s.problems.sort(byName);
-  }
+  const sortedLines = serviceGuideLines(categories, query);
 
   return (
     <>
@@ -63,7 +41,7 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
             placeholder="Search categories, subcategories or services"
           />
         </div>
-        {lines.size === 0 ? (
+        {sortedLines.length === 0 ? (
           <p className="py-8 text-center text-sm text-ink-3">
             {categories.length ? 'Nothing matches — try a shorter search.' : 'Services are temporarily unavailable.'}
           </p>
@@ -85,8 +63,8 @@ export function ServiceGuide({ categories }: { categories: CategoryDto[] }) {
                   </th>
                 </tr>
               </thead>
-              {sortedLines.map(([id, line]) => (
-                <tbody key={id} className="border-t border-line">
+              {sortedLines.map((line) => (
+                <tbody key={line.id} className="border-t border-line">
                   <tr className="sm:hidden">
                     <th scope="colgroup" colSpan={2} className="bg-bg-alt/60 px-3 py-2 font-semibold text-ink">
                       {line.name}
