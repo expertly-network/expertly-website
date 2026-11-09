@@ -24,3 +24,17 @@ describe('ElevenLabsClient.conversationToken', () => {
     await expect(new ElevenLabsClient(config).conversationToken()).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
+
+describe('ElevenLabsClient.conversationAudio', () => {
+  it('downloads the conversation audio', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const audio = await new ElevenLabsClient(config).conversationAudio('conv_1');
+    expect(audio?.length).toBe(3);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.elevenlabs.io/v1/convai/conversations/conv_1/audio');
+  });
+  it('returns null when the audio is not available', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 404 })));
+    await expect(new ElevenLabsClient(config).conversationAudio('conv_1')).resolves.toBeNull();
+  });
+});

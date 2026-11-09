@@ -167,22 +167,35 @@ export type ConnectionPatch = Partial<{
 export class InterviewsRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  private client() {
-    return this.supabase.db;
+  private interviews() {
+    return this.supabase.db.from('member_interviews');
+  }
+  private connections() {
+    return this.supabase.db.from('member_interview_connections');
+  }
+  private memberProfiles() {
+    return this.supabase.db.from('member_profiles');
+  }
+  private profiles() {
+    return this.supabase.db.from('profiles');
+  }
+  private memberServices() {
+    return this.supabase.db.from('member_services');
+  }
+  private audio() {
+    return this.supabase.db.storage.from(AUDIO_BUCKET);
   }
 
   async loadMemberContext(memberId: string): Promise<MemberContext | null> {
     const [profileRes, personRes, linksRes] = await Promise.all([
-      this.client()
-        .from('member_profiles')
+      this.memberProfiles()
         .select(
           'profile_id, status, headline, bio, years_of_experience, city, country, firm_name, work_experiences, educations, engagements, key_clients'
         )
         .eq('profile_id', memberId)
         .maybeSingle(),
-      this.client().from('profiles').select('first_name').eq('id', memberId).maybeSingle(),
-      this.client()
-        .from('member_services')
+      this.profiles().select('first_name').eq('id', memberId).maybeSingle(),
+      this.memberServices()
         .select('custom_label, services!inner(name, categories!inner(name, service_lines!inner(name)))')
         .eq('member_id', memberId),
     ]);
@@ -216,8 +229,7 @@ export class InterviewsRepository {
   }
 
   async findCurrent(memberId: string): Promise<InterviewRow | null> {
-    const { data, error } = await this.client()
-      .from('member_interviews')
+    const { data, error } = await this.interviews()
       .select(INTERVIEW_COLUMNS)
       .eq('member_id', memberId)
       .neq('status', 'voided')
@@ -227,14 +239,13 @@ export class InterviewsRepository {
   }
 
   async findById(id: string): Promise<InterviewRow | null> {
-    const { data, error } = await this.client().from('member_interviews').select(INTERVIEW_COLUMNS).eq('id', id).maybeSingle();
+    const { data, error } = await this.interviews().select(INTERVIEW_COLUMNS).eq('id', id).maybeSingle();
     if (error) throw dbError(`member_interviews read failed: ${error.message}`);
     return (data as unknown as InterviewRow) ?? null;
   }
 
   async insertInterview(input: { memberId: string; consentVersion: string; consentAt: string }): Promise<InterviewRow> {
-    const { data, error } = await this.client()
-      .from('member_interviews')
+    const { data, error } = await this.interviews()
       .insert({ member_id: input.memberId, consent_version: input.consentVersion, consent_at: input.consentAt })
       .select(INTERVIEW_COLUMNS)
       .single();
@@ -245,8 +256,7 @@ export class InterviewsRepository {
   }
 
   async updateInterview(id: string, patch: InterviewPatch): Promise<InterviewRow> {
-    const { data, error } = await this.client()
-      .from('member_interviews')
+    const { data, error } = await this.interviews()
       .update(toColumns<InterviewUpdate>(patch, INTERVIEW_PATCH_COLUMNS))
       .eq('id', id)
       .select(INTERVIEW_COLUMNS)
@@ -256,8 +266,7 @@ export class InterviewsRepository {
   }
 
   async updateStateIfVersion(id: string, state: Json, expectedVersion: number): Promise<boolean> {
-    const { data, error } = await this.client()
-      .from('member_interviews')
+    const { data, error } = await this.interviews()
       .update({ state, state_version: expectedVersion + 1 })
       .eq('id', id)
       .eq('state_version', expectedVersion)
@@ -267,8 +276,7 @@ export class InterviewsRepository {
   }
 
   async insertConnection(input: { interviewId: string; tokenHash: string; expiresAt: string }): Promise<ConnectionRow> {
-    const { data, error } = await this.client()
-      .from('member_interview_connections')
+    const { data, error } = await this.connections()
       .insert({ interview_id: input.interviewId, session_token_hash: input.tokenHash, session_token_expires_at: input.expiresAt })
       .select(CONNECTION_COLUMNS)
       .single();
@@ -277,8 +285,7 @@ export class InterviewsRepository {
   }
 
   async findLiveConnection(interviewId: string, nowIso: string): Promise<ConnectionRow | null> {
-    const { data, error } = await this.client()
-      .from('member_interview_connections')
+    const { data, error } = await this.connections()
       .select(CONNECTION_COLUMNS)
       .eq('interview_id', interviewId)
       .is('ended_at', null)
@@ -291,8 +298,7 @@ export class InterviewsRepository {
   }
 
   async findByTokenHash(tokenHash: string): Promise<{ connection: ConnectionRow; interview: InterviewRow } | null> {
-    const { data, error } = await this.client()
-      .from('member_interview_connections')
+    const { data, error } = await this.connections()
       .select(CONNECTION_COLUMNS)
       .eq('session_token_hash', tokenHash)
       .maybeSingle();
@@ -303,27 +309,15 @@ export class InterviewsRepository {
     return interview ? { connection, interview } : null;
   }
 
-  async findConnectionByConversationId(conversationId: string): Promise<ConnectionRow | null> {
-    const { data, error } = await this.client()
-      .from('member_interview_connections')
-      .select(CONNECTION_COLUMNS)
-      .eq('elevenlabs_conversation_id', conversationId)
-      .maybeSingle();
-    if (error) throw dbError(`connection read failed: ${error.message}`);
-    return (data as unknown as ConnectionRow) ?? null;
-  }
-
   async updateConnection(id: string, patch: ConnectionPatch): Promise<void> {
-    const { error } = await this.client()
-      .from('member_interview_connections')
+    const { error } = await this.connections()
       .update(toColumns<ConnectionUpdate>(patch, CONNECTION_PATCH_COLUMNS))
       .eq('id', id);
     if (error) throw dbError(`connection update failed: ${error.message}`);
   }
 
   async listConnections(interviewId: string): Promise<ConnectionRow[]> {
-    const { data, error } = await this.client()
-      .from('member_interview_connections')
+    const { data, error } = await this.connections()
       .select(CONNECTION_COLUMNS)
       .eq('interview_id', interviewId)
       .order('started_at', { ascending: true });
@@ -332,8 +326,7 @@ export class InterviewsRepository {
   }
 
   async claimForExtraction(staleBeforeIso: string, limit: number): Promise<InterviewRow[]> {
-    const { data, error } = await this.client()
-      .from('member_interviews')
+    const { data, error } = await this.interviews()
       .select(INTERVIEW_COLUMNS)
       .eq('status', 'processing')
       .lt('extract_attempts', 5)
@@ -343,8 +336,7 @@ export class InterviewsRepository {
     if (error) throw dbError(`extraction claim read failed: ${error.message}`);
     const claimed: InterviewRow[] = [];
     for (const row of (data ?? []) as unknown as InterviewRow[]) {
-      const { data: won, error: claimError } = await this.client()
-        .from('member_interviews')
+      const { data: won, error: claimError } = await this.interviews()
         .update({ extract_claimed_at: new Date().toISOString(), extract_attempts: row.extractAttempts + 1 })
         .eq('id', row.id)
         .eq('extract_attempts', row.extractAttempts)
@@ -356,8 +348,7 @@ export class InterviewsRepository {
   }
 
   async listExpiredInterruptions(nowIso: string, limit: number): Promise<InterviewRow[]> {
-    const { data, error } = await this.client()
-      .from('member_interviews')
+    const { data, error } = await this.interviews()
       .select(INTERVIEW_COLUMNS)
       .eq('status', 'interrupted')
       .lt('reconnect_until', nowIso)
@@ -367,12 +358,12 @@ export class InterviewsRepository {
   }
 
   async uploadAudio(path: string, mp3: Buffer): Promise<void> {
-    const { error } = await this.client().storage.from(AUDIO_BUCKET).upload(path, mp3, { contentType: 'audio/mpeg', upsert: true });
+    const { error } = await this.audio().upload(path, mp3, { contentType: 'audio/mpeg', upsert: true });
     if (error) throw dbError(`audio upload failed: ${error.message}`);
   }
 
   async signedAudioUrl(path: string, expiresInSeconds: number): Promise<string | null> {
-    const { data, error } = await this.client().storage.from(AUDIO_BUCKET).createSignedUrl(path, expiresInSeconds);
+    const { data, error } = await this.audio().createSignedUrl(path, expiresInSeconds);
     return error || !data ? null : data.signedUrl;
   }
 
@@ -381,7 +372,7 @@ export class InterviewsRepository {
     offset: number;
     limit: number;
   }): Promise<{ rows: (InterviewRow & { memberName: string })[]; total: number }> {
-    let query = this.client().from('member_interviews').select(INTERVIEW_COLUMNS, { count: 'exact' });
+    let query = this.interviews().select(INTERVIEW_COLUMNS, { count: 'exact' });
     if (input.status) query = query.eq('status', input.status);
     const { data, error, count } = await query
       .order('created_at', { ascending: false })
@@ -394,7 +385,7 @@ export class InterviewsRepository {
 
   private async findMemberNames(ids: string[]): Promise<Map<string, string>> {
     if (!ids.length) return new Map();
-    const { data, error } = await this.client().from('profiles').select('id, first_name, last_name').in('id', [...new Set(ids)]);
+    const { data, error } = await this.profiles().select('id, first_name, last_name').in('id', [...new Set(ids)]);
     if (error) throw dbError(`profiles read failed: ${error.message}`);
     return new Map((data ?? []).map((p) => [p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()]));
   }
@@ -404,13 +395,13 @@ export class InterviewsRepository {
   }
 
   async findMemberWorkEmail(memberId: string): Promise<string | null> {
-    const { data, error } = await this.client().from('member_profiles').select('work_email').eq('profile_id', memberId).maybeSingle();
+    const { data, error } = await this.memberProfiles().select('work_email').eq('profile_id', memberId).maybeSingle();
     if (error) throw dbError(`member_profiles read failed: ${error.message}`);
     return data?.work_email ?? null;
   }
 
   async findProfileRole(userId: string): Promise<{ role: string; status: string } | null> {
-    const { data, error } = await this.client().from('profiles').select('role, status').eq('id', userId).maybeSingle();
+    const { data, error } = await this.profiles().select('role, status').eq('id', userId).maybeSingle();
     if (error) throw dbError(`profiles read failed: ${error.message}`);
     return data ?? null;
   }
