@@ -32,6 +32,12 @@ export const planSchema = z.object({
 });
 export type InterviewPlan = z.infer<typeof planSchema>;
 
+/**
+ * A plan as stored on the interview. Looser than planSchema (which validates the planner's own
+ * output): the analyst may add or drop objectives mid-call, so the 3–10 bound no longer holds.
+ */
+export const storedPlanSchema = planSchema.extend({ objectives: z.array(objectiveSchema).max(30) });
+
 export const analystUpdateSchema = z.object({
   filledFacts: z
     .array(z.object({ objectiveId: z.string(), fact: z.string(), value: z.string().max(500) }))
