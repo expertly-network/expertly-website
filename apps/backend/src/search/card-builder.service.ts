@@ -63,6 +63,8 @@ export class CardBuilderService {
       line('Credentials: ', jsonbText(r.credentials)),
       line('Awards: ', jsonbText(r.awards)),
       line('Availability: ', nz(r.availability_notes)),
+      // Appended last so cards of members without an approved interview summary stay byte-identical.
+      line('Interview highlights: ', nz(src.interviewSummary)),
     ]);
 
     return this.put({

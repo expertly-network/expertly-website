@@ -49,6 +49,8 @@ export interface MemberSource {
   };
   person: { first_name: string | null; last_name: string | null; status: string; deleted_at: string | null } | null;
   services: { service_id: string; custom_label: string | null; service_name: string; category_name: string }[];
+  /** The member-approved AI interview summary (member_interviews), or null. */
+  interviewSummary: string | null;
 }
 
 export interface ArticleSource {

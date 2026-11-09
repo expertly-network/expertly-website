@@ -150,8 +150,8 @@ export class SearchRepository {
   // ---- source records for the card builder (read-only) --------------------------------
 
   async loadMemberSource(profileId: string): Promise<MemberSource | null> {
-    // All three reads key on the profile id — run them together rather than one after another.
-    const [profileRes, personRes, linksRes] = await Promise.all([
+    // All four reads key on the profile id — run them together rather than one after another.
+    const [profileRes, personRes, linksRes, interviewRes] = await Promise.all([
       this.client().from('member_profiles').select(MEMBER_COLUMNS.join(', ')).eq('profile_id', profileId).maybeSingle(),
       this.client()
         .from('profiles')
@@ -162,11 +162,20 @@ export class SearchRepository {
         .from('member_services')
         .select('service_id, custom_label, services!inner(name, categories!inner(name))')
         .eq('member_id', profileId),
+      // Only a completed interview whose summary the member approved (and no admin hid).
+      this.client()
+        .from('member_interviews')
+        .select('summary')
+        .eq('member_id', profileId)
+        .eq('status', 'completed')
+        .eq('summary_status', 'approved')
+        .maybeSingle(),
     ]);
     if (profileRes.error) throw searchDbError(`member_profiles read failed: ${profileRes.error.message}`);
     if (!profileRes.data) return null;
     if (personRes.error) throw searchDbError(`profiles read failed: ${personRes.error.message}`);
     if (linksRes.error) throw searchDbError(`member_services read failed: ${linksRes.error.message}`);
+    if (interviewRes.error) throw searchDbError(`member_interviews read failed: ${interviewRes.error.message}`);
     const profile = profileRes.data;
     const person = personRes.data;
     const links = linksRes.data;
@@ -184,6 +193,7 @@ export class SearchRepository {
           category_name: one(svc.categories).name,
         };
       }),
+      interviewSummary: interviewRes.data?.summary ?? null,
     };
   }
 
