@@ -680,6 +680,139 @@ export type Database = {
         }
         Relationships: []
       }
+      member_interview_connections: {
+        Row: {
+          audio_path: string | null
+          audio_received_at: string | null
+          created_at: string
+          duration_seconds: number | null
+          elevenlabs_conversation_id: string | null
+          ended_at: string | null
+          id: string
+          interview_id: string
+          session_token_expires_at: string
+          session_token_hash: string
+          started_at: string
+          transcript: Json | null
+          transcript_received_at: string | null
+        }
+        Insert: {
+          audio_path?: string | null
+          audio_received_at?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          id?: string
+          interview_id: string
+          session_token_expires_at: string
+          session_token_hash: string
+          started_at?: string
+          transcript?: Json | null
+          transcript_received_at?: string | null
+        }
+        Update: {
+          audio_path?: string | null
+          audio_received_at?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          id?: string
+          interview_id?: string
+          session_token_expires_at?: string
+          session_token_hash?: string
+          started_at?: string
+          transcript?: Json | null
+          transcript_received_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_interview_connections_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: false
+            referencedRelation: "member_interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_interviews: {
+        Row: {
+          assessment: Json | null
+          consent_at: string
+          consent_version: string
+          created_at: string
+          drafts: Json | null
+          elapsed_seconds: number
+          ended_at: string | null
+          extract_attempts: number
+          extract_claimed_at: string | null
+          failure_reason: string | null
+          id: string
+          member_id: string
+          plan: Json | null
+          reconnect_until: string | null
+          state: Json
+          state_version: number
+          status: Database["public"]["Enums"]["interview_status"]
+          summary: string | null
+          summary_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assessment?: Json | null
+          consent_at: string
+          consent_version: string
+          created_at?: string
+          drafts?: Json | null
+          elapsed_seconds?: number
+          ended_at?: string | null
+          extract_attempts?: number
+          extract_claimed_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          member_id: string
+          plan?: Json | null
+          reconnect_until?: string | null
+          state?: Json
+          state_version?: number
+          status?: Database["public"]["Enums"]["interview_status"]
+          summary?: string | null
+          summary_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assessment?: Json | null
+          consent_at?: string
+          consent_version?: string
+          created_at?: string
+          drafts?: Json | null
+          elapsed_seconds?: number
+          ended_at?: string | null
+          extract_attempts?: number
+          extract_claimed_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          member_id?: string
+          plan?: Json | null
+          reconnect_until?: string | null
+          state?: Json
+          state_version?: number
+          status?: Database["public"]["Enums"]["interview_status"]
+          summary?: string | null
+          summary_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_interviews_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "member_profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       member_profile_edits: {
         Row: {
           created_at: string
@@ -1842,6 +1975,14 @@ export type Database = {
         | "cancelled"
         | "suppressed"
       event_status: "draft" | "published"
+      interview_status:
+        | "ready"
+        | "in_progress"
+        | "interrupted"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "voided"
       member_edit_section:
         | "headline_bio"
         | "contact"
@@ -2025,6 +2166,15 @@ export const Constants = {
         "suppressed",
       ],
       event_status: ["draft", "published"],
+      interview_status: [
+        "ready",
+        "in_progress",
+        "interrupted",
+        "processing",
+        "completed",
+        "failed",
+        "voided",
+      ],
       member_edit_section: [
         "headline_bio",
         "contact",
