@@ -14,7 +14,8 @@ const MAX_TOKENS_TURN = 300;
 const MAX_SECONDS = 1800;
 const CLOSING_LINE = "Thank you, that's all the time we have today. Goodbye.";
 
-function bookkeep(
+/** Time-phase bookkeeping for one agent turn (exported for the simulated-interview script). */
+export function bookkeep(
   state: InterviewState,
   phase: TimePhase,
   nowIso: string

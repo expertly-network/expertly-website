@@ -13,6 +13,15 @@ export interface ChatMessage {
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
+const CALL_CONNECTED = '(The call has connected.)';
+
+/**
+ * A voice conversation starts with the agent's greeting, but some providers (Anthropic) require
+ * the first message to be the user's. Prepends a neutral user line in that case.
+ */
+export function normaliseMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages[0]?.role === 'assistant' ? [{ role: 'user', content: CALL_CONNECTED }, ...messages] : messages;
+}
 
 function toModel(spec: ModelSpec): LanguageModel {
   switch (spec.provider) {
@@ -71,7 +80,7 @@ export class InterviewLlmService {
     const result = streamText({
       model: this.model(role),
       system: input.system,
-      messages: input.messages,
+      messages: normaliseMessages(input.messages),
       maxOutputTokens: input.maxOutputTokens,
       abortSignal: input.abortSignal,
       maxRetries: 0,

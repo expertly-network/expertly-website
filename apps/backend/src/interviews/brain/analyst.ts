@@ -94,6 +94,37 @@ update the interview's facts board and steer what comes next. You do not talk to
 - confirmationAsked: true if the last exchange checked one of the plan's confirmFacts.
 - guidance: one short sentence for the interviewer's next turn (e.g. "Ask for a number on the outcome").`;
 
+/**
+ * One analyst pass: asks the reasoning model for an update and applies it. Shared by the live
+ * Analyst and the simulated-interview script, so both run the exact same prompt.
+ */
+export async function runAnalysis(
+  llm: InterviewLlmService,
+  plan: InterviewPlan,
+  state: InterviewState,
+  recent: ChatMessage[]
+): Promise<{ update: AnalystUpdate; applied: { plan: InterviewPlan; state: InterviewState } }> {
+  const transcript = recent.map((m) => `${m.role === 'user' ? 'MEMBER' : 'INTERVIEWER'}: ${m.content}`).join('\n');
+  const snapshot = {
+    currentObjectiveId: state.currentObjectiveId,
+    doneObjectiveIds: state.doneObjectiveIds,
+    facts: state.facts,
+    extension: state.extension,
+  };
+  const update = await llm.object('reasoning', {
+    system: SYSTEM,
+    prompt: [
+      `<plan>\n${JSON.stringify(plan)}\n</plan>`,
+      `<state>\n${JSON.stringify(snapshot)}\n</state>`,
+      `<recent_conversation>\n${transcript}\n</recent_conversation>`,
+    ].join('\n\n'),
+    schema: analystUpdateSchema,
+    maxOutputTokens: MAX_TOKENS_ANALYST,
+    timeoutMs: 20_000,
+  });
+  return { update, applied: applyAnalystUpdate(plan, state, update) };
+}
+
 @Injectable()
 export class Analyst {
   private readonly logger = new Logger(Analyst.name);
@@ -123,19 +154,7 @@ export class Analyst {
     if (!interview?.plan) return;
     const plan = storedPlanSchema.parse(interview.plan);
     const state = parseState(interview.state);
-    const transcript = recent.map((m) => `${m.role === 'user' ? 'MEMBER' : 'INTERVIEWER'}: ${m.content}`).join('\n');
-    const update = await this.llm.object('reasoning', {
-      system: SYSTEM,
-      prompt: [
-        `<plan>\n${JSON.stringify(plan)}\n</plan>`,
-        `<state>\n${JSON.stringify({ currentObjectiveId: state.currentObjectiveId, doneObjectiveIds: state.doneObjectiveIds, facts: state.facts, extension: state.extension })}\n</state>`,
-        `<recent_conversation>\n${transcript}\n</recent_conversation>`,
-      ].join('\n\n'),
-      schema: analystUpdateSchema,
-      maxOutputTokens: MAX_TOKENS_ANALYST,
-      timeoutMs: 20_000,
-    });
-    const applied = applyAnalystUpdate(plan, state, update);
+    const { update, applied } = await runAnalysis(this.llm, plan, state, recent);
     const saved = await this.repo.updateStateIfVersion(
       interviewId,
       applied.state as unknown as Json,
