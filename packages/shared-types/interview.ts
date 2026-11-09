@@ -11,7 +11,13 @@ export type InterviewStatus =
   | 'voided';
 
 const INTERVIEW_ELIGIBILITIES = ['available', 'in_progress', 'can_reconnect', 'processing', 'completed', 'failed'];
-export type InterviewEligibility = 'available' | 'in_progress' | 'can_reconnect' | 'processing' | 'completed' | 'failed';
+export type InterviewEligibility =
+  | 'available'
+  | 'in_progress'
+  | 'can_reconnect'
+  | 'processing'
+  | 'completed'
+  | 'failed';
 
 const SUMMARY_STATUSES = ['pending', 'approved', 'hidden'];
 export type InterviewSummaryStatus = 'pending' | 'approved' | 'hidden';
@@ -36,7 +42,8 @@ export class InterviewHeadlineBioDraft {
 /** Shapes match the existing member edit sections (POST /v1/members/:id/edits). */
 export class InterviewDrafts {
   @ApiPropertyOptional({ type: () => InterviewHeadlineBioDraft }) headlineBio?: InterviewHeadlineBioDraft;
-  @ApiPropertyOptional({ type: () => InterviewDraftEngagement, isArray: true }) engagements?: InterviewDraftEngagement[];
+  @ApiPropertyOptional({ type: () => InterviewDraftEngagement, isArray: true })
+  engagements?: InterviewDraftEngagement[];
   @ApiPropertyOptional({ type: () => InterviewDraftKeyClient, isArray: true }) keyClients?: InterviewDraftKeyClient[];
 }
 

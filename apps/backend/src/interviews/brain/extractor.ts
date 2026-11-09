@@ -21,7 +21,10 @@ export const extractionSchema = z.object({
       )
       .max(6)
       .optional(),
-    keyClients: z.array(z.object({ name: z.string().min(1).max(200) })).max(10).optional(),
+    keyClients: z
+      .array(z.object({ name: z.string().min(1).max(200) }))
+      .max(10)
+      .optional(),
   }),
   summary: z.string().min(1).max(1500),
   assessment: z.object({
@@ -30,7 +33,9 @@ export const extractionSchema = z.object({
     coverage: z.number().min(0).max(1),
     strengths: z.array(z.string().max(300)).max(8),
     vagueClaims: z.array(z.object({ claim: z.string().max(300), quote: z.string().max(500) })).max(10),
-    contradictions: z.array(z.object({ claim: z.string().max(300), conflictsWith: z.string().max(300), quote: z.string().max(500) })).max(10),
+    contradictions: z
+      .array(z.object({ claim: z.string().max(300), conflictsWith: z.string().max(300), quote: z.string().max(500) }))
+      .max(10),
     notes: z.string().max(1500),
   }),
 });
@@ -42,7 +47,9 @@ export interface ExtractionResult {
 }
 
 export function computeCoverage(plan: InterviewPlan, state: InterviewState): number {
-  const required = plan.objectives.filter((o) => o.priority === 1).flatMap((o) => o.facts.map((f) => [o.id, f] as const));
+  const required = plan.objectives
+    .filter((o) => o.priority === 1)
+    .flatMap((o) => o.facts.map((f) => [o.id, f] as const));
   if (!required.length) return 0;
   const filled = required.filter(([id, f]) => Boolean(state.facts[id]?.[f])).length;
   return Math.round((filled / required.length) * 100) / 100;
@@ -66,8 +73,15 @@ summary used by GrowXQ's search to match and quote them, and (3) a private asses
 export class Extractor {
   constructor(private readonly llm: InterviewLlmService) {}
 
-  async extract(input: { plan: InterviewPlan; state: InterviewState; transcript: TranscriptTurn[]; member: MemberContext }): Promise<ExtractionResult> {
-    const transcript = input.transcript.map((t) => `${t.role === 'user' ? 'MEMBER' : 'INTERVIEWER'}: ${t.message}`).join('\n');
+  async extract(input: {
+    plan: InterviewPlan;
+    state: InterviewState;
+    transcript: TranscriptTurn[];
+    member: MemberContext;
+  }): Promise<ExtractionResult> {
+    const transcript = input.transcript
+      .map((t) => `${t.role === 'user' ? 'MEMBER' : 'INTERVIEWER'}: ${t.message}`)
+      .join('\n');
     const out = await this.llm.object('reasoning', {
       system: SYSTEM,
       prompt: [

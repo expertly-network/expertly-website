@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { phaseAt } from './time-keeper';
 
 const MIN = 60;
-const base = { engagement: 'normal' as const, openHighValueObjective: true, extension: { offeredAt: null, accepted: null } };
+const base = {
+  engagement: 'normal' as const,
+  openHighValueObjective: true,
+  extension: { offeredAt: null, accepted: null },
+};
 
 describe('phaseAt', () => {
   it('is normal before 18 minutes', () => {
@@ -19,7 +23,9 @@ describe('phaseAt', () => {
     expect(phaseAt({ ...base, engagement: 'normal', elapsedSeconds: 21 * MIN })).toBe('wrap_up');
   });
   it('wraps up at 20+ min when nothing high-value is open', () => {
-    expect(phaseAt({ ...base, engagement: 'high', openHighValueObjective: false, elapsedSeconds: 21 * MIN })).toBe('wrap_up');
+    expect(phaseAt({ ...base, engagement: 'high', openHighValueObjective: false, elapsedSeconds: 21 * MIN })).toBe(
+      'wrap_up'
+    );
   });
   it('never offers twice', () => {
     const offered = { offeredAt: '2026-11-09T10:00:00Z', accepted: null };

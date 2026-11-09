@@ -2,7 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Json } from '../../supabase/database.types';
 import { InterviewLlmService, type ChatMessage } from '../interview-llm.service';
 import { InterviewsRepository } from '../interviews.repository';
-import { analystUpdateSchema, parseState, storedPlanSchema, type AnalystUpdate, type InterviewPlan, type InterviewState } from './types';
+import {
+  analystUpdateSchema,
+  parseState,
+  storedPlanSchema,
+  type AnalystUpdate,
+  type InterviewPlan,
+  type InterviewState,
+} from './types';
 
 const MAX_TOKENS_ANALYST = 1_500;
 
@@ -58,9 +65,13 @@ export function applyAnalystUpdate(
         ? { ...state.extension, accepted: u.extensionAnswer === 'yes' }
         : state.extension,
   };
-  const currentGone = !next.currentObjectiveId || !ids.has(next.currentObjectiveId) || doneObjectiveIds.includes(next.currentObjectiveId);
+  const currentGone =
+    !next.currentObjectiveId || !ids.has(next.currentObjectiveId) || doneObjectiveIds.includes(next.currentObjectiveId);
   if (u.currentObjectiveDone || currentGone) {
-    const wanted = u.nextObjectiveId && ids.has(u.nextObjectiveId) && !doneObjectiveIds.includes(u.nextObjectiveId) ? u.nextObjectiveId : null;
+    const wanted =
+      u.nextObjectiveId && ids.has(u.nextObjectiveId) && !doneObjectiveIds.includes(u.nextObjectiveId)
+        ? u.nextObjectiveId
+        : null;
     next = { ...next, currentObjectiveId: wanted ?? firstOpen(nextPlan, next) };
   }
   return { plan: nextPlan, state: next };
@@ -98,7 +109,9 @@ export class Analyst {
     if (this.running.has(interviewId)) return Promise.resolve();
     const run = this.run(interviewId, recent)
       .catch((error: unknown) => {
-        this.logger.warn(`Analyst failed for ${interviewId}: ${error instanceof Error ? error.message : String(error)}`);
+        this.logger.warn(
+          `Analyst failed for ${interviewId}: ${error instanceof Error ? error.message : String(error)}`
+        );
       })
       .finally(() => this.running.delete(interviewId));
     this.running.set(interviewId, run);
@@ -123,8 +136,13 @@ export class Analyst {
       timeoutMs: 20_000,
     });
     const applied = applyAnalystUpdate(plan, state, update);
-    const saved = await this.repo.updateStateIfVersion(interviewId, applied.state as unknown as Json, interview.stateVersion);
+    const saved = await this.repo.updateStateIfVersion(
+      interviewId,
+      applied.state as unknown as Json,
+      interview.stateVersion
+    );
     if (!saved) return; // the turn engine wrote newer state; this analysis is used next time
-    if (update.planChanges.length) await this.repo.updateInterview(interviewId, { plan: applied.plan as unknown as Json });
+    if (update.planChanges.length)
+      await this.repo.updateInterview(interviewId, { plan: applied.plan as unknown as Json });
   }
 }

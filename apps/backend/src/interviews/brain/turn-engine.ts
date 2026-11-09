@@ -14,7 +14,11 @@ const MAX_TOKENS_TURN = 300;
 const MAX_SECONDS = 1800;
 const CLOSING_LINE = "Thank you, that's all the time we have today. Goodbye.";
 
-function bookkeep(state: InterviewState, phase: TimePhase, nowIso: string): { state: InterviewState; endsNow: boolean } {
+function bookkeep(
+  state: InterviewState,
+  phase: TimePhase,
+  nowIso: string
+): { state: InterviewState; endsNow: boolean } {
   if (phase === 'offer_extension' && !state.extension.offeredAt)
     return { state: { ...state, extension: { ...state.extension, offeredAt: nowIso } }, endsNow: false };
   if (phase === 'wrap_up' || phase === 'stop') {
@@ -67,8 +71,13 @@ export class TurnEngine {
     });
     const booked = bookkeep(state, phase, now.toISOString());
     if (booked.state !== state) {
-      const saved = await this.repo.updateStateIfVersion(interview.id, booked.state as unknown as Json, interview.stateVersion);
-      if (!saved) this.logger.debug(`State changed under turn for ${interview.id}; using the computed state for this turn.`);
+      const saved = await this.repo.updateStateIfVersion(
+        interview.id,
+        booked.state as unknown as Json,
+        interview.stateVersion
+      );
+      if (!saved)
+        this.logger.debug(`State changed under turn for ${interview.id}; using the computed state for this turn.`);
       state = booked.state;
     }
 

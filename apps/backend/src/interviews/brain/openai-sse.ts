@@ -11,7 +11,9 @@ export function sseChunk(
   const d: Record<string, unknown> = {};
   if (delta.content !== undefined) d.content = delta.content;
   if (delta.toolCall)
-    d.tool_calls = [{ index: 0, id: delta.toolCall.id, type: 'function', function: { name: delta.toolCall.name, arguments: '{}' } }];
+    d.tool_calls = [
+      { index: 0, id: delta.toolCall.id, type: 'function', function: { name: delta.toolCall.name, arguments: '{}' } },
+    ];
   const body = {
     id,
     object: 'chat.completion.chunk',

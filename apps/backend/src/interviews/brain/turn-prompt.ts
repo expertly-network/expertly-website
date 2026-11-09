@@ -49,7 +49,8 @@ export function buildTurnPrompt(i: TurnPromptInput): string {
   const current = i.plan.objectives.find((o) => o.id === i.state.currentObjectiveId) ?? null;
   const filled = current ? (i.state.facts[current.id] ?? {}) : {};
   const missing = current ? current.facts.filter((f) => !(f in filled)) : [];
-  const confirm = i.state.confirmedFacts < i.plan.confirmFacts.length ? i.plan.confirmFacts.slice(i.state.confirmedFacts) : [];
+  const confirm =
+    i.state.confirmedFacts < i.plan.confirmFacts.length ? i.plan.confirmFacts.slice(i.state.confirmedFacts) : [];
   const upcoming = i.plan.objectives
     .filter((o) => o.id !== current?.id && !i.state.doneObjectiveIds.includes(o.id))
     .map((o) => `${o.id} (priority ${o.priority})`);

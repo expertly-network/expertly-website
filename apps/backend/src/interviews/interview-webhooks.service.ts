@@ -13,7 +13,11 @@ const transcriptionSchema = z.object({
   data: z.object({
     conversation_id: z.string(),
     transcript: z.array(
-      z.object({ role: z.string(), message: z.string().nullable().optional(), time_in_call_secs: z.number().nullable().optional() })
+      z.object({
+        role: z.string(),
+        message: z.string().nullable().optional(),
+        time_in_call_secs: z.number().nullable().optional(),
+      })
     ),
     metadata: z.object({ call_duration_secs: z.number().nonnegative() }).passthrough(),
     conversation_initiation_client_data: z
@@ -36,7 +40,9 @@ export class InterviewWebhooksService {
     // Audio is not taken from webhooks (a 30-minute call is ~10–20 MB of base64, far over the API's
     // body limit); the extraction worker downloads it from ElevenLabs instead.
     if (type === 'call_initiation_failure') {
-      this.logger.warn(`ElevenLabs call initiation failure: ${JSON.stringify((event as { data?: unknown }).data ?? {}).slice(0, 500)}`);
+      this.logger.warn(
+        `ElevenLabs call initiation failure: ${JSON.stringify((event as { data?: unknown }).data ?? {}).slice(0, 500)}`
+      );
     }
   }
 
@@ -63,7 +69,11 @@ export class InterviewWebhooksService {
     const now = new Date();
     const transcript: TranscriptTurn[] = data.transcript
       .filter((t) => (t.role === 'agent' || t.role === 'user') && (t.message ?? '').trim())
-      .map((t) => ({ role: t.role as 'agent' | 'user', message: (t.message ?? '').trim(), timeInCallSecs: t.time_in_call_secs ?? null }));
+      .map((t) => ({
+        role: t.role as 'agent' | 'user',
+        message: (t.message ?? '').trim(),
+        timeInCallSecs: t.time_in_call_secs ?? null,
+      }));
     const duration = Math.round(data.metadata.call_duration_secs);
     await this.repo.updateConnection(connection.id, {
       elevenlabsConversationId: data.conversation_id,
@@ -81,7 +91,12 @@ export class InterviewWebhooksService {
     await this.repo.updateInterview(
       interview.id,
       finished
-        ? { status: 'processing', elapsedSeconds, endedAt: interview.endedAt ?? now.toISOString(), reconnectUntil: null }
+        ? {
+            status: 'processing',
+            elapsedSeconds,
+            endedAt: interview.endedAt ?? now.toISOString(),
+            reconnectUntil: null,
+          }
         : {
             status: 'interrupted',
             elapsedSeconds,

@@ -21,7 +21,13 @@ export class InterviewLlmGuard implements CanActivate {
     const auth = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     const extra = (req.body as { elevenlabs_extra_body?: { sessionToken?: unknown } } | null)?.elevenlabs_extra_body;
-    if (!secret || !token || !safeEqual(token, secret) || typeof extra?.sessionToken !== 'string' || !extra.sessionToken)
+    if (
+      !secret ||
+      !token ||
+      !safeEqual(token, secret) ||
+      typeof extra?.sessionToken !== 'string' ||
+      !extra.sessionToken
+    )
       throw new UnauthorizedException({ code: 'INTERVIEW_LLM_UNAUTHORIZED', message: 'Unauthorized.' });
     return true;
   }

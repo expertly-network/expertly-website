@@ -3,7 +3,15 @@ import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import type { InterviewStatus } from '@shared/interview';
 
-const STATUSES: InterviewStatus[] = ['ready', 'in_progress', 'interrupted', 'processing', 'completed', 'failed', 'voided'];
+const STATUSES: InterviewStatus[] = [
+  'ready',
+  'in_progress',
+  'interrupted',
+  'processing',
+  'completed',
+  'failed',
+  'voided',
+];
 
 export class AdminListQueryDto {
   @IsOptional()

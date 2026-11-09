@@ -28,13 +28,23 @@ export class InterviewWebhooksController {
   async receive(@Req() request: RawBodyRequest<FastifyRequest>): Promise<void> {
     const secret = this.config.elevenLabs?.webhookSecret;
     if (!secret)
-      throw new ServiceUnavailableException({ code: 'INTERVIEW_WEBHOOK_NOT_CONFIGURED', message: 'Interview webhooks are not configured.' });
+      throw new ServiceUnavailableException({
+        code: 'INTERVIEW_WEBHOOK_NOT_CONFIGURED',
+        message: 'Interview webhooks are not configured.',
+      });
     const header = request.headers['elevenlabs-signature'];
     if (
       !request.rawBody ||
-      !verifyElevenLabsSignature({ secret, header: typeof header === 'string' ? header : undefined, payload: request.rawBody.toString('utf8') })
+      !verifyElevenLabsSignature({
+        secret,
+        header: typeof header === 'string' ? header : undefined,
+        payload: request.rawBody.toString('utf8'),
+      })
     )
-      throw new UnauthorizedException({ code: 'INTERVIEW_WEBHOOK_SIGNATURE_INVALID', message: 'Invalid webhook signature.' });
+      throw new UnauthorizedException({
+        code: 'INTERVIEW_WEBHOOK_SIGNATURE_INVALID',
+        message: 'Invalid webhook signature.',
+      });
     await this.service.handle(request.body);
   }
 }

@@ -16,14 +16,27 @@ describe('eligibilityOf', () => {
     expect(eligibilityOf(row({ status: 'in_progress' }), true, NOW, 1800)).toBe('in_progress'));
   it('can_reconnect inside the window', () =>
     expect(
-      eligibilityOf(row({ status: 'interrupted', reconnectUntil: '2026-11-10T00:00:00Z', elapsedSeconds: 600 }), false, NOW, 1800)
+      eligibilityOf(
+        row({ status: 'interrupted', reconnectUntil: '2026-11-10T00:00:00Z', elapsedSeconds: 600 }),
+        false,
+        NOW,
+        1800
+      )
     ).toBe('can_reconnect'));
   it('processing once the window passed', () =>
-    expect(eligibilityOf(row({ status: 'interrupted', reconnectUntil: '2026-11-09T11:00:00Z' }), false, NOW, 1800)).toBe('processing'));
+    expect(
+      eligibilityOf(row({ status: 'interrupted', reconnectUntil: '2026-11-09T11:00:00Z' }), false, NOW, 1800)
+    ).toBe('processing'));
   it('processing when the time is used up', () =>
     expect(
-      eligibilityOf(row({ status: 'interrupted', reconnectUntil: '2026-11-10T00:00:00Z', elapsedSeconds: 1800 }), false, NOW, 1800)
+      eligibilityOf(
+        row({ status: 'interrupted', reconnectUntil: '2026-11-10T00:00:00Z', elapsedSeconds: 1800 }),
+        false,
+        NOW,
+        1800
+      )
     ).toBe('processing'));
   it.each(['processing', 'completed', 'failed'] as const)('%s maps to itself', (status) =>
-    expect(eligibilityOf(row({ status }), false, NOW, 1800)).toBe(status));
+    expect(eligibilityOf(row({ status }), false, NOW, 1800)).toBe(status)
+  );
 });

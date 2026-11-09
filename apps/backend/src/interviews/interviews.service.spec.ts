@@ -1,6 +1,11 @@
 // interviews.service.spec.ts
 import { describe, expect, it, vi, type Mock } from 'vitest';
-import { BadRequestException, ConflictException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InterviewsService } from './interviews.service';
 import type { InterviewRow, InterviewsRepository } from './interviews.repository';
 import type { Planner } from './brain/planner';
@@ -9,21 +14,57 @@ import type { InterviewConfig } from './interview.config';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 
 const member: AuthenticatedUser = {
-  id: 'm1', email: 'm1@x.com', role: 'member', status: 'active', memberStatus: 'active', firstName: 'A', lastName: 'B',
+  id: 'm1',
+  email: 'm1@x.com',
+  role: 'member',
+  status: 'active',
+  memberStatus: 'active',
+  firstName: 'A',
+  lastName: 'B',
 };
 const config = { enabled: true, consentVersion: 'v1', maxSeconds: 1800, reconnectHours: 24 } as InterviewConfig;
 const PLAN = {
-  schemaVersion: 1, opening: 'Hi',
-  objectives: [{ id: 'engagement_1', kind: 'signature_engagement', priority: 1, rationale: '', seedQuestions: ['q'], facts: ['outcome'], budgetSeconds: 1260 }],
-  knownFacts: [], confirmFacts: [], sensitivities: [],
+  schemaVersion: 1,
+  opening: 'Hi',
+  objectives: [
+    {
+      id: 'engagement_1',
+      kind: 'signature_engagement',
+      priority: 1,
+      rationale: '',
+      seedQuestions: ['q'],
+      facts: ['outcome'],
+      budgetSeconds: 1260,
+    },
+  ],
+  knownFacts: [],
+  confirmFacts: [],
+  sensitivities: [],
 };
 
 function interview(overrides: Partial<InterviewRow> = {}): InterviewRow {
   return {
-    id: 'i1', memberId: 'm1', status: 'ready', consentVersion: 'v1', consentAt: '2026-11-09T10:00:00Z',
-    elapsedSeconds: 0, reconnectUntil: null, endedAt: null, plan: PLAN, state: {}, stateVersion: 0,
-    drafts: null, assessment: null, summary: null, summaryStatus: null, extractAttempts: 0,
-    extractClaimedAt: null, failureReason: null, createdAt: '', updatedAt: '', ...overrides,
+    id: 'i1',
+    memberId: 'm1',
+    status: 'ready',
+    consentVersion: 'v1',
+    consentAt: '2026-11-09T10:00:00Z',
+    elapsedSeconds: 0,
+    reconnectUntil: null,
+    endedAt: null,
+    plan: PLAN,
+    state: {},
+    stateVersion: 0,
+    drafts: null,
+    assessment: null,
+    summary: null,
+    summaryStatus: null,
+    extractAttempts: 0,
+    extractClaimedAt: null,
+    failureReason: null,
+    createdAt: '',
+    updatedAt: '',
+    ...overrides,
   };
 }
 
@@ -32,9 +73,11 @@ function setup(current: InterviewRow | null = null, live = false) {
     loadMemberContext: vi.fn().mockResolvedValue({ memberId: 'm1', services: [] }),
     findCurrent: vi.fn().mockResolvedValue(current),
     insertInterview: vi.fn().mockResolvedValue(interview({ plan: null })),
-    updateInterview: vi.fn().mockImplementation((_id: string, patch: Partial<InterviewRow>) =>
-      Promise.resolve(interview({ ...(current ?? {}), ...patch }))
-    ),
+    updateInterview: vi
+      .fn()
+      .mockImplementation((_id: string, patch: Partial<InterviewRow>) =>
+        Promise.resolve(interview({ ...(current ?? {}), ...patch }))
+      ),
     findLiveConnection: vi.fn().mockResolvedValue(live ? { id: 'c0' } : null),
     insertConnection: vi.fn().mockResolvedValue({ id: 'c1' }),
   } as unknown as { [K in keyof InterviewsRepository]: Mock };
@@ -62,7 +105,11 @@ describe('InterviewsService.start', () => {
   });
   it('reconnects inside the window without re-planning, with the remaining budget', async () => {
     const { service, planner } = setup(
-      interview({ status: 'interrupted', reconnectUntil: new Date(Date.now() + 3_600_000).toISOString(), elapsedSeconds: 600 })
+      interview({
+        status: 'interrupted',
+        reconnectUntil: new Date(Date.now() + 3_600_000).toISOString(),
+        elapsedSeconds: 600,
+      })
     );
     const res = await service.start(member, { consentVersion: 'v1' });
     expect(planner.plan).not.toHaveBeenCalled();
@@ -84,9 +131,9 @@ describe('InterviewsService.start', () => {
   });
   it('rejects a non-active member', async () => {
     const { service } = setup(null);
-    await expect(service.start({ ...member, memberStatus: 'deactivated' }, { consentVersion: 'v1' })).rejects.toBeInstanceOf(
-      ForbiddenException
-    );
+    await expect(
+      service.start({ ...member, memberStatus: 'deactivated' }, { consentVersion: 'v1' })
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
   it('is unavailable when not configured', async () => {
     const { repo, planner, el } = setup(null);
@@ -102,8 +149,13 @@ describe('InterviewsService.start', () => {
 
 describe('InterviewsService.updateSummary', () => {
   it('approves an edited summary on a completed interview, redacting contact details', async () => {
-    const { service, repo } = setup(interview({ status: 'completed', summary: 'x'.repeat(30), summaryStatus: 'pending' }));
-    await service.updateSummary(member, { summary: 'Experienced TP advisor. Reach me at asha@example.com anytime.', approve: true });
+    const { service, repo } = setup(
+      interview({ status: 'completed', summary: 'x'.repeat(30), summaryStatus: 'pending' })
+    );
+    await service.updateSummary(member, {
+      summary: 'Experienced TP advisor. Reach me at asha@example.com anytime.',
+      approve: true,
+    });
     const patch = repo.updateInterview.mock.calls[0][1] as { summary: string; summaryStatus: string };
     expect(patch.summaryStatus).toBe('approved');
     expect(patch.summary).not.toContain('asha@example.com');
@@ -120,20 +172,28 @@ describe('InterviewsService admin', () => {
   it('redo re-checks the admin role fresh, then voids the interview', async () => {
     const { service, repo } = setup(interview({ status: 'completed' }));
     (repo as unknown as { findById: Mock }).findById = vi.fn().mockResolvedValue(interview({ status: 'completed' }));
-    (repo as unknown as { findProfileRole: Mock }).findProfileRole = vi.fn().mockResolvedValue({ role: 'admin', status: 'active' });
+    (repo as unknown as { findProfileRole: Mock }).findProfileRole = vi
+      .fn()
+      .mockResolvedValue({ role: 'admin', status: 'active' });
     await service.adminRedo({ ...member, id: 'admin1', role: 'admin' }, 'i1');
     expect(repo.updateInterview).toHaveBeenCalledWith('i1', { status: 'voided' });
   });
   it('redo refuses when the fresh role is no longer admin', async () => {
     const { service, repo } = setup();
     (repo as unknown as { findById: Mock }).findById = vi.fn().mockResolvedValue(interview({ status: 'completed' }));
-    (repo as unknown as { findProfileRole: Mock }).findProfileRole = vi.fn().mockResolvedValue({ role: 'member', status: 'active' });
+    (repo as unknown as { findProfileRole: Mock }).findProfileRole = vi
+      .fn()
+      .mockResolvedValue({ role: 'member', status: 'active' });
     await expect(service.adminRedo({ ...member, role: 'admin' }, 'i1')).rejects.toBeInstanceOf(ForbiddenException);
   });
   it('hiding sets summaryStatus hidden; unhiding returns it to pending for the member to re-approve', async () => {
     const { service, repo } = setup();
     const findById = vi.fn().mockResolvedValue(interview({ status: 'completed', summaryStatus: 'approved' }));
-    Object.assign(repo, { findById, listConnections: vi.fn().mockResolvedValue([]), findMemberName: vi.fn().mockResolvedValue('A B') });
+    Object.assign(repo, {
+      findById,
+      listConnections: vi.fn().mockResolvedValue([]),
+      findMemberName: vi.fn().mockResolvedValue('A B'),
+    });
     await service.adminSetSummaryHidden('i1', true);
     expect(repo.updateInterview).toHaveBeenCalledWith('i1', { summaryStatus: 'hidden' });
     await service.adminSetSummaryHidden('i1', false);

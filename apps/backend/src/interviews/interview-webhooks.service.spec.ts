@@ -12,7 +12,12 @@ function setup(opts: { status?: string; elapsed?: number; wrapUpDone?: boolean; 
   const repo = {
     findByTokenHash: vi.fn().mockResolvedValue({
       connection: { id: 'c1', interviewId: 'i1', transcriptReceivedAt: opts.already ? 'x' : null },
-      interview: { id: 'i1', status: opts.status ?? 'in_progress', elapsedSeconds: opts.elapsed ?? 0, state: { ...emptyState(), wrapUpDone: opts.wrapUpDone ?? false } },
+      interview: {
+        id: 'i1',
+        status: opts.status ?? 'in_progress',
+        elapsedSeconds: opts.elapsed ?? 0,
+        state: { ...emptyState(), wrapUpDone: opts.wrapUpDone ?? false },
+      },
     }),
     updateConnection: vi.fn(),
     updateInterview: vi.fn(),
@@ -24,7 +29,11 @@ const transcription = (duration: number) => ({
   type: 'post_call_transcription',
   data: {
     conversation_id: 'conv_1',
-    transcript: [{ role: 'agent', message: 'Hi', time_in_call_secs: 0 }, { role: 'user', message: 'Hello', time_in_call_secs: 2 }, { role: 'user', message: '', time_in_call_secs: 3 }],
+    transcript: [
+      { role: 'agent', message: 'Hi', time_in_call_secs: 0 },
+      { role: 'user', message: 'Hello', time_in_call_secs: 2 },
+      { role: 'user', message: '', time_in_call_secs: 3 },
+    ],
     metadata: { call_duration_secs: duration },
     conversation_initiation_client_data: { dynamic_variables: { session_token: 'tok' } },
   },
@@ -35,14 +44,21 @@ describe('InterviewWebhooksService', () => {
     const { service, repo } = setup();
     await service.handle(transcription(600));
     expect(repo.findByTokenHash).toHaveBeenCalledWith(hashSessionToken('tok'));
-    const patch = (repo.updateConnection as ReturnType<typeof vi.fn>).mock.calls[0][1] as { transcript: unknown[]; durationSeconds: number };
+    const patch = (repo.updateConnection as ReturnType<typeof vi.fn>).mock.calls[0][1] as {
+      transcript: unknown[];
+      durationSeconds: number;
+    };
     expect(patch.transcript).toHaveLength(2);
     expect(patch.durationSeconds).toBe(600);
   });
   it('marks a dropped call interrupted with a 24h window', async () => {
     const { service, repo } = setup();
     await service.handle(transcription(600));
-    const patch = (repo.updateInterview as ReturnType<typeof vi.fn>).mock.calls[0][1] as { status: string; elapsedSeconds: number; reconnectUntil: string };
+    const patch = (repo.updateInterview as ReturnType<typeof vi.fn>).mock.calls[0][1] as {
+      status: string;
+      elapsedSeconds: number;
+      reconnectUntil: string;
+    };
     expect(patch.status).toBe('interrupted');
     expect(patch.elapsedSeconds).toBe(600);
     expect(Date.parse(patch.reconnectUntil) - Date.now()).toBeGreaterThan(23 * 3600_000);

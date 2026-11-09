@@ -25,9 +25,7 @@ export const planSchema = z.object({
   opening: z.string().min(1).max(600),
   objectives: z.array(objectiveSchema).min(3).max(10),
   knownFacts: z.array(z.string().max(300)).max(40),
-  confirmFacts: z
-    .array(z.object({ fact: z.string().max(300), reason: z.string().max(300) }))
-    .max(2),
+  confirmFacts: z.array(z.object({ fact: z.string().max(300), reason: z.string().max(300) })).max(2),
   sensitivities: z.array(z.string().max(300)).max(10),
 });
 export type InterviewPlan = z.infer<typeof planSchema>;
@@ -39,9 +37,7 @@ export type InterviewPlan = z.infer<typeof planSchema>;
 export const storedPlanSchema = planSchema.extend({ objectives: z.array(objectiveSchema).max(30) });
 
 export const analystUpdateSchema = z.object({
-  filledFacts: z
-    .array(z.object({ objectiveId: z.string(), fact: z.string(), value: z.string().max(500) }))
-    .max(20),
+  filledFacts: z.array(z.object({ objectiveId: z.string(), fact: z.string(), value: z.string().max(500) })).max(20),
   currentObjectiveDone: z.boolean(),
   nextObjectiveId: z.string().nullable(),
   planChanges: z

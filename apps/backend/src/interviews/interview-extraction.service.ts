@@ -24,30 +24,46 @@ export class InterviewExtractionService {
   async run(shouldStop: () => boolean): Promise<void> {
     const now = Date.now();
     for (const expired of await this.repo.listExpiredInterruptions(new Date(now).toISOString(), 20)) {
-      await this.repo.updateInterview(expired.id, { status: 'processing', endedAt: new Date(now).toISOString(), reconnectUntil: null });
+      await this.repo.updateInterview(expired.id, {
+        status: 'processing',
+        endedAt: new Date(now).toISOString(),
+        reconnectUntil: null,
+      });
     }
     const claimed = await this.repo.claimForExtraction(new Date(now - CLAIM_STALE_MS).toISOString(), 3);
     for (const row of claimed) {
       if (shouldStop()) return;
       try {
         const connections = await this.repo.listConnections(row.id);
-        const waiting = connections.some((c) => !c.transcriptReceivedAt && now - Date.parse(c.startedAt) < TRANSCRIPT_WAIT_MS);
+        const waiting = connections.some(
+          (c) => !c.transcriptReceivedAt && now - Date.parse(c.startedAt) < TRANSCRIPT_WAIT_MS
+        );
         if (waiting) {
           await this.repo.updateInterview(row.id, { extractClaimedAt: null, extractAttempts: row.extractAttempts - 1 });
           continue;
         }
         await this.archiveAudio(connections);
-        const transcript = connections.flatMap((c) => (Array.isArray(c.transcript) ? (c.transcript as TranscriptTurn[]) : []));
+        const transcript = connections.flatMap((c) =>
+          Array.isArray(c.transcript) ? (c.transcript as TranscriptTurn[]) : []
+        );
         if (!transcript.some((t) => t.role === 'user')) {
           await this.repo.updateInterview(row.id, { status: 'failed', failureReason: 'no_transcript' });
           continue;
         }
         const member = await this.repo.loadMemberContext(row.memberId);
         if (!member || !row.plan) {
-          await this.repo.updateInterview(row.id, { status: 'failed', failureReason: member ? 'no_plan' : 'member_inactive' });
+          await this.repo.updateInterview(row.id, {
+            status: 'failed',
+            failureReason: member ? 'no_plan' : 'member_inactive',
+          });
           continue;
         }
-        const result = await this.extractor.extract({ plan: storedPlanSchema.parse(row.plan), state: parseState(row.state), transcript, member });
+        const result = await this.extractor.extract({
+          plan: storedPlanSchema.parse(row.plan),
+          state: parseState(row.state),
+          transcript,
+          member,
+        });
         await this.repo.updateInterview(row.id, {
           status: 'completed',
           drafts: result.drafts as unknown as Json,
@@ -66,7 +82,10 @@ export class InterviewExtractionService {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`Extraction failed for ${row.id} (attempt ${row.extractAttempts}): ${message}`);
         if (row.extractAttempts >= MAX_ATTEMPTS)
-          await this.repo.updateInterview(row.id, { status: 'failed', failureReason: `extraction_error: ${message.slice(0, 300)}` });
+          await this.repo.updateInterview(row.id, {
+            status: 'failed',
+            failureReason: `extraction_error: ${message.slice(0, 300)}`,
+          });
       }
     }
   }
@@ -90,7 +109,9 @@ export class InterviewExtractionService {
         await this.repo.uploadAudio(path, audio);
         await this.repo.updateConnection(c.id, { audioPath: path, audioReceivedAt: new Date().toISOString() });
       } catch (error: unknown) {
-        this.logger.warn(`Audio archive failed for connection ${c.id}: ${error instanceof Error ? error.message : String(error)}`);
+        this.logger.warn(
+          `Audio archive failed for connection ${c.id}: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
   }

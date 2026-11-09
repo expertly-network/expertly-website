@@ -12,7 +12,21 @@ import { InterviewsRepository } from './interviews.repository';
 // Shared by the API module and the worker (which must not register controllers).
 @Module({
   imports: [AuthModule, EmailModule],
-  providers: [InterviewConfig, InterviewLlmService, InterviewsRepository, Extractor, InterviewExtractionService, ElevenLabsClient],
-  exports: [InterviewConfig, InterviewLlmService, InterviewsRepository, Extractor, InterviewExtractionService, ElevenLabsClient],
+  providers: [
+    InterviewConfig,
+    InterviewLlmService,
+    InterviewsRepository,
+    Extractor,
+    InterviewExtractionService,
+    ElevenLabsClient,
+  ],
+  exports: [
+    InterviewConfig,
+    InterviewLlmService,
+    InterviewsRepository,
+    Extractor,
+    InterviewExtractionService,
+    ElevenLabsClient,
+  ],
 })
 export class InterviewsCoreModule {}

@@ -48,7 +48,10 @@ export function toMyInterviewDto(row: InterviewRow): MyInterviewDto {
 }
 
 function notEligible(): ForbiddenException {
-  return new ForbiddenException({ code: 'INTERVIEW_NOT_ELIGIBLE', message: 'Only active members can take the interview.' });
+  return new ForbiddenException({
+    code: 'INTERVIEW_NOT_ELIGIBLE',
+    message: 'Only active members can take the interview.',
+  });
 }
 
 @Injectable()
@@ -88,22 +91,38 @@ export class InterviewsService {
 
   async start(user: AuthenticatedUser, dto: StartInterviewDto): Promise<StartInterviewResponse> {
     if (!this.config.enabled)
-      throw new ServiceUnavailableException({ code: 'INTERVIEW_PROVIDER_UNAVAILABLE', message: 'The interview is not available yet.' });
+      throw new ServiceUnavailableException({
+        code: 'INTERVIEW_PROVIDER_UNAVAILABLE',
+        message: 'The interview is not available yet.',
+      });
     this.assertActiveMember(user);
     if (dto.consentVersion !== this.config.consentVersion)
-      throw new BadRequestException({ code: 'CONSENT_VERSION_MISMATCH', message: 'Please review the updated consent and try again.' });
+      throw new BadRequestException({
+        code: 'CONSENT_VERSION_MISMATCH',
+        message: 'Please review the updated consent and try again.',
+      });
 
     const now = new Date();
     let interview = await this.repo.findCurrent(user.id);
     const live = interview ? await this.repo.findLiveConnection(interview.id, now.toISOString()) : null;
     const eligibility = eligibilityOf(interview, live !== null, now.getTime(), this.config.maxSeconds);
     if (eligibility === 'in_progress')
-      throw new ConflictException({ code: 'INTERVIEW_IN_PROGRESS', message: 'Your interview is already running in another window.' });
+      throw new ConflictException({
+        code: 'INTERVIEW_IN_PROGRESS',
+        message: 'Your interview is already running in another window.',
+      });
     if (eligibility === 'processing' || eligibility === 'completed' || eligibility === 'failed')
-      throw new ConflictException({ code: 'INTERVIEW_ALREADY_TAKEN', message: 'You have already taken your interview.' });
+      throw new ConflictException({
+        code: 'INTERVIEW_ALREADY_TAKEN',
+        message: 'You have already taken your interview.',
+      });
 
     if (!interview) {
-      interview = await this.repo.insertInterview({ memberId: user.id, consentVersion: dto.consentVersion, consentAt: now.toISOString() });
+      interview = await this.repo.insertInterview({
+        memberId: user.id,
+        consentVersion: dto.consentVersion,
+        consentAt: now.toISOString(),
+      });
     }
     // Also covers a previous start that crashed between insert and planning.
     if (!interview.plan) interview = await this.planInto(interview, user.id);
@@ -121,7 +140,13 @@ export class InterviewsService {
     });
     // Set here, not on the first LLM turn, so a second tab sees "in progress" at once.
     await this.repo.updateInterview(interview.id, { status: 'in_progress', reconnectUntil: null });
-    return { interviewId: interview.id, connectionId: connection.id, conversationToken, sessionToken, maxSeconds: remaining };
+    return {
+      interviewId: interview.id,
+      connectionId: connection.id,
+      conversationToken,
+      sessionToken,
+      maxSeconds: remaining,
+    };
   }
 
   async end(user: AuthenticatedUser): Promise<void> {
@@ -129,16 +154,26 @@ export class InterviewsService {
     const current = await this.repo.findCurrent(user.id);
     if (!current || !['ready', 'in_progress', 'interrupted'].includes(current.status))
       throw new NotFoundException({ code: 'INTERVIEW_NOT_ACTIVE', message: 'There is no interview to end.' });
-    await this.repo.updateInterview(current.id, { status: 'processing', endedAt: new Date().toISOString(), reconnectUntil: null });
+    await this.repo.updateInterview(current.id, {
+      status: 'processing',
+      endedAt: new Date().toISOString(),
+      reconnectUntil: null,
+    });
   }
 
   async updateSummary(user: AuthenticatedUser, dto: UpdateSummaryDto): Promise<MyInterviewDto> {
     this.assertActiveMember(user);
     const current = await this.repo.findCurrent(user.id);
     if (!current || current.status !== 'completed')
-      throw new ConflictException({ code: 'INTERVIEW_NOT_COMPLETED', message: 'Your interview summary is not ready yet.' });
+      throw new ConflictException({
+        code: 'INTERVIEW_NOT_COMPLETED',
+        message: 'Your interview summary is not ready yet.',
+      });
     if (current.summaryStatus === 'hidden')
-      throw new ConflictException({ code: 'INTERVIEW_SUMMARY_HIDDEN', message: 'This summary has been hidden by the GrowXQ team.' });
+      throw new ConflictException({
+        code: 'INTERVIEW_SUMMARY_HIDDEN',
+        message: 'This summary has been hidden by the GrowXQ team.',
+      });
     const updated = await this.repo.updateInterview(current.id, {
       summary: redactCardText(dto.summary.trim()),
       summaryStatus: dto.approve ? 'approved' : 'pending',
@@ -151,7 +186,11 @@ export class InterviewsService {
   async adminList(q: AdminListQueryDto): Promise<AdminInterviewListResponse> {
     const pageSize = q.pageSize ?? 25;
     const page = q.page ?? 1;
-    const { rows, total } = await this.repo.adminList({ status: q.status, offset: (page - 1) * pageSize, limit: pageSize });
+    const { rows, total } = await this.repo.adminList({
+      status: q.status,
+      offset: (page - 1) * pageSize,
+      limit: pageSize,
+    });
     return { items: rows.map((r) => this.toListItem(r, r.memberName)), total };
   }
 
@@ -171,7 +210,10 @@ export class InterviewsService {
   async adminGet(id: string): Promise<AdminInterviewDetail> {
     const r = await this.repo.findById(id);
     if (!r) throw new NotFoundException({ code: 'INTERVIEW_NOT_FOUND', message: 'Interview not found.' });
-    const [memberName, connections] = await Promise.all([this.repo.findMemberName(r.memberId), this.repo.listConnections(id)]);
+    const [memberName, connections] = await Promise.all([
+      this.repo.findMemberName(r.memberId),
+      this.repo.listConnections(id),
+    ]);
     const conns = await Promise.all(
       connections.map(async (c) => ({
         id: c.id,
@@ -203,7 +245,10 @@ export class InterviewsService {
     if (!r) throw new NotFoundException({ code: 'INTERVIEW_NOT_FOUND', message: 'Interview not found.' });
     if (r.status === 'voided') return;
     if (r.status === 'in_progress')
-      throw new ConflictException({ code: 'INTERVIEW_IN_PROGRESS', message: 'The interview is running; wait for it to end.' });
+      throw new ConflictException({
+        code: 'INTERVIEW_IN_PROGRESS',
+        message: 'The interview is running; wait for it to end.',
+      });
     await this.repo.updateInterview(id, { status: 'voided' });
   }
 

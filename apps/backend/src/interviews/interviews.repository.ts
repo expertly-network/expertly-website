@@ -47,7 +47,12 @@ const CONNECTION_COLUMNS = [
 const AUDIO_BUCKET = 'interview-audio';
 const OTHER_PLACEHOLDER = /^other \(please/i;
 // Never sent to an LLM: private proof paths and third-party client emails.
-const PRIVATE_ITEM_KEYS = new Set(['proofAttachments', 'clientEmail', 'verificationMethods', 'verificationMethodOther']);
+const PRIVATE_ITEM_KEYS = new Set([
+  'proofAttachments',
+  'clientEmail',
+  'verificationMethods',
+  'verificationMethodOther',
+]);
 
 const INTERVIEW_PATCH_COLUMNS: Record<string, string> = {
   status: 'status',
@@ -208,7 +213,11 @@ export class InterviewsRepository {
       const svc = one(l.services);
       const cat = one(svc.categories);
       const label = l.custom_label?.trim() || null;
-      const service = OTHER_PLACEHOLDER.test(svc.name) ? (label ?? svc.name) : label ? `${svc.name} - ${label}` : svc.name;
+      const service = OTHER_PLACEHOLDER.test(svc.name)
+        ? (label ?? svc.name)
+        : label
+          ? `${svc.name} - ${label}`
+          : svc.name;
       return { serviceLine: one(cat.service_lines).name, category: cat.name, service };
     });
     return {
@@ -250,7 +259,10 @@ export class InterviewsRepository {
       .select(INTERVIEW_COLUMNS)
       .single();
     if (error?.code === '23505')
-      throw new ConflictException({ code: 'INTERVIEW_ALREADY_TAKEN', message: 'You have already taken your interview.' });
+      throw new ConflictException({
+        code: 'INTERVIEW_ALREADY_TAKEN',
+        message: 'You have already taken your interview.',
+      });
     if (error) throw dbError(`member_interviews insert failed: ${error.message}`);
     return data as unknown as InterviewRow;
   }
@@ -277,7 +289,11 @@ export class InterviewsRepository {
 
   async insertConnection(input: { interviewId: string; tokenHash: string; expiresAt: string }): Promise<ConnectionRow> {
     const { data, error } = await this.connections()
-      .insert({ interview_id: input.interviewId, session_token_hash: input.tokenHash, session_token_expires_at: input.expiresAt })
+      .insert({
+        interview_id: input.interviewId,
+        session_token_hash: input.tokenHash,
+        session_token_expires_at: input.expiresAt,
+      })
       .select(CONNECTION_COLUMNS)
       .single();
     if (error) throw dbError(`connection insert failed: ${error.message}`);
@@ -385,7 +401,9 @@ export class InterviewsRepository {
 
   private async findMemberNames(ids: string[]): Promise<Map<string, string>> {
     if (!ids.length) return new Map();
-    const { data, error } = await this.profiles().select('id, first_name, last_name').in('id', [...new Set(ids)]);
+    const { data, error } = await this.profiles()
+      .select('id, first_name, last_name')
+      .in('id', [...new Set(ids)]);
     if (error) throw dbError(`profiles read failed: ${error.message}`);
     return new Map((data ?? []).map((p) => [p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()]));
   }

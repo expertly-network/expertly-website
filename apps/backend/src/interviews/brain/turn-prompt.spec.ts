@@ -6,7 +6,17 @@ import { emptyState, type InterviewPlan } from './types';
 const PLAN: InterviewPlan = {
   schemaVersion: 1,
   opening: 'You led TP at Deloitte for six years. What mandate are you proudest of?',
-  objectives: [{ id: 'e1', kind: 'signature_engagement', priority: 1, rationale: '', seedQuestions: ['Walk me through one'], facts: ['outcome', 'metric', 'my_role'], budgetSeconds: 400 }],
+  objectives: [
+    {
+      id: 'e1',
+      kind: 'signature_engagement',
+      priority: 1,
+      rationale: '',
+      seedQuestions: ['Walk me through one'],
+      facts: ['outcome', 'metric', 'my_role'],
+      budgetSeconds: 400,
+    },
+  ],
   knownFacts: ['Joined Deloitte in 2012'],
   confirmFacts: [{ fact: 'TP is still the main focus', reason: 'LinkedIn role ended 2021' }],
   sensitivities: [],
@@ -39,10 +49,17 @@ describe('buildTurnPrompt', () => {
   });
   it('offers confirm facts only while under the cap', () => {
     expect(buildTurnPrompt(input)).toContain('TP is still the main focus');
-    expect(buildTurnPrompt({ ...input, state: { ...input.state, confirmedFacts: 1 } })).not.toContain('TP is still the main focus');
+    expect(buildTurnPrompt({ ...input, state: { ...input.state, confirmedFacts: 1 } })).not.toContain(
+      'TP is still the main focus'
+    );
   });
   it('switches to anonymised mode', () => {
-    expect(buildTurnPrompt({ ...input, state: { ...input.state, modes: { anonymiseClients: true, memberShortOnTime: false } } })).toMatch(/anonymi/i);
+    expect(
+      buildTurnPrompt({
+        ...input,
+        state: { ...input.state, modes: { anonymiseClients: true, memberShortOnTime: false } },
+      })
+    ).toMatch(/anonymi/i);
   });
   it.each([
     ['offer_extension', /permission/i],
@@ -52,6 +69,8 @@ describe('buildTurnPrompt', () => {
     expect(buildTurnPrompt({ ...input, phase })).toMatch(pattern);
   });
   it('says goodbye on the second wrap-up turn', () => {
-    expect(buildTurnPrompt({ ...input, phase: 'wrap_up', state: { ...input.state, wrapUpTurns: 2, wrapUpDone: true } })).toMatch(/goodbye|thank/i);
+    expect(
+      buildTurnPrompt({ ...input, phase: 'wrap_up', state: { ...input.state, wrapUpTurns: 2, wrapUpDone: true } })
+    ).toMatch(/goodbye|thank/i);
   });
 });

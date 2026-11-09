@@ -33,7 +33,10 @@ export class AdminInterviewsController {
   }
 
   @Patch(':id/summary')
-  setSummary(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AdminUpdateSummaryDto): Promise<AdminInterviewDetail> {
+  setSummary(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminUpdateSummaryDto
+  ): Promise<AdminInterviewDetail> {
     return this.service.adminSetSummaryHidden(id, dto.hidden);
   }
 }

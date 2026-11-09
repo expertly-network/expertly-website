@@ -16,7 +16,9 @@ const requestSchema = z.object({
     .array(
       z.object({
         role: z.string(),
-        content: z.union([z.string(), z.array(z.object({ type: z.string(), text: z.string().optional() })), z.null()]).optional(),
+        content: z
+          .union([z.string(), z.array(z.object({ type: z.string(), text: z.string().optional() })), z.null()])
+          .optional(),
       })
     )
     .max(400),
@@ -63,7 +65,9 @@ export class InterviewLlmController {
         })) {
           if (chunk.type === 'text') raw.write(sseChunk(id, created, { content: chunk.text }, null));
           else {
-            raw.write(sseChunk(id, created, { toolCall: { id: `call_${randomUUID()}`, name: 'end_call' } }, 'tool_calls'));
+            raw.write(
+              sseChunk(id, created, { toolCall: { id: `call_${randomUUID()}`, name: 'end_call' } }, 'tool_calls')
+            );
           }
         }
       }

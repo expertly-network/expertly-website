@@ -77,7 +77,12 @@ export function normalisePlan(raw: InterviewPlan): InterviewPlan {
   const drift = TOTAL_BUDGET_SECONDS - scaled.reduce((s, o) => s + o.budgetSeconds, 0);
   const largest = scaled.reduce((best, o, i) => (o.budgetSeconds > scaled[best].budgetSeconds ? i : best), 0);
   scaled[largest] = { ...scaled[largest], budgetSeconds: scaled[largest].budgetSeconds + drift };
-  return { ...raw, schemaVersion: TARGET_SCHEMA_VERSION, objectives: scaled, confirmFacts: raw.confirmFacts.slice(0, 2) };
+  return {
+    ...raw,
+    schemaVersion: TARGET_SCHEMA_VERSION,
+    objectives: scaled,
+    confirmFacts: raw.confirmFacts.slice(0, 2),
+  };
 }
 
 @Injectable()

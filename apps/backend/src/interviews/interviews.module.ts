@@ -17,6 +17,14 @@ import { AdminInterviewsController } from './admin-interviews.controller';
 @Module({
   imports: [AuthModule, InterviewsCoreModule],
   controllers: [InterviewsController, InterviewLlmController, InterviewWebhooksController, AdminInterviewsController],
-  providers: [InterviewsService, InterviewWebhooksService, Planner, Analyst, TurnEngine, ElevenLabsClient, InterviewLlmGuard],
+  providers: [
+    InterviewsService,
+    InterviewWebhooksService,
+    Planner,
+    Analyst,
+    TurnEngine,
+    ElevenLabsClient,
+    InterviewLlmGuard,
+  ],
 })
 export class InterviewsModule {}
