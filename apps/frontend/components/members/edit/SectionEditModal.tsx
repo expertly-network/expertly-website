@@ -208,14 +208,32 @@ function Field({ spec, value, onChange }: { spec: FieldSpec; value: unknown; onC
   );
 }
 
+// Interview drafts open this same edit flow pre-filled. For list sections the draft rows are
+// APPENDED to the live rows: a submission removes live items it leaves out. The blank placeholder
+// row shown for an empty section is dropped first.
+function withPrefill(initial: Row | Row[], section: MemberEditSection, prefill: Row | Row[] | undefined): Row | Row[] {
+  if (!prefill) return initial;
+  if (!Array.isArray(initial) || !Array.isArray(prefill)) return { ...(initial as Row), ...(prefill as Row) };
+  const blank = EMPTY_ROW[section] ?? {};
+  const isBlank = (row: Row) =>
+    Object.keys(blank).every((k) => {
+      const v = row[k];
+      return v === blank[k] || v === '' || v === null || v === undefined || (Array.isArray(v) && v.length === 0);
+    });
+  return [...initial.filter((row) => !isBlank(row)), ...prefill.map((row) => ({ ...blank, ...row }))];
+}
+
 export function SectionEditModal({
   member,
   section,
+  prefill,
   onClose,
   onSubmitted,
 }: {
   member: MemberDto;
   section: MemberEditSection | null;
+  /** Optional starting values (e.g. AI interview drafts), merged per withPrefill(). */
+  prefill?: Row | Row[];
   onClose: () => void;
   onSubmitted: () => void;
 }) {
@@ -235,7 +253,7 @@ export function SectionEditModal({
   const [openedSection, setOpenedSection] = useState<MemberEditSection | null>(null);
   if (section && section !== openedSection) {
     setOpenedSection(section);
-    setData(initialPayload(member, section));
+    setData(withPrefill(initialPayload(member, section), section, prefill));
     setProofMode('link');
     setProofFile(null);
     setProofLink('');
