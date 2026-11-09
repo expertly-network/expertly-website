@@ -28,8 +28,8 @@ The output feeds three places:
 1. **Profile drafts** — a proposed headline/bio, engagements and key clients, in the exact
    payload shapes the existing profile-edit flow already accepts. The member edits and submits
    them through the existing edit endpoints; admins review per item as today.
-2. **AI search** — a member-approved interview summary is added to that member's search card
-   member, used for matching and quotable in search answers.
+2. **AI search** — a member-approved interview summary is added to that member's search card,
+   used for matching and quotable in search answers.
 3. **Admin assessment** — an admin-only read of how deep and consistent the answers were, and
    which claims were vague or contradicted the profile/LinkedIn.
 
