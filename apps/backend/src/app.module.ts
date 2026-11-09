@@ -13,6 +13,7 @@ import { EventsModule } from './events/events.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { ArticlesModule } from './articles/articles.module';
 import { SearchModule } from './search/search.module';
+import { InterviewsModule } from './interviews/interviews.module';
 import { ConsentPoliciesModule } from './consent-policies/consent-policies.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { ConsentPoliciesModule } from './consent-policies/consent-policies.modul
     ConsultationsModule,
     ArticlesModule,
     SearchModule,
+    InterviewsModule,
     ConsentPoliciesModule,
   ],
   controllers: [AppController],

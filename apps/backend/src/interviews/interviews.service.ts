@@ -6,7 +6,17 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { InterviewDrafts, MyInterviewDto, MyInterviewResponse, StartInterviewResponse } from '@shared/interview';
+import type {
+  AdminInterviewDetail,
+  AdminInterviewListItem,
+  AdminInterviewListResponse,
+  InterviewAssessment,
+  InterviewDrafts,
+  InterviewTranscriptTurn,
+  MyInterviewDto,
+  MyInterviewResponse,
+  StartInterviewResponse,
+} from '@shared/interview';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { redactCardText } from '../search/redaction';
 import type { Json } from '../supabase/database.types';
@@ -19,6 +29,7 @@ import { InterviewsRepository, type InterviewRow } from './interviews.repository
 import { hashSessionToken, newSessionToken } from './session-token';
 import type { StartInterviewDto } from './dto/start-interview.dto';
 import type { UpdateSummaryDto } from './dto/update-summary.dto';
+import type { AdminListQueryDto } from './dto/admin-list-query.dto';
 
 const TOKEN_GRACE_SECONDS = 5 * 60;
 
@@ -133,5 +144,75 @@ export class InterviewsService {
       summaryStatus: dto.approve ? 'approved' : 'pending',
     });
     return toMyInterviewDto(updated);
+  }
+
+  // ---- admin ---------------------------------------------------------------------------
+
+  async adminList(q: AdminListQueryDto): Promise<AdminInterviewListResponse> {
+    const pageSize = q.pageSize ?? 25;
+    const page = q.page ?? 1;
+    const { rows, total } = await this.repo.adminList({ status: q.status, offset: (page - 1) * pageSize, limit: pageSize });
+    return { items: rows.map((r) => this.toListItem(r, r.memberName)), total };
+  }
+
+  private toListItem(r: InterviewRow, memberName: string): AdminInterviewListItem {
+    return {
+      id: r.id,
+      memberId: r.memberId,
+      memberName,
+      status: r.status,
+      elapsedSeconds: r.elapsedSeconds,
+      endedAt: r.endedAt,
+      hasAssessment: r.assessment !== null,
+      createdAt: r.createdAt,
+    };
+  }
+
+  async adminGet(id: string): Promise<AdminInterviewDetail> {
+    const r = await this.repo.findById(id);
+    if (!r) throw new NotFoundException({ code: 'INTERVIEW_NOT_FOUND', message: 'Interview not found.' });
+    const [memberName, connections] = await Promise.all([this.repo.findMemberName(r.memberId), this.repo.listConnections(id)]);
+    const conns = await Promise.all(
+      connections.map(async (c) => ({
+        id: c.id,
+        startedAt: c.startedAt,
+        endedAt: c.endedAt,
+        durationSeconds: c.durationSeconds,
+        transcript: Array.isArray(c.transcript) ? (c.transcript as InterviewTranscriptTurn[]) : [],
+        audioUrl: c.audioPath ? await this.repo.signedAudioUrl(c.audioPath, 15 * 60) : null,
+      }))
+    );
+    return {
+      ...this.toListItem(r, memberName),
+      plan: (r.plan as Record<string, unknown> | null) ?? null,
+      state: (r.state as Record<string, unknown>) ?? {},
+      drafts: (r.drafts as InterviewDrafts | null) ?? null,
+      summary: r.summary,
+      summaryStatus: r.summaryStatus,
+      assessment: (r.assessment as InterviewAssessment | null) ?? null,
+      failureReason: r.failureReason,
+      connections: conns,
+    };
+  }
+
+  async adminRedo(admin: AuthenticatedUser, id: string): Promise<void> {
+    const fresh = await this.repo.findProfileRole(admin.id);
+    if (fresh?.role !== 'admin' || fresh.status !== 'active')
+      throw new ForbiddenException({ code: 'ADMIN_REQUIRED', message: 'Admin access is required.' });
+    const r = await this.repo.findById(id);
+    if (!r) throw new NotFoundException({ code: 'INTERVIEW_NOT_FOUND', message: 'Interview not found.' });
+    if (r.status === 'voided') return;
+    if (r.status === 'in_progress')
+      throw new ConflictException({ code: 'INTERVIEW_IN_PROGRESS', message: 'The interview is running; wait for it to end.' });
+    await this.repo.updateInterview(id, { status: 'voided' });
+  }
+
+  async adminSetSummaryHidden(id: string, hidden: boolean): Promise<AdminInterviewDetail> {
+    const r = await this.repo.findById(id);
+    if (!r) throw new NotFoundException({ code: 'INTERVIEW_NOT_FOUND', message: 'Interview not found.' });
+    if (r.status !== 'completed')
+      throw new ConflictException({ code: 'INTERVIEW_NOT_COMPLETED', message: 'The interview has no summary yet.' });
+    await this.repo.updateInterview(id, { summaryStatus: hidden ? 'hidden' : 'pending' });
+    return this.adminGet(id);
   }
 }

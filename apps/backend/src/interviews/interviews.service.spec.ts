@@ -115,3 +115,28 @@ describe('InterviewsService.updateSummary', () => {
     });
   });
 });
+
+describe('InterviewsService admin', () => {
+  it('redo re-checks the admin role fresh, then voids the interview', async () => {
+    const { service, repo } = setup(interview({ status: 'completed' }));
+    (repo as unknown as { findById: Mock }).findById = vi.fn().mockResolvedValue(interview({ status: 'completed' }));
+    (repo as unknown as { findProfileRole: Mock }).findProfileRole = vi.fn().mockResolvedValue({ role: 'admin', status: 'active' });
+    await service.adminRedo({ ...member, id: 'admin1', role: 'admin' }, 'i1');
+    expect(repo.updateInterview).toHaveBeenCalledWith('i1', { status: 'voided' });
+  });
+  it('redo refuses when the fresh role is no longer admin', async () => {
+    const { service, repo } = setup();
+    (repo as unknown as { findById: Mock }).findById = vi.fn().mockResolvedValue(interview({ status: 'completed' }));
+    (repo as unknown as { findProfileRole: Mock }).findProfileRole = vi.fn().mockResolvedValue({ role: 'member', status: 'active' });
+    await expect(service.adminRedo({ ...member, role: 'admin' }, 'i1')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('hiding sets summaryStatus hidden; unhiding returns it to pending for the member to re-approve', async () => {
+    const { service, repo } = setup();
+    const findById = vi.fn().mockResolvedValue(interview({ status: 'completed', summaryStatus: 'approved' }));
+    Object.assign(repo, { findById, listConnections: vi.fn().mockResolvedValue([]), findMemberName: vi.fn().mockResolvedValue('A B') });
+    await service.adminSetSummaryHidden('i1', true);
+    expect(repo.updateInterview).toHaveBeenCalledWith('i1', { summaryStatus: 'hidden' });
+    await service.adminSetSummaryHidden('i1', false);
+    expect(repo.updateInterview).toHaveBeenCalledWith('i1', { summaryStatus: 'pending' });
+  });
+});
