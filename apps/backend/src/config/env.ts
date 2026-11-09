@@ -56,6 +56,20 @@ const baseShape = {
   // AI search (src/search/). Defaults live in search.config.ts.
   OPENAI_EMBED_MODEL: optionalString,
   OPENAI_CHAT_MODEL: optionalString,
+
+  // AI interviewer (src/interviews/). All optional: unset disables the feature (start → 503).
+  // Independent of AI_* (article AI) and OPENAI_* (search): own providers, models and keys.
+  ELEVENLABS_API_KEY: optionalString,
+  ELEVENLABS_AGENT_ID: optionalString,
+  ELEVENLABS_WEBHOOK_SECRET: optionalString,
+  ELEVENLABS_LLM_SECRET: optionalString,
+  INTERVIEW_TURN_PROVIDER: z.enum(['openai', 'anthropic', 'google']).optional(),
+  INTERVIEW_TURN_MODEL: optionalString,
+  INTERVIEW_TURN_API_KEY: optionalString,
+  INTERVIEW_REASONING_PROVIDER: z.enum(['openai', 'anthropic', 'google']).optional(),
+  INTERVIEW_REASONING_MODEL: optionalString,
+  INTERVIEW_REASONING_API_KEY: optionalString,
+  INTERVIEW_CONSENT_VERSION: optionalString,
 };
 
 const apiSchema = z.object({
