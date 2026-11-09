@@ -11,3 +11,4 @@ export type * from './account';
 export type * from './errors';
 export type * from './consent-policy';
 export type * from './email';
+export type * from './interview';
