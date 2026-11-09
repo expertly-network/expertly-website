@@ -574,3 +574,30 @@ acknowledgement or an enabled renewal reminder.
 Announcements/newsletters go through Resend Broadcasts (audiences and unsubscribe handled there),
 not this API. In-app notifications and additional approval/launch automations are separate scope.
 Activation steps are in `docs/deployment.md`.
+
+## US-20 — AI expert interview 🚧 Built on `feature/ai-interviewer`, not merged
+
+As an approved member, I take a one-time voice interview with an AI interviewer that already knows
+my profile, so GrowXQ learns my key engagements and niche depth and drafts a stronger profile for
+me to review. As an admin, I see how deep and consistent the answers were.
+
+- [x] Voice only. ElevenLabs provides the voice; every question comes from GrowXQ's backend,
+      framed by the member's profile and services (service line → category → service), with
+      niche questions generated at runtime and optional per-category hints (Direct Tax for now).
+- [x] Known facts aren't re-asked, except at most 2 light confirmations.
+- [x] Follow-ups adapt to each answer; a background analyst tracks what's covered and can add
+      topics (e.g. a niche the member reveals), switch to confidential mode, or shorten the plan.
+- [x] About 20–23 minutes; more time is offered once, only to an engaged member with important
+      topics left and only with their consent; 30 minutes maximum.
+- [x] One interview per member; a dropped call can be resumed within 24 hours; an admin can grant
+      a redo.
+- [x] Audio and transcript are kept (private storage; admin-only playback).
+- [x] Drafts (headline/bio, new engagements, key clients) go through the existing profile-edit
+      review and stay unverified; client names are left for the member when confidential.
+- [x] A member-approved summary is matched and may be quoted by AI search; an admin can hide it.
+- [x] Admin-only assessment: depth, consistency, coverage, vague claims, contradictions.
+- [ ] Live transcript beside a voice animation on the interview screen; works on phones.
+- [ ] ElevenLabs agent configured and a real end-to-end call verified (deployment steps in
+      `docs/deployment.md` "AI interviewer activation").
+- [ ] Admin interview pages (the admin API exists; the UI is a later session).
+- [ ] Deciding whether and when the interview becomes compulsory.

@@ -2178,6 +2178,252 @@
       ]
     },
     {
+      "name": "AI Interviewer",
+      "description": "One-time voice interview for active members (docs/rest-api.md \"AI interviewer\"). ElevenLabs is the voice; the backend writes every question.",
+      "item": [
+        {
+          "name": "GET /interviews/me — Interview eligibility and results",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interviews/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interviews",
+                "me"
+              ]
+            },
+            "description": "🔑 Member (active member profile). Returns `eligibility` (`available`, `in_progress`, `can_reconnect`, `processing`, `completed`, `failed`), the current interview (drafts/summary only once `completed`), the current `consentVersion` and `maxSeconds`. Never returns the plan, live state, assessment or audio."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /interviews/me/start — Plan and open a voice session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interviews/me/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interviews",
+                "me",
+                "start"
+              ]
+            },
+            "description": "🔑 Member. First call creates the interview and runs the planner (≈5–15 s, LLM — shares the `ai` rate limit); while `can_reconnect` it opens a new connection on the same interview. Returns the ElevenLabs WebRTC `conversationToken` and a `sessionToken` — copy `sessionToken` into the `interviewSessionToken` environment variable to exercise the custom-LLM request below. `consentVersion` must equal `GET /interviews/me`'s value (else 400 `CONSENT_VERSION_MISMATCH`). 503 `INTERVIEW_PROVIDER_UNAVAILABLE` until the ElevenLabs/interviewer env vars are set; 409 `INTERVIEW_ALREADY_TAKEN` / `INTERVIEW_IN_PROGRESS` / `INTERVIEW_TIME_EXHAUSTED`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"consentVersion\": \"2026-11-09\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /interviews/me/end — Member ends the interview",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interviews/me/end",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interviews",
+                "me",
+                "end"
+              ]
+            },
+            "description": "🔑 Member. Ends the interview for good (no reconnect) → 204; the worker then extracts drafts. 404 `INTERVIEW_NOT_ACTIVE` when nothing is running."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /interviews/me/summary — Edit/approve the search summary",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interviews/me/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interviews",
+                "me",
+                "summary"
+              ]
+            },
+            "description": "🔑 Member, `completed` interviews only. `approve: true` lets AI search match and quote the summary; contact details are redacted on save. 409 `INTERVIEW_SUMMARY_HIDDEN` when an admin hid it.\n\nTo save without approving instead, replace the whole body with:\n```json\n{\n  \"summary\": \"Transfer pricing specialist advising mid-size manufacturers on benchmarking and audit defence across India and the UK.\",\n  \"approve\": false\n}\n```",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"summary\": \"Transfer pricing specialist advising mid-size manufacturers on benchmarking and audit defence across India and the UK.\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Integrations (ElevenLabs)",
+          "description": "Called by ElevenLabs, not by the app. Both authenticate with provider secrets, not a GrowXQ session.",
+          "item": [
+            {
+              "name": "POST /interviews/llm/chat/completions — Custom-LLM turn (ElevenLabs only)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{elevenlabsLlmSecret}}"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/interviews/llm/chat/completions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "interviews",
+                    "llm",
+                    "chat",
+                    "completions"
+                  ]
+                },
+                "description": "🌐 Public route behind `InterviewLlmGuard`: `Authorization: Bearer {{elevenlabsLlmSecret}}` (the `ELEVENLABS_LLM_SECRET`) **and** `elevenlabs_extra_body.sessionToken` of a live connection (from `POST /interviews/me/start`). Always answers `200 text/event-stream` in OpenAI chat.completion.chunk format ending with `data: [DONE]`; a stream ending in an `end_call` tool call closes the voice call. The system message is ignored — the backend builds its own. With an unknown/expired token you get a closing line + `end_call`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"model\": \"growxq-interviewer\",\n  \"stream\": true,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"(ignored by the backend)\"\n    },\n    {\n      \"role\": \"assistant\",\n      \"content\": \"Hi Asha, I'm the GrowXQ interviewer. This takes about 20 minutes. Shall we begin?\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Yes, let's begin.\"\n    }\n  ],\n  \"tools\": [\n    {\n      \"type\": \"function\",\n      \"function\": {\n        \"name\": \"end_call\",\n        \"parameters\": {\n          \"type\": \"object\",\n          \"properties\": {}\n        }\n      }\n    }\n  ],\n  \"elevenlabs_extra_body\": {\n    \"sessionToken\": \"{{interviewSessionToken}}\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /interviews/webhooks/elevenlabs — Post-call transcription webhook (signed)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "elevenlabs-signature",
+                    "value": "{{elevenlabsSignature}}"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/interviews/webhooks/elevenlabs",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "interviews",
+                    "webhooks",
+                    "elevenlabs"
+                  ]
+                },
+                "description": "🌐 Public route; the exact raw body must carry `elevenlabs-signature: t=<unix seconds>,v0=<hex HMAC-SHA256 of \"<t>.<raw body>\" keyed with ELEVENLABS_WEBHOOK_SECRET>` (30-minute tolerance), so this example returns 401 `INTERVIEW_WEBHOOK_SIGNATURE_INVALID` unless you compute `{{elevenlabsSignature}}` for these exact bytes. Matches the connection by `dynamic_variables.session_token` (hashed), stores the transcript, then sets the interview `processing` or `interrupted` (+24 h). Duplicates are ignored. 503 `INTERVIEW_WEBHOOK_NOT_CONFIGURED` without a secret.\n\n`post_call_audio` events are acknowledged and ignored (the worker downloads recordings from ElevenLabs). To check that instead, replace the whole body with:\n```json\n{\n  \"type\": \"post_call_audio\",\n  \"data\": { \"agent_id\": \"agent_123\", \"conversation_id\": \"conv_123\", \"full_audio\": \"SUQz\" }\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"post_call_transcription\",\n  \"event_timestamp\": 1793000000,\n  \"data\": {\n    \"agent_id\": \"agent_123\",\n    \"conversation_id\": \"conv_123\",\n    \"transcript\": [\n      {\n        \"role\": \"agent\",\n        \"message\": \"Hi Asha, I'm the GrowXQ interviewer. Shall we begin?\",\n        \"time_in_call_secs\": 0\n      },\n      {\n        \"role\": \"user\",\n        \"message\": \"Yes, let's begin.\",\n        \"time_in_call_secs\": 4\n      }\n    ],\n    \"metadata\": {\n      \"call_duration_secs\": 742\n    },\n    \"conversation_initiation_client_data\": {\n      \"dynamic_variables\": {\n        \"session_token\": \"{{interviewSessionToken}}\",\n        \"first_name\": \"Asha\"\n      }\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Perks, Learnings & Templates",
       "description": "Metadata is public. Keep bearer auth for role-specific content; set No Auth to verify guest redaction. Invalid supplied tokens return 401. See docs/rest-api.md US-14.",
       "item": [
@@ -3572,6 +3818,152 @@
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"status\": \"completed\",\n  \"responseMessage\": \"Happy to help — sent a follow-up email with next steps and a proposed engagement scope.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Interviews",
+          "item": [
+            {
+              "name": "GET /admin/interviews — List interviews",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interviews?status=completed&page=1&pageSize=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interviews"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "completed",
+                      "disabled": true
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "25"
+                    }
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`ready`, `in_progress`, `interrupted`, `processing`, `completed`, `failed`, `voided`); `page` (default 1), `pageSize` (default 25, ≤ 100)."
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/interviews/:id — Detail with transcript, audio and assessment",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interviews/{{interviewId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interviews",
+                    "{{interviewId}}"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Plan, live state (facts board), drafts, summary, the admin-only assessment, and each connection's transcript plus a 15-minute signed audio URL."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/interviews/:id/redo — Grant a redo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interviews/{{interviewId}}/redo",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interviews",
+                    "{{interviewId}}",
+                    "redo"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Voids the interview so the member can take it again → 204. 409 `INTERVIEW_IN_PROGRESS` while a call runs."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/interviews/:id/summary — Hide/unhide the summary from search",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interviews/{{interviewId}}/summary",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interviews",
+                    "{{interviewId}}",
+                    "summary"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`, `completed` interviews only. Hiding removes the summary from the member's search card; unhiding returns it to `pending` for the member to re-approve.\n\nTo unhide instead, replace the whole body with:\n```json\n{\n  \"hidden\": false\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"hidden\": true\n}",
                   "options": {
                     "raw": {
                       "language": "json"

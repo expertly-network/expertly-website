@@ -2022,3 +2022,93 @@ webhook is exempt from account authentication; the signature is mandatory.
 Error codes: 400 `EMAIL_VARIABLES_INVALID` (internal: an event supplied an undeclared variable);
 404 `EMAIL_NOT_FOUND`; 409 `EMAIL_WRITE_CONFLICT`, `EMAIL_MESSAGE_NOT_CANCELLABLE`,
 `EMAIL_MESSAGE_NOT_RETRYABLE`; 500 `EMAIL_DATABASE_ERROR`.
+
+## AI interviewer
+
+Backend: `apps/backend/src/interviews/` (+ the extraction loop in `src/search-worker/`); shared
+contract: `packages/shared-types/interview.ts`; design: `docs/superpowers/specs/2026-11-09-ai-interviewer-design.md`.
+
+A one-time voice interview for active members. **ElevenLabs provides only the voice** (speech-to-text,
+turn-taking, text-to-speech); every question is written by this backend, which ElevenLabs calls as
+its *Custom LLM* on each turn. The interview produces profile drafts (submitted through the
+existing `POST /v1/members/:id/edits`), a member-approved summary that search can match and quote,
+and an admin-only assessment. The feature is off (start → 503) until the ElevenLabs and
+interviewer-model variables are set (`docs/deployment.md`).
+
+**Rules.**
+- **Once per member**, enforced by the database (`member_interviews` partial unique index on non-voided rows). An admin redo voids the old interview.
+- A connection that drops before the wrap-up leaves the interview `interrupted`; the member can reconnect to the **same** interview (new connection, no re-planning) within **24 hours**, while at least 3 minutes of the 30-minute budget remain. After that the worker finalises it.
+- **Time:** the plan targets ~21 minutes. Between 20 and 23 minutes the interviewer may offer, once, to continue, only if the member is engaged and a high-value topic is open, and only if they agree. Wrap-up starts at 28 minutes; 30 minutes is the hard cap (also set as ElevenLabs' maximum duration).
+- Ending the interview, even before speaking, uses it up: an interview with no member speech is marked `failed` (`no_transcript`), and an admin redo reopens it.
+- Interview content never verifies anything. Draft engagements are unverified, and `clientName` is left empty (the edit form requires the member to fill it) when the member asked for confidentiality.
+
+### 🔑 Member — `@Roles('member')` + active member profile
+
+| Method | Path | Request → response |
+|---|---|---|
+| GET | `/v1/interviews/me` | → `MyInterviewResponse` `{ eligibility, interview, consentVersion, maxSeconds }`; `eligibility` ∈ `available`, `in_progress`, `can_reconnect`, `processing`, `completed`, `failed`. `interview.drafts`/`summary`/`summaryStatus` are null until `completed`. Never returns the plan, live state, assessment or audio |
+| POST | `/v1/interviews/me/start` | `{ consentVersion }` → `StartInterviewResponse` `{ interviewId, connectionId, conversationToken, sessionToken, maxSeconds }`. First call creates the interview and runs the planner (≈5–15 s); a call while `can_reconnect` opens a new connection on the same interview. Rate limit: the shared `ai` bucket |
+| POST | `/v1/interviews/me/end` | → 204. The member ends the interview (no reconnect) |
+| PATCH | `/v1/interviews/me/summary` | `{ summary (20–1500 chars), approve }` → `MyInterviewDto`. Edits the search summary; `approve: true` lets search use and quote it. Contact details are redacted on save |
+
+The frontend passes `sessionToken` to the ElevenLabs SDK twice: as `customLlmExtraBody.sessionToken`
+(it reaches the custom-LLM endpoint) and as the `session_token` dynamic variable (echoed in the
+post-call webhook). `conversationToken` is the WebRTC token minted server-side; the ElevenLabs API
+key never reaches the browser.
+
+Errors: 400 `CONSENT_VERSION_MISMATCH`; 403 `INTERVIEW_NOT_ELIGIBLE` (not an active member); 404
+`INTERVIEW_NOT_ACTIVE` (end with nothing running); 409 `INTERVIEW_IN_PROGRESS` (a connection is
+live), `INTERVIEW_ALREADY_TAKEN`, `INTERVIEW_TIME_EXHAUSTED`, `INTERVIEW_NOT_COMPLETED`,
+`INTERVIEW_SUMMARY_HIDDEN`; 502 `INTERVIEW_LLM_ERROR` (planner call failed); 503
+`INTERVIEW_PROVIDER_UNAVAILABLE`.
+
+### 🛡️ `manageMembers` — admin
+
+| Method | Path | Request → response |
+|---|---|---|
+| GET | `/v1/admin/interviews` | `?status=&page=&pageSize=` (pageSize ≤ 100, default 25) → `AdminInterviewListResponse` `{ items, total }` |
+| GET | `/v1/admin/interviews/:id` | → `AdminInterviewDetail`: plan, live state (facts board), drafts, summary, **assessment** (depth, consistency, coverage, strengths, vague claims, contradictions), and each connection's transcript plus a 15-minute signed audio URL |
+| POST | `/v1/admin/interviews/:id/redo` | → 204. Voids the interview so the member can take it again. Fresh `profiles.role` check (destructive action). 409 while a call is running |
+| PATCH | `/v1/admin/interviews/:id/summary` | `{ hidden }` → `AdminInterviewDetail`. Hides the summary from search; unhiding returns it to `pending` for the member to re-approve |
+
+Errors: 403 `ADMIN_REQUIRED`; 404 `INTERVIEW_NOT_FOUND`; 409 `INTERVIEW_IN_PROGRESS`,
+`INTERVIEW_NOT_COMPLETED`.
+
+### 🌐 Integrations (ElevenLabs only)
+
+**`POST /v1/interviews/llm/chat/completions`** — the custom LLM. `@Public()` behind
+`InterviewLlmGuard`: `Authorization: Bearer <ELEVENLABS_LLM_SECRET>` (constant-time compare) **and**
+`elevenlabs_extra_body.sessionToken`, which must hash to a live, unexpired connection of an
+`in_progress` interview. The request is the OpenAI chat-completions shape; only `messages`, `tools`
+and `elevenlabs_extra_body` are read, and ElevenLabs' own system message is ignored (the backend
+builds its own from the plan, facts board, time phase and analyst guidance). The response is
+always `200 text/event-stream` in OpenAI chunk format, ending with `data: [DONE]`. When the wrap-up
+finishes and ElevenLabs offered the `end_call` tool, the stream ends with an `end_call` tool call.
+A failed turn never returns an HTTP error: it speaks a short recovery line so the call continues.
+An unknown/expired token gets a closing line and `end_call`. After each member answer, a
+background analyst updates the facts board and plan; nothing waits on it. Outcomes (drafts,
+summary, assessment) are never derived from this endpoint's request bodies, only from the signed
+webhook transcript.
+
+**`POST /v1/interviews/webhooks/elevenlabs`** — post-call webhook. `@Public()`; the raw body must
+carry a valid `elevenlabs-signature: t=<unix>,v0=<hex HMAC-SHA256 of "t.body">` (30-minute
+tolerance). `post_call_transcription` is matched to its connection **by the session token**
+(dynamic variable `session_token`, hashed). It never trusts an interview or connection id from
+the payload, because those come from the browser. It stores the transcript and duration, adds the
+duration to the interview's elapsed time, then moves the interview to `processing` (wrap-up done,
+member ended it, or under 3 minutes left) or `interrupted` (+24 h reconnect window). Duplicate
+deliveries are ignored. `post_call_audio` is ignored (a 30-minute call is ~10–20 MB of base64,
+far over the API body limit); the extraction worker downloads the recording from ElevenLabs
+instead. Responses: 200 on a valid signature, 401 `INTERVIEW_WEBHOOK_SIGNATURE_INVALID`, 503
+`INTERVIEW_WEBHOOK_NOT_CONFIGURED`.
+
+### After the call (worker)
+
+The extraction loop (every 15 s, when the reasoning model is configured):
+- moves expired interruptions to `processing`;
+- claims `processing` interviews (optimistic claim, 5 attempts, 10-minute stale claim), waiting up to 2 h for any missing transcript;
+- copies each connection's recording from `GET https://api.elevenlabs.io/v1/convai/conversations/{id}/audio` into the private `interview-audio` bucket (MP3 verified by magic bytes; best effort);
+- runs the extractor, which produces drafts, a redacted summary (`summary_status = 'pending'`) and the assessment (coverage computed from the facts board);
+- marks the interview `completed` and enqueues the `interview_drafts_ready` email to the member's work email.
+
+The approved summary is added to the member's search card as a final `Interview highlights:` line.

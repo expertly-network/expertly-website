@@ -1,11 +1,11 @@
 # GrowXQ Postman collection
 
-`GrowXQ.postman_collection.json` covers every route in `apps/backend` (104 requests). Structure
+`GrowXQ.postman_collection.json` covers every route in `apps/backend` (129 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
    Services, Membership Applications, Articles, Events, Member Directory & Profiles,
-   Consultations, AI Search) hold only non-admin requests. Every 🛡️ admin-only route lives in the single
+   Consultations, AI Search, AI Interviewer) hold only non-admin requests. Every 🛡️ admin-only route lives in the single
    top-level **Admin** folder instead, in a sub-folder named after the same resource (e.g. public
    `Articles` vs. `Admin → Articles`) — never mixed into the public/member folder it'd otherwise
    belong to. This keeps a resource folder from being cluttered with routes only an admin can call.
@@ -52,7 +52,7 @@ generates one otherwise). Keep that header on any request you add.
 2. Most list endpoints (`GET /categories`, `GET /admin/applications`, `GET /admin/events`, ...)
    return real ids in their response. Copy those into the matching environment variable
    (`categoryId`, `serviceId`, `applicationId`, `articleId`, `aiGenerationId`, `eventId`, `memberId`, `memberSlug`,
-   `consultationId`, `memberEditId`, `recommendationId`) to drive the detail/update/delete requests instead of the
+   `consultationId`, `memberEditId`, `recommendationId`, `interviewId`) to drive the detail/update/delete requests instead of the
    placeholder UUIDs they ship with.
 3. Every request body is a realistic, editable mock matching the DTO in
    `packages/shared-types/` — edit in place and hit Send.
@@ -86,3 +86,16 @@ and a realistic mock body — not an empty one), then **Export** the collection
 (`...` menu → Export → Collection v2.1) back over this file, or hand-edit the JSON directly for a
 small change. Keep `GrowXQ.postman_environment.json` in sync too if you add a new resource-id
 variable.
+
+## AI Interviewer → Integrations (ElevenLabs)
+
+These two requests impersonate ElevenLabs, not the app, so they skip the collection's bearer
+token:
+
+- **Custom-LLM turn**: set `elevenlabsLlmSecret` to the API's `ELEVENLABS_LLM_SECRET`, run
+  `POST /interviews/me/start` as a member, and copy its `sessionToken` into
+  `interviewSessionToken`. The response streams Server-Sent Events. Postman shows the raw `data:`
+  lines.
+- **Post-call webhook**: the body must be signed. Compute
+  `t=<unix seconds>,v0=<hex HMAC-SHA256 of "<t>.<exact body>">` with the webhook secret and put it
+  in `elevenlabsSignature`. Any edit to the body after signing makes it 401.

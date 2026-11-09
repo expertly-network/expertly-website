@@ -1079,3 +1079,71 @@ disabled). Reruns don't overwrite an admin's choice. The aliases must exist as p
 in Resend. Template images are served by the frontend from `apps/frontend/public/brand/email/`
 and referenced as `{{{SITE_URL}}}/brand/email/…`.
 
+
+## AI interviewer (`supabase/migrations/0007_ai_interviews.sql`)
+
+The first post-go-live migration. Both tables have RLS enabled with no policies and no browser
+grants; only the backend's service role reads or writes them. Contract and behaviour:
+`docs/rest-api.md` "AI interviewer".
+
+**Layout rule (hybrid):** a real column for anything the database must enforce, filter, index or
+join on (identity, the status machine, the once-only rule, timestamps, worker claims, the search
+summary). JSONB for AI-shaped documents that will evolve (`plan`, `state`, `drafts`,
+`assessment`). Each document carries its own version and is validated in code
+(`apps/backend/src/interviews/brain/types.ts`, `packages/shared-types/interview.ts`) before it's
+written, so new AI fields need no migration.
+
+Enum `interview_status`: `ready` (created/planned, never connected) → `in_progress` →
+`interrupted` (dropped before wrap-up; reconnect allowed until `reconnect_until`) → `processing` →
+`completed` | `failed`; plus `voided` (admin granted a redo; kept for history).
+
+### `member_interviews`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `member_id` | uuid FK → `member_profiles(profile_id)` on delete cascade | |
+| `status` | `interview_status`, default `ready` | |
+| `consent_version`, `consent_at` | text / timestamptz, not null | consent copy accepted at start |
+| `elapsed_seconds` | int ≥ 0, default 0 | summed call durations across connections; drives the 30-minute cap |
+| `reconnect_until` | timestamptz | set when `interrupted` (+24 h) |
+| `ended_at` | timestamptz | |
+| `plan` | jsonb | `InterviewPlan`: objectives (kind, priority, seed questions, facts, budget), known facts, ≤ 2 confirm facts, opening |
+| `state` | jsonb object, default `{}` | live state: facts board, current/done objectives, modes (anonymise clients, short on time), engagement, analyst guidance, extension offer/answer, wrap-up turns |
+| `state_version` | int | optimistic-concurrency counter for `state` writes (analyst vs. turn engine) |
+| `drafts` | jsonb | headline/bio, new engagements, key clients, in the member-edit section shapes |
+| `assessment` | jsonb | **admin-only**: depth, consistency, coverage, strengths, vague claims, contradictions |
+| `summary` | text ≤ 1500 | redacted interview summary for search |
+| `summary_status` | text: `pending` / `approved` / `hidden` | member approves; admin hides |
+| `extract_attempts`, `extract_claimed_at`, `failure_reason` | | worker claim bookkeeping |
+| `created_at`, `updated_at` | timestamptz | `set_updated_at` trigger |
+
+Indexes: **`member_interviews_one_per_member` — unique `(member_id) where status <> 'voided'`.
+This is the once-only rule.** Also `(status, updated_at desc)` for the worker and the admin list.
+
+### `member_interview_connections`
+
+One row per ElevenLabs conversation; a reconnect adds a row on the same interview.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `interview_id` | uuid FK on delete cascade | |
+| `session_token_hash` | text unique | sha-256 of the token issued for this connection; the custom-LLM endpoint and the webhook find the connection by it |
+| `session_token_expires_at` | timestamptz | connection start + remaining budget + 5 min |
+| `elevenlabs_conversation_id` | text unique | set by the transcription webhook (dedupe key) |
+| `started_at`, `ended_at`, `duration_seconds` | | |
+| `transcript` | jsonb array | `{ role: 'agent'|'user', message, timeInCallSecs }[]` from the signed webhook |
+| `audio_path` | text | object path in `interview-audio` (`{interviewId}/{connectionId}.mp3`) |
+| `transcript_received_at`, `audio_received_at` | timestamptz | |
+
+### Storage and triggers
+
+- Bucket **`interview-audio`**: private, `audio/mpeg` only, 40 MB limit, no `storage.objects`
+  policies. Written by the worker; admins get 15-minute signed URLs.
+- **`interview_search_trg()`** (security definer, not executable by browser roles) re-enqueues the
+  member's search card when `summary`, `summary_status` or `status` changes. It's separate from
+  `search_trg()` so the shared function stays untouched. The card builder appends
+  `Interview highlights: <summary>` only for a `completed` interview with an `approved` summary.
+- Seed: `email_automations` row `interview_drafts_ready` → Resend alias `interview-drafts-ready`,
+  disabled until the template is published.

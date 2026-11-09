@@ -1,6 +1,9 @@
 # AI Interviewer — Design Spec (backend + member screen)
 
-**Status:** Draft v2 — revised after user review comments (2026-11-09).
+**Status:** Approved; implementation in progress on `feature/ai-interviewer`. Two changes made
+during implementation are folded in below: recordings are downloaded by the worker rather than
+received by webhook (§6.4, §7.3, §8), and stored plans are validated with a looser schema than
+the planner's own output (§4.1).
 
 **Scope:** Backend (schema, REST contract, shared types, NestJS module, worker job, Postman)
 **and** the member-facing interview screen (§14), built on one feature branch. This deliberately
@@ -72,8 +75,8 @@ The output feeds three places:
                                                                                 goals, time plan
 
                                   call ends
-                                  POST /v1/interviews/webhooks/elevenlabs ──▶  store transcript + audio
-                                       (signed; transcript, audio)              mark interview for processing
+                                  POST /v1/interviews/webhooks/elevenlabs ──▶  store transcript
+                                       (signed; transcription only)             mark interview for processing
 
                                                                      worker: extraction loop
                                                                        → drafts, summary, assessment
@@ -116,7 +119,9 @@ unit-tested and evaluated with simulated members (§11) without ElevenLabs.
   questions, and they are also repeated in every turn prompt;
 - the target schema (§5) and the category hints for the member's categories.
 
-Output (strict JSON schema), stored on the interview as `plan`:
+Output (strict JSON schema: 3–10 objectives), stored on the interview as `plan`. Once stored,
+a plan is read back with a looser schema (`storedPlanSchema`, up to 30 objectives), because the
+analyst may add or drop objectives mid-call:
 
 ```ts
 interface InterviewPlan {
@@ -317,8 +322,11 @@ interview. A member can only present a session token we issued to them.
 
 Private, `allowed_mime_types = {audio/mpeg}`, `file_size_limit` ~40 MB, no `storage.objects`
 policies (service role only), same posture as the other private buckets in `0004_tables.sql`.
-Audio is written from the base64 MP3 in the ElevenLabs audio webhook. Admins get short-lived
-signed URLs; members do not get audio access in v1.
+Audio is downloaded by the extraction worker from ElevenLabs
+(`GET /v1/convai/conversations/{conversation_id}/audio`, `xi-api-key`) and checked by magic
+bytes before upload. The post-call audio webhook is not used: a 30-minute call is ~10–20 MB of
+base64, far over the API's 1 MB request limit. Admins get short-lived signed URLs; members do
+not get audio access in v1.
 
 ### 6.5 Search
 
@@ -421,8 +429,7 @@ raw-body pattern as `email/email-webhooks.controller.ts`.
   matching connection (dedupe by `elevenlabs_conversation_id`); add duration to
   `elapsed_seconds`. If `state.wrapUpDone` or the member ended it → `processing`; else
   `interrupted` with `reconnect_until = now + 24h` (unless remaining time < 3 min → `processing`).
-- `post_call_audio` → decode base64 MP3, magic-byte check with `file-type`, upload to
-  `interview-audio`, set `audio_path`.
+- `post_call_audio` → acknowledged and ignored (see §6.4: the worker downloads recordings).
 - `call_initiation_failure` → log; connection marked ended; interview returns to its previous
   state.
 
@@ -446,7 +453,8 @@ signed-request instructions in their descriptions.
 `InterviewExtractLoop` (added to `SearchWorkerModule`, same `IntervalLoop` pattern as the email
 and outbox loops) claims `processing` interviews whose connections all have
 `transcript_received_at` (or are > 2 h old without one), with claim/attempt bookkeeping (5
-attempts, then `failed`).
+attempts, then `failed`). Before extracting, it copies each connection's recording from
+ElevenLabs into `interview-audio` (best effort; a missing recording never blocks extraction).
 
 `Extractor` input: merged transcript (connections in order) + facts board + current live profile.
 Output (strict JSON schema; transcript treated as untrusted source material):
@@ -525,7 +533,7 @@ ElevenLabs vars are absent, so environments without them still boot.
 
 **ElevenLabs agent settings (manual, documented in `docs/deployment.md`):** custom LLM URL =
 `https://<api>/v1/interviews/llm/chat/completions` with the bearer secret; max conversation
-duration 30 min; post-call transcription + audio webhooks to §7.3; private agent (token auth
+duration 30 min; post-call **transcription** webhook to §7.3 (audio webhook off); private agent (token auth
 only); Security → Overrides → enable *Custom LLM extra body*; conversation retention on ElevenLabs' side set to the minimum available (we keep our own
 copy); voice and language chosen in the dashboard spike.
 

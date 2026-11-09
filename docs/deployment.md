@@ -466,3 +466,45 @@ unit tests mock it.
 Provider references: [send API](https://resend.com/docs/api-reference/emails/send-email),
 [webhook verification](https://resend.com/docs/webhooks/verify-webhooks-requests),
 [idempotency behavior](https://resend.com/docs/dashboard/emails/idempotency-keys).
+
+## AI interviewer activation
+
+ElevenLabs provides the voice; the backend is the interviewer (ElevenLabs calls it as a Custom
+LLM on every turn). Contract: `docs/rest-api.md` "AI interviewer". The feature stays off (start →
+503 `INTERVIEW_PROVIDER_UNAVAILABLE`) until every variable below is set.
+
+| Environment variable | Where | Behavior |
+|---|---|---|
+| `ELEVENLABS_API_KEY` | API + worker | Mints conversation tokens (API) and downloads recordings (worker). Backend secret only |
+| `ELEVENLABS_AGENT_ID` | API | The private interviewer agent |
+| `ELEVENLABS_WEBHOOK_SECRET` | API | Post-call webhook signing secret |
+| `ELEVENLABS_LLM_SECRET` | API | A random secret you generate and enter as the agent's Custom LLM API key; ElevenLabs sends it as a bearer token on every turn |
+| `INTERVIEW_TURN_PROVIDER` / `_MODEL` / `_API_KEY` | API | Fast model for every spoken turn (e.g. `anthropic` / `claude-haiku-4-5-20251001`) |
+| `INTERVIEW_REASONING_PROVIDER` / `_MODEL` / `_API_KEY` | API + worker | Planner, background analyst and post-call extractor (e.g. `anthropic` / `claude-sonnet-5`) |
+| `INTERVIEW_CONSENT_VERSION` | API | Version of the consent copy shown before the call (default `2026-11-09`); bump when the copy changes |
+
+These are independent of `AI_*` (article AI) and `OPENAI_*` (search): own providers, models and
+keys, billed and rate-limited separately.
+
+Setup per environment:
+
+1. **Database:** apply `supabase/migrations/0007_ai_interviews.sql` (dev first, then production)
+   **before** deploying a backend image that contains the interviews module.
+2. **ElevenLabs agent** (ElevenLabs dashboard → Agents):
+   - private agent (authentication required); voice and language (English) chosen after test calls;
+   - first message: `Hi {{first_name}}, I'm the GrowXQ interviewer. This takes about 20 minutes. Shall we begin?`;
+   - LLM → **Custom LLM**: URL `https://<api-domain>/v1/interviews/llm/chat/completions`, API key = `ELEVENLABS_LLM_SECRET`;
+   - system tool `end_call` enabled; maximum conversation duration **30 minutes**;
+   - Security → Overrides → enable **Custom LLM extra body** (the session token travels in it);
+   - post-call webhook: **transcription only** → `https://<api-domain>/v1/interviews/webhooks/elevenlabs`; copy its secret into `ELEVENLABS_WEBHOOK_SECRET`. Don't enable the audio webhook (the worker downloads recordings instead);
+   - conversation retention: the shortest available. Our own copies live in Supabase.
+3. **Environment:** set the variables above on the API and the worker; restart both.
+4. **Email:** publish the Resend template with alias `interview-drafts-ready` (variables `NAME`,
+   `SITE_URL`), then enable the automation (`PATCH /v1/admin/email/automations/interview_drafts_ready`).
+5. **Verify:** as a test member, take a short interview from `/dashboard/interview`. The interview
+   should go `in_progress` → `processing` → `completed` within a few minutes, and
+   `GET /v1/admin/interviews/:id` should show the transcript, audio URL and assessment.
+
+The API must keep request bodies unmodified through the proxy: the webhook signature is checked
+over the raw bytes. The custom-LLM endpoint streams Server-Sent Events, so the proxy must not
+buffer responses for that path (Traefik's default is fine).

@@ -78,6 +78,7 @@ migrations from `0007` — from 2026-11-09 every change is a new file; see `supa
 | Email notifications | Backend implemented locally; activation pending | Automations → Resend templates, queue, webhooks/suppression; content edited in Resend; see US-19 |
 | In-app notifications | 🔭 Beyond-roadmap — no schema | none |
 | Vector embeddings / AI search | ✅ Built | `search_documents`, `search_outbox`, `search_query_log` (see `docs/database-erd.md` "AI search") |
+| AI expert interview (voice) | 🚧 Built on branch `feature/ai-interviewer`, not merged | `member_interviews`, `member_interview_connections`, `interview-audio` bucket (`0007_ai_interviews.sql`; see `docs/database-erd.md` "AI interviewer") |
 
 The `events`/`consultation_requests`/`peer_connect_*` tables were created in the initial schema
 migration ahead of their API work — don't assume "table exists" means "feature is built." Verify
@@ -232,6 +233,7 @@ What to read for a given task. "Docs" lists what to open; "User stories" points 
 | Design tokens / components | `docs/design-system.md` | — |
 | AI search (API + background worker) | `docs/rest-api.md` "AI search", `docs/database-erd.md` "AI search", `docs/deployment.md` (worker app) | US-18 |
 | Email engine | `docs/rest-api.md` "Email engine", `docs/database-erd.md` "Email engine", `docs/deployment.md` "Email engine activation" | US-19 |
+| AI expert interview | `docs/superpowers/specs/2026-11-09-ai-interviewer-design.md`, `docs/rest-api.md` "AI interviewer", `docs/database-erd.md` "AI interviewer", `docs/deployment.md` "AI interviewer activation" | US-20 |
 | Deployment / CI | `docs/deployment.md` | — |
 | Anything not yet scoped | Section 8, then `docs/roadmap.md`'s methodology | US-16, US-17 |
 
