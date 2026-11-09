@@ -23,6 +23,7 @@ import { PageHero } from '@/components/layout/PageHero';
 import { Badge, Button, Card, Eyebrow } from '@/components/ui';
 import { cache, Suspense, type ReactNode } from 'react';
 import { MemberSection } from '@/components/dashboard/MemberSection';
+import { InterviewEntryCard } from '@/components/interview/InterviewEntryCard';
 import { DashboardArticles } from '@/components/dashboard/DashboardArticles';
 import { DashboardHeroSearch } from '@/components/dashboard/DashboardHeroSearch';
 import { HeroConstellation } from '@/components/layout/HeroConstellation';
@@ -775,6 +776,13 @@ export default async function DashboardPage() {
             to act on, then everything else. */}
         <div className="grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-12">
           <div className="contents xl:block xl:min-w-0 xl:space-y-14">
+            {/* Renders nothing once the interview is done (or for non-members); an action, so on
+                phones it sits right after the member's numbers. */}
+            <Suspense fallback={null}>
+              <div className="min-w-0 max-xl:order-3 empty:hidden">
+                <InterviewEntryCard />
+              </div>
+            </Suspense>
             <div className="min-w-0 max-xl:order-2">
               <Suspense fallback={<PanelSkeleton className="h-60" />}>
                 <RoiPanel />
