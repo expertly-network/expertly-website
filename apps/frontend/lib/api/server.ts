@@ -13,6 +13,7 @@ import type {
   MyMemberProfileDto,
 } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
+import type { MyInterviewResponse } from '@shared/interview';
 import type {
   AdminAiGenerationDetailDto,
   AdminAiGenerationListItemDto,
@@ -178,6 +179,15 @@ export const getMemberServer = cache(
 );
 
 // The signed-in member's own profile handle, or null when there's no session / no member profile.
+// The member's AI interview status. Null when signed out or not an active member (403).
+export function getMyInterviewServer(): Promise<MyInterviewResponse | null> {
+  return authedGet<MyInterviewResponse, null>('/interviews/me', {
+    signedOut: null,
+    emptyOn: [403],
+    errorMessage: 'Failed to load your interview.',
+  });
+}
+
 export function getMyMemberProfileServer(): Promise<MyMemberProfileDto | null> {
   return authedGet<MyMemberProfileDto, null>('/members/me/profile', {
     signedOut: null,
