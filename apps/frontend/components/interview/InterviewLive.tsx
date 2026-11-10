@@ -20,7 +20,7 @@ interface LiveProps {
   session: StartInterviewResponse;
   firstName: string;
   /** The voice session ended (by the member, the interviewer, or a dropped connection). */
-  onEnded: () => void;
+  onEnded: (error?: string) => void;
 }
 
 // useConversation must sit inside a ConversationProvider (SDK requirement).
@@ -41,6 +41,7 @@ function LiveCall({ session, firstName, onEnded }: LiveProps) {
   const [ending, setEnding] = useState(false);
   const started = useRef(false);
   const nextId = useRef(0);
+  const connectionError = useRef<string | null>(null);
 
   const conversation = useConversation({
     micMuted: muted,
@@ -65,25 +66,34 @@ function LiveCall({ session, firstName, onEnded }: LiveProps) {
         return [...prev, { id: `${role[0]}${nextId.current++}`, role, text: message, final: true }];
       });
     },
-    onError: () => setFailed('The connection had a problem.'),
-    onDisconnect: () => onEnded(),
+    onError: (message) => {
+      connectionError.current = message;
+      setFailed('The connection had a problem.');
+    },
+    onDisconnect: (details) =>
+      onEnded(details.reason === 'error' ? details.message : (connectionError.current ?? undefined)),
   });
 
-  // Start exactly once (React strict mode double-invokes effects in development).
+  // React replays effects in development. Defer the SDK start until after that replay;
+  // its provider closes pending calls during the temporary cleanup.
+  const { startSession } = conversation;
   useEffect(() => {
     if (started.current) return;
-    started.current = true;
-    try {
-      conversation.startSession({
-        conversationToken: session.conversationToken,
-        connectionType: 'webrtc',
-        dynamicVariables: { session_token: session.sessionToken, first_name: firstName },
-        customLlmExtraBody: { sessionToken: session.sessionToken },
-      });
-    } catch {
-      setFailed('We couldn’t connect to the interviewer.');
-    }
-  }, [conversation, session, firstName]);
+    const timer = window.setTimeout(() => {
+      started.current = true;
+      try {
+        startSession({
+          conversationToken: session.conversationToken,
+          connectionType: 'webrtc',
+          dynamicVariables: { session_token: session.sessionToken, first_name: firstName },
+          customLlmExtraBody: { sessionToken: session.sessionToken },
+        });
+      } catch {
+        setFailed('We couldn’t connect to the interviewer.');
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [startSession, session, firstName]);
 
   // Timer, plus a client-side hard stop just after the server's budget.
   const connected = conversation.status === 'connected';

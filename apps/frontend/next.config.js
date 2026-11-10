@@ -8,7 +8,7 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  // The image cropper and file pickers need none of these device APIs.
+  // Device APIs stay off outside the member interview.
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
 ];
 
@@ -55,7 +55,15 @@ module.exports = (phase) => {
     poweredByHeader: false,
     images: { remotePatterns: remotePatterns() },
     async headers() {
-      return [{ source: '/:path*', headers: securityHeaders }];
+      return [
+        { source: '/:path*', headers: securityHeaders },
+        {
+          source: '/dashboard/interview',
+          headers: [
+            { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(), payment=(), usb=()' },
+          ],
+        },
+      ];
     },
   };
 };

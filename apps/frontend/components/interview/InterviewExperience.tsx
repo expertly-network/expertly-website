@@ -53,8 +53,11 @@ export function InterviewExperience({
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         stream.getTracks().forEach((t) => t.stop()); // permission only; the SDK opens its own stream
-      } catch {
-        throw new MicBlockedError();
+      } catch (error: unknown) {
+        throw new MicBlockedError(
+          error instanceof Error ? error.name : typeof error,
+          error instanceof Error ? error.message : undefined
+        );
       }
       setSession(await startInterview({ consentVersion: status.consentVersion }));
     } catch (e: unknown) {
@@ -69,8 +72,14 @@ export function InterviewExperience({
       <InterviewLive
         session={session}
         firstName={firstName}
-        onEnded={() => {
+        onEnded={(reason) => {
           setSession(null);
+          if (reason)
+            setError(
+              process.env.NODE_ENV === 'production'
+                ? 'The voice connection ended unexpectedly.'
+                : `Voice connection: ${reason.slice(0, 200)}`
+            );
           // The webhook decides interrupted vs processing; give it a moment, then re-read.
           setChecking(true);
           setTimeout(() => void refresh().finally(() => setChecking(false)), 4000);
@@ -99,6 +108,7 @@ export function InterviewExperience({
         <StatusCard
           title="Your interview is open elsewhere"
           body="It looks like your interview is running in another window or device. Close it there, or wait a minute and refresh."
+          error={error}
           action={
             <Button variant="secondary" onClick={() => void refresh()}>
               Refresh
@@ -129,11 +139,26 @@ export function InterviewExperience({
   }
 }
 
-function StatusCard({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+function StatusCard({
+  title,
+  body,
+  action,
+  error,
+}: {
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+  error?: string | null;
+}) {
   return (
     <Card padding="md" className="mx-auto w-full max-w-[720px]">
       <h1 className="text-title text-ink">{title}</h1>
       <p className="mt-2 text-ink-3">{body}</p>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-error">
+          {error}
+        </p>
+      )}
       {action && <div className="mt-5">{action}</div>}
     </Card>
   );

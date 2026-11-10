@@ -4,6 +4,7 @@ import { InterviewLlmService, type ChatMessage } from '../interview-llm.service'
 import { InterviewsRepository } from '../interviews.repository';
 import {
   analystUpdateSchema,
+  analystModelUpdateSchema,
   parseState,
   storedPlanSchema,
   type AnalystUpdate,
@@ -92,6 +93,7 @@ update the interview's facts board and steer what comes next. You do not talk to
   for clipped answers or impatience.
 - extensionAnswer: only if the interviewer's last turn offered more time — "yes" or "no"; otherwise null.
 - confirmationAsked: true if the last exchange checked one of the plan's confirmFacts.
+- For each plan change, use null for fields that do not apply to its op. Always provide both modes.
 - guidance: one short sentence for the interviewer's next turn (e.g. "Ask for a number on the outcome").`;
 
 /**
@@ -111,17 +113,25 @@ export async function runAnalysis(
     facts: state.facts,
     extension: state.extension,
   };
-  const update = await llm.object('reasoning', {
+  const modelUpdate = await llm.object('reasoning', {
     system: SYSTEM,
     prompt: [
       `<plan>\n${JSON.stringify(plan)}\n</plan>`,
       `<state>\n${JSON.stringify(snapshot)}\n</state>`,
       `<recent_conversation>\n${transcript}\n</recent_conversation>`,
     ].join('\n\n'),
-    schema: analystUpdateSchema,
+    schema: analystModelUpdateSchema,
     maxOutputTokens: MAX_TOKENS_ANALYST,
     timeoutMs: 20_000,
   });
+  const planChanges: AnalystUpdate['planChanges'] = [];
+  for (const change of modelUpdate.planChanges) {
+    if (change.op === 'add' && change.objective) planChanges.push({ op: 'add', objective: change.objective });
+    if (change.op === 'reprioritise' && change.objectiveId && change.priority !== null)
+      planChanges.push({ op: 'reprioritise', objectiveId: change.objectiveId, priority: change.priority });
+    if (change.op === 'drop' && change.objectiveId) planChanges.push({ op: 'drop', objectiveId: change.objectiveId });
+  }
+  const update = analystUpdateSchema.parse({ ...modelUpdate, planChanges });
   return { update, applied: applyAnalystUpdate(plan, state, update) };
 }
 

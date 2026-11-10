@@ -1,8 +1,11 @@
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 
-// Thrown locally (not by the API) when the browser denies microphone access.
+// Thrown locally (not by the API) when the browser cannot open a microphone.
 export class MicBlockedError extends Error {
-  constructor() {
+  constructor(
+    readonly reason?: string,
+    readonly detail?: string
+  ) {
     super('MIC_BLOCKED');
   }
 }
@@ -20,7 +23,14 @@ const BY_CODE: Readonly<Record<string, string>> = {
 };
 
 export function interviewErrorMessage(error: unknown): string {
-  if (error instanceof MicBlockedError)
+  if (error instanceof MicBlockedError) {
+    if (error.reason === 'NotFoundError' || error.reason === 'DevicesNotFoundError')
+      return 'No microphone was found. Connect or select an input device, then try again.';
+    if (error.reason === 'NotReadableError' || error.reason === 'TrackStartError')
+      return 'Chrome could not open the microphone. Close other apps using it, then try again.';
+    if (process.env.NODE_ENV !== 'production' && error.reason)
+      return `Microphone check failed (${error.reason}${error.detail ? `: ${error.detail}` : ''}).`;
     return 'We need your microphone for the interview. Allow microphone access in your browser settings, then try again.';
+  }
   return apiErrorMessage(error, 'Something went wrong. Please try again.', BY_CODE);
 }

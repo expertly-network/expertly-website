@@ -63,6 +63,22 @@ export const analystUpdateSchema = z.object({
 });
 export type AnalystUpdate = z.infer<typeof analystUpdateSchema>;
 
+// OpenAI Structured Outputs rejects the discriminated union above (`oneOf`). Use one
+// nullable shape at the model boundary, then validate the operation-specific fields.
+export const analystModelUpdateSchema = analystUpdateSchema.omit({ planChanges: true, modes: true }).extend({
+  planChanges: z
+    .array(
+      z.object({
+        op: z.enum(['add', 'reprioritise', 'drop']),
+        objective: objectiveSchema.nullable(),
+        objectiveId: z.string().nullable(),
+        priority: objectiveSchema.shape.priority.nullable(),
+      })
+    )
+    .max(5),
+  modes: z.object({ anonymiseClients: z.boolean(), memberShortOnTime: z.boolean() }),
+});
+
 /** member_interviews.state — the live conversation state (spec §6.2). */
 export interface InterviewState {
   version: 1;

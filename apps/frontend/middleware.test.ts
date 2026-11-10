@@ -60,6 +60,8 @@ describe('middleware CSP', () => {
         'https://api.growxq.test',
         'https://project.supabase.test',
         'wss://project.supabase.test',
+        'https://api.elevenlabs.io',
+        'wss://livekit.rtc.elevenlabs.io',
       ])
     );
     expect(d.get('frame-src')).toEqual(['https://www.youtube-nocookie.com']);
