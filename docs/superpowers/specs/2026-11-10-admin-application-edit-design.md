@@ -72,8 +72,12 @@ and the admin endpoints.
 - **Full path everywhere a preference is shown:** "Tax › Transfer Pricing › Benchmarking" on the
   review page (services section + decision picker) and the admin applications table.
 - **Edit mode** on the review page: an "Edit details" toggle turns the profile sections into form
-  fields (`components/ui/*`). Changed fields show an "Edited" marker and a per-field reset. Only
-  changed fields are sent as `profileOverrides`. Reject ignores and clears edits.
+  fields, reusing the wizard's own field components (location, work history, education) rather
+  than copies. Out of edit mode, the read-only rows show the corrected values with the applicant's
+  original struck through (the review page's existing `previous` display), plus an "N fields
+  corrected" badge and one "Discard corrections" action. Only changed fields are sent as
+  `profileOverrides`; reject never sends them. Clearing a field to blank isn't supported (a
+  correction replaces a value, it doesn't delete one).
 - **Service picker:** searchable list over `GET /v1/service-lines`, each option labelled with its
   full path; the applicant's three preferences pinned on top with their priority.
 - Mobile-first, checked at 375 px and 1440 px.
