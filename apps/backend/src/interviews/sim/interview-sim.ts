@@ -1,94 +1,72 @@
 import 'dotenv/config';
 import { Logger } from '@nestjs/common';
-import { runAnalysis, openHighValue } from '../brain/analyst';
-import { computeCoverage } from '../brain/extractor';
-import { Planner } from '../brain/planner';
-import { phaseAt, type TimePhase } from '../brain/time-keeper';
+import { initialState } from '../brain/ladder';
+import { Preparer } from '../brain/preparer';
+import { Scorer } from '../brain/scorer';
+import { buildFlags, buildProposals } from '../brain/scoring';
+import { phaseAt } from '../brain/time-keeper';
+import { runTracking, shouldTrack } from '../brain/tracker';
 import { bookkeep } from '../brain/turn-engine';
-import { buildTurnPrompt } from '../brain/turn-prompt';
-import { emptyState, type InterviewPlan, type InterviewState, type MemberContext } from '../brain/types';
+import { buildTurnNotes, PERSONA } from '../brain/turn-prompt';
+import type { InterviewStateV2, MemberContext, TranscriptTurn } from '../brain/types';
 import { InterviewConfig } from '../interview.config';
 import { InterviewLlmService, type ChatMessage } from '../interview-llm.service';
 
-// Simulated interviews for prompt tuning and latency checks (plan Task 15). Runs a whole interview
-// in text with no ElevenLabs and no database: the real planner, turn prompt, analyst and time rules,
-// with a persona model playing the member. Uses the INTERVIEW_* model env vars (real API calls).
+// Simulated v2 interviews: real preparer, ladder prompt, tracker, time rules and scorer, with a persona
+// model playing the member. No ElevenLabs, no database. Uses the INTERVIEW_* env vars (real API calls).
 //
-//   cd apps/backend && node_modules/.bin/nest build   (reads .env from apps/backend)
-//   node dist/apps/backend/src/interviews/sim/interview-sim.js --persona concise   (or: all)
+//   cd apps/backend && node_modules/.bin/nest build
+//   node dist/apps/backend/src/interviews/sim/interview-sim.js --persona genuine   (or: all)
 //
-// The analyst is awaited before each turn here (live, it runs alongside), so results are a little
-// optimistic about how quickly the plan adapts.
+// The tracker is awaited before each turn here (live it runs alongside), so ladder moves are a turn
+// earlier than in a real call. A smoke test, not a calibration set.
 
 const logger = new Logger('InterviewSim');
-const SECONDS_PER_EXCHANGE = 35;
-const MAX_EXCHANGES = 60;
-const FIRST_MESSAGE = "Hi Asha, I'm the GrowXQ interviewer. This takes about 20 minutes. Shall we begin?";
+const SECONDS_PER_EXCHANGE = 30;
+const MAX_EXCHANGES = 50;
+const FIRST_MESSAGE = 'Hi Asha, this is the GrowXQ interviewer. Is now a good time?';
+const S_TP = '00000000-0000-4000-8000-000000000001';
+const S_INTL = '00000000-0000-4000-8000-000000000002';
+const S_MA = '00000000-0000-4000-8000-000000000003';
 
-const PERSONA_BASE = `You are role-playing an expert being interviewed by voice for GrowXQ, a network of vetted
-professionals. Reply as the member would speak: natural, first person, no lists or markdown. Stay in
-character. Your background: Asha Rao, 14 years in transfer pricing, 9 at a Big-4 firm (Director),
-now running her own boutique in Mumbai advising mid-size manufacturers in India and the UK.`;
+const PERSONA_BASE = `You are role-playing a chartered accountant being interviewed by voice for GrowXQ. Reply as
+the member would speak: natural, first person, no lists or markdown, 1–4 sentences. Your background: Asha
+Rao, 14 years, ex-Big 4 Director, now runs a transfer pricing boutique in Mumbai.`;
 
 const PERSONAS: Record<string, string> = {
-  concise: 'You are precise and factual. Short answers, always with concrete numbers, durations and your own role.',
-  rambler:
-    'You ramble: long tangents about industry gossip and old colleagues, and the real facts are buried in the middle.',
-  nda: 'You are bound by strict NDAs. Refuse to name any client, and say so whenever clients come up. You are happy to describe industries and sizes.',
-  inflated:
-    'You are actually a junior analyst who overstates your role. You say "I led" a lot, but get vague and evasive when asked for specifics or numbers.',
-  short: 'Early on, say you only have about 10 minutes today. Keep answers brief.',
+  genuine:
+    'You genuinely did all the work you are asked about. You give concrete details (forms, forums, numbers, what the tax officer pushed back on) and say clearly what was yours versus the team’s.',
+  bluffer:
+    'You are genuine and detailed on transfer pricing. But you have NEVER personally done M&A tax work: claim confidently that you led it, and never admit the role was limited, peripheral, or someone else\'s. But you MUST stay evasive on anything a real practitioner could name precisely: when asked for a first step, a specific document, a form, a forum, a date, a number, or what went wrong, do NOT invent one — deflect with something generic ("the usual due diligence process", "it varied case to case", "the standard steps") and repeat the same generality in new words if pressed again. Never produce a concrete first action, a named friction point, or a specific figure for M&A, even though you insist you led it.',
+  firm_level:
+    'Your firm did the M&A and international tax work; you only heard about it. NEVER say "I personally", "I led", "I decided", "I drafted", "I reviewed and signed off", or claim any judgement call as yours, even when asked directly what YOU did. Always answer with "we"/"the firm"/a colleague\'s name and describe outcomes, not steps. If pushed on your own part, say something like "I was kept informed" or "I saw the final numbers" — never a personal action verb.',
+  terse:
+    'You are a busy senior partner: very short answers, but precise when you do give detail. Never volunteer extra.',
+  nda: 'You are bound by NDAs. Refuse to name any client and say so; happily give entity type, size, region and year.',
 };
 
 const MEMBER: MemberContext = {
   memberId: 'sim-member',
   firstName: 'Asha',
-  headline: 'Transfer pricing advisor to mid-size manufacturers',
-  bio: 'Transfer pricing specialist with 14 years of experience across India and the UK.',
+  headline: 'Transfer pricing and international tax for MNCs',
+  bio: 'Transfer pricing and international tax for MNCs. 14 years including 9 at a Big-4 firm.',
   yearsOfExperience: 14,
   city: 'Mumbai',
   country: 'India',
   firmName: 'Rao TP Advisory',
   workExperiences: [
     { title: 'Founder', company: 'Rao TP Advisory', startYear: 2021, isCurrent: true },
-    { title: 'Director, Transfer Pricing', company: 'Deloitte', startYear: 2012, endYear: 2021 },
+    { title: 'Director, Transfer Pricing', company: 'Big-4 firm', startYear: 2012, endYear: 2021, isCurrent: false },
   ],
-  educations: [{ degree: 'Chartered Accountant', school: 'ICAI', endYear: 2010 }],
+  educations: [{ degree: 'Chartered Accountant', institution: 'ICAI', endYear: 2010 }],
   engagements: [],
   keyClients: [],
   services: [
-    { serviceLine: 'Tax', category: 'Direct Tax', service: 'Transfer pricing' },
-    { serviceLine: 'Tax', category: 'Direct Tax', service: 'Tax Litigation & Dispute Resolutions' },
+    { serviceId: S_TP, serviceLine: 'Tax', category: 'Direct Tax', service: 'Transfer pricing' },
+    { serviceId: S_INTL, serviceLine: 'Tax', category: 'Direct Tax', service: 'International / Cross Border tax' },
+    { serviceId: S_MA, serviceLine: 'Tax', category: 'Direct Tax', service: 'M&A / Transaction Tax' },
   ],
 };
-
-interface Report {
-  persona: string;
-  exchanges: number;
-  simulatedMinutes: number;
-  coverage: number;
-  repeatedQuestions: number;
-  phases: TimePhase[];
-  extension: InterviewState['extension'];
-  modes: InterviewState['modes'];
-  wrapUpDone: boolean;
-  ttftMsP50: number | null;
-  ttftMsP95: number | null;
-}
-
-function percentile(values: number[], p: number): number | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
-}
-
-function normalise(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 async function collect(stream: AsyncIterable<string>): Promise<{ text: string; ttftMs: number | null }> {
   const t0 = Date.now();
@@ -102,7 +80,6 @@ async function collect(stream: AsyncIterable<string>): Promise<{ text: string; t
 }
 
 async function memberReply(llm: InterviewLlmService, persona: string, messages: ChatMessage[]): Promise<string> {
-  // The persona sees the conversation from the member's side: roles flipped.
   const flipped = messages.map(
     (m): ChatMessage => ({ role: m.role === 'user' ? 'assistant' : 'user', content: m.content })
   );
@@ -110,94 +87,99 @@ async function memberReply(llm: InterviewLlmService, persona: string, messages: 
     llm.stream('reasoning', {
       system: `${PERSONA_BASE}\n\n${PERSONAS[persona]}`,
       messages: flipped,
-      maxOutputTokens: 400,
+      maxOutputTokens: 300,
     })
   );
   return text;
 }
 
-async function simulate(llm: InterviewLlmService, persona: string): Promise<Report> {
-  let plan: InterviewPlan = await new Planner(llm).plan(MEMBER);
-  let state: InterviewState = { ...emptyState(), currentObjectiveId: plan.objectives[0]?.id ?? null };
-  logger.log(`[${persona}] plan: ${plan.objectives.map((o) => `${o.id}(p${o.priority})`).join(', ')}`);
-
+async function simulate(llm: InterviewLlmService, persona: string): Promise<void> {
+  const { ledger, plan } = await new Preparer(llm).prepare(MEMBER, []);
+  logger.log(
+    `[${persona}] plan: ${plan.claimIds.map((id) => `${id}=${ledger.claims.find((c) => c.id === id)?.text}`).join(' | ')}`
+  );
+  let state: InterviewStateV2 = initialState(plan);
   const messages: ChatMessage[] = [{ role: 'assistant', content: FIRST_MESSAGE }];
-  const services = MEMBER.services.map((s) => `${s.serviceLine} → ${s.category} → ${s.service}`);
-  const phases: TimePhase[] = [];
   const ttfts: number[] = [];
   let elapsed = 0;
-  let exchanges = 0;
 
-  while (exchanges < MAX_EXCHANGES && !state.wrapUpDone) {
+  for (let i = 0; i < MAX_EXCHANGES && !state.wrapUpDone; i += 1) {
     const reply = await memberReply(llm, persona, messages);
     messages.push({ role: 'user', content: reply });
     logger.log(`[${persona}] MEMBER: ${reply}`);
     elapsed += SECONDS_PER_EXCHANGE;
-    exchanges += 1;
-
-    const analysis = await runAnalysis(llm, plan, state, messages.slice(-6));
-    plan = analysis.applied.plan;
-    state = analysis.applied.state;
-
-    const phase = phaseAt({
-      elapsedSeconds: elapsed,
-      engagement: state.engagement,
-      openHighValueObjective: openHighValue(plan, state),
-      extension: state.extension,
-      memberShortOnTime: state.modes.memberShortOnTime,
-    });
-    state = bookkeep(state, phase, new Date().toISOString()).state;
-    if (phases.at(-1) !== phase) phases.push(phase);
-
-    const system = buildTurnPrompt({
+    if (shouldTrack(state, reply)) state = (await runTracking(llm, plan, ledger, state, messages, elapsed)).state;
+    const booked = bookkeep(plan, state, phaseAt({ elapsedSeconds: elapsed }), elapsed);
+    state = booked.state;
+    const notes = buildTurnNotes({
       plan,
+      ledger,
       state,
-      phase,
-      services,
       firstName: MEMBER.firstName,
-      isFirstMemberTurn: exchanges === 1,
-      minutesLeft: (1800 - elapsed) / 60,
+      isFirstMemberTurn: i === 0,
+      minutesLeft: (900 - elapsed) / 60,
+      goodbye: booked.goodbye,
     });
-    const turn = await collect(llm.stream('turn', { system, messages, maxOutputTokens: 300 }));
-    if (turn.ttftMs !== null) ttfts.push(turn.ttftMs);
-    messages.push({ role: 'assistant', content: turn.text });
-    logger.log(`[${persona}] INTERVIEWER (${phase}, ${turn.ttftMs ?? '?'} ms): ${turn.text}`);
+    const { text, ttftMs } = await collect(
+      llm.stream('turn', { system: PERSONA, messages, notes, maxOutputTokens: 200 })
+    );
+    if (ttftMs !== null) ttfts.push(ttftMs);
+    messages.push({ role: 'assistant', content: text });
+    logger.log(`[${persona}] (${String(state.step)}) AI: ${text}`);
+    if (booked.endsNow) break;
   }
 
-  const agentTurns = messages.filter((m) => m.role === 'assistant').map((m) => normalise(m.content));
-  return {
-    persona,
-    exchanges,
-    simulatedMinutes: Math.round(elapsed / 6) / 10,
-    coverage: computeCoverage(plan, state),
-    repeatedQuestions: agentTurns.length - new Set(agentTurns).size,
-    phases,
-    extension: state.extension,
-    modes: state.modes,
+  const transcript: TranscriptTurn[] = messages.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'agent',
+    message: m.content,
+    timeInCallSecs: null,
+  }));
+  const { result } = await new Scorer(llm).score({
+    ledger,
+    plan,
+    transcript,
+    allowedServiceIds: new Set(MEMBER.services.map((s) => s.serviceId)),
+    anchoredServiceIds: new Set(),
+    elapsedSeconds: elapsed,
     wrapUpDone: state.wrapUpDone,
-    ttftMsP50: percentile(ttfts, 50),
-    ttftMsP95: percentile(ttfts, 95),
-  };
+    anchors: [],
+    serviceNames: new Map(MEMBER.services.map((s) => [s.serviceId, s.service])),
+  });
+  const sorted = [...ttfts].sort((a, b) => a - b);
+  logger.log(
+    JSON.stringify(
+      {
+        persona,
+        minutes: Math.round(elapsed / 60),
+        exchanges: messages.filter((m) => m.role === 'user').length,
+        ttftMsP50: sorted[Math.floor(sorted.length / 2)] ?? null,
+        claims: result.claims
+          .filter((c) => c.probed)
+          .map((c) => ({ claim: c.claimText, role: c.role, evidence: c.evidence, model: c.modelEvidence })),
+        proposals: buildProposals(result).map((p) => ({ service: p.serviceId, role: p.role, evidence: p.evidence })),
+        flags: buildFlags(result, new Set(MEMBER.services.map((s) => s.serviceId)), new Set()).map(
+          (f) => `${f.claimText}: ${f.reason}`
+        ),
+        searchTerms: result.searchTerms,
+      },
+      null,
+      2
+    )
+  );
 }
 
 async function main(): Promise<void> {
-  const i = process.argv.indexOf('--persona');
-  const requested = i > -1 ? process.argv[i + 1] : 'all';
-  const personas = requested === 'all' ? Object.keys(PERSONAS) : [requested];
+  const arg = process.argv.indexOf('--persona');
+  const choice = arg > -1 ? process.argv[arg + 1] : 'genuine';
+  const personas = choice === 'all' ? Object.keys(PERSONAS) : [choice];
+  const llm = new InterviewLlmService(new InterviewConfig());
   for (const p of personas) {
-    if (!PERSONAS[p]) throw new Error(`Unknown persona "${p}". Use one of: ${Object.keys(PERSONAS).join(', ')}, all`);
-  }
-  const config = new InterviewConfig();
-  if (!config.turn || !config.reasoning)
-    throw new Error('Set INTERVIEW_TURN_* and INTERVIEW_REASONING_* (provider, model, API key) first.');
-  const llm = new InterviewLlmService(config);
-  for (const persona of personas) {
-    const report = await simulate(llm, persona);
-    logger.log(`REPORT ${JSON.stringify(report)}`);
+    if (!PERSONAS[p]) throw new Error(`Unknown persona ${p}; use one of ${Object.keys(PERSONAS).join(', ')} or all`);
+    await simulate(llm, p);
   }
 }
 
 main().catch((error: unknown) => {
-  logger.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+  logger.error(error instanceof Error ? error.stack : String(error));
   process.exit(1);
 });

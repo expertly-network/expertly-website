@@ -35,7 +35,10 @@ Fields:
 - endClaimEarly: the answers are looping back to earlier points, or the member sounds uncomfortable.
 - facetsAnswered: which of clients, industries, jurisdictions, scale (count, size or most recent year)
   the member has now answered for this claim, at any step.
-- memberShortOnTime: the member said they must leave soon.
+- memberShortOnTime: the member says THEY NEED TO END THE CALL SOON ("I have to go in a minute",
+  "can we wrap up", "I only have five more minutes"). Confirming they have time to start, e.g.
+  "yes, I have a few minutes, go ahead" in answer to "is now a good time", is availability, not
+  this: false in that case.
 - memberAskedToStop: the member asked to stop the interview.
 - lowConfidenceTerm: a key technical term in the last answer that looks garbled by speech recognition
   (e.g. "three CB" for 3CEB); null if none.`;
