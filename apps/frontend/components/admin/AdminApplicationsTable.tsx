@@ -6,6 +6,7 @@ import { ApplicationStatusBadge, STATUS_LABEL } from '@/components/shared/Applic
 import type { AdminApplicationListItemDto, ApplicationStatus } from '@shared/membership-application';
 import { ExternalLink } from '@/components/shared/ExternalLink';
 import { formatDate } from '@/lib/dates';
+import { serviceLabel, servicePath } from '@/lib/applications/service-path';
 
 type SortKey = 'name' | 'location' | 'service' | 'category' | 'experience' | 'created' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -27,8 +28,10 @@ function sortValue(application: AdminApplicationListItemDto, key: SortKey): stri
       return `${application.country} ${application.state ?? ''}`.toLowerCase();
     case 'service':
       return sortedPreferences(application)[0]?.serviceName.toLowerCase() ?? '';
-    case 'category':
-      return sortedPreferences(application)[0]?.categoryName.toLowerCase() ?? '';
+    case 'category': {
+      const first = sortedPreferences(application)[0];
+      return first ? servicePath(first).toLowerCase() : '';
+    }
     case 'experience':
       // Missing experience sorts to the bottom regardless of direction.
       return application.yearsOfExperience ?? -1;
@@ -168,7 +171,7 @@ export function AdminApplicationsTable({
                   onSort={toggleSort}
                 />
                 <SortableHeader
-                  label="Category"
+                  label="Service line › Category"
                   sortKeyName="category"
                   activeKey={sortKey}
                   dir={sortDir}
@@ -227,7 +230,7 @@ export function AdminApplicationsTable({
                       <div className="flex flex-col gap-0.5">
                         {sortedPreferences(application).map((p) => (
                           <span key={p.serviceId}>
-                            {p.customLabel ? `${p.serviceName} (${p.customLabel})` : p.serviceName}
+                            {serviceLabel(p)}
                           </span>
                         ))}
                       </div>
@@ -239,7 +242,7 @@ export function AdminApplicationsTable({
                     ) : (
                       <div className="flex flex-col gap-0.5">
                         {sortedPreferences(application).map((p) => (
-                          <span key={p.serviceId}>{p.categoryName}</span>
+                          <span key={p.serviceId}>{servicePath(p)}</span>
                         ))}
                       </div>
                     )}

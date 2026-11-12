@@ -13,6 +13,7 @@ import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ApplicationDto } from '@shared/membership-application';
 import { externalHref, externalLink } from '@/lib/members/format';
 import { formatCents, formatDateRange } from '@/lib/apply/format';
+import { serviceLabel, servicePath } from '@/lib/applications/service-path';
 
 const PRIORITY_LABEL: Record<1 | 2 | 3, string> = { 1: '1st preference', 2: '2nd preference', 3: '3rd preference' };
 
@@ -74,8 +75,8 @@ function serviceEntries(a: ApplicationDto): ListEntry[] {
   return [...a.servicePreferences]
     .sort((x, y) => x.priority - y.priority)
     .map((p) => ({
-      title: p.customLabel ? `${p.serviceName} (${p.customLabel})` : p.serviceName,
-      detail: PRIORITY_LABEL[p.priority],
+      title: serviceLabel(p),
+      detail: `${servicePath(p)} · ${PRIORITY_LABEL[p.priority]}`,
     }));
 }
 
