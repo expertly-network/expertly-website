@@ -46,7 +46,7 @@ export function InterviewExperience({
     return () => clearInterval(id);
   }, [session, status.eligibility, refresh]);
 
-  async function onStart() {
+  async function onStart(audioOptIn: boolean) {
     setError(null);
     setStarting(true);
     try {
@@ -59,7 +59,7 @@ export function InterviewExperience({
           error instanceof Error ? error.message : undefined
         );
       }
-      setSession(await startInterview({ consentVersion: status.consentVersion }));
+      setSession(await startInterview({ consentVersion: status.consentVersion, audioOptIn }));
     } catch (e: unknown) {
       setError(interviewErrorMessage(e));
     } finally {
