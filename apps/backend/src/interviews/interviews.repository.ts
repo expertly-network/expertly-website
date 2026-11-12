@@ -318,6 +318,29 @@ export class InterviewsRepository {
     return (data ?? []).length === 1;
   }
 
+  /** Interview seconds elapsed now: finished connections plus the live one's running time. */
+  async elapsedSecondsFor(interview: InterviewRow): Promise<number> {
+    const live = await this.findLiveConnection(interview.id, new Date().toISOString());
+    const running = live ? Math.max(0, (Date.now() - Date.parse(live.startedAt)) / 1000) : 0;
+    return interview.elapsedSeconds + running;
+  }
+
+  /** Best effort: token counters must never break a turn. */
+  async addLlmUsage(
+    interviewId: string,
+    role: string,
+    usage: { input: number; output: number; cached: number }
+  ): Promise<void> {
+    const { error } = await this.supabase.db.rpc('interview_add_llm_usage', {
+      p_interview_id: interviewId,
+      p_role: role,
+      p_input: usage.input,
+      p_output: usage.output,
+      p_cached: usage.cached,
+    });
+    if (error) throw dbError(`llm usage update failed: ${error.message}`);
+  }
+
   async insertConnection(input: { interviewId: string; tokenHash: string; expiresAt: string }): Promise<ConnectionRow> {
     const { data, error } = await this.connections()
       .insert({
