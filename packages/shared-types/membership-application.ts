@@ -197,17 +197,49 @@ export class LinkedInPhotoImportRequest {
   @ApiPropertyOptional() sourceUrl?: string;
 }
 
+/**
+ * Admin corrections applied to the member profile on approval — only the fields being changed.
+ * The application itself is never modified. Same validation as UpdateApplicationRequest.
+ */
+export type ApplicationProfileOverrides = Partial<
+  Pick<
+    UpdateApplicationRequest,
+    | 'firstName'
+    | 'lastName'
+    | 'contactEmail'
+    | 'workEmail'
+    | 'phoneCountryCode'
+    | 'phone'
+    | 'region'
+    | 'country'
+    | 'state'
+    | 'city'
+    | 'linkedinUrl'
+    | 'bio'
+    | 'yearsOfExperience'
+    | 'rateMinCents'
+    | 'rateMaxCents'
+    | 'workExperiences'
+    | 'educations'
+  >
+>;
+
 /** PATCH /v1/admin/applications/:id request body. */
 export class AdminApplicationReviewRequest {
   @ApiProperty({ enum: ['approved', 'rejected'] }) status!: 'approved' | 'rejected';
   /** Required when status is 'rejected'. */
   @ApiPropertyOptional() rejectionReason?: string;
   /**
-   * Required when status is 'approved'. Must be one of the applicant's own submitted
-   * service_preferences — exactly this one service is provisioned into member_services;
-   * the applicant's other submitted preferences are not auto-approved.
+   * Required when status is 'approved'. Any active, non-custom service, or one of the applicant's
+   * own submitted preferences (its customLabel carries over). Exactly this one service is
+   * provisioned into member_services; the applicant's other preferences are not auto-approved.
    */
   @ApiPropertyOptional() approvedServiceId?: string;
+  /**
+   * Approve only (400 OVERRIDES_ON_REJECT otherwise). Corrections for the new member profile; a
+   * corrected name also renames the account. Never changes the application.
+   */
+  @ApiPropertyOptional() profileOverrides?: ApplicationProfileOverrides;
   /**
    * Optional admin override, only used when status is 'approved'. Falls back to the applicant's
    * own computed selectedTier when omitted.

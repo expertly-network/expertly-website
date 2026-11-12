@@ -268,7 +268,7 @@ wizard step to resume on, pure UX convenience, not validated).
   - `paymentStatus` is `waived` if `amountDueCents` resolves to `0`, else `pending`.
 
 **Response `200`:** `ApplicationDto` — the full current record (draft or submitted), including
-resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`, a `photoUrl` (a plain,
+resolved `servicePreferences[].serviceName`/`categoryId`/`categoryName`/`serviceLineId`/`serviceLineName` (the last two added 2026-11-12 — service names repeat across categories, so the admin UI shows the full path), a `photoUrl` (a plain,
 permanent public URL built from the Storage path at read time — see the uploads endpoint below),
 `documents[]` (each `url` a 15-minute signed URL — see the uploads endpoint below), and (added 2026-09-27, also surfaced on the admin detail endpoint above)
 `backgroundCheckConsent`/`termsVersionAgreed`/`privacyVersionAgreed`.
@@ -403,7 +403,8 @@ detail page — `AdminApplicationsTable.tsx` only links to that page and no long
 endpoint directly.
 
 **Request:** `AdminApplicationReviewRequest` — `{ status: 'approved' | 'rejected', rejectionReason?:
-string, approvedServiceId?: string, memberTier?: MembershipTier, membershipStartedAt?: string }`
+string, approvedServiceId?: string, memberTier?: MembershipTier, membershipStartedAt?: string,
+profileOverrides?: ApplicationProfileOverrides }`
 (`rejectionReason` required when rejecting; `approvedServiceId` required when approving, as of
 2026-09-26). `memberTier`/`membershipStartedAt` are optional admin overrides used only when
 approving — added 2026-09-27. `memberTier` falls back to the applicant's own computed
@@ -411,6 +412,28 @@ approving — added 2026-09-27. `memberTier` falls back to the applicant's own c
 Both map directly onto the same `member_profiles.member_tier`/`membership_started_at` columns
 `PATCH /v1/admin/members/:id` already treats as admin-editable — this is the same "admin corrects a
 lifecycle fact" concept at provisioning time, not a new one.
+
+**Changed 2026-11-12 — admin corrections and any-service approval (additive).**
+
+- `approvedServiceId` may now be **any active, non-custom service** in the taxonomy, or one of the
+  applicant's own `service_preferences` (which may be a custom service they created). Anything else
+  → `400 APPROVED_SERVICE_INVALID`. A preference's `customLabel` is carried onto `member_services`;
+  an admin-picked service gets `custom_label = null`.
+- `profileOverrides` (optional, approve-only) corrects what goes onto the new member profile:
+  `firstName`, `lastName`, `contactEmail`, `workEmail`, `phoneCountryCode`, `phone`, `region`,
+  `country`, `state`, `city`, `linkedinUrl`, `bio`, `yearsOfExperience`, `rateMinCents`,
+  `rateMaxCents`, `workExperiences` (whole array), `educations` (whole array). Same validators and
+  limits as `POST /v1/applications/me`; unknown keys are rejected. Each field is the override if
+  sent, else the application's value. **The application row is never modified** — it stays as the
+  applicant submitted it. A corrected `firstName`/`lastName` also updates the account
+  (`profiles.first_name/last_name/initials`, where a member's displayed name lives) and the slug is
+  built from it.
+- Tier: `memberTier` if sent; else, if `yearsOfExperience` was corrected, recomputed from it
+  (more than 12 years → `seasoned_professional`); else the applicant's `selected_tier`.
+- `APPLICATION_INCOMPLETE` (`409`) is evaluated after corrections, so an admin can fill in a missing
+  country or years of experience and approve.
+- New errors, both raised before anything is written: `400 OVERRIDES_ON_REJECT` (`profileOverrides`
+  sent with `status: 'rejected'`), `400 INVALID_RATE_RANGE` (corrected rates where max ≤ min).
 
 **On approve:** provisions a `member_profiles` row (1:1 field mapping from the application row)
 and exactly **one** `member_services` row — for `approvedServiceId`, which must be one of the

@@ -272,14 +272,22 @@ own detail page — everything the applicant submitted, read-only — and approv
 - [x] `GET /v1/admin/applications/:id` (full detail) + `PATCH /v1/admin/applications/:id`
       (decision) per `docs/rest-api.md`
 - [x] Approval triggers the role transition described in US-04-01
-- [x] Approving lets the admin choose exactly one of the applicant's submitted service
-      preferences, override the computed member tier, and set the membership start date — all
-      three are admin-decided at provisioning time, not corrections to what the applicant
-      submitted (those go through the separate `member_profile_edits` flow, US-09-01)
+- [ ] Approving lets the admin choose exactly one service — any active service in the taxonomy,
+      with the applicant's three preferences listed first — override the computed member tier,
+      and set the membership start date (changed 2026-11-12: previously only one of the
+      applicant's own preferences)
 - [x] Rejecting requires a reason, visible on the detail page after the fact
-- [x] The detail page is read-only for everything the applicant submitted (identity, bio, work
-      history, education, peer references, documents, photo, consents) — no inline editing of
-      applicant-submitted data
+- [ ] Before approving, the admin can correct names, contact/work email, phone, location, years
+      of experience, rates, bio, LinkedIn, work history and education. Corrections go only to the
+      member profile created on approval; the application itself stays exactly as submitted
+      (changed 2026-11-12: the page used to be fully read-only). Peer references, documents,
+      photo and consents stay read-only. Edits to an already-approved member still go through
+      the `member_profile_edits` flow (US-09-01)
+- [ ] Corrected fields show the applicant's original value struck through, so the admin sees
+      exactly what will be approved; corrections can be discarded in one action; rejecting never
+      sends them
+- [ ] Each preferred service is shown with its full path (service line › category › service) on
+      the detail page and in the applications list — service names repeat across categories
 
 ---
 
