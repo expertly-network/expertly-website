@@ -60,12 +60,17 @@ function toUsage(u: LanguageModelUsage | undefined): LlmUsage {
   };
 }
 
+// OpenAI reasoning models (o-series, GPT-5 family) don't take a temperature.
+const OPENAI_REASONING_MODEL = /^(o\d|gpt-5)/;
+
 /**
- * Current Claude models (Sonnet 5, Opus 5 and later) reject sampling parameters with a 400, so
- * temperature is only sent to providers that accept it.
+ * Current Claude models (Sonnet 5, Opus 5 and later) and OpenAI reasoning models reject sampling
+ * parameters, so temperature is only sent to models that accept it.
  */
 export function temperatureFor(spec: ModelSpec, temperature: number | undefined): number | undefined {
-  return spec.provider === 'anthropic' ? undefined : temperature;
+  if (spec.provider === 'anthropic') return undefined;
+  if (spec.provider === 'openai' && OPENAI_REASONING_MODEL.test(spec.model)) return undefined;
+  return temperature;
 }
 
 function toModel(spec: ModelSpec): LanguageModel {

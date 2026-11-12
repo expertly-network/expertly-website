@@ -49,6 +49,8 @@ describe('temperatureFor', () => {
   it('drops temperature for Anthropic (current Claude models reject sampling params) and keeps it elsewhere', () => {
     expect(temperatureFor({ provider: 'anthropic', model: 'claude-sonnet-5', apiKey: 'k' }, 0)).toBeUndefined();
     expect(temperatureFor({ provider: 'openai', model: 'gpt-4.1', apiKey: 'k' }, 0)).toBe(0);
+    expect(temperatureFor({ provider: 'openai', model: 'gpt-5.5', apiKey: 'k' }, 0)).toBeUndefined();
+    expect(temperatureFor({ provider: 'openai', model: 'o3', apiKey: 'k' }, 0)).toBeUndefined();
     expect(temperatureFor({ provider: 'google', model: 'g', apiKey: 'k' }, undefined)).toBeUndefined();
   });
 });
