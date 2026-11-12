@@ -258,7 +258,15 @@ export class InterviewResultsRepository {
     });
   }
 
-  /** The member's review: remove sub-tags, optionally rewrite summaries, then approve the whole proposal. */
+  /**
+   * The member's review: remove sub-tags, optionally rewrite summaries, then approve the whole
+   * proposal. Ordering matters for safe retries: (a) validate every edit against the proposed set
+   * BEFORE any write, so a bad edit never leaves an earlier valid edit half-applied; (b) apply the
+   * per-service deletes/summary rewrites; (c) flip sub-tags to member_approved; (d) flip evidence
+   * to member_approved LAST. If the process dies between (c) and (d), evidence is still `proposed`,
+   * so a retry re-reads the same proposed set in step (a) and finishes the job — it never leaves
+   * evidence proposed with no way to recover.
+   */
   async memberApprove(memberId: string, interviewId: string, edits: MemberSubtagEditItem[]): Promise<void> {
     const proposed = await this.db
       .from('member_service_evidence')
@@ -274,6 +282,8 @@ export class InterviewResultsRepository {
           code: 'INTERVIEW_SUBTAGS_NOT_PROPOSED',
           message: 'One of these services has no open proposal.',
         });
+    }
+    for (const edit of edits) {
       if (edit.removeFacetValueIds.length) {
         const del = await this.db
           .from('member_service_subtags')
@@ -294,12 +304,6 @@ export class InterviewResultsRepository {
     }
     if (!ids.size) return;
     const svcIds = [...ids];
-    const ev = await this.db
-      .from('member_service_evidence')
-      .update({ status: 'member_approved' })
-      .eq('member_id', memberId)
-      .in('service_id', svcIds);
-    if (ev.error) throw dbError(`evidence approve failed: ${ev.error.message}`);
     const st = await this.db
       .from('member_service_subtags')
       .update({ status: 'member_approved' })
@@ -307,6 +311,12 @@ export class InterviewResultsRepository {
       .in('service_id', svcIds)
       .eq('status', 'proposed');
     if (st.error) throw dbError(`subtags approve failed: ${st.error.message}`);
+    const ev = await this.db
+      .from('member_service_evidence')
+      .update({ status: 'member_approved' })
+      .eq('member_id', memberId)
+      .in('service_id', svcIds);
+    if (ev.error) throw dbError(`evidence approve failed: ${ev.error.message}`);
   }
 
   async listFlagsForInterview(interviewId: string, memberName: string): Promise<InterviewReviewFlagDto[]> {

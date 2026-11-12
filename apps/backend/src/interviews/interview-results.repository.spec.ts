@@ -95,4 +95,170 @@ describe('InterviewResultsRepository', () => {
       await expect(repo.findCurrentScoring('interview-1')).resolves.toBeNull();
     });
   });
+
+  describe('listProposals', () => {
+    it('strips trailing punctuation from the service name, excludes rejected sub-tags and matches sub-tags to their own service', async () => {
+      const { service } = fakeSupabaseService((call) => {
+        if (call.table === 'member_service_evidence') {
+          return {
+            data: [
+              {
+                service_id: 's1',
+                evidence_summary: 'Led the APA filing.',
+                status: 'proposed',
+                services: { name: 'Tax Advisory.', categories: { name: 'Tax' } },
+              },
+            ],
+          };
+        }
+        if (call.table === 'member_service_subtags') {
+          return {
+            data: [
+              {
+                service_id: 's1',
+                status: 'proposed',
+                facet_values: { id: 'fv1', facet: 'jurisdiction', label: 'India' },
+              },
+              {
+                service_id: 's1',
+                status: 'rejected',
+                facet_values: { id: 'fv2', facet: 'industry', label: 'Banking' },
+              },
+              { service_id: 's2', status: 'proposed', facet_values: { id: 'fv3', facet: 'scale', label: 'Large' } },
+            ],
+          };
+        }
+        return { data: null };
+      });
+      const repo = new InterviewResultsRepository(service);
+
+      const out = await repo.listProposals('m1', 'i1');
+
+      expect(out).toEqual([
+        {
+          serviceId: 's1',
+          serviceName: 'Tax Advisory',
+          categoryName: 'Tax',
+          evidenceSummary: 'Led the APA filing.',
+          status: 'proposed',
+          subtags: [{ facetValueId: 'fv1', facet: 'jurisdiction', label: 'India' }],
+        },
+      ]);
+    });
+  });
+
+  describe('memberApprove', () => {
+    it('rejects an edit with no open proposal and performs no delete/update writes', async () => {
+      const { service, calls } = fakeSupabaseService((call) => {
+        if (call.table === 'member_service_evidence' && call.steps.some((s) => s.method === 'select')) {
+          return { data: [{ service_id: 'valid-svc' }] };
+        }
+        return { data: null };
+      });
+      const repo = new InterviewResultsRepository(service);
+
+      await expect(
+        repo.memberApprove('m1', 'i1', [
+          { serviceId: 'valid-svc', removeFacetValueIds: [], evidenceSummary: null },
+          { serviceId: 'invalid-svc', removeFacetValueIds: [], evidenceSummary: null },
+        ])
+      ).rejects.toMatchObject({ response: { code: 'INTERVIEW_SUBTAGS_NOT_PROPOSED' } });
+
+      // Only the initial proposed-set read happened — validation ran before any write.
+      expect(calls).toHaveLength(1);
+      expect(calls[0].table).toBe('member_service_evidence');
+      expect(calls[0].steps.map((s) => s.method)).toContain('select');
+    });
+
+    it('scopes every write by member_id and approves sub-tags before evidence', async () => {
+      const { service, calls } = fakeSupabaseService((call) => {
+        if (call.table === 'member_service_evidence' && call.steps.some((s) => s.method === 'select')) {
+          return { data: [{ service_id: 's1' }, { service_id: 's2' }] };
+        }
+        return { data: null };
+      });
+      const repo = new InterviewResultsRepository(service);
+
+      await repo.memberApprove('m1', 'i1', [
+        { serviceId: 's1', removeFacetValueIds: ['fv1'], evidenceSummary: 'rewritten summary' },
+        { serviceId: 's2', removeFacetValueIds: [], evidenceSummary: null },
+      ]);
+
+      // Every write call (every call after the initial select) is scoped to this member.
+      const writes = calls.slice(1);
+      expect(writes.length).toBeGreaterThan(0);
+      for (const call of writes) {
+        expect(call.steps.some((s) => s.method === 'eq' && s.args[0] === 'member_id' && s.args[1] === 'm1')).toBe(true);
+      }
+
+      const subtagsApproveIndex = calls.findIndex(
+        (c) =>
+          c.table === 'member_service_subtags' &&
+          c.steps.some((s) => s.method === 'update' && (s.args[0] as { status: string }).status === 'member_approved')
+      );
+      const evidenceApproveIndex = calls.findIndex(
+        (c) =>
+          c.table === 'member_service_evidence' &&
+          c.steps.some((s) => s.method === 'update' && (s.args[0] as { status: string }).status === 'member_approved')
+      );
+      expect(subtagsApproveIndex).toBeGreaterThanOrEqual(0);
+      expect(evidenceApproveIndex).toBeGreaterThan(subtagsApproveIndex);
+
+      // The per-edit delete and summary rewrite both happened before either approve update.
+      const deleteIndex = calls.findIndex(
+        (c) => c.table === 'member_service_subtags' && c.steps[0]?.method === 'delete'
+      );
+      const summaryUpdateIndex = calls.findIndex(
+        (c) =>
+          c.table === 'member_service_evidence' &&
+          c.steps.some((s) => s.method === 'update' && 'evidence_summary' in (s.args[0] as object))
+      );
+      expect(deleteIndex).toBeGreaterThanOrEqual(0);
+      expect(deleteIndex).toBeLessThan(subtagsApproveIndex);
+      expect(summaryUpdateIndex).toBeGreaterThanOrEqual(0);
+      expect(summaryUpdateIndex).toBeLessThan(subtagsApproveIndex);
+    });
+
+    it('is a no-op when nothing is proposed', async () => {
+      const { service, calls } = fakeSupabaseService(() => ({ data: [] }));
+      const repo = new InterviewResultsRepository(service);
+
+      await repo.memberApprove('m1', 'i1', []);
+
+      expect(calls).toHaveLength(1);
+    });
+  });
+
+  describe('listFlagsForInterview', () => {
+    it('attaches the member name and filters by interview_id', async () => {
+      // fakeDb returns whatever the resolver gives it verbatim (no column-alias translation),
+      // so this mirrors the shape the real client hands back after FLAG_COLUMNS' aliasing.
+      const { service, calls } = fakeSupabaseService(() => ({
+        data: [
+          {
+            id: 'flag-1',
+            interviewId: 'i1',
+            memberId: 'm1',
+            claimId: 'c1',
+            claimText: 'Led 50+ APAs',
+            serviceIds: ['s1'],
+            reason: 'unsupported',
+            evidence: [],
+            status: 'open',
+            resolutionNote: null,
+            resolvedAt: null,
+            createdAt: '2026-11-12T10:00:00Z',
+          },
+        ],
+      }));
+      const repo = new InterviewResultsRepository(service);
+
+      const out = await repo.listFlagsForInterview('i1', 'Asha B');
+
+      expect(out).toEqual([expect.objectContaining({ id: 'flag-1', interviewId: 'i1', memberName: 'Asha B' })]);
+      expect(calls).toHaveLength(1);
+      expect(argsOf(calls[0], 'eq')).toEqual(['interview_id', 'i1']);
+      expect(argsOf(calls[0], 'order')).toEqual(['created_at', { ascending: true }]);
+    });
+  });
 });
