@@ -51,6 +51,8 @@ export interface MemberSource {
   services: { service_id: string; custom_label: string | null; service_name: string; category_name: string }[];
   /** The member-approved AI interview summary (member_interviews), or null. */
   interviewSummary: string | null;
+  /** Admin-accepted interview evidence per service (member_service_evidence + active sub-tags). */
+  interviewEvidence: { serviceName: string; summary: string; tags: string[] }[];
 }
 
 export interface ArticleSource {

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { ApplicationRegion, MembershipTier } from './membership-application';
+import { PublicServiceSubtagsDto } from './subtags';
 
 const APPLICATION_REGIONS = [
   'asia_pacific',
@@ -171,6 +172,10 @@ export class MemberDto extends MemberListItemDto {
   @ApiProperty({ type: () => MemberTestimonial, isArray: true }) testimonials!: MemberTestimonial[];
   @ApiProperty({ type: () => MemberAward, isArray: true }) awards!: MemberAward[];
   @ApiProperty({ type: () => MemberKeyClient, isArray: true }) keyClients!: MemberKeyClient[];
+  /** Completed AI interview that evidenced at least one claim. Display is a frontend decision. */
+  @ApiProperty() interviewVerified!: boolean;
+  /** Admin-accepted interview sub-tags per service. */
+  @ApiProperty({ type: () => PublicServiceSubtagsDto, isArray: true }) serviceSubtags!: PublicServiceSubtagsDto[];
 }
 
 // Admin-only fields layered on top of the list shape — GET /v1/admin/members.

@@ -37,6 +37,8 @@ export function ProfileAuthWall({ member }: { member: MemberListItemDto }) {
     testimonials: [],
     awards: [],
     keyClients: [],
+    interviewVerified: false,
+    serviceSubtags: [],
   };
 
   return (

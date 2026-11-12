@@ -17,6 +17,7 @@ import type {
   MemberWorkExperience,
   RenewalPaymentStatus,
 } from '@shared/member';
+import type { FacetKind, PublicServiceSubtagsDto } from '@shared/subtags';
 import { MAX_LIST_ROWS } from '../common/list-limits';
 
 // Selects profile_id, not member_profiles' own surrogate id — profile_id is what the API
@@ -214,6 +215,14 @@ export class MembersRepository {
     return this.supabase.db.from('consultation_requests');
   }
 
+  private memberInterviews() {
+    return this.supabase.db.from('member_interviews');
+  }
+
+  private memberServiceSubtags() {
+    return this.supabase.db.from('member_service_subtags');
+  }
+
   // Whether `requesterId` has ever sent `memberId` a consultation request (any status) — one of
   // the rules that reveal a member's contact details (MembersService.canSeeContact).
   async hasConsultationWith(requesterId: string, memberId: string): Promise<boolean> {
@@ -224,6 +233,35 @@ export class MembersRepository {
       .limit(1);
     if (error) throw new InternalServerErrorException('Failed to check consultation history.');
     return (data ?? []).length > 0;
+  }
+
+  // Public-profile extras from the AI interview: whether a completed interview exists, and the
+  // active (admin-accepted) sub-tags per service. Display of either is a frontend decision.
+  async findInterviewExtras(
+    memberId: string
+  ): Promise<{ verified: boolean; serviceSubtags: PublicServiceSubtagsDto[] }> {
+    const [interviewRes, subtagRes] = await Promise.all([
+      this.memberInterviews().select('verified_at').eq('member_id', memberId).eq('status', 'completed').maybeSingle(),
+      this.memberServiceSubtags()
+        .select('service_id, facet_values!inner(id, facet, label)')
+        .eq('member_id', memberId)
+        .eq('status', 'active'),
+    ]);
+    if (interviewRes.error) throw new InternalServerErrorException('Failed to load interview status.');
+    if (subtagRes.error) throw new InternalServerErrorException('Failed to load interview sub-tags.');
+
+    const one = <T>(v: T | T[]): T => (Array.isArray(v) ? v[0] : v);
+    const byService = new Map<string, PublicServiceSubtagsDto>();
+    for (const row of (subtagRes.data ?? []) as unknown as {
+      service_id: string;
+      facet_values: { id: string; facet: FacetKind; label: string } | { id: string; facet: FacetKind; label: string }[];
+    }[]) {
+      const fv = one(row.facet_values);
+      const entry = byService.get(row.service_id) ?? { serviceId: row.service_id, subtags: [] };
+      entry.subtags.push({ facetValueId: fv.id, facet: fv.facet, label: fv.label });
+      byService.set(row.service_id, entry);
+    }
+    return { verified: Boolean(interviewRes.data?.verified_at), serviceSubtags: [...byService.values()] };
   }
 
   // One directory page as profile ids, in display order — see member_directory_ids()

@@ -198,10 +198,11 @@ export class MembersService {
   // owning member and admins; contact details per canSeeContact().
   private async toDetailDto(row: MemberProfileDetailRow, user: AuthenticatedUser): Promise<MemberDto> {
     const isOwner = row.profile_id === user.id;
-    const [profilesById, servicesByMember, isMemberAdmin] = await Promise.all([
+    const [profilesById, servicesByMember, isMemberAdmin, extras] = await Promise.all([
       this.membersRepository.findProfilesByIds([row.profile_id]),
       this.membersRepository.findMemberServicesByMemberIds([row.profile_id]),
       isOwner ? Promise.resolve(false) : this.adminAccess.hasFreshPermission(user, 'manageMembers'),
+      this.membersRepository.findInterviewExtras(row.profile_id),
     ]);
 
     const includeProof = isOwner || isMemberAdmin;
@@ -243,6 +244,8 @@ export class MembersService {
       ) as unknown as MemberDto['keyClients'],
       // Tells the contact tab "hidden from you" apart from "not provided".
       contactVisible,
+      interviewVerified: extras.verified,
+      serviceSubtags: extras.serviceSubtags,
     };
     return dto;
   }

@@ -65,6 +65,15 @@ export class CardBuilderService {
       line('Availability: ', nz(r.availability_notes)),
       // Appended last so cards of members without an approved interview summary stay byte-identical.
       line('Interview highlights: ', nz(src.interviewSummary)),
+      // Also last, for the same reason: cards without accepted interview evidence stay byte-identical.
+      line(
+        'Interview evidence: ',
+        nz(
+          src.interviewEvidence
+            .map((e) => `${e.serviceName}: ${e.summary}${e.tags.length ? ` [${e.tags.join(', ')}]` : ''}`)
+            .join(' | ')
+        )
+      ),
     ]);
 
     return this.put({

@@ -150,8 +150,8 @@ export class SearchRepository {
   // ---- source records for the card builder (read-only) --------------------------------
 
   async loadMemberSource(profileId: string): Promise<MemberSource | null> {
-    // All four reads key on the profile id — run them together rather than one after another.
-    const [profileRes, personRes, linksRes, interviewRes] = await Promise.all([
+    // All six reads key on the profile id — run them together rather than one after another.
+    const [profileRes, personRes, linksRes, interviewRes, evidenceRes, subtagRes] = await Promise.all([
       this.client().from('member_profiles').select(MEMBER_COLUMNS.join(', ')).eq('profile_id', profileId).maybeSingle(),
       this.client()
         .from('profiles')
@@ -170,12 +170,24 @@ export class SearchRepository {
         .eq('status', 'completed')
         .eq('summary_status', 'approved')
         .maybeSingle(),
+      this.client()
+        .from('member_service_evidence')
+        .select('service_id, evidence_summary, services!inner(name)')
+        .eq('member_id', profileId)
+        .eq('status', 'active'),
+      this.client()
+        .from('member_service_subtags')
+        .select('service_id, facet_values!inner(label)')
+        .eq('member_id', profileId)
+        .eq('status', 'active'),
     ]);
     if (profileRes.error) throw searchDbError(`member_profiles read failed: ${profileRes.error.message}`);
     if (!profileRes.data) return null;
     if (personRes.error) throw searchDbError(`profiles read failed: ${personRes.error.message}`);
     if (linksRes.error) throw searchDbError(`member_services read failed: ${linksRes.error.message}`);
     if (interviewRes.error) throw searchDbError(`member_interviews read failed: ${interviewRes.error.message}`);
+    if (evidenceRes.error) throw searchDbError(`member_service_evidence read failed: ${evidenceRes.error.message}`);
+    if (subtagRes.error) throw searchDbError(`member_service_subtags read failed: ${subtagRes.error.message}`);
     const profile = profileRes.data;
     const person = personRes.data;
     const links = linksRes.data;
@@ -194,6 +206,26 @@ export class SearchRepository {
         };
       }),
       interviewSummary: interviewRes.data?.summary ?? null,
+      interviewEvidence: (
+        (evidenceRes.data ?? []) as unknown as {
+          service_id: string;
+          evidence_summary: string;
+          services: { name: string } | { name: string }[];
+        }[]
+      ).map((e) => ({
+        serviceName: one(e.services)
+          .name.trim()
+          .replace(/[.:;,\s]+$/u, ''),
+        summary: e.evidence_summary,
+        tags: (
+          (subtagRes.data ?? []) as unknown as {
+            service_id: string;
+            facet_values: { label: string } | { label: string }[];
+          }[]
+        )
+          .filter((s) => s.service_id === e.service_id)
+          .map((s) => one(s.facet_values).label),
+      })),
     };
   }
 

@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { CardBuilderService } from './card-builder.service';
 import type { MemberSource } from './card.types';
 
-function source(interviewSummary: string | null): MemberSource {
+function source(
+  interviewSummary: string | null,
+  interviewEvidence: MemberSource['interviewEvidence'] = []
+): MemberSource {
   return {
     profile: {
       profile_id: 'm1',
@@ -33,6 +36,7 @@ function source(interviewSummary: string | null): MemberSource {
     person: { first_name: 'Asha', last_name: 'M', status: 'active', deleted_at: null },
     services: [],
     interviewSummary,
+    interviewEvidence,
   };
 }
 
@@ -45,5 +49,20 @@ describe('CardBuilderService.buildMember — interview highlights', () => {
   it('leaves the card unchanged without a summary', () => {
     const without = builder.buildMember(source(null));
     expect(without?.content).not.toContain('Interview highlights');
+  });
+});
+
+describe('CardBuilderService.buildMember — interview evidence', () => {
+  const builder = new CardBuilderService();
+
+  it('appends interview evidence lines last, and leaves other cards byte-identical', () => {
+    const withEvidence = builder.buildMember(
+      source(null, [{ serviceName: 'Transfer pricing', summary: 'Led a bilateral APA.', tags: ['India', 'APA'] }])
+    );
+    expect(withEvidence?.content.split('\n').at(-1)).toBe(
+      'Interview evidence: Transfer pricing: Led a bilateral APA. [India, APA]'
+    );
+    const without = builder.buildMember(source(null, []));
+    expect(without?.content).not.toContain('Interview evidence');
   });
 });

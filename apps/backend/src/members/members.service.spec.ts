@@ -111,6 +111,10 @@ function setup({
     downloadProofFile: vi.fn(),
     uploadPublicAsset: vi.fn(),
     recordProfileView: vi.fn().mockResolvedValue(undefined),
+    findInterviewExtras: vi.fn().mockResolvedValue({
+      verified: true,
+      serviceSubtags: [{ serviceId: 's1', subtags: [{ facetValueId: 'f', facet: 'forum', label: 'ITAT' }] }],
+    }),
   } as unknown as RepoMock;
   const adminAccess = { hasFreshPermission: vi.fn().mockResolvedValue(managesMembers) };
   const service = new MembersService(
@@ -228,6 +232,13 @@ describe('MembersService.findOneBySlug — contact visibility', () => {
         setup({ ...unlisted, managesMembers: true }).service.findOneBySlug('jane-doe', viewer({ role: 'admin' }))
       ).resolves.toMatchObject({ slug: 'jane-doe' });
     });
+  });
+
+  it('includes the interview-verified flag and active sub-tags', async () => {
+    const { service } = setup();
+    const dto = await service.findOneBySlug('jane-doe', viewer({ role: 'member', memberStatus: 'active' }));
+    expect(dto.interviewVerified).toBe(true);
+    expect(dto.serviceSubtags[0].subtags[0].label).toBe('ITAT');
   });
 
   it('404s an unknown slug', async () => {
