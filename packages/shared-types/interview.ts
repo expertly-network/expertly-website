@@ -125,7 +125,7 @@ export const REVIEW_FLAG_REASONS = [
   'technical_unverified',
 ] as const;
 export type ReviewFlagReason = (typeof REVIEW_FLAG_REASONS)[number];
-export const REVIEW_FLAG_STATUSES = ['open', 'dismissed', 'confirmed'] as const;
+export const REVIEW_FLAG_STATUSES = ['open', 'dismissed', 'confirmed', 'superseded'] as const;
 export type ReviewFlagStatus = (typeof REVIEW_FLAG_STATUSES)[number];
 
 export class InterviewSignalDto {

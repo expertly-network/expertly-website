@@ -1163,12 +1163,14 @@ overwriting.
 | `rubric_version` | text | from `Scorer.RUBRIC_VERSION` |
 | `model` | text | the model that produced this run |
 | `result` | jsonb object | `InterviewScoringResultDto` — claims (per-claim evidence level E3–NP, signals, facets, technical notes, credited/candidate service ids), adjacent services, search terms, interview quality. Admin-only, never returned to the member |
-| `is_current` | boolean, default `true` | exactly one `true` row per interview (partial unique index below); `findCurrentScoring` falls back to the newest row if none is flagged current |
+| `is_current` | boolean, default `true` | exactly one `true` row per interview (partial unique index below) |
 | `created_at` | timestamptz | |
 
-Lifecycle: insert (`is_current = false`) → every other row for the interview cleared to `false` →
-the new row flipped to `true` (three statements, not a transaction — see
-`InterviewResultsRepository.insertScoring`'s comment for why that ordering is still safe to retry).
+Lifecycle: one call to `interview_store_scoring()` (below) — a single transaction — clears every
+other row for the interview to `is_current = false`, inserts the new row as `true`, supersedes the
+interview's still-`open` flags from any other scoring, and deletes its still-`proposed` evidence
+from any other scoring. `findCurrentScoring` is a plain `is_current = true` read with no fallback:
+the swap is atomic, so "no row flagged current" can't happen.
 Index: **`interview_scorings_one_current` — unique `(interview_id) where is_current`.**
 
 ### `facet_values`
@@ -1223,11 +1225,12 @@ sub-tags on that service.
 
 PK `(member_id, service_id)` — **one evidence row per service per member**; a re-score or a new
 interview upserts in place via `interview_upsert_service_proposal()` (below), it never appends.
-Index `(interview_id)`. After a re-score (`POST /admin/interviews/:id/rescore`) the interview's
-still-`proposed` rows whose `scoring_id` is not the new scoring's are deleted (their proposed
-sub-tags cascade); acted-on rows stay. A row can also be created directly as `active` by an admin
-accepting a service the scorer never proposed (`PATCH /admin/members/:memberId/subtags`, seeded
-from the claim in the current scoring that covers the service).
+Index `(interview_id)`. After a re-score, `interview_store_scoring()` (below) — in the same
+transaction as the `is_current` swap — deletes the interview's still-`proposed` rows whose
+`scoring_id` is not the new scoring's (their proposed sub-tags cascade); acted-on rows stay. A row
+can also be created directly as `active` by an admin accepting a service the scorer never proposed
+(`PATCH /admin/members/:memberId/subtags`, seeded from the claim in the current scoring that covers
+the service, via `interview_admin_decide_subtags()` below).
 
 Which claims become proposals (`brain/scoring.ts buildProposals`): probed, role R2+, evidence
 E1–E3, at least one quote-verified `supports` signal, a non-empty redacted summary, and **no
@@ -1268,7 +1271,7 @@ Admin review queue for claims the scorer couldn't fully support. Nothing here ac
 | `service_ids` | uuid[], default `{}` | |
 | `reason` | text: `unsupported` / `contradicted` / `anchor_conflict` / `firm_level_on_selected` / `technical_unverified` | |
 | `evidence` | jsonb array, default `[]` | `{ label, turn, quote }[]` — the quotes/turns backing the flag |
-| `status` | text: `open` / `dismissed` / `confirmed`, default `open` | |
+| `status` | text: `open` / `dismissed` / `confirmed` / `superseded`, default `open` | |
 | `resolution_note` | text, ≤ 1000 chars, nullable | |
 | `resolved_by` | uuid FK → `profiles(id)`, nullable | |
 | `resolved_at` | timestamptz, nullable | |
@@ -1276,10 +1279,16 @@ Admin review queue for claims the scorer couldn't fully support. Nothing here ac
 
 Unique `(scoring_id, claim_id, reason)` — `insertFlags` upserts on that key, so re-scoring never
 duplicates an already-raised flag. Lifecycle: `open` → `dismissed` or `confirmed` (admin,
-`resolution_note` optional, `resolved_by`/`resolved_at` set). Index `(status, created_at desc)`.
-An `open` flag whose `scoring_id` is no longer the interview's current scoring (superseded by a
-re-score) stays in the table but is hidden from both flag listings by query; resolved flags of any
-scoring stay visible as history. No `superseded` status exists (that would be a schema change).
+`resolution_note` optional, `resolved_by`/`resolved_at` set) — **or** `open` → `superseded`,
+set automatically by `interview_store_scoring()` (below) in the same transaction as a re-score's
+`is_current` swap, for any `open` flag whose `scoring_id` is no longer the interview's current
+scoring. `superseded` is terminal (never resolved; `resolveFlag` 409s `INTERVIEW_FLAG_NOT_OPEN` on
+anything that isn't `open`, superseded included). Index `(status, created_at desc)`. Both flag
+listings (`listFlags`, `listFlagsForInterview`) are now plain selects — `superseded` replaced the
+v2 query-side embed filter that used to hide a re-scored interview's stale open flags; `listFlags`'
+own `status` filter does the hiding (`status=open` no longer returns superseded rows), and
+`listFlagsForInterview` deliberately returns every status, superseded included, as that
+interview's full history.
 
 ### `service_anchor_entries`
 
@@ -1319,6 +1328,35 @@ Index `(service_id)`.
   or an admin already made. A `rejected` row from an earlier interview is replaced: a redo
   interview may propose that service again. Called from
   `InterviewResultsRepository.upsertProposal`, once per service the scoring credited.
+- **`interview_store_scoring(p_interview_id, p_rubric_version, p_model, p_result)`** — `security
+  definer`, service-role only, returns the new scoring's `uuid`. One transaction: clears every
+  other `interview_scorings` row for the interview to `is_current = false`, inserts the new row as
+  `true`, supersedes the interview's still-`open` `interview_review_flags` from any other scoring,
+  and deletes its still-`proposed` `member_service_evidence` from any other scoring (sub-tags
+  cascade). Called from `InterviewResultsRepository.insertScoring` — the v2.1 follow-up that
+  replaced a 3-statement insert-then-swap sequence plus a separate `deleteStaleProposals` call
+  after re-scoring, now that this table set was approved to change.
+- **`interview_member_approve(p_member_id, p_interview_id, p_edits)`** — `security definer`,
+  service-role only. `p_edits`: jsonb array of `{ serviceId, removeFacetValueIds: uuid[],
+  evidenceSummary: text|null }`. One transaction: locks and reads the member's `proposed`
+  `member_service_evidence` rows for the interview, raises `INTERVIEW_SUBTAGS_NOT_PROPOSED`
+  (writing nothing) if any edit's `serviceId` isn't one of them, applies the per-service sub-tag
+  deletes and summary rewrites, then flips those services' `member_service_subtags` and
+  `member_service_evidence` to `member_approved`. Called from
+  `InterviewResultsRepository.memberApprove`, which maps the raised message to the `400` NestJS
+  exception of the same code.
+- **`interview_admin_decide_subtags(p_member_id, p_decisions, p_seed_evidence)`** — `security
+  definer`, service-role only. `p_seed_evidence`: jsonb array of `{ serviceId, interviewId,
+  scoringId, role, evidence, recencyYear, summary }` — rows TypeScript already resolved from the
+  current scoring for `accept: true` services with no evidence row yet; inserted `active`, `on
+  conflict do nothing`. `p_decisions`: jsonb array of `{ serviceId, accept, addFacetValueIds:
+  uuid[], removeFacetValueIds: uuid[] }`. One transaction: inserts the seeds, verifies every
+  decision's `serviceId` now has a `member_service_evidence` row for the member (raises
+  `INTERVIEW_EVIDENCE_NOT_FOUND`, writing nothing else, if not), then per decision: evidence status
+  → `active`/`rejected`, removed sub-tags deleted, remaining sub-tags set to the same status, and
+  (when accepted) any added facet values inserted `active`. Called from
+  `InterviewResultsRepository.adminDecideSubtags`, which maps the raised message to the `404`
+  NestJS exception of the same code.
 
 ### Storage and triggers
 

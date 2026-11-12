@@ -6,6 +6,10 @@
 --   ledger/verified_at/llm_usage columns, the facet_kind enum, interview_scorings, facet_values
 --   (+ sources), member_service_evidence/subtags, interview_review_flags, service_anchor_entries
 --   and their helper functions.
+-- v2.1 follow-up (2026-11-12, ai-interviewer-v2-followup brief): three multi-statement write paths
+--   become atomic functions (interview_store_scoring, interview_member_approve,
+--   interview_admin_decide_subtags), and interview_review_flags.status gains a real `superseded`
+--   value in place of the old query-side embed filter.
 -- Additive apart from dropping the v1 `assessment` column (replaced by interview_scorings).
 -- Idempotent: safe to re-run after a partial manual run or on a v1-era dev DB.
 begin;
@@ -211,7 +215,7 @@ create table if not exists public.interview_review_flags (
     'unsupported', 'contradicted', 'anchor_conflict', 'firm_level_on_selected', 'technical_unverified'
   )),
   evidence jsonb not null default '[]'::jsonb check (jsonb_typeof(evidence) = 'array'),
-  status text not null default 'open' check (status in ('open', 'dismissed', 'confirmed')),
+  status text not null default 'open' check (status in ('open', 'dismissed', 'confirmed', 'superseded')),
   resolution_note text check (resolution_note is null or char_length(resolution_note) <= 1000),
   resolved_by uuid references public.profiles (id),
   resolved_at timestamptz,
@@ -221,6 +225,32 @@ create table if not exists public.interview_review_flags (
 );
 create index if not exists interview_review_flags_status_idx
   on public.interview_review_flags (status, created_at desc);
+-- v2.1 follow-up (2026-11-12): a real `superseded` status, so a re-score's still-open flags move
+-- here instead of being hidden from listings by a query-side embed filter. The create-table path
+-- above carries the 4-value check inline; add it on the alter path too so dev and fresh DBs match
+-- (the create-table path is a no-op on a DB where the table already exists with the old 3-value
+-- check — same pattern as member_interviews_llm_usage_check above). Check the actual constraint
+-- name before changing this on a DB that didn't come from this file's create-table statement.
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+     where conrelid = 'public.interview_review_flags'::regclass
+       and conname = 'interview_review_flags_status_check'
+       and pg_get_constraintdef(oid) not like '%superseded%'
+  ) then
+    alter table public.interview_review_flags drop constraint interview_review_flags_status_check;
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+     where conrelid = 'public.interview_review_flags'::regclass and conname = 'interview_review_flags_status_check'
+  ) then
+    alter table public.interview_review_flags
+      add constraint interview_review_flags_status_check
+      check (status in ('open', 'dismissed', 'confirmed', 'superseded'));
+  end if;
+end
+$$;
 
 -- Optional anchor bank, authored by domain people (loaded by SQL for now).
 create table if not exists public.service_anchor_entries (
@@ -355,6 +385,198 @@ revoke execute on function public.interview_upsert_service_proposal(
 grant execute on function public.interview_upsert_service_proposal(
   uuid, uuid, uuid, uuid, smallint, text, integer, text, uuid[]
 ) to service_role;
+
+-- v2.1 follow-up (2026-11-12): three write paths that were kept retry-safe with careful
+-- multi-statement ordering (because this table set wasn't yet approved to change) become single
+-- transactions now that it is.
+
+-- Replaces insertScoring's old 3-statement insert-then-swap sequence. Also absorbs what used to be
+-- a separate deleteStaleProposals call after re-scoring, and supersedes the previous scoring's
+-- still-open flags, all in the same transaction as the swap: the moment a new scoring becomes
+-- current, the old one's open flags and still-proposed evidence are stale by definition.
+create or replace function public.interview_store_scoring(
+  p_interview_id uuid, p_rubric_version text, p_model text, p_result jsonb
+) returns uuid
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_id uuid;
+begin
+  update public.interview_scorings
+     set is_current = false
+   where interview_id = p_interview_id and is_current;
+
+  insert into public.interview_scorings (interview_id, rubric_version, model, result, is_current)
+  values (p_interview_id, p_rubric_version, p_model, p_result, true)
+  returning id into v_id;
+
+  update public.interview_review_flags
+     set status = 'superseded'
+   where interview_id = p_interview_id and status = 'open' and scoring_id <> v_id;
+
+  delete from public.member_service_evidence
+   where interview_id = p_interview_id and status = 'proposed' and scoring_id <> v_id;
+  -- member_service_subtags rows for a deleted evidence row cascade via its FK.
+
+  return v_id;
+end;
+$function$;
+revoke execute on function public.interview_store_scoring(uuid, text, text, jsonb) from public, anon, authenticated;
+grant execute on function public.interview_store_scoring(uuid, text, text, jsonb) to service_role;
+
+-- Replaces memberApprove's old read-validate-then-several-writes sequence. p_edits: jsonb array of
+-- `{ serviceId, removeFacetValueIds: uuid[], evidenceSummary: text|null }` (already redacted/sliced
+-- in TypeScript). Raises 'INTERVIEW_SUBTAGS_NOT_PROPOSED' (writing nothing) if any edit's serviceId
+-- isn't one of the member's currently `proposed` services for this interview.
+create or replace function public.interview_member_approve(
+  p_member_id uuid, p_interview_id uuid, p_edits jsonb
+) returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_service_ids uuid[];
+  v_edit jsonb;
+  v_service_id uuid;
+  v_remove uuid[];
+  v_summary text;
+begin
+  select coalesce(array_agg(sub.service_id), '{}'::uuid[]) into v_service_ids
+    from (
+      select service_id from public.member_service_evidence
+       where member_id = p_member_id and interview_id = p_interview_id and status = 'proposed'
+       for update
+    ) sub;
+
+  for v_edit in select * from jsonb_array_elements(coalesce(p_edits, '[]'::jsonb))
+  loop
+    if not ((v_edit ->> 'serviceId')::uuid = any(v_service_ids)) then
+      raise exception 'INTERVIEW_SUBTAGS_NOT_PROPOSED';
+    end if;
+  end loop;
+
+  for v_edit in select * from jsonb_array_elements(coalesce(p_edits, '[]'::jsonb))
+  loop
+    v_service_id := (v_edit ->> 'serviceId')::uuid;
+    select coalesce(array_agg(value::uuid), '{}'::uuid[]) into v_remove
+      from jsonb_array_elements_text(coalesce(v_edit -> 'removeFacetValueIds', '[]'::jsonb));
+    v_summary := v_edit ->> 'evidenceSummary';
+
+    if array_length(v_remove, 1) > 0 then
+      delete from public.member_service_subtags
+       where member_id = p_member_id and service_id = v_service_id
+         and facet_value_id = any(v_remove);
+    end if;
+    if v_summary is not null then
+      update public.member_service_evidence
+         set evidence_summary = v_summary
+       where member_id = p_member_id and service_id = v_service_id;
+    end if;
+  end loop;
+
+  update public.member_service_subtags
+     set status = 'member_approved'
+   where member_id = p_member_id and service_id = any(v_service_ids) and status = 'proposed';
+
+  update public.member_service_evidence
+     set status = 'member_approved'
+   where member_id = p_member_id and service_id = any(v_service_ids);
+end;
+$function$;
+revoke execute on function public.interview_member_approve(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.interview_member_approve(uuid, uuid, jsonb) to service_role;
+
+-- Replaces applyAdminDecision/insertAdminEvidence's old per-item sequence. p_seed_evidence: jsonb
+-- array of `{ serviceId, interviewId, scoringId, role, evidence, recencyYear, summary }` —
+-- evidence rows TypeScript already resolved from the current scoring for `accept: true` services
+-- that have no evidence row yet; inserted `active`, `on conflict do nothing` (never overwrites a
+-- row that exists for another reason by the time this runs). p_decisions: jsonb array of
+-- `{ serviceId, accept, addFacetValueIds: uuid[], removeFacetValueIds: uuid[] }`. After the seeds
+-- land, every decision's serviceId must have an evidence row for the member, or this raises
+-- 'INTERVIEW_EVIDENCE_NOT_FOUND' and writes nothing else.
+create or replace function public.interview_admin_decide_subtags(
+  p_member_id uuid, p_decisions jsonb, p_seed_evidence jsonb
+) returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_seed jsonb;
+  v_decision jsonb;
+  v_service_id uuid;
+  v_status text;
+  v_remove uuid[];
+  v_add uuid[];
+  v_known_ids uuid[];
+begin
+  for v_seed in select * from jsonb_array_elements(coalesce(p_seed_evidence, '[]'::jsonb))
+  loop
+    insert into public.member_service_evidence (
+      member_id, service_id, interview_id, scoring_id, role, evidence, recency_year, evidence_summary, status
+    ) values (
+      p_member_id,
+      (v_seed ->> 'serviceId')::uuid,
+      (v_seed ->> 'interviewId')::uuid,
+      (v_seed ->> 'scoringId')::uuid,
+      (v_seed ->> 'role')::smallint,
+      v_seed ->> 'evidence',
+      case when v_seed ->> 'recencyYear' is null then null else (v_seed ->> 'recencyYear')::integer end,
+      v_seed ->> 'summary',
+      'active'
+    )
+    on conflict (member_id, service_id) do nothing;
+  end loop;
+
+  select coalesce(array_agg(service_id), '{}'::uuid[]) into v_known_ids
+    from public.member_service_evidence
+   where member_id = p_member_id;
+
+  for v_decision in select * from jsonb_array_elements(coalesce(p_decisions, '[]'::jsonb))
+  loop
+    if not ((v_decision ->> 'serviceId')::uuid = any(v_known_ids)) then
+      raise exception 'INTERVIEW_EVIDENCE_NOT_FOUND';
+    end if;
+  end loop;
+
+  for v_decision in select * from jsonb_array_elements(coalesce(p_decisions, '[]'::jsonb))
+  loop
+    v_service_id := (v_decision ->> 'serviceId')::uuid;
+    v_status := case when (v_decision ->> 'accept')::boolean then 'active' else 'rejected' end;
+
+    update public.member_service_evidence
+       set status = v_status
+     where member_id = p_member_id and service_id = v_service_id;
+
+    select coalesce(array_agg(value::uuid), '{}'::uuid[]) into v_remove
+      from jsonb_array_elements_text(coalesce(v_decision -> 'removeFacetValueIds', '[]'::jsonb));
+    if array_length(v_remove, 1) > 0 then
+      delete from public.member_service_subtags
+       where member_id = p_member_id and service_id = v_service_id
+         and facet_value_id = any(v_remove);
+    end if;
+
+    update public.member_service_subtags
+       set status = v_status
+     where member_id = p_member_id and service_id = v_service_id;
+
+    if v_status = 'active' then
+      select coalesce(array_agg(value::uuid), '{}'::uuid[]) into v_add
+        from jsonb_array_elements_text(coalesce(v_decision -> 'addFacetValueIds', '[]'::jsonb));
+      if array_length(v_add, 1) > 0 then
+        insert into public.member_service_subtags (member_id, service_id, facet_value_id, status)
+        select p_member_id, v_service_id, v, 'active' from unnest(v_add) as v
+        on conflict (member_id, service_id, facet_value_id) do update set status = 'active';
+      end if;
+    end if;
+  end loop;
+end;
+$function$;
+revoke execute on function public.interview_admin_decide_subtags(uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.interview_admin_decide_subtags(uuid, jsonb, jsonb) to service_role;
 
 -- Search: evidence/sub-tag changes re-index the member card (same trigger function as interviews).
 drop trigger if exists member_service_evidence_search_sync on public.member_service_evidence;

@@ -2346,7 +2346,7 @@
                 "subtags"
               ]
             },
-            "description": "🔑 Member, `completed` interviews only. Member review of the AI's suggested sub-tags: per listed service, removes the given `removeFacetValueIds` and optionally rewrites `evidenceSummary` (20–400 chars once rewritten, redacted on save). Validates every listed `serviceId` has an open (`proposed`) proposal before writing anything. After the edits, **all** of the member's `proposed` services (not just the ones listed) move to `member_approved`. 409 `INTERVIEW_NOT_COMPLETED` when the interview isn't completed yet; 400 `INTERVIEW_SUBTAGS_NOT_PROPOSED` when a listed `serviceId` has no open proposal.",
+            "description": "🔑 Member, `completed` interviews only. Member review of the AI's suggested sub-tags: per listed service, removes the given `removeFacetValueIds` and optionally rewrites `evidenceSummary` (20–400 chars once rewritten, redacted on save). Validated and applied in one Postgres transaction (`interview_member_approve()`): every listed `serviceId` must have an open (`proposed`) proposal, or nothing is written. After the edits, **all** of the member's `proposed` services (not just the ones listed) move to `member_approved`. 409 `INTERVIEW_NOT_COMPLETED` when the interview isn't completed yet; 400 `INTERVIEW_SUBTAGS_NOT_PROPOSED` when a listed `serviceId` has no open proposal.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"removeFacetValueIds\": [],\n      \"evidenceSummary\": null\n    }\n  ]\n}",
@@ -3939,7 +3939,7 @@
                     "{{interviewId}}"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Plan, live state (facts board), drafts, summary, each connection's transcript plus a 15-minute signed audio URL (`null` when `audioOptIn` was false), and the v2 verification fields: `ledger`, `scoring` (current `InterviewScoringResultDto`, or null), `flags`, `audioOptIn`, `llmUsage`."
+                "description": "🛡️ Admin + `manageMembers`. Plan, live state (facts board), drafts, summary, each connection's transcript plus a 15-minute signed audio URL (`null` when `audioOptIn` was false), and the v2 verification fields: `ledger`, `scoring` (current `InterviewScoringResultDto`, or null), `flags`, `audioOptIn`, `llmUsage`. `flags` is every flag of this interview, any status — a `superseded` one (left behind by an older scoring a re-score replaced) stays visible as history."
               },
               "response": []
             },
@@ -4039,7 +4039,7 @@
                     "rescore"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Re-runs the scorer (LLM call, shared `ai` rate limit) on the interview's stored transcript, refreshing `interview_scorings`, per-service evidence/sub-tag proposals and review flags, and updates `verifiedAt`. Never overwrites a service's evidence/sub-tags the member or an admin already decided on (`member_approved`/`active` rows, and `rejected` rows from this same interview, are left alone). Deletes this interview's still-`proposed` evidence the new scoring did not re-propose; the older scoring's still-`open` flags drop out of the flag listings. 409 `INTERVIEW_NOT_COMPLETED` unless the interview is `completed`; 409 `INTERVIEW_NOT_V2` for a v1 interview with no claim ledger; 409 `INTERVIEW_MEMBER_INACTIVE` if the member is no longer active."
+                "description": "🛡️ Admin + `manageMembers`. Re-runs the scorer (LLM call, shared `ai` rate limit) on the interview's stored transcript, refreshing `interview_scorings`, per-service evidence/sub-tag proposals and review flags, and updates `verifiedAt`. Never overwrites a service's evidence/sub-tags the member or an admin already decided on (`member_approved`/`active` rows, and `rejected` rows from this same interview, are left alone). Deletes this interview's still-`proposed` evidence the new scoring did not re-propose; the older scoring's still-`open` flags move to `status: 'superseded'` (a real, terminal status — atomic with the `is_current` swap, see `interview_store_scoring()` in `docs/database-erd.md`). 409 `INTERVIEW_NOT_COMPLETED` unless the interview is `completed`; 409 `INTERVIEW_NOT_V2` for a v1 interview with no claim ledger; 409 `INTERVIEW_MEMBER_INACTIVE` if the member is no longer active."
               },
               "response": []
             }
@@ -4086,7 +4086,7 @@
                     }
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`open`, `dismissed`, `confirmed`); `page` (default 1), `pageSize` (default 25, ≤ 100). Newest first. Only each interview's current-scoring flags plus resolved flags from any scoring — an `open` flag superseded by a re-score is hidden."
+                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`open`, `dismissed`, `confirmed`, `superseded`); `page` (default 1), `pageSize` (default 25, ≤ 100). Newest first, plain query — no scoring-embed filter. An `open` flag a re-score superseded now carries `status: 'superseded'` for real, so `?status=open` naturally excludes it; omit `status` to list every status, superseded included."
               },
               "response": []
             },
@@ -4118,7 +4118,7 @@
                     "{{interviewFlagId}}"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Sets `resolvedBy`/`resolvedAt`.\n\nTo confirm the flag instead, replace the whole body with:\n```json\n{\n  \"status\": \"confirmed\",\n  \"note\": \"Claim contradicts an earlier answer; evidence not credited.\"\n}\n```",
+                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Only an `open` flag can be resolved — 409 `INTERVIEW_FLAG_NOT_OPEN` for one that's already `dismissed`/`confirmed`, or `superseded` by a later re-score. Sets `resolvedBy`/`resolvedAt`.\n\nTo confirm the flag instead, replace the whole body with:\n```json\n{\n  \"status\": \"confirmed\",\n  \"note\": \"Claim contradicts an earlier answer; evidence not credited.\"\n}\n```",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"status\": \"dismissed\",\n  \"note\": \"Short answers, genuine expert.\"\n}",
@@ -4189,7 +4189,7 @@
                     "subtags"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Resolves every item before applying anything. A `serviceId` with no evidence row is accepted (`accept: true` only) when the member's current scoring has a claim covering it — a new `active` evidence row is seeded from that claim. `accept: true` → evidence + sub-tags → `active` (plus any `addFacetValueIds`, added as `active` sub-tags); `removeFacetValueIds` applied either way. 404 `INTERVIEW_EVIDENCE_NOT_FOUND` for a `serviceId` with no evidence that can't be seeded (or a rejection of one); nothing is written.\n\nTo reject instead, replace the whole body with:\n```json\n{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": false,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}\n```",
+                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Resolves every item before applying anything. A `serviceId` with no evidence row is accepted (`accept: true` only) when the member's current scoring has a claim covering it — a new `active` evidence row is seeded from that claim. `accept: true` → evidence + sub-tags → `active` (plus any `addFacetValueIds`, added as `active` sub-tags); `removeFacetValueIds` applied either way. 404 `INTERVIEW_EVIDENCE_NOT_FOUND` for a `serviceId` with no evidence that can't be seeded (or a rejection of one); nothing is written. Seeding and the decisions themselves are applied in one Postgres transaction (`interview_admin_decide_subtags()`), so a bad `serviceId` never leaves an earlier valid decision half-applied.\n\nTo reject instead, replace the whole body with:\n```json\n{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": false,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}\n```",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": true,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}",

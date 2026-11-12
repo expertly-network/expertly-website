@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { InterviewReviewFlagDto, InterviewScoringResultDto, ReviewFlagStatus } from '@shared/interview';
 import type {
   AdminMemberServiceEvidenceDto,
@@ -51,20 +51,12 @@ const FLAG_COLUMNS = [
   'resolvedAt:resolved_at',
   'createdAt:created_at',
 ].join(', ');
-/**
- * Flag listings hide open flags left behind by an older scoring of the same interview (a re-score
- * makes a new scoring current; its own flags replace them). Resolved flags stay visible as history.
- * PostgREST: left-embed the flag's scoring only when it is current, then keep rows that are either
- * resolved or have that embed.
- */
-const FLAG_LIST_SELECT = `${FLAG_COLUMNS}, interview_scorings!left(id)`;
-const FLAG_LIST_VISIBLE = 'status.neq.open,interview_scorings.not.is.null';
+// A re-score moves an older scoring's still-open flags to `superseded` (interview_store_scoring(),
+// see the migration) — a real status, not a query-side filter, so both listings below are plain
+// selects. `listFlags`'s own `status` filter does the hiding (status=open no longer returns
+// superseded rows); `listFlagsForInterview` intentionally returns every status, superseded
+// included, as that interview's history.
 type FlagRow = Omit<InterviewReviewFlagDto, 'memberName'>;
-const stripScoring = (rows: unknown[] | null): FlagRow[] =>
-  ((rows ?? []) as (FlagRow & { interview_scorings?: unknown })[]).map((r) => {
-    const { interview_scorings: _scoring, ...flag } = r;
-    return flag;
-  });
 
 export interface AdminEvidenceInput {
   memberId: string;
@@ -87,11 +79,12 @@ export class InterviewResultsRepository {
   }
 
   /**
-   * Three statements, not a transaction (Supabase-js has no cross-statement transaction here):
-   * (1) insert the new row as not-current so a failed insert never touches existing rows,
-   * (2) clear every other row for this interview, (3) mark the new row current. If (2) or (3)
-   * never runs, `findCurrentScoring`'s "newest row" fallback still returns this row's `result`,
-   * since the data itself is already correct after step (1).
+   * One transaction (`interview_store_scoring()`, see the migration): clears every other row for
+   * this interview, inserts the new one as current, supersedes the interview's still-`open` flags
+   * from any other scoring, and deletes its still-`proposed` evidence from any other scoring (what
+   * used to be a separate `deleteStaleProposals` call after a re-score). No partial state is
+   * observable between those steps, so there is no "no row flagged current" case to fall back
+   * from any more — see `findCurrentScoring` below.
    */
   async insertScoring(
     interviewId: string,
@@ -99,32 +92,22 @@ export class InterviewResultsRepository {
     model: string,
     result: InterviewScoringResultDto
   ): Promise<string> {
-    const { data: inserted, error: insertError } = await this.db
-      .from('interview_scorings')
-      .insert({
-        interview_id: interviewId,
-        rubric_version: rubricVersion,
-        model,
-        // `result` is typed NonNullable<Json> (required) by the generated types; the DTO is a
-        // plain object tree, not a Json union member by structural type, so it goes via unknown.
-        result: result as unknown as NonNullable<Json>,
-        is_current: false,
-      })
-      .select('id')
-      .single();
-    if (insertError) throw dbError(`scoring insert failed: ${insertError.message}`);
-    const newId = inserted.id;
-    const off = await this.db
-      .from('interview_scorings')
-      .update({ is_current: false })
-      .eq('interview_id', interviewId)
-      .neq('id', newId);
-    if (off.error) throw dbError(`scoring update failed: ${off.error.message}`);
-    const current = await this.db.from('interview_scorings').update({ is_current: true }).eq('id', newId);
-    if (current.error) throw dbError(`scoring update failed: ${current.error.message}`);
-    return newId;
+    const { data, error } = await this.db.rpc('interview_store_scoring', {
+      p_interview_id: interviewId,
+      p_rubric_version: rubricVersion,
+      p_model: model,
+      // The DTO is a plain object tree, not a Json union member by structural type, so it goes
+      // via unknown (same as the direct-insert cast this replaced).
+      p_result: result as unknown as Json,
+    });
+    if (error) throw dbError(`scoring store failed: ${error.message}`);
+    return data as string;
   }
 
+  /** The interview's current scoring, or null if it has never been scored. `interview_store_scoring()`
+   *  keeps exactly one `is_current` row per interview atomically, so (unlike before this
+   *  repository called an RPC for the insert) there is no "no row flagged current" case left to
+   *  fall back from — a plain read is both simpler and now provably complete. */
   async findCurrentScoring(interviewId: string): Promise<{ id: string; result: InterviewScoringResultDto } | null> {
     const { data, error } = await this.db
       .from('interview_scorings')
@@ -133,18 +116,7 @@ export class InterviewResultsRepository {
       .eq('is_current', true)
       .maybeSingle();
     if (error) throw dbError(`scoring read failed: ${error.message}`);
-    if (data) return { id: data.id, result: data.result as unknown as InterviewScoringResultDto };
-    // No row is flagged current (e.g. insertScoring's step 2/3 above never completed) — fall
-    // back to the newest row for this interview, which always holds a correct `result`.
-    const { data: latest, error: latestError } = await this.db
-      .from('interview_scorings')
-      .select('id, result')
-      .eq('interview_id', interviewId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (latestError) throw dbError(`scoring read failed: ${latestError.message}`);
-    return latest ? { id: latest.id, result: latest.result as unknown as InterviewScoringResultDto } : null;
+    return data ? { id: data.id, result: data.result as unknown as InterviewScoringResultDto } : null;
   }
 
   async listFacetValues(): Promise<FacetValueRow[]> {
@@ -290,77 +262,37 @@ export class InterviewResultsRepository {
   }
 
   /**
-   * The member's review: remove sub-tags, optionally rewrite summaries, then approve the whole
-   * proposal. Ordering matters for safe retries: (a) validate every edit against the proposed set
-   * BEFORE any write, so a bad edit never leaves an earlier valid edit half-applied; (b) apply the
-   * per-service deletes/summary rewrites; (c) flip sub-tags to member_approved; (d) flip evidence
-   * to member_approved LAST. If the process dies between (c) and (d), evidence is still `proposed`,
-   * so a retry re-reads the same proposed set in step (a) and finishes the job — it never leaves
-   * evidence proposed with no way to recover.
+   * One transaction (`interview_member_approve()`, see the migration): locks and reads the
+   * member's `proposed` evidence rows for this interview, validates every edit's serviceId is one
+   * of them (raises `INTERVIEW_SUBTAGS_NOT_PROPOSED`, writing nothing, otherwise), applies the
+   * per-service sub-tag deletes/summary rewrites, then flips those services' sub-tags and
+   * evidence to `member_approved`.
    */
   async memberApprove(memberId: string, interviewId: string, edits: MemberSubtagEditItem[]): Promise<void> {
-    const proposed = await this.db
-      .from('member_service_evidence')
-      .select('service_id')
-      .eq('member_id', memberId)
-      .eq('interview_id', interviewId)
-      .eq('status', 'proposed');
-    if (proposed.error) throw dbError(`evidence read failed: ${proposed.error.message}`);
-    const ids = new Set((proposed.data ?? []).map((r) => r.service_id));
-    for (const edit of edits) {
-      if (!ids.has(edit.serviceId))
-        throw new BadRequestException({
-          code: 'INTERVIEW_SUBTAGS_NOT_PROPOSED',
-          message: 'One of these services has no open proposal.',
-        });
-    }
-    for (const edit of edits) {
-      if (edit.removeFacetValueIds.length) {
-        const del = await this.db
-          .from('member_service_subtags')
-          .delete()
-          .eq('member_id', memberId)
-          .eq('service_id', edit.serviceId)
-          .in('facet_value_id', edit.removeFacetValueIds);
-        if (del.error) throw dbError(`subtag delete failed: ${del.error.message}`);
-      }
-      if (edit.evidenceSummary) {
-        const upd = await this.db
-          .from('member_service_evidence')
-          .update({ evidence_summary: edit.evidenceSummary })
-          .eq('member_id', memberId)
-          .eq('service_id', edit.serviceId);
-        if (upd.error) throw dbError(`summary update failed: ${upd.error.message}`);
-      }
-    }
-    if (!ids.size) return;
-    const svcIds = [...ids];
-    const st = await this.db
-      .from('member_service_subtags')
-      .update({ status: 'member_approved' })
-      .eq('member_id', memberId)
-      .in('service_id', svcIds)
-      .eq('status', 'proposed');
-    if (st.error) throw dbError(`subtags approve failed: ${st.error.message}`);
-    const ev = await this.db
-      .from('member_service_evidence')
-      .update({ status: 'member_approved' })
-      .eq('member_id', memberId)
-      .in('service_id', svcIds);
-    if (ev.error) throw dbError(`evidence approve failed: ${ev.error.message}`);
+    const { error } = await this.db.rpc('interview_member_approve', {
+      p_member_id: memberId,
+      p_interview_id: interviewId,
+      p_edits: edits as unknown as Json,
+    });
+    if (!error) return;
+    if (error.message === 'INTERVIEW_SUBTAGS_NOT_PROPOSED')
+      throw new BadRequestException({
+        code: 'INTERVIEW_SUBTAGS_NOT_PROPOSED',
+        message: 'One of these services has no open proposal.',
+      });
+    throw dbError(`member approve failed: ${error.message}`);
   }
 
-  /** This interview's flags: the current scoring's, plus resolved ones from any scoring. */
+  /** This interview's flags, every status included — a `superseded` one is still this
+   *  interview's history, same as a resolved one. */
   async listFlagsForInterview(interviewId: string, memberName: string): Promise<InterviewReviewFlagDto[]> {
     const { data, error } = await this.db
       .from('interview_review_flags')
-      .select(FLAG_LIST_SELECT)
+      .select(FLAG_COLUMNS)
       .eq('interview_id', interviewId)
-      .eq('interview_scorings.is_current', true)
-      .or(FLAG_LIST_VISIBLE)
       .order('created_at', { ascending: true });
     if (error) throw dbError(`flags read failed: ${error.message}`);
-    return stripScoring(data as unknown[] | null).map((f) => ({ ...f, memberName }));
+    return ((data ?? []) as unknown as FlagRow[]).map((f) => ({ ...f, memberName }));
   }
 
   async listFlags(input: {
@@ -368,53 +300,20 @@ export class InterviewResultsRepository {
     offset: number;
     limit: number;
   }): Promise<{ rows: FlagRow[]; total: number }> {
-    let q = this.db
-      .from('interview_review_flags')
-      .select(FLAG_LIST_SELECT, { count: 'exact' })
-      .eq('interview_scorings.is_current', true)
-      .or(FLAG_LIST_VISIBLE);
+    let q = this.db.from('interview_review_flags').select(FLAG_COLUMNS, { count: 'exact' });
     if (input.status) q = q.eq('status', input.status);
     const { data, error, count } = await q
       .order('created_at', { ascending: false })
       .range(input.offset, input.offset + input.limit - 1);
     if (error) throw dbError(`flags list failed: ${error.message}`);
-    const rows = stripScoring(data as unknown[] | null);
+    const rows = (data ?? []) as unknown as FlagRow[];
     return { rows, total: count ?? rows.length };
   }
 
-  /**
-   * After a re-score: drop this interview's still-`proposed` evidence rows that the new scoring did
-   * not re-propose (their proposed sub-tags cascade). Acted-on rows (approved/active/rejected) stay.
-   */
-  async deleteStaleProposals(interviewId: string, currentScoringId: string): Promise<void> {
-    const { error } = await this.db
-      .from('member_service_evidence')
-      .delete()
-      .eq('interview_id', interviewId)
-      .eq('status', 'proposed')
-      .neq('scoring_id', currentScoringId);
-    if (error) throw dbError(`stale proposals delete failed: ${error.message}`);
-  }
-
-  /** An admin accepting a service the scorer did not propose: the evidence row, created `active`. */
-  async insertAdminEvidence(e: AdminEvidenceInput): Promise<void> {
-    const { error } = await this.db.from('member_service_evidence').upsert(
-      {
-        member_id: e.memberId,
-        service_id: e.serviceId,
-        interview_id: e.interviewId,
-        scoring_id: e.scoringId,
-        role: e.role,
-        evidence: e.evidence,
-        recency_year: e.recencyYear,
-        evidence_summary: e.summary,
-        status: 'active',
-      },
-      { onConflict: 'member_id,service_id', ignoreDuplicates: true }
-    );
-    if (error) throw dbError(`evidence insert failed: ${error.message}`);
-  }
-
+  /** Only an `open` flag can be resolved — a flag the queue no longer shows as open (already
+   *  resolved, or superseded by a re-score) is `INTERVIEW_FLAG_NOT_OPEN`, distinct from not
+   *  existing at all (`INTERVIEW_FLAG_NOT_FOUND`). The second read only runs when the guarded
+   *  update affected nothing, so the common case stays one round trip. */
   async resolveFlag(
     id: string,
     status: 'dismissed' | 'confirmed',
@@ -425,11 +324,18 @@ export class InterviewResultsRepository {
       .from('interview_review_flags')
       .update({ status, resolution_note: note, resolved_by: adminId, resolved_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('status', 'open')
       .select(FLAG_COLUMNS)
       .maybeSingle();
     if (error) throw dbError(`flag update failed: ${error.message}`);
-    if (!data) throw new NotFoundException({ code: 'INTERVIEW_FLAG_NOT_FOUND', message: 'Flag not found.' });
-    return data as unknown as Omit<InterviewReviewFlagDto, 'memberName'>;
+    if (data) return data as unknown as Omit<InterviewReviewFlagDto, 'memberName'>;
+    const existing = await this.db.from('interview_review_flags').select('status').eq('id', id).maybeSingle();
+    if (existing.error) throw dbError(`flag read failed: ${existing.error.message}`);
+    if (!existing.data) throw new NotFoundException({ code: 'INTERVIEW_FLAG_NOT_FOUND', message: 'Flag not found.' });
+    throw new ConflictException({
+      code: 'INTERVIEW_FLAG_NOT_OPEN',
+      message: 'Only an open flag can be resolved.',
+    });
   }
 
   /** Service ids this member has interview evidence for — the validation read decideSubtags
@@ -468,48 +374,40 @@ export class InterviewResultsRepository {
     return out;
   }
 
-  /** Admin acceptance/rejection and manual edits of one member's sub-tags. */
-  async applyAdminDecision(memberId: string, item: AdminSubtagDecisionItem): Promise<void> {
-    const status = item.accept ? 'active' : 'rejected';
-    const ev = await this.db
-      .from('member_service_evidence')
-      .update({ status })
-      .eq('member_id', memberId)
-      .eq('service_id', item.serviceId)
-      .select('service_id');
-    if (ev.error) throw dbError(`evidence decision failed: ${ev.error.message}`);
-    if (!ev.data?.length)
+  /**
+   * One transaction (`interview_admin_decide_subtags()`, see the migration): inserts the
+   * TypeScript-resolved seed evidence rows (services the scorer never proposed, seeded `active`
+   * from the current scoring's claim — `on conflict do nothing`), verifies every decision's
+   * serviceId now has an evidence row for the member (raises `INTERVIEW_EVIDENCE_NOT_FOUND`,
+   * writing nothing else, if not), then per decision: evidence status active/rejected, removed
+   * sub-tags deleted, remaining sub-tags set to the same status, and (when accepted) any added
+   * facet values inserted as `active`.
+   */
+  async adminDecideSubtags(
+    memberId: string,
+    decisions: AdminSubtagDecisionItem[],
+    seeds: AdminEvidenceInput[]
+  ): Promise<void> {
+    const { error } = await this.db.rpc('interview_admin_decide_subtags', {
+      p_member_id: memberId,
+      p_decisions: decisions as unknown as Json,
+      p_seed_evidence: seeds.map((s) => ({
+        serviceId: s.serviceId,
+        interviewId: s.interviewId,
+        scoringId: s.scoringId,
+        role: s.role,
+        evidence: s.evidence,
+        recencyYear: s.recencyYear,
+        summary: s.summary,
+      })) as unknown as Json,
+    });
+    if (!error) return;
+    if (error.message === 'INTERVIEW_EVIDENCE_NOT_FOUND')
       throw new NotFoundException({
         code: 'INTERVIEW_EVIDENCE_NOT_FOUND',
         message: 'No interview evidence for that service.',
       });
-    if (item.removeFacetValueIds?.length) {
-      const del = await this.db
-        .from('member_service_subtags')
-        .delete()
-        .eq('member_id', memberId)
-        .eq('service_id', item.serviceId)
-        .in('facet_value_id', item.removeFacetValueIds);
-      if (del.error) throw dbError(`subtag delete failed: ${del.error.message}`);
-    }
-    const upd = await this.db
-      .from('member_service_subtags')
-      .update({ status })
-      .eq('member_id', memberId)
-      .eq('service_id', item.serviceId);
-    if (upd.error) throw dbError(`subtag decision failed: ${upd.error.message}`);
-    if (item.accept && item.addFacetValueIds?.length) {
-      const ins = await this.db.from('member_service_subtags').upsert(
-        item.addFacetValueIds.map((id) => ({
-          member_id: memberId,
-          service_id: item.serviceId,
-          facet_value_id: id,
-          status: 'active',
-        })),
-        { onConflict: 'member_id,service_id,facet_value_id' }
-      );
-      if (ins.error) throw dbError(`subtag add failed: ${ins.error.message}`);
-    }
+    throw dbError(`admin subtag decision failed: ${error.message}`);
   }
 
   async listFacetValuesAdmin(input: {

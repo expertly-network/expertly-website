@@ -18,7 +18,9 @@ export type QueryResolver = (call: QueryCall) => QueryResult | Promise<QueryResu
 
 /**
  * A stand-in for the service-role client: `db.from(table)` returns a chainable builder that
- * records each step and, when awaited, resolves through `resolver`. No network.
+ * records each step and, when awaited, resolves through `resolver`. No network. `db.rpc(fn, args)`
+ * is recorded the same way, as a one-step call on a synthetic `rpc:<fn>` "table" — it doesn't
+ * chain, so the step is `{ method: 'rpc', args: [args] }`.
  */
 export function fakeDb(resolver: QueryResolver): { db: SupabaseClient; calls: QueryCall[] } {
   const calls: QueryCall[] = [];
@@ -45,7 +47,14 @@ export function fakeDb(resolver: QueryResolver): { db: SupabaseClient; calls: Qu
     );
     return builder;
   };
-  return { db: { from } as unknown as SupabaseClient, calls };
+  const rpc = (fn: string, args?: unknown): unknown => {
+    const call: QueryCall = { table: `rpc:${fn}`, steps: [{ method: 'rpc', args: [args] }] };
+    calls.push(call);
+    return Promise.resolve()
+      .then(() => resolver(call))
+      .then((r) => ({ data: r.data ?? null, error: r.error ?? null, count: r.count ?? null }));
+  };
+  return { db: { from, rpc } as unknown as SupabaseClient, calls };
 }
 
 export function fakeSupabaseService(resolver: QueryResolver): { service: SupabaseService; calls: QueryCall[] } {

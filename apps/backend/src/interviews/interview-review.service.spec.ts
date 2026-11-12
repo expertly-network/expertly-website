@@ -38,12 +38,10 @@ function setup(o: { role?: string; status?: string; ledger?: object | null } = {
   } as unknown as InterviewsRepository;
   const results = {
     resolveFlag: vi.fn().mockResolvedValue({ id: 'f1', memberId: 'm1' }),
-    applyAdminDecision: vi.fn(),
+    adminDecideSubtags: vi.fn(),
     listMemberEvidence: vi.fn().mockResolvedValue([]),
     // Validation read for decideSubtags — only 's1' has interview evidence by default.
     listEvidenceServiceIds: vi.fn().mockResolvedValue(['s1']),
-    deleteStaleProposals: vi.fn(),
-    insertAdminEvidence: vi.fn(),
     findCurrentScoring: vi.fn().mockResolvedValue({ id: 'sc9', result: { claims: [SCORED_CLAIM] } }),
   } as unknown as InterviewResultsRepository;
   const scoring = {
@@ -63,12 +61,6 @@ describe('InterviewReviewService', () => {
       expect.any(Object)
     );
     expect(repo.updateInterview).toHaveBeenCalledWith('i1', { verifiedAt: null });
-  });
-
-  it("rescore removes the interview's still-proposed evidence from older scorings", async () => {
-    const { svc, results } = setup();
-    await svc.rescore('i1');
-    expect(results.deleteStaleProposals).toHaveBeenCalledWith('i1', 's2');
   });
 
   it('rescore returns 409 INTERVIEW_NOT_V2 for a v1 interview with no ledger', async () => {
@@ -97,13 +89,13 @@ describe('InterviewReviewService', () => {
     });
   });
 
-  it('applies each sub-tag decision after the fresh role check', async () => {
+  it('calls the atomic decision rpc with the services as given and no seeds, after the fresh role check', async () => {
     const { svc, results } = setup();
     await svc.decideSubtags(ADMIN, 'm1', { services: [{ serviceId: 's1', accept: true }] });
-    expect(results.applyAdminDecision).toHaveBeenCalledWith('m1', { serviceId: 's1', accept: true });
+    expect(results.adminDecideSubtags).toHaveBeenCalledWith('m1', [{ serviceId: 's1', accept: true }], []);
   });
 
-  it('decideSubtags validates every serviceId has evidence before applying any decision', async () => {
+  it('decideSubtags 404s before calling the rpc when a missing serviceId has no scored claim to seed it from', async () => {
     const { svc, results } = setup();
     await expect(
       svc.decideSubtags(ADMIN, 'm1', {
@@ -113,10 +105,10 @@ describe('InterviewReviewService', () => {
         ],
       })
     ).rejects.toMatchObject({ response: { code: 'INTERVIEW_EVIDENCE_NOT_FOUND' } });
-    expect(results.applyAdminDecision).not.toHaveBeenCalled();
+    expect(results.adminDecideSubtags).not.toHaveBeenCalled();
   });
 
-  it('accepting a never-proposed service seeds an active evidence row from the current scoring claim', async () => {
+  it('accepting a never-proposed service resolves a seed evidence row from the current scoring claim and passes it to the rpc', async () => {
     const { svc, results } = setup();
     await svc.decideSubtags(ADMIN, 'm1', {
       services: [
@@ -124,31 +116,38 @@ describe('InterviewReviewService', () => {
         { serviceId: 's-tp', accept: true, addFacetValueIds: ['fv1'] },
       ],
     });
-    expect(results.insertAdminEvidence).toHaveBeenCalledWith({
-      memberId: 'm1',
-      serviceId: 's-tp',
-      interviewId: 'i1',
-      scoringId: 'sc9',
-      role: 0,
-      evidence: 'E2',
-      recencyYear: 2024,
-      summary: expect.not.stringContaining('98765'),
-    });
-    expect(results.applyAdminDecision).toHaveBeenCalledTimes(2);
-    expect(results.applyAdminDecision).toHaveBeenLastCalledWith('m1', {
-      serviceId: 's-tp',
-      accept: true,
-      addFacetValueIds: ['fv1'],
-    });
+    expect(results.adminDecideSubtags).toHaveBeenCalledWith(
+      'm1',
+      [
+        { serviceId: 's1', accept: true },
+        { serviceId: 's-tp', accept: true, addFacetValueIds: ['fv1'] },
+      ],
+      [
+        expect.objectContaining({
+          memberId: 'm1',
+          serviceId: 's-tp',
+          interviewId: 'i1',
+          scoringId: 'sc9',
+          role: 0,
+          evidence: 'E2',
+          recencyYear: 2024,
+          summary: expect.not.stringContaining('98765'),
+        }),
+      ]
+    );
   });
 
   it("also matches a claim by its ledger serviceIds when it didn't credit the service", async () => {
     const { svc, results } = setup();
     await svc.decideSubtags(ADMIN, 'm1', { services: [{ serviceId: 's-ma', accept: true }] });
-    expect(results.insertAdminEvidence).toHaveBeenCalledWith(expect.objectContaining({ serviceId: 's-ma' }));
+    expect(results.adminDecideSubtags).toHaveBeenCalledWith(
+      'm1',
+      [{ serviceId: 's-ma', accept: true }],
+      [expect.objectContaining({ serviceId: 's-ma' })]
+    );
   });
 
-  it('404s (writing nothing) when no scored claim covers the service or the item is a rejection', async () => {
+  it('404s before calling the rpc (writing nothing) when no scored claim covers the service or the item is a rejection', async () => {
     for (const item of [
       { serviceId: 's-none', accept: true },
       { serviceId: 's-tp', accept: false },
@@ -157,8 +156,7 @@ describe('InterviewReviewService', () => {
       await expect(
         svc.decideSubtags(ADMIN, 'm1', { services: [{ serviceId: 's1', accept: true }, item] })
       ).rejects.toMatchObject({ response: { code: 'INTERVIEW_EVIDENCE_NOT_FOUND' } });
-      expect(results.insertAdminEvidence).not.toHaveBeenCalled();
-      expect(results.applyAdminDecision).not.toHaveBeenCalled();
+      expect(results.adminDecideSubtags).not.toHaveBeenCalled();
     }
   });
 });

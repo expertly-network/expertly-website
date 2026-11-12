@@ -60,10 +60,10 @@ export class InterviewReviewService {
     const transcript = (await this.repo.listConnections(id)).flatMap((c) =>
       Array.isArray(c.transcript) ? (c.transcript as TranscriptTurn[]) : []
     );
-    const { scoringId, verified } = await this.scoring.scoreAndStore(row, transcript, member);
-    // The old scoring's open flags drop out of the listings by query (see listFlags); its
-    // still-proposed evidence the new scoring did not re-propose is removed here.
-    await this.results.deleteStaleProposals(id, scoringId);
+    // scoreAndStore -> insertScoring -> interview_store_scoring() atomically supersedes the old
+    // scoring's still-open flags and deletes its still-proposed evidence in the same transaction
+    // as the is_current swap — no separate cleanup call needed here any more.
+    const { verified } = await this.scoring.scoreAndStore(row, transcript, member);
     await this.repo.updateInterview(id, { verifiedAt: verified ? new Date().toISOString() : null });
     return this.interviews.adminGet(id);
   }
@@ -100,12 +100,13 @@ export class InterviewReviewService {
   }
 
   /**
-   * Resolve every item BEFORE applying any decision — the same lesson as memberApprove: processing
-   * the batch sequentially would leave an earlier valid decision applied even when a later item is
-   * invalid. An item for a service with no evidence row (the scorer flagged the claim, so it was
-   * never proposed) is resolvable only with `accept: true` and only when the member's current
-   * completed interview's current scoring has a claim covering that service; that claim seeds a new
-   * `active` evidence row. applyAdminDecision keeps its own not-found check too, as a backstop.
+   * Resolve seed evidence for not-yet-proposed services BEFORE calling the atomic decision rpc:
+   * `listEvidenceServiceIds` is a best-effort pre-check (which items need a scoring-derived seed
+   * at all) — the rpc re-verifies every decision's serviceId has an evidence row for real, inside
+   * the same transaction that applies the decisions, so a bad id still writes nothing. An item for
+   * a service with no evidence row (the scorer flagged the claim, so it was never proposed) is
+   * resolvable only with `accept: true` and only when the member's current completed interview's
+   * current scoring has a claim covering that service; that claim seeds a new `active` evidence row.
    */
   async decideSubtags(
     admin: AuthenticatedUser,
@@ -115,9 +116,8 @@ export class InterviewReviewService {
     await this.assertFreshAdmin(admin);
     const known = new Set(await this.results.listEvidenceServiceIds(memberId));
     const missing = dto.services.filter((s) => !known.has(s.serviceId));
-    const creates = missing.length ? await this.evidenceFromScoring(memberId, missing) : [];
-    for (const e of creates) await this.results.insertAdminEvidence(e);
-    for (const item of dto.services) await this.results.applyAdminDecision(memberId, item);
+    const seeds = missing.length ? await this.evidenceFromScoring(memberId, missing) : [];
+    await this.results.adminDecideSubtags(memberId, dto.services, seeds);
     return this.results.listMemberEvidence(memberId);
   }
 
