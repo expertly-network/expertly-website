@@ -12,6 +12,7 @@ import { PageHero } from '@/components/layout/PageHero';
 export const metadata = {
   title: 'Events — GrowXQ',
   description: 'Conferences, summits, and professional meetings curated for the GrowXQ network: in person or online.',
+  alternates: { canonical: '/events' },
 };
 
 export default async function EventsPage(props: { searchParams: Promise<{ q?: string }> }) {

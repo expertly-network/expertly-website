@@ -31,7 +31,8 @@ export const metadata: Metadata = {
     ],
   },
   title: 'GrowXQ',
-  description: 'Connecting clients with vetted expert members',
+  description:
+    'Find and connect directly with verified senior finance, tax & law practitioners — no agencies, no intermediaries.',
   // The share card. A route that sets its own `openGraph` replaces this whole object, so it must
   // repeat `images` (see invitation/page.tsx).
   openGraph: {

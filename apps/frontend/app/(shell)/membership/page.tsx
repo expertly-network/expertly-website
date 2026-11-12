@@ -17,6 +17,7 @@ export const metadata = {
   title: 'Membership benefits — GrowXQ',
   description:
     'One flat annual fee: client discovery, unlimited publishing, a vetted peer network and member events — with zero commission on any work you win.',
+  alternates: { canonical: '/membership' },
 };
 
 // Section for section and in the same order, design/static_html/membership.html, with its copy

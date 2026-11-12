@@ -21,6 +21,7 @@ import { MembershipTiers } from '@/components/home/MembershipTiers';
 import { Newsletter } from '@/components/home/Newsletter';
 import { HomeFaq } from '@/components/home/Faq';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { SiteJsonLd } from '@/components/seo/SiteJsonLd';
 import { getSessionUser } from '@/lib/auth/session-claims';
 import { canApplyForMembership } from '@/lib/auth/roles';
 import { MobileViewAll } from '@/components/home/MobileViewAll';
@@ -33,6 +34,7 @@ export const metadata = {
   title: 'GrowXQ — Vetted finance, tax & law experts, on demand',
   description:
     'A trusted platform for verified senior finance, tax & law practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
+  alternates: { canonical: '/' },
 };
 
 const FAQ_MEMBERSHIP = [
@@ -229,6 +231,7 @@ export default async function HomePage() {
 
   return (
     <div>
+      <SiteJsonLd />
       <StellarOrbitHero avatarUrls={heroAvatarUrls} showApply={showApply} showMyProfile={user?.role === 'member'} />
       <AiSearchTeaser />
 

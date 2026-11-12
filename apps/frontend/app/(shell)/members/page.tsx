@@ -16,7 +16,8 @@ const PAGE_SIZE = MEMBER_LIST_PAGE_SIZE;
 export const metadata = {
   title: 'Members — GrowXQ',
   description:
-    'Hire verified finance, tax & law counsel. Every practitioner is individually credential-verified and peer-reviewed.',
+    'Consult verified finance, tax & law counsel. Every practitioner is individually credential-verified and peer-reviewed.',
+  alternates: { canonical: '/members' },
 };
 
 export default async function MembersPage(props: {
@@ -42,7 +43,7 @@ export default async function MembersPage(props: {
         eyebrow="Member directory"
         title={
           <>
-            Hire verified <span className="text-accent">finance, tax &amp; law</span> counsel.
+            Consult verified <span className="text-accent">finance, tax &amp; law</span> counsel.
           </>
         }
         lede="Every practitioner below has been individually credential-verified and peer-reviewed. No agencies, no intermediaries, direct access only."

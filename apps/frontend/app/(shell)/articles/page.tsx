@@ -9,6 +9,7 @@ import { SuccessNotice } from '@/components/shared/SuccessNotice';
 export const metadata = {
   title: 'Articles — GrowXQ',
   description: 'Peer-reviewed analysis and expert commentary from verified finance, tax & law professionals.',
+  alternates: { canonical: '/articles' },
 };
 
 function canWriteArticles(role: string | undefined): boolean {
