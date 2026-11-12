@@ -62,4 +62,25 @@ export class ElevenLabsClient {
       return null;
     }
   }
+
+  /**
+   * Deletes a finished conversation (audio and transcript) at ElevenLabs once we hold what we keep
+   * (spec §2: audio is deleted unless the member opted in). Best effort; never throws.
+   */
+  async deleteConversation(conversationId: string): Promise<boolean> {
+    const el = this.config.elevenLabs;
+    if (!el) return false;
+    try {
+      const res = await fetch(`${AUDIO_URL}/${encodeURIComponent(conversationId)}`, {
+        method: 'DELETE',
+        headers: { 'xi-api-key': el.apiKey },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) this.logger.warn(`ElevenLabs delete for ${conversationId} failed: HTTP ${res.status}`);
+      return res.ok;
+    } catch (error: unknown) {
+      this.logger.warn(`ElevenLabs delete error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
 }

@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { EmailModule } from '../email/email.module';
-import { Extractor } from './brain/extractor';
+import { Drafter } from './brain/drafter';
 import { Scorer } from './brain/scorer';
 import { ElevenLabsClient } from './elevenlabs.client';
 import { InterviewConfig } from './interview.config';
@@ -20,7 +20,7 @@ import { InterviewsRepository } from './interviews.repository';
     InterviewLlmService,
     InterviewsRepository,
     InterviewResultsRepository,
-    Extractor,
+    Drafter,
     Scorer,
     InterviewExtractionService,
     InterviewScoringService,
@@ -31,7 +31,7 @@ import { InterviewsRepository } from './interviews.repository';
     InterviewLlmService,
     InterviewsRepository,
     InterviewResultsRepository,
-    Extractor,
+    Drafter,
     Scorer,
     InterviewExtractionService,
     InterviewScoringService,

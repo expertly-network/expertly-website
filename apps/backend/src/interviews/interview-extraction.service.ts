@@ -2,10 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { sniffFileType } from '../common/sniff-file-type';
 import { EmailService } from '../email/email.service';
 import type { Json } from '../supabase/database.types';
-import { Extractor } from './brain/extractor';
-import { parseState, storedPlanSchema, type TranscriptTurn } from './brain/types';
+import { Drafter } from './brain/drafter';
+import type { TranscriptTurn } from './brain/types';
 import { ElevenLabsClient } from './elevenlabs.client';
-import { InterviewsRepository, type ConnectionRow } from './interviews.repository';
+import { InterviewScoringService } from './interview-scoring.service';
+import { InterviewsRepository, type ConnectionRow, type InterviewRow } from './interviews.repository';
 
 const CLAIM_STALE_MS = 10 * 60_000;
 const TRANSCRIPT_WAIT_MS = 2 * 3600_000;
@@ -16,7 +17,8 @@ export class InterviewExtractionService {
   private readonly logger = new Logger(InterviewExtractionService.name);
   constructor(
     private readonly repo: InterviewsRepository,
-    private readonly extractor: Extractor,
+    private readonly scoring: InterviewScoringService,
+    private readonly drafter: Drafter,
     private readonly email: EmailService,
     private readonly elevenLabs: ElevenLabsClient
   ) {}
@@ -42,7 +44,6 @@ export class InterviewExtractionService {
           await this.repo.updateInterview(row.id, { extractClaimedAt: null, extractAttempts: row.extractAttempts - 1 });
           continue;
         }
-        await this.archiveAudio(connections);
         const transcript = connections.flatMap((c) =>
           Array.isArray(c.transcript) ? (c.transcript as TranscriptTurn[]) : []
         );
@@ -51,25 +52,28 @@ export class InterviewExtractionService {
           continue;
         }
         const member = await this.repo.loadMemberContext(row.memberId);
-        if (!member || !row.plan) {
+        if (!member || !row.plan || !row.ledger) {
           await this.repo.updateInterview(row.id, {
             status: 'failed',
             failureReason: member ? 'no_plan' : 'member_inactive',
           });
           continue;
         }
-        const result = await this.extractor.extract({
-          plan: storedPlanSchema.parse(row.plan),
-          state: parseState(row.state),
+        // A retry after the scoring was stored reuses it (no duplicate scorings or flags).
+        const scored = await this.scoring.scoreAndStore(row, transcript, member, { reuseCurrent: true });
+        const { drafts, summary } = await this.drafter.draft({
           transcript,
           member,
+          scoring: scored.result,
+          onUsage: (u) => void this.repo.addLlmUsage(row.id, 'drafter', u).catch(() => undefined),
         });
+        await this.handleAudio(row, connections);
         await this.repo.updateInterview(row.id, {
           status: 'completed',
-          drafts: result.drafts as unknown as Json,
-          assessment: result.assessment as unknown as Json,
-          summary: result.summary,
+          drafts: drafts as unknown as Json,
+          summary,
           summaryStatus: 'pending',
+          verifiedAt: scored.verified ? new Date().toISOString() : null,
           failureReason: null,
         });
         const workEmail = await this.repo.findMemberWorkEmail(row.memberId);
@@ -91,28 +95,37 @@ export class InterviewExtractionService {
   }
 
   /**
-   * Copies each finished connection's recording from ElevenLabs into the private interview-audio
-   * bucket. Best effort: a missing or non-MP3 recording is logged and never blocks extraction.
+   * Opted-in members: copy each recording into the private bucket, then delete the ElevenLabs copy.
+   * Everyone else: delete the ElevenLabs copy without archiving (spec §2). An opted-in recording that
+   * could not be archived yet is left at ElevenLabs. Best effort: never blocks completion.
    */
-  private async archiveAudio(connections: ConnectionRow[]): Promise<void> {
+  private async handleAudio(row: InterviewRow, connections: ConnectionRow[]): Promise<void> {
     for (const c of connections) {
-      if (!c.elevenlabsConversationId || c.audioPath) continue;
-      try {
-        const audio = await this.elevenLabs.conversationAudio(c.elevenlabsConversationId);
-        if (!audio) continue;
-        const kind = await sniffFileType(audio);
-        if (kind?.mime !== 'audio/mpeg') {
-          this.logger.warn(`Audio for connection ${c.id} is ${kind?.mime ?? 'unknown'}, not mp3; not stored.`);
-          continue;
-        }
-        const path = `${c.interviewId}/${c.id}.mp3`;
-        await this.repo.uploadAudio(path, audio);
-        await this.repo.updateConnection(c.id, { audioPath: path, audioReceivedAt: new Date().toISOString() });
-      } catch (error: unknown) {
-        this.logger.warn(
-          `Audio archive failed for connection ${c.id}: ${error instanceof Error ? error.message : String(error)}`
-        );
+      if (!c.elevenlabsConversationId) continue;
+      let archived = c.audioPath !== null;
+      if (row.audioOptIn && !archived) archived = await this.archive(c);
+      if (!row.audioOptIn || archived) await this.elevenLabs.deleteConversation(c.elevenlabsConversationId);
+    }
+  }
+
+  private async archive(c: ConnectionRow): Promise<boolean> {
+    try {
+      const audio = await this.elevenLabs.conversationAudio(c.elevenlabsConversationId as string);
+      if (!audio) return false;
+      const kind = await sniffFileType(audio);
+      if (kind?.mime !== 'audio/mpeg') {
+        this.logger.warn(`Audio for connection ${c.id} is ${kind?.mime ?? 'unknown'}, not mp3; not stored.`);
+        return false;
       }
+      const path = `${c.interviewId}/${c.id}.mp3`;
+      await this.repo.uploadAudio(path, audio);
+      await this.repo.updateConnection(c.id, { audioPath: path, audioReceivedAt: new Date().toISOString() });
+      return true;
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Audio archive failed for connection ${c.id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return false;
     }
   }
 }
