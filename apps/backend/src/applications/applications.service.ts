@@ -847,6 +847,8 @@ export class ApplicationsService {
         serviceName: detail?.name ?? 'Unknown',
         categoryId: detail?.categoryId ?? '',
         categoryName: detail?.categoryName ?? 'Unknown',
+        serviceLineId: detail?.serviceLineId ?? '',
+        serviceLineName: detail?.serviceLineName ?? 'Unknown',
       };
     });
   }

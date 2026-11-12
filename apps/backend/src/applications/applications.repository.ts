@@ -141,6 +141,8 @@ export interface ServiceDetail {
   name: string;
   categoryId: string;
   categoryName: string;
+  serviceLineId: string;
+  serviceLineName: string;
   isCustom: boolean;
   isActive: boolean;
 }
@@ -171,6 +173,10 @@ export class ApplicationsRepository {
 
   private categories() {
     return this.supabase.db.from('categories');
+  }
+
+  private serviceLines() {
+    return this.supabase.db.from('service_lines');
   }
 
   async findLatestByApplicant(userId: string): Promise<ApplicationRow | null> {
@@ -336,26 +342,41 @@ export class ApplicationsRepository {
     if (servicesError) throw new InternalServerErrorException('Failed to resolve services.');
 
     const categoryIds = [...new Set((services ?? []).map((s) => s.category_id as string))];
-    const categoryNameById = new Map<string, string>();
+    const categoryById = new Map<string, { name: string; serviceLineId: string }>();
     if (categoryIds.length > 0) {
       const { data: categories, error: categoriesError } = await this.categories()
-        .select('id, name')
+        .select('id, name, service_line_id')
         .in('id', categoryIds);
       if (categoriesError) throw new InternalServerErrorException('Failed to resolve categories.');
-      for (const c of categories ?? []) categoryNameById.set(c.id as string, c.name as string);
+      for (const c of categories ?? [])
+        categoryById.set(c.id as string, { name: c.name as string, serviceLineId: c.service_line_id as string });
+    }
+
+    // Service names repeat across categories, so callers show the full service line › category path.
+    const lineIds = [...new Set([...categoryById.values()].map((c) => c.serviceLineId))];
+    const lineNameById = new Map<string, string>();
+    if (lineIds.length > 0) {
+      const { data: lines, error: linesError } = await this.serviceLines().select('id, name').in('id', lineIds);
+      if (linesError) throw new InternalServerErrorException('Failed to resolve service lines.');
+      for (const l of lines ?? []) lineNameById.set(l.id as string, l.name as string);
     }
 
     return new Map(
-      (services ?? []).map((s) => [
-        s.id as string,
-        {
-          name: s.name as string,
-          categoryId: s.category_id as string,
-          categoryName: categoryNameById.get(s.category_id as string) ?? 'Unknown',
-          isCustom: s.is_custom as boolean,
-          isActive: s.is_active as boolean,
-        },
-      ])
+      (services ?? []).map((s) => {
+        const category = categoryById.get(s.category_id as string);
+        return [
+          s.id as string,
+          {
+            name: s.name as string,
+            categoryId: s.category_id as string,
+            categoryName: category?.name ?? 'Unknown',
+            serviceLineId: category?.serviceLineId ?? '',
+            serviceLineName: (category && lineNameById.get(category.serviceLineId)) ?? 'Unknown',
+            isCustom: s.is_custom as boolean,
+            isActive: s.is_active as boolean,
+          },
+        ];
+      })
     );
   }
 

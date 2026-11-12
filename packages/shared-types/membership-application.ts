@@ -68,6 +68,9 @@ export class ServicePreference extends ServicePreferenceInput {
   @ApiProperty() serviceName!: string;
   @ApiProperty() categoryId!: string;
   @ApiProperty() categoryName!: string;
+  /** Taxonomy level 1 (Tax, Legal, …) — service names repeat across categories, so show the full path. */
+  @ApiProperty() serviceLineId!: string;
+  @ApiProperty() serviceLineName!: string;
 }
 
 /** A peer reference for the verification process. Exactly two required to submit. */
