@@ -1,6 +1,13 @@
--- 0007 — AI interviewer (docs/superpowers/specs/2026-11-09-ai-interviewer-design.md §6).
--- Additive only: two new tables, one enum, one bucket, one trigger function, one email seed.
--- Idempotent: safe to re-run after a partial manual run.
+-- 0007 — AI interviewer.
+-- v1 (docs/superpowers/specs/2026-11-09-ai-interviewer-design.md §6): member_interviews +
+--   member_interview_connections, the interview_status enum, the audio bucket, the search trigger and
+--   the email seed.
+-- v2 (docs/superpowers/specs/2026-11-12-ai-interviewer-v2-verification-subtags-design.md):
+--   ledger/verified_at/llm_usage columns, the facet_kind enum, interview_scorings, facet_values
+--   (+ sources), member_service_evidence/subtags, interview_review_flags, service_anchor_entries
+--   and their helper functions.
+-- Additive apart from dropping the v1 `assessment` column (replaced by interview_scorings).
+-- Idempotent: safe to re-run after a partial manual run or on a v1-era dev DB.
 begin;
 
 do $$
@@ -102,6 +109,19 @@ alter table public.member_interviews
   add column if not exists verified_at timestamptz,
   add column if not exists llm_usage jsonb not null default '{}'::jsonb;
 alter table public.member_interviews drop column if exists assessment;
+-- The create-table path carries this check inline; add it on the alter path too so dev and fresh
+-- DBs match (Postgres names the inline one member_interviews_llm_usage_check).
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conrelid = 'public.member_interviews'::regclass and conname = 'member_interviews_llm_usage_check'
+  ) then
+    alter table public.member_interviews
+      add constraint member_interviews_llm_usage_check check (jsonb_typeof(llm_usage) = 'object');
+  end if;
+end
+$$;
 
 do $$
 begin
@@ -284,7 +304,9 @@ revoke execute on function public.facet_value_add_source(uuid, uuid) from public
 grant execute on function public.facet_value_add_source(uuid, uuid) to service_role;
 
 -- Replaces a member×service proposal and its proposed sub-tags in one transaction. Leaves rows the
--- member already approved or an admin activated untouched (returns false).
+-- member already approved or an admin activated untouched (returns false), and never resurrects a
+-- row an admin rejected for the SAME interview (a re-score of it returns false); a later, different
+-- interview (a redo) may propose that service again.
 create or replace function public.interview_upsert_service_proposal(
   p_member_id uuid, p_service_id uuid, p_interview_id uuid, p_scoring_id uuid,
   p_role smallint, p_evidence text, p_recency_year integer, p_summary text, p_facet_value_ids uuid[]
@@ -295,11 +317,15 @@ create or replace function public.interview_upsert_service_proposal(
 as $function$
 declare
   v_status text;
+  v_interview_id uuid;
 begin
-  select status into v_status from public.member_service_evidence
+  select status, interview_id into v_status, v_interview_id from public.member_service_evidence
    where member_id = p_member_id and service_id = p_service_id
    for update;
   if v_status in ('active', 'member_approved') then
+    return false;
+  end if;
+  if v_status = 'rejected' and v_interview_id = p_interview_id then
     return false;
   end if;
   insert into public.member_service_evidence (

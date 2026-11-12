@@ -1118,7 +1118,7 @@ Enum `interview_status`: `ready` (created/planned, never connected) → `in_prog
 | `ledger` | jsonb | **v2.** `ClaimLedger` (backend `brain/types.ts`): every claim raised during the interview, its signals and probing state — the scorer's primary input, admin-only |
 | `audio_opt_in` | boolean, default `false` | **v2.** member's choice at start to keep the call recording after scoring; `false` deletes it |
 | `verified_at` | timestamptz | **v2.** set when the current scoring evidenced at least one claim (`isVerified` in `brain/scoring.ts`); null = not (yet) verified. Drives `MyInterviewDto.verified` / `MemberDto.interviewVerified` |
-| `llm_usage` | jsonb object, default `{}` | **v2.** per-model-role token counters (`{ turn: { calls, input, output, cached }, scorer: {...}, ... }`), updated atomically by `interview_add_llm_usage()` (below) — admin-only |
+| `llm_usage` | jsonb object, default `{}`, check `jsonb_typeof = 'object'` (`member_interviews_llm_usage_check`, added on the alter path too) | **v2.** per-model-role token counters (`{ turn: { calls, input, output, cached }, scorer: {...}, ... }`), updated atomically by `interview_add_llm_usage()` (below) — admin-only |
 | `summary` | text ≤ 1500 | redacted interview summary for search |
 | `summary_status` | text: `pending` / `approved` / `hidden` | member approves; admin hides |
 | `extract_attempts`, `extract_claimed_at`, `failure_reason` | | worker claim bookkeeping |
@@ -1223,7 +1223,15 @@ sub-tags on that service.
 
 PK `(member_id, service_id)` — **one evidence row per service per member**; a re-score or a new
 interview upserts in place via `interview_upsert_service_proposal()` (below), it never appends.
-Index `(interview_id)`.
+Index `(interview_id)`. After a re-score (`POST /admin/interviews/:id/rescore`) the interview's
+still-`proposed` rows whose `scoring_id` is not the new scoring's are deleted (their proposed
+sub-tags cascade); acted-on rows stay. A row can also be created directly as `active` by an admin
+accepting a service the scorer never proposed (`PATCH /admin/members/:memberId/subtags`, seeded
+from the claim in the current scoring that covers the service).
+
+Which claims become proposals (`brain/scoring.ts buildProposals`): probed, role R2+, evidence
+E1–E3, at least one quote-verified `supports` signal, a non-empty redacted summary, and **no
+review flag of any reason** on the claim (spec §7.2).
 
 Lifecycle: `proposed` (fresh from scoring) → `member_approved` (member reviewed via
 `PATCH /interviews/me/subtags`) → `active` (admin accepted) or `rejected` (admin rejected). The
@@ -1269,6 +1277,9 @@ Admin review queue for claims the scorer couldn't fully support. Nothing here ac
 Unique `(scoring_id, claim_id, reason)` — `insertFlags` upserts on that key, so re-scoring never
 duplicates an already-raised flag. Lifecycle: `open` → `dismissed` or `confirmed` (admin,
 `resolution_note` optional, `resolved_by`/`resolved_at` set). Index `(status, created_at desc)`.
+An `open` flag whose `scoring_id` is no longer the interview's current scoring (superseded by a
+re-score) stays in the table but is hidden from both flag listings by query; resolved flags of any
+scoring stay visible as history. No `superseded` status exists (that would be a schema change).
 
 ### `service_anchor_entries`
 
@@ -1303,8 +1314,10 @@ Index `(service_id)`.
   p_role, p_evidence, p_recency_year, p_summary, p_facet_value_ids)`** — `security definer`,
   service-role only. Upserts the `member_service_evidence` row and replaces its
   `member_service_subtags` rows in one statement, **unless** the existing row is already `active`
-  or `member_approved` (returns `false` and leaves it untouched) — a re-score never clobbers a
-  decision the member or an admin already made. Called from
+  or `member_approved`, or is `rejected` **and belongs to the same `interview_id`** (returns
+  `false` and leaves it untouched) — a re-score never clobbers or resurrects a decision the member
+  or an admin already made. A `rejected` row from an earlier interview is replaced: a redo
+  interview may propose that service again. Called from
   `InterviewResultsRepository.upsertProposal`, once per service the scoring credited.
 
 ### Storage and triggers

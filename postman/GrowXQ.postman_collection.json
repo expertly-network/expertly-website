@@ -4039,7 +4039,7 @@
                     "rescore"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Re-runs the scorer (LLM call, shared `ai` rate limit) on the interview's stored transcript, refreshing `interview_scorings`, per-service evidence/sub-tag proposals and review flags, and updates `verifiedAt`. Never overwrites a service's evidence/sub-tags the member or an admin already decided on (`member_approved`/`active`/`rejected` rows are left alone). 409 `INTERVIEW_NOT_COMPLETED` unless the interview is `completed`; 409 `INTERVIEW_MEMBER_INACTIVE` if the member is no longer active."
+                "description": "🛡️ Admin + `manageMembers`. Re-runs the scorer (LLM call, shared `ai` rate limit) on the interview's stored transcript, refreshing `interview_scorings`, per-service evidence/sub-tag proposals and review flags, and updates `verifiedAt`. Never overwrites a service's evidence/sub-tags the member or an admin already decided on (`member_approved`/`active` rows, and `rejected` rows from this same interview, are left alone). Deletes this interview's still-`proposed` evidence the new scoring did not re-propose; the older scoring's still-`open` flags drop out of the flag listings. 409 `INTERVIEW_NOT_COMPLETED` unless the interview is `completed`; 409 `INTERVIEW_NOT_V2` for a v1 interview with no claim ledger; 409 `INTERVIEW_MEMBER_INACTIVE` if the member is no longer active."
               },
               "response": []
             }
@@ -4086,7 +4086,7 @@
                     }
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`open`, `dismissed`, `confirmed`); `page` (default 1), `pageSize` (default 25, ≤ 100). Newest first."
+                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`open`, `dismissed`, `confirmed`); `page` (default 1), `pageSize` (default 25, ≤ 100). Newest first. Only each interview's current-scoring flags plus resolved flags from any scoring — an `open` flag superseded by a re-score is hidden."
               },
               "response": []
             },
@@ -4189,7 +4189,7 @@
                     "subtags"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Validates every listed `serviceId` has evidence for this member before applying anything. `accept: true` → evidence + sub-tags → `active` (plus any `addFacetValueIds`, added as `active` sub-tags); `removeFacetValueIds` applied either way. 404 `INTERVIEW_EVIDENCE_NOT_FOUND` for an unknown `serviceId`.\n\nTo reject instead, replace the whole body with:\n```json\n{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": false,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}\n```",
+                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Resolves every item before applying anything. A `serviceId` with no evidence row is accepted (`accept: true` only) when the member's current scoring has a claim covering it — a new `active` evidence row is seeded from that claim. `accept: true` → evidence + sub-tags → `active` (plus any `addFacetValueIds`, added as `active` sub-tags); `removeFacetValueIds` applied either way. 404 `INTERVIEW_EVIDENCE_NOT_FOUND` for a `serviceId` with no evidence that can't be seeded (or a rejection of one); nothing is written.\n\nTo reject instead, replace the whole body with:\n```json\n{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": false,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}\n```",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": true,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}",
@@ -4275,7 +4275,7 @@
                     "facet-values"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Always created `canonical` (an admin adding a value by hand skips the 3-member candidate threshold). 400 `FACET_VALUE_EXISTS` on a duplicate `(facet, slug)`.",
+                "description": "🛡️ Admin + `manageMembers`. Always created `canonical` (an admin adding a value by hand skips the 3-member candidate threshold). 400 `FACET_VALUE_EXISTS` on a duplicate `(facet, slug)`; 400 `FACET_VALUE_INVALID` when the label has no Latin letter or digit to slug.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"facet\": \"instrument\",\n  \"label\": \"Section 92CA reference\",\n  \"aliases\": []\n}",
