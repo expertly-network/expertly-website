@@ -113,11 +113,20 @@ describe('InterviewScoringService.scoreAndStore', () => {
       expect.objectContaining({ claimId: 'c2', reason: 'firm_level_on_selected', scoringId: 'sc1', memberId: 'm1' }),
     ]);
   });
-  it('reuses the current scoring when asked (extraction retries)', async () => {
+  it('reuses the current scoring when asked (extraction retries), but still runs proposals and flags', async () => {
     const { svc, scorer, results } = setup({ id: 'sc0', result: RESULT });
     const out = await svc.scoreAndStore(ROW, [], MEMBER, { reuseCurrent: true });
     expect(out.scoringId).toBe('sc0');
     expect(scorer.score).not.toHaveBeenCalled();
     expect(results.insertScoring).not.toHaveBeenCalled();
+    expect(results.upsertProposal).toHaveBeenCalledWith(expect.objectContaining({ scoringId: 'sc0' }));
+    expect(results.insertFlags).toHaveBeenCalledWith([expect.objectContaining({ scoringId: 'sc0' })]);
+  });
+  it('runs the full pipeline when reuseCurrent is requested but no scoring exists yet', async () => {
+    const { svc, scorer, results } = setup(null);
+    const out = await svc.scoreAndStore(ROW, [], MEMBER, { reuseCurrent: true });
+    expect(out.scoringId).toBe('sc1');
+    expect(scorer.score).toHaveBeenCalled();
+    expect(results.insertScoring).toHaveBeenCalled();
   });
 });
