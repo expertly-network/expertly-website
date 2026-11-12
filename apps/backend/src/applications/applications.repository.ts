@@ -308,8 +308,18 @@ export class ApplicationsRepository {
     if (error) throw new InternalServerErrorException('Failed to provision member services.');
   }
 
-  async promoteToMember(applicantId: string): Promise<void> {
-    const { error } = await this.profiles().update({ role: 'member' }).eq('id', applicantId);
+  // Names are passed only when the admin corrected them on approval — the account row is where a
+  // member's displayed name lives.
+  async promoteToMember(applicantId: string, names?: { firstName: string; lastName: string }): Promise<void> {
+    const patch = names
+      ? {
+          role: 'member' as const,
+          first_name: names.firstName,
+          last_name: names.lastName,
+          initials: `${names.firstName[0] ?? ''}${names.lastName[0] ?? ''}`.toUpperCase(),
+        }
+      : { role: 'member' as const };
+    const { error } = await this.profiles().update(patch).eq('id', applicantId);
     if (error) throw new InternalServerErrorException('Failed to promote applicant to member.');
   }
 

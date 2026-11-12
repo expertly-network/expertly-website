@@ -25,6 +25,7 @@ import { randomUUID } from 'node:crypto';
 import { sniffFileType } from '../common/sniff-file-type';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
+import { applyProfileOverrides, resolveMemberTier } from './profile-overrides';
 import { CouponPreviewDto } from './dto/coupon-preview.dto';
 import { computeTier, MEMBERSHIP_PRICE_CENTS } from './constants/pricing';
 import { applyCoupon } from './constants/coupons';
@@ -509,12 +510,19 @@ export class ApplicationsService {
         message: 'rejectionReason is required when rejecting.',
       });
     }
+    if (dto.status === 'rejected' && dto.profileOverrides) {
+      throw new BadRequestException({
+        code: 'OVERRIDES_ON_REJECT',
+        message: 'profileOverrides can only be sent when approving.',
+      });
+    }
 
     const submittedPreferences = (application.service_preferences ?? []) as {
       serviceId: string;
       customLabel?: string;
     }[];
 
+    let approvedServiceId = '';
     if (dto.status === 'approved') {
       if (!dto.approvedServiceId) {
         throw new BadRequestException({
@@ -522,10 +530,14 @@ export class ApplicationsService {
           message: 'approvedServiceId is required when approving.',
         });
       }
-      if (!submittedPreferences.some((p) => p.serviceId === dto.approvedServiceId)) {
+      approvedServiceId = dto.approvedServiceId;
+      const isPreference = submittedPreferences.some((p) => p.serviceId === approvedServiceId);
+      const detail = (await this.applicationsRepository.findServiceDetails([approvedServiceId])).get(approvedServiceId);
+      // A preference may be the applicant's own custom service; anything else must be a regular one.
+      if (!detail || !detail.isActive || (!isPreference && detail.isCustom)) {
         throw new BadRequestException({
           code: 'APPROVED_SERVICE_INVALID',
-          message: "approvedServiceId must be one of the applicant's submitted service preferences.",
+          message: "approvedServiceId must be an active service or one of the applicant's preferences.",
         });
       }
     }
@@ -545,14 +557,26 @@ export class ApplicationsService {
 
     // Columns a member profile can't exist without. assertComplete() requires them at submit time,
     // so only an application submitted before those checks existed can lack one.
-    const memberTier = dto.memberTier ?? application.selected_tier;
-    if (!application.country || application.years_of_experience === null || !memberTier) {
+    // Admin corrections, layered on a copy — the stored application is never written.
+    const effective = applyProfileOverrides(application, dto.profileOverrides);
+    const memberTier = resolveMemberTier(application, dto.memberTier, dto.profileOverrides);
+    if (!effective.country || effective.years_of_experience === null || !memberTier) {
       throw new ConflictException({
         code: 'APPLICATION_INCOMPLETE',
         message: "This application is missing its country, years of experience or tier, so it can't be approved as is.",
       });
     }
-    const required = { country: application.country, yearsOfExperience: application.years_of_experience, memberTier };
+    if (
+      effective.rate_min_cents !== null &&
+      effective.rate_max_cents !== null &&
+      effective.rate_max_cents <= effective.rate_min_cents
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_RATE_RANGE',
+        message: 'The maximum rate must be greater than the minimum rate.',
+      });
+    }
+    const required = { country: effective.country, yearsOfExperience: effective.years_of_experience, memberTier };
 
     // Claim the application first (a conditional status update), so a concurrent second
     // approval can't also provision a member; then provision. Supabase gives no multi-statement
@@ -566,24 +590,28 @@ export class ApplicationsService {
     if (!claimed) throw this.alreadyReviewed();
 
     // Role is promoted last, so a failure before it never leaves a 'member' role behind.
-    const approvedPreference = submittedPreferences.find((p) => p.serviceId === dto.approvedServiceId)!;
+    const renamed = dto.profileOverrides?.firstName !== undefined || dto.profileOverrides?.lastName !== undefined;
     let profileCreated = false;
     try {
       // Regenerates the slug and retries if a concurrent insert took it (SlugTakenException).
       await withUniqueSlugRetry(
-        () => this.applicationsRepository.findUniqueMemberSlug(`${application.first_name} ${application.last_name}`),
+        () => this.applicationsRepository.findUniqueMemberSlug(`${effective.first_name} ${effective.last_name}`),
         (slug) =>
-          this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(application, dto, slug, required))
+          this.applicationsRepository.insertMemberProfile(this.buildMemberProfile(effective, dto, slug, required))
       );
       profileCreated = true;
       await this.applicationsRepository.insertMemberServices([
         {
           member_id: application.applicant_id,
-          service_id: approvedPreference.serviceId,
-          custom_label: approvedPreference.customLabel ?? null,
+          service_id: approvedServiceId,
+          // Only an applicant's own preference has a label to carry; an admin-picked service has none.
+          custom_label: submittedPreferences.find((p) => p.serviceId === approvedServiceId)?.customLabel ?? null,
         },
       ]);
-      await this.applicationsRepository.promoteToMember(application.applicant_id);
+      await this.applicationsRepository.promoteToMember(
+        application.applicant_id,
+        renamed ? { firstName: effective.first_name ?? '', lastName: effective.last_name ?? '' } : undefined
+      );
     } catch (error) {
       await this.rollbackApproval(application, profileCreated);
       throw error;
