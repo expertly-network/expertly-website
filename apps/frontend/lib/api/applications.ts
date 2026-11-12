@@ -65,6 +65,16 @@ export function uploadApplicationFile(kind: 'photo' | 'document', file: File): P
   });
 }
 
+/**
+ * 🛡️ manageApplications. Replaces the applicant's photo during review — overwrites the
+ * application's own photo immediately (not a profileOverrides correction).
+ */
+export function replaceApplicationPhoto(id: string, file: File): Promise<ApplicationDto> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFetch<ApplicationDto>(`/admin/applications/${id}/photo`, { method: 'POST', body: form });
+}
+
 /** Admin review action. 🛡️ manageApplications. */
 export function reviewApplication(
   id: string,

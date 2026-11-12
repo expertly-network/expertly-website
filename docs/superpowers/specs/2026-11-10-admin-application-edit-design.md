@@ -25,6 +25,10 @@ date and one of the applicant's three preferred services, then approve or reject
   applicant's preferences are offered first.
 - Everything that reaches the member profile is editable. Peer references, consents, coupon and
   payment fields never reach the profile and stay read-only.
+- **The photo is the one exception (decided 2026-11-12):** the admin replaces the application's own
+  photo, immediately, via `POST /v1/admin/applications/:id/photo` (same Storage path as the
+  applicant's upload, so the original isn't kept). Chosen for simplicity over a separate admin
+  photo carried as an override.
 
 ## Backend contract — `PATCH /v1/admin/applications/:id` (additive, stays `/v1`)
 
@@ -99,4 +103,4 @@ gains a `profileOverrides` example; reject variant in its description). No migra
 ## Out of scope
 
 Saving corrections before approving; approving several services; editing peer references,
-consents or payment; editing an already approved member (that's the member-edits flow).
+consents, documents or payment; editing an already approved member (that's the member-edits flow).

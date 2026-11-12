@@ -8,7 +8,7 @@ import { Badge, Button, Card, Input, Select, Textarea } from '@/components/ui';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ApplicationStatusBadge, ReviewRow, ReviewListRow } from '@/components/shared/ApplicationReview';
 import { REGIONS } from '@/components/apply/types';
-import { reviewApplication } from '@/lib/api/applications';
+import { replaceApplicationPhoto, reviewApplication } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import type { ApplicationDto } from '@shared/membership-application';
 import type { CategoryDto } from '@shared/category';
@@ -119,14 +119,20 @@ export function ApplicationReviewDetail({
   const [form, setForm] = useState(() => formFromApplication(original));
   const { errors: fieldErrors, setErrors: setFieldErrors, clearErrors } = useFieldErrors();
   const update = (patch: Partial<WizardFormState>) => setForm((f) => ({ ...f, ...patch }));
+  // A replaced photo is saved on the application straight away (not a correction), so it's
+  // tracked apart from the form and survives "Discard corrections".
+  const [photoUrl, setPhotoUrl] = useState(original.photoUrl);
+  async function replacePhoto(file: File): Promise<string | null> {
+    return (await replaceApplicationPhoto(original.id, file)).photoUrl;
+  }
   const overrides = profileOverrides(original, form);
   const correctedCount = Object.keys(overrides).length;
   // Everything below renders the application as it will be approved; with corrections, the
   // applicant's original goes in as `previous`, so each corrected field shows the old value too.
   // Region is derived from country server-side, so a corrected country leaves it to the backend.
   const application: ApplicationDto = correctedCount
-    ? { ...original, ...overrides, region: overrides.country !== undefined ? null : original.region }
-    : original;
+    ? { ...original, ...overrides, photoUrl, region: overrides.country !== undefined ? null : original.region }
+    : { ...original, photoUrl };
   const prev = correctedCount ? original : previous;
   const sortedPreferences = [...application.servicePreferences].sort((a, b) => a.priority - b.priority);
 
@@ -260,6 +266,12 @@ export function ApplicationReviewDetail({
               errors={fieldErrors}
               setErrors={setFieldErrors}
               clearErrors={clearErrors}
+              photoUrl={photoUrl}
+              onReplacePhoto={replacePhoto}
+              onPhotoReplaced={(url) => {
+                setPhotoUrl(url);
+                router.refresh();
+              }}
             />
           </div>
         ) : (

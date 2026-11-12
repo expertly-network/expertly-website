@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { StepActions } from '@/components/apply/StepActions';
@@ -8,13 +8,12 @@ import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
 import { LocationFields } from '@/components/apply/LocationFields';
 import { PhoneField } from '@/components/apply/PhoneField';
+import { PhotoUploadField } from '@/components/apply/PhotoUploadField';
 import type { WizardFormState } from '@/components/apply/types';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
-import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { EMAIL_PATTERN, LINKEDIN_PROFILE_URL_PATTERN } from '@/lib/apply/save-errors';
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const BIO_MAX_CHARS = 2000;
 
 export function IdentityStep({
@@ -32,9 +31,7 @@ export function IdentityStep({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function validate(): Record<string, string> {
@@ -83,76 +80,23 @@ export function IdentityStep({
     onNext();
   }
 
-  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file after an error
-    if (!file) return;
-
-    if (file.size > MAX_PHOTO_BYTES) {
-      setUploadError('Photo must be under 5MB.');
-      return;
-    }
-
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const updated = await uploadApplicationFile('photo', file);
-      update({ photoUrl: updated.photoUrl ?? undefined });
-      clearError('photo');
-    } catch (err) {
-      setUploadError(apiErrorMessage(err, 'Failed to upload photo — please try again.'));
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <div>
       <h2 className="text-heading text-ink">Your identity.</h2>
       <p className="mt-2 text-lede text-ink-3">Personal details, contact info, and your professional presence.</p>
 
       <div className="mt-7 flex flex-col gap-5">
-        <div id="photo" tabIndex={-1} className="flex items-center gap-5">
-          <div
-            className={`flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-full border bg-bg-alt text-ink-3 ${
-              errors.photo ? 'border-error' : 'border-line'
-            }`}
-          >
-            {form.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={form.photoUrl} alt="Profile" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-xs">No photo</span>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-ink-2">
-              Profile photo
-              <span aria-hidden="true" className="text-error">
-                {' '}
-                *
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="rounded-input border border-line-2 px-4 py-2 text-sm font-medium text-ink hover:border-ink disabled:opacity-50"
-            >
-              {uploading ? 'Uploading…' : form.photoUrl ? 'Change photo' : 'Upload photo'}
-            </button>
-            <span className="text-xs text-ink-3">JPEG or PNG, up to 5MB.</span>
-            {errors.photo && <span className="text-xs text-error">{errors.photo}</span>}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              onChange={handlePhotoChange}
-              className="sr-only"
-            />
-          </div>
-        </div>
-        {uploadError && <ErrorBanner message={uploadError} />}
+        <PhotoUploadField
+          photoUrl={form.photoUrl ?? null}
+          required
+          error={errors.photo}
+          upload={async (file) => (await uploadApplicationFile('photo', file)).photoUrl}
+          onUploaded={(photoUrl) => {
+            update({ photoUrl: photoUrl ?? undefined });
+            clearError('photo');
+          }}
+          onUploadingChange={setUploading}
+        />
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input

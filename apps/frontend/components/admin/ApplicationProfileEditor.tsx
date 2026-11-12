@@ -4,6 +4,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { Input, Textarea } from '@/components/ui';
 import { LocationFields } from '@/components/apply/LocationFields';
 import { PhoneField } from '@/components/apply/PhoneField';
+import { PhotoUploadField } from '@/components/apply/PhotoUploadField';
 import { WorkHistoryFields } from '@/components/apply/WorkHistoryFields';
 import { EducationFields } from '@/components/apply/EducationFields';
 import type { WizardFormState } from '@/components/apply/types';
@@ -27,7 +28,14 @@ export function ApplicationProfileEditor({
   errors,
   setErrors,
   clearErrors,
+  photoUrl,
+  onReplacePhoto,
+  onPhotoReplaced,
 }: {
+  /** The application's current photo — replacing it saves immediately, outside the form. */
+  photoUrl: string | null;
+  onReplacePhoto: (file: File) => Promise<string | null>;
+  onPhotoReplaced: (photoUrl: string | null) => void;
   form: WizardFormState;
   update: (patch: Partial<WizardFormState>) => void;
   errors: Record<string, string>;
@@ -41,6 +49,17 @@ export function ApplicationProfileEditor({
 
   return (
     <div className="flex flex-col gap-4">
+      <Section title="PHOTO">
+        <div className="flex flex-col gap-3">
+          <PhotoUploadField
+            photoUrl={photoUrl}
+            upload={onReplacePhoto}
+            onUploaded={onPhotoReplaced}
+            note="Replaces the applicant's photo straight away — the original isn't kept."
+          />
+        </div>
+      </Section>
+
       <Section title="CONTACT">
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
           <Input
