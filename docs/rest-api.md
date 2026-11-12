@@ -1207,6 +1207,13 @@ A member's own published articles are **not** embedded here — fetch
 `GET /v1/articles?authorId=:id` separately (see that endpoint's note above). `memberServices`
 resolves service (and category) names the same way `ArticleService` does.
 
+**v2 (AI interviewer):** `MemberDto.interviewVerified` (`boolean`) is `true` once the member's
+current interview scoring evidenced at least one claim — same source as
+`GET /v1/interviews/me`'s `interview.verified`, just on the public shape. Display (badge, copy) is
+a frontend decision. `MemberDto.serviceSubtags` (`PublicServiceSubtagsDto[]`) lists, per service,
+the sub-tags an admin has accepted (`member_service_subtags.status = 'active'`) — `proposed` and
+`member_approved` sub-tags never appear here.
+
 **Response `200`:** `MemberDto`. **Errors:** `401` no/invalid token · `404` no member with that slug, not
 `status='active'`, or the caller isn't its owner (same "don't leak existence" posture as a draft
 article — a deactivated profile that isn't the caller's own returns `404`, not `403`). Codes: `404 MEMBER_NOT_FOUND`.
@@ -1650,6 +1657,15 @@ notes about relaxed filters) — it never names anything that isn't in `results`
 the judge's internal candidate numbers. (Until 2026-10-20 the judge wrote the answer itself, which
 could mention candidates that were filtered out afterwards.)
 
+**v2 (AI interviewer):** a member's card gets two interview-derived lines, both appended last so a
+member with neither stays byte-identical to before (`CardBuilderService.buildMember`):
+`Interview highlights: <summary>` (the member-approved interview summary, if any — unchanged from
+v1) and a new `Interview evidence: <serviceName>: <summary> [<tag>, <tag>, ...] | <serviceName>: ...`
+line, one segment per service with **`active`** interview evidence (admin-accepted; `proposed`
+and `member_approved` evidence never reaches the card), tags omitted when that service has none.
+Because this is part of the tuned card format, re-run the search evaluation (see "AI interviewer"
+→ "After the call (worker)" above) before shipping any change to it.
+
 ### 🔑 `POST /v1/search`
 
 Signed in, any role. Responses are plain camelCase DTOs (no envelope), like every other route.
@@ -2026,53 +2042,84 @@ Error codes: 400 `EMAIL_VARIABLES_INVALID` (internal: an event supplied an undec
 ## AI interviewer
 
 Backend: `apps/backend/src/interviews/` (+ the extraction loop in `src/search-worker/`); shared
-contract: `packages/shared-types/interview.ts`; design: `docs/superpowers/specs/2026-11-09-ai-interviewer-design.md`.
+contract: `packages/shared-types/interview.ts`, `packages/shared-types/subtags.ts`; design:
+`docs/superpowers/specs/2026-11-09-ai-interviewer-design.md` and
+`docs/superpowers/specs/2026-11-12-ai-interviewer-v2-verification-subtags-design.md` (v2:
+verification scoring, sub-tags, admin review).
 
 A one-time voice interview for active members. **ElevenLabs provides only the voice** (speech-to-text,
 turn-taking, text-to-speech); every question is written by this backend, which ElevenLabs calls as
 its *Custom LLM* on each turn. The interview produces profile drafts (submitted through the
 existing `POST /v1/members/:id/edits`), a member-approved summary that search can match and quote,
-and an admin-only assessment. The feature is off (start → 503) until the ElevenLabs and
+and (v2) per-service verification evidence and sub-tags that feed the public profile and search
+card once an admin accepts them. The feature is off (start → 503) until the ElevenLabs and
 interviewer-model variables are set (`docs/deployment.md`).
 
 **Rules.**
 - **Once per member**, enforced by the database (`member_interviews` partial unique index on non-voided rows). An admin redo voids the old interview.
-- A connection that drops before the wrap-up leaves the interview `interrupted`; the member can reconnect to the **same** interview (new connection, no re-planning) within **24 hours**, while at least 3 minutes of the 30-minute budget remain. After that the worker finalises it.
-- **Time:** the plan targets ~21 minutes. Between 20 and 23 minutes the interviewer may offer, once, to continue, only if the member is engaged and a high-value topic is open, and only if they agree. Wrap-up starts at 28 minutes; 30 minutes is the hard cap (also set as ElevenLabs' maximum duration).
+- A connection that drops before the wrap-up leaves the interview `interrupted`; the member can reconnect to the **same** interview (new connection, no re-planning) within **24 hours**, while under `maxSeconds` of elapsed time and at least a minute of budget remain. After that the worker finalises it.
+- **Time:** `maxSeconds` is a hard cap of **1020 seconds (17 minutes)** of elapsed call time, summed across connections. The interviewer tightens its pacing from 12 minutes (`close` phase) and starts wrap-up at 17 minutes (`stop` phase) — see `apps/backend/src/interviews/brain/time-keeper.ts`.
 - Ending the interview, even before speaking, uses it up: an interview with no member speech is marked `failed` (`no_transcript`), and an admin redo reopens it.
-- Interview content never verifies anything. Draft engagements are unverified, and `clientName` is left empty (the edit form requires the member to fill it) when the member asked for confidentiality.
+- Interview content never verifies a profile claim by itself. Draft engagements are unverified, and `clientName` is left empty (the edit form requires the member to fill it) when the member asked for confidentiality. **v2 verification is separate and narrower:** it only ever marks a specific *service* as evidenced (`member_service_evidence`/sub-tags), never a profile field, and only after an admin accepts it.
 
 ### 🔑 Member — `@Roles('member')` + active member profile
 
 | Method | Path | Request → response |
 |---|---|---|
-| GET | `/v1/interviews/me` | → `MyInterviewResponse` `{ eligibility, interview, consentVersion, maxSeconds }`; `eligibility` ∈ `available`, `in_progress`, `can_reconnect`, `processing`, `completed`, `failed`. `interview.drafts`/`summary`/`summaryStatus` are null until `completed`. Never returns the plan, live state, assessment or audio |
-| POST | `/v1/interviews/me/start` | `{ consentVersion }` → `StartInterviewResponse` `{ interviewId, connectionId, conversationToken, sessionToken, maxSeconds }`. First call creates the interview and runs the planner (≈5–15 s); a call while `can_reconnect` opens a new connection on the same interview. Rate limit: the shared `ai` bucket |
+| GET | `/v1/interviews/me` | → `MyInterviewResponse` `{ eligibility, interview, consentVersion, maxSeconds }`; `eligibility` ∈ `available`, `in_progress`, `can_reconnect`, `processing`, `completed`, `failed`. `interview.drafts`/`summary`/`summaryStatus`/`proposedServices` are empty/null until `completed`. `interview.proposedServices[]` (`InterviewProposedServiceDto[]`) is each service's suggested sub-tags, no scores. `interview.verified` is `true` once the current scoring evidenced at least one claim. Never returns the plan, live state, scoring, flags, ledger, `llmUsage` or audio |
+| POST | `/v1/interviews/me/start` | `{ consentVersion, audioOptIn? }` → `StartInterviewResponse` `{ interviewId, connectionId, conversationToken, sessionToken, maxSeconds }`. `audioOptIn` (optional, default `false`) is the member's choice to keep the call recording after scoring — `false` means the worker never writes it to storage. `consentVersion` must equal `GET /v1/interviews/me`'s value, now **`2026-11-12`**. First call creates the interview and runs the planner (≈5–15 s); a call while `can_reconnect` opens a new connection on the same interview. `maxSeconds` in the response is the *remaining* budget for this connection (≤ 1020). Rate limit: the shared `ai` bucket |
 | POST | `/v1/interviews/me/end` | → 204. The member ends the interview (no reconnect) |
 | PATCH | `/v1/interviews/me/summary` | `{ summary (20–1500 chars), approve }` → `MyInterviewDto`. Edits the search summary; `approve: true` lets search use and quote it. Contact details are redacted on save |
+| PATCH | `/v1/interviews/me/subtags` | **v2.** `UpdateMySubtagsRequest` `{ services: [{ serviceId, removeFacetValueIds, evidenceSummary? }] }` → `MyInterviewDto`. Member review of the AI's suggested sub-tags on a `completed` interview: for each listed service, removes the given `facetValueId`s from its sub-tags and, if `evidenceSummary` is given, rewrites the evidence summary (20–400 chars once rewritten, redacted on save). Validates **every** listed `serviceId` has an open (`proposed`) proposal before writing anything (no partial apply on a bad id). After the edits, **all** of that member's `proposed` services (not just the ones listed) move to `member_approved` — reviewing is "accept the whole proposed batch, optionally trimming/rewriting it first," not a per-service accept/reject |
 
 The frontend passes `sessionToken` to the ElevenLabs SDK twice: as `customLlmExtraBody.sessionToken`
 (it reaches the custom-LLM endpoint) and as the `session_token` dynamic variable (echoed in the
 post-call webhook). `conversationToken` is the WebRTC token minted server-side; the ElevenLabs API
 key never reaches the browser.
 
-Errors: 400 `CONSENT_VERSION_MISMATCH`; 403 `INTERVIEW_NOT_ELIGIBLE` (not an active member); 404
-`INTERVIEW_NOT_ACTIVE` (end with nothing running); 409 `INTERVIEW_IN_PROGRESS` (a connection is
-live), `INTERVIEW_ALREADY_TAKEN`, `INTERVIEW_TIME_EXHAUSTED`, `INTERVIEW_NOT_COMPLETED`,
-`INTERVIEW_SUMMARY_HIDDEN`; 502 `INTERVIEW_LLM_ERROR` (planner call failed); 503
-`INTERVIEW_PROVIDER_UNAVAILABLE`.
+Errors: 400 `CONSENT_VERSION_MISMATCH`, `INTERVIEW_SUBTAGS_NOT_PROPOSED` (a listed `serviceId` has
+no open proposal); 403 `INTERVIEW_NOT_ELIGIBLE` (not an active member); 404 `INTERVIEW_NOT_ACTIVE`
+(end with nothing running); 409 `INTERVIEW_IN_PROGRESS` (a connection is live),
+`INTERVIEW_ALREADY_TAKEN`, `INTERVIEW_TIME_EXHAUSTED`, `INTERVIEW_NOT_COMPLETED` (used by both
+`/me/summary` and `/me/subtags`), `INTERVIEW_SUMMARY_HIDDEN`; 502 `INTERVIEW_LLM_ERROR` (planner
+call failed); 503 `INTERVIEW_PROVIDER_UNAVAILABLE`.
 
-### 🛡️ `manageMembers` — admin
+### 🛡️ `manageMembers` — admin, interviews
 
 | Method | Path | Request → response |
 |---|---|---|
-| GET | `/v1/admin/interviews` | `?status=&page=&pageSize=` (pageSize ≤ 100, default 25) → `AdminInterviewListResponse` `{ items, total }` |
-| GET | `/v1/admin/interviews/:id` | → `AdminInterviewDetail`: plan, live state (facts board), drafts, summary, **assessment** (depth, consistency, coverage, strengths, vague claims, contradictions), and each connection's transcript plus a 15-minute signed audio URL |
+| GET | `/v1/admin/interviews` | `?status=&page=&pageSize=` (pageSize ≤ 100, default 25) → `AdminInterviewListResponse` `{ items, total }`. Each `AdminInterviewListItem` carries `hasScoring` (`status === 'completed'`) and `verifiedAt` (nullable) **in place of v1's `hasAssessment`** |
+| GET | `/v1/admin/interviews/:id` | → `AdminInterviewDetail`: plan, live state (facts board), drafts, summary, each connection's transcript plus a 15-minute signed audio URL (`null` when `audioOptIn` was false), and **v2**: `ledger` (the full `ClaimLedger`), `scoring` (`InterviewScoringResultDto \| null` — the current scoring's claims/signals/facets), `flags` (`InterviewReviewFlagDto[]` for this interview), `audioOptIn`, `llmUsage` (per-model-role token counters). These five fields **replace v1's single `assessment` field** |
 | POST | `/v1/admin/interviews/:id/redo` | → 204. Voids the interview so the member can take it again. Fresh `profiles.role` check (destructive action). 409 while a call is running |
 | PATCH | `/v1/admin/interviews/:id/summary` | `{ hidden }` → `AdminInterviewDetail`. Hides the summary from search; unhiding returns it to `pending` for the member to re-approve |
+| POST | `/v1/admin/interviews/:id/rescore` | **v2.** → `AdminInterviewDetail`. Re-runs the scorer (an LLM call, rate-limited on the shared `ai` bucket) on the interview's stored transcript and updates `verifiedAt`. 409 `INTERVIEW_NOT_COMPLETED` unless the interview is `completed`; 409 `INTERVIEW_MEMBER_INACTIVE` if the member is no longer active. A re-score never overwrites a service's evidence/sub-tags once the member or an admin has already acted on it (`member_approved`/`active`/`rejected` rows are left alone; see `docs/database-erd.md`'s `interview_upsert_service_proposal`) |
 
 Errors: 403 `ADMIN_REQUIRED`; 404 `INTERVIEW_NOT_FOUND`; 409 `INTERVIEW_IN_PROGRESS`,
-`INTERVIEW_NOT_COMPLETED`.
+`INTERVIEW_NOT_COMPLETED`, `INTERVIEW_MEMBER_INACTIVE`.
+
+### 🛡️ `manageMembers` — admin, interview review (v2)
+
+`apps/backend/src/interviews/admin-interview-review.controller.ts` /
+`interview-review.service.ts`. Reviews the scorer's output: claims it flagged as unsupported or
+conflicting, and the sub-tags/evidence it proposed per member×service. **The two routes that
+change state — `PATCH .../interview-flags/:id` and `PATCH .../members/:memberId/subtags` — re-read
+`profiles.role` fresh from the DB instead of trusting the JWT claim**, the same destructive-action
+posture as `POST /admin/interviews/:id/redo`.
+
+| Method | Path | Request → response |
+|---|---|---|
+| GET | `/v1/admin/interview-flags` | `?status=&page=&pageSize=` (pageSize ≤ 100, default 25; `status` ∈ `open`/`dismissed`/`confirmed`) → `InterviewReviewFlagListResponse` `{ items, total }`, newest first |
+| PATCH | `/v1/admin/interview-flags/:id` | `ResolveInterviewFlagRequest` `{ status: 'dismissed' \| 'confirmed', note? }` → `InterviewReviewFlagDto`. **Fresh role check.** Sets `resolvedBy`/`resolvedAt` |
+| GET | `/v1/admin/members/:memberId/subtags` | → `AdminMemberServiceEvidenceDto[]` — every service this member has interview evidence for (any status), each with `role`, `evidence` (E3–NP), `recencyYear` on top of the member-facing proposal shape (summary, subtags, status) |
+| PATCH | `/v1/admin/members/:memberId/subtags` | `AdminUpdateSubtagsRequest` `{ services: [{ serviceId, accept, addFacetValueIds?, removeFacetValueIds? }] }` → `AdminMemberServiceEvidenceDto[]`. **Fresh role check.** Validates every listed `serviceId` has evidence for this member before applying anything. Per item: `accept: true` → evidence + sub-tags → `active` (plus any `addFacetValueIds`, added as `active` sub-tags — no `canonical` check, so only add ids the admin has verified); `accept: false` → `rejected`. `removeFacetValueIds` is applied either way |
+| GET | `/v1/admin/facet-values` | `?facet=&status=&page=&pageSize=` (pageSize ≤ 100, default 50) → `FacetValueListResponse` `{ items, total }`, ordered by `sourceCount` desc then `label` |
+| POST | `/v1/admin/facet-values` | `CreateFacetValueRequest` `{ facet, label, aliases? }` → `FacetValueDto`. Always created `canonical` (an admin adding a value by hand doesn't need the 3-member threshold). 400 `FACET_VALUE_EXISTS` on a duplicate `(facet, slug)` |
+| PATCH | `/v1/admin/facet-values/:id` | `UpdateFacetValueRequest` `{ status?, label?, aliases? }` (any subset) → `FacetValueDto`. Approves a `candidate` (`status: 'canonical'`), renames, or rejects (`status: 'rejected'`) |
+| GET | `/v1/admin/services/:id/anchor-entries` | → `AnchorEntryDto[]` — the "could a bluffer fake this?" reference bank for one service (read-only here; entries are authored by SQL, no write route yet) |
+
+Errors: 403 `ADMIN_REQUIRED` (fresh-check routes only); 404 `INTERVIEW_FLAG_NOT_FOUND`,
+`INTERVIEW_EVIDENCE_NOT_FOUND` (an unknown `serviceId` for that member), `FACET_VALUE_NOT_FOUND`;
+400 `FACET_VALUE_EXISTS`.
 
 ### 🌐 Integrations (ElevenLabs only)
 
@@ -2087,8 +2134,8 @@ finishes and ElevenLabs offered the `end_call` tool, the stream ends with an `en
 A failed turn never returns an HTTP error: it speaks a short recovery line so the call continues.
 An unknown/expired token gets a closing line and `end_call`. After each member answer, a
 background analyst updates the facts board and plan; nothing waits on it. Outcomes (drafts,
-summary, assessment) are never derived from this endpoint's request bodies, only from the signed
-webhook transcript.
+summary, scoring/verification) are never derived from this endpoint's request bodies, only from
+the signed webhook transcript.
 
 **`POST /v1/interviews/webhooks/elevenlabs`** — post-call webhook. `@Public()`; the raw body must
 carry a valid `elevenlabs-signature: t=<unix>,v0=<hex HMAC-SHA256 of "t.body">` (30-minute
@@ -2096,10 +2143,11 @@ tolerance). `post_call_transcription` is matched to its connection **by the sess
 (dynamic variable `session_token`, hashed). It never trusts an interview or connection id from
 the payload, because those come from the browser. It stores the transcript and duration, adds the
 duration to the interview's elapsed time, then moves the interview to `processing` (wrap-up done,
-member ended it, or under 3 minutes left) or `interrupted` (+24 h reconnect window). Duplicate
-deliveries are ignored. `post_call_audio` is ignored (a 30-minute call is ~10–20 MB of base64,
-far over the API body limit); the extraction worker downloads the recording from ElevenLabs
-instead. Responses: 200 on a valid signature, 401 `INTERVIEW_WEBHOOK_SIGNATURE_INVALID`, 503
+member ended it, or under 3 minutes of the 17-minute budget left) or `interrupted` (+24 h reconnect
+window). Duplicate deliveries are ignored. `post_call_audio` is ignored (base64 audio is still far
+over the API body limit even at a 17-minute cap); the extraction worker downloads the recording
+from ElevenLabs instead, **only when `audio_opt_in` was true** — otherwise no audio is ever fetched
+or stored. Responses: 200 on a valid signature, 401 `INTERVIEW_WEBHOOK_SIGNATURE_INVALID`, 503
 `INTERVIEW_WEBHOOK_NOT_CONFIGURED`.
 
 ### After the call (worker)
@@ -2107,8 +2155,14 @@ instead. Responses: 200 on a valid signature, 401 `INTERVIEW_WEBHOOK_SIGNATURE_I
 The extraction loop (every 15 s, when the reasoning model is configured):
 - moves expired interruptions to `processing`;
 - claims `processing` interviews (optimistic claim, 5 attempts, 10-minute stale claim), waiting up to 2 h for any missing transcript;
-- copies each connection's recording from `GET https://api.elevenlabs.io/v1/convai/conversations/{id}/audio` into the private `interview-audio` bucket (MP3 verified by magic bytes; best effort);
-- runs the extractor, which produces drafts, a redacted summary (`summary_status = 'pending'`) and the assessment (coverage computed from the facts board);
+- copies each connection's recording from `GET https://api.elevenlabs.io/v1/convai/conversations/{id}/audio` into the private `interview-audio` bucket when `audioOptIn` was true (MP3 verified by magic bytes; best effort);
+- runs the extractor, which produces drafts and a redacted summary (`summary_status = 'pending'`); separately, the scoring service (`InterviewScoringService.scoreAndStore`) runs the scorer on the stored transcript, producing the current `interview_scorings` row, per-service evidence/sub-tag proposals (`member_service_evidence`/`member_service_subtags`, `status = 'proposed'`) and any `interview_review_flags`, and sets `verified_at` when at least one claim was evidenced;
 - marks the interview `completed` and enqueues the `interview_drafts_ready` email to the member's work email.
 
-The approved summary is added to the member's search card as a final `Interview highlights:` line.
+The approved summary is added to the member's search card as a final `Interview highlights:` line;
+**v2** adds a further `Interview evidence:` line, one entry per service with `active` evidence —
+see "AI search" below. **Because this changes the card text the embeddings and judge prompt were
+tuned on, re-run whatever search evaluation exists (golden-question set, manual spot-check against
+`docs/rest-api.md` → "AI search" examples, etc.) before shipping any change that touches this line
+or the evidence it draws from** — there is no automated eval script in the repo yet, so this is a
+manual step, not a CI gate.

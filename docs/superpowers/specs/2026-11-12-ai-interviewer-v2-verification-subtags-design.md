@@ -315,11 +315,19 @@ work surfaced by Q14 is still captured by the scorer as `adjacentServices`.)
 
 ### 6.6 Voice settings (ElevenLabs agent, no code unless noted)
 
-- End-of-speech silence ~2 s (tuned on test calls).
-- **Key-term vocabulary:** if the ASR supports per-conversation keyterms, pass the member's
-  services' instruments/forums (facet values + anchor entries) at session start (§11 to confirm).
-- **Typed answers:** if the SDK supports sending a user text message into the conversation, the
-  member screen gets a "type instead" input (§11 to confirm; frontend session).
+- End-of-speech silence ~2 s — dashboard: agent → **Advanced** tab → **Take turn after silence**
+  (API field `conversation_config.turn.turn_timeout`, seconds, range 1–30). This is a dashboard
+  change on the ElevenLabs side, not something this backend sets; see §11 for the confirmed
+  setting name.
+- **Key-term vocabulary:** confirmed supported — `conversation_config_override.asr.keywords`
+  (≤ 50 per conversation), but the **ASR keywords** override must be enabled in the agent's
+  Security settings first (disabled by default; otherwise silently ignored). Would pass the
+  member's services' instruments/forums (facet values + anchor entries) at session start.
+  **Not implemented in this plan** — a follow-up task (§11, §13).
+- **Typed answers:** confirmed supported — the SDK's `sendUserMessage(text)` (React:
+  `useConversation()`) sends the text as if spoken, same turn-taking as voice. The member screen
+  would get a "type instead" input wired to it. **Not implemented in this plan** — a follow-up,
+  frontend-session task (§11, §13).
 - Per-turn timing comes from the transcript's `time_in_call_secs` (already stored); delay and
   answer length are computed for reviewers, never scored.
 
@@ -480,14 +488,64 @@ change.
 phase: the search planner/judge prompts are tuned and must not be edited casually. A follow-up
 adds it with a search eval run.
 
-## 11. To confirm during implementation (docs-dependent)
+## 11. ElevenLabs findings (confirmed 2026-11-12, via official docs)
 
-- ElevenLabs ASR: per-conversation keyterm/custom-vocabulary support, and whether transcripts
-  carry word confidence (if not, the scorer gets no `[?..?]` marks and the Tracker's
-  `lowConfidenceTerm` relies on the model spotting garbled terms).
-- ElevenLabs SDK: sending a typed user message into a live conversation.
-- ElevenLabs: deleting a conversation's audio via API (for non-opted-in members).
-- Turn-taking silence setting name/range.
+- **Per-conversation ASR keyterms — supported.** `conversation_config_override.asr.keywords`
+  (string array, ≤ 50 entries) boosts ASR recognition probability for the given terms for that
+  call only. Must be explicitly enabled first: agent dashboard → **Security** tab → enable the
+  **ASR keywords** override (disabled by default; a client-sent `asr.keywords` override is
+  silently ignored — "soft disallow", no error — until the toggle is on, up to 50 keywords per
+  conversation once it is). **What we do:** not implemented in this plan — a follow-up task would
+  pass the member's selected services' instrument/forum facet values + anchor-entry terms as
+  keywords at `POST /interviews/me/start`.
+  https://elevenlabs.io/docs/eleven-agents/customization/personalization/overrides
+
+- **Word-level confidence in post-call transcripts — not supported.** The
+  `post_call_transcription` webhook's `transcript[]` items carry `role`, `message` (full turn
+  text), `time_in_call_secs`, `tool_calls`/`tool_results`, `feedback`, `conversation_turn_metrics`
+  (latency only) — no per-word timestamp or confidence/logprob field anywhere in the schema.
+  **What we do:** unchanged from §6.6/§6.3 above — the scorer gets no `[?..?]` low-confidence
+  marks from ElevenLabs itself; `Tracker.lowConfidenceTerm` relies entirely on the model noticing
+  a garbled/unclear term from the transcript text, not a confidence score.
+  https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get
+
+- **Typed user message from the JS/React SDK — supported.** `useConversation()` (React SDK) /
+  the underlying client expose `sendUserMessage(text)`, which sends a `{"type": "user_message",
+  "text": "..."}` event over the conversation channel: the text is treated exactly as if the
+  member had spoken it and triggers the agent's next turn the same way spoken input would. (Two
+  related but different events exist: `sendContextualUpdate(text)` — non-interrupting background
+  info, not a turn — and `sendUserActivity()` — resets the turn-timeout timer without adding
+  content; neither is a substitute for a typed answer.) **What we do:** not implemented in this
+  plan — a follow-up, frontend-session task would wire a "type instead" input to
+  `sendUserMessage`.
+  https://elevenlabs.io/docs/eleven-agents/libraries/react ,
+  https://elevenlabs.io/docs/eleven-agents/customization/events/client-to-server-events
+
+- **`DELETE /v1/convai/conversations/{conversation_id}`** deletes the **whole** conversation
+  (transcript + audio + metadata) — the docs don't describe a selective "audio only" delete, and
+  the response body is undocumented beyond 200/422. There is also no per-conversation
+  audio/transcript retention control: **Audio saving** (`platform_settings.privacy.record_voice`)
+  and **Retention** (`platform_settings.privacy.retention_days`, default 2 years) are both
+  agent-level settings, not something passed at session start or per conversation. **What we
+  do:** unchanged — the worker simply never calls `GET .../conversations/{id}/audio` when
+  `audio_opt_in` is false, so nothing is downloaded or stored on our side; ElevenLabs' own copy
+  ages out under the agent's `retention_days` regardless. A follow-up could call
+  `DELETE /v1/convai/conversations/{id}` right after the transcript webhook lands for an
+  `audio_opt_in = false` interview, to purge ElevenLabs' copy immediately rather than wait on
+  retention — **not implemented in this plan**.
+  https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/delete ,
+  https://elevenlabs.io/docs/eleven-agents/customization/privacy/audio-saving ,
+  https://elevenlabs.io/docs/eleven-agents/customization/privacy/retention
+
+- **Turn-taking / end-of-speech silence setting — confirmed.** Dashboard: agent → **Advanced**
+  tab → **Take turn after silence**. API: `conversation_config.turn.turn_timeout` (seconds, range
+  1–30; the docs' own example configs use `7`). **Action for the user:** set this to **≈2
+  seconds** in the ElevenLabs agent dashboard's Advanced tab to match §6.6's tuned value — a
+  dashboard change, not something this backend configures. (Distinct from **Turn eagerness** —
+  Eager / Balanced / Patient, how readily the agent decides a pause means "your turn" — and
+  **Soft timeout**, a filler phrase spoken while the LLM is still generating; neither of those is
+  the silence-duration setting asked for here.)
+  https://elevenlabs.io/docs/eleven-agents/customization/conversation-flow
 
 ## 12. Deviations from the source spec
 
@@ -512,6 +570,10 @@ adds it with a search eval run.
 - Member editing of transcript lines after the call.
 - Embedding-based facet matching.
 - Anchor-bank admin UI (SQL load only).
+- ElevenLabs ASR keyword boosting per conversation (`asr.keywords`, confirmed supported — §11;
+  needs the Security-tab override enabled on the agent first).
+- Explicit `DELETE /v1/convai/conversations/{id}` call for `audio_opt_in = false` interviews, to
+  purge ElevenLabs' own copy immediately instead of relying on the agent's `retention_days` (§11).
 - Golden-set calibration (25–30 labelled interviews) — people work; the simulated-interview
   script is extended to run personas (genuine / bluffing an adjacent service / firm-level only)
   as a smoke test, not a substitute.

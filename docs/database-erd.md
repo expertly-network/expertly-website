@@ -1082,16 +1082,19 @@ and referenced as `{{{SITE_URL}}}/brand/email/…`.
 
 ## AI interviewer (`supabase/migrations/0007_ai_interviews.sql`)
 
-The first post-go-live migration. Both tables have RLS enabled with no policies and no browser
+The first post-go-live migration, extended in place (same file, additive, idempotent) for v2 —
+verification scoring and sub-tags. All tables have RLS enabled with no policies and no browser
 grants; only the backend's service role reads or writes them. Contract and behaviour:
 `docs/rest-api.md` "AI interviewer".
 
 **Layout rule (hybrid):** a real column for anything the database must enforce, filter, index or
 join on (identity, the status machine, the once-only rule, timestamps, worker claims, the search
-summary). JSONB for AI-shaped documents that will evolve (`plan`, `state`, `drafts`,
-`assessment`). Each document carries its own version and is validated in code
+summary, verification). JSONB for AI-shaped documents that will evolve (`plan`, `state`, `drafts`,
+`ledger`). Each document carries its own version and is validated in code
 (`apps/backend/src/interviews/brain/types.ts`, `packages/shared-types/interview.ts`) before it's
-written, so new AI fields need no migration.
+written, so new AI fields need no migration. The admin-only `assessment` column from v1 was
+dropped — verification detail now lives in `interview_scorings.result` (below), which is scoped
+and typed (`InterviewScoringResultDto`) rather than a loose admin-only blob.
 
 Enum `interview_status`: `ready` (created/planned, never connected) → `in_progress` →
 `interrupted` (dropped before wrap-up; reconnect allowed until `reconnect_until`) → `processing` →
@@ -1105,14 +1108,17 @@ Enum `interview_status`: `ready` (created/planned, never connected) → `in_prog
 | `member_id` | uuid FK → `member_profiles(profile_id)` on delete cascade | |
 | `status` | `interview_status`, default `ready` | |
 | `consent_version`, `consent_at` | text / timestamptz, not null | consent copy accepted at start |
-| `elapsed_seconds` | int ≥ 0, default 0 | summed call durations across connections; drives the 30-minute cap |
+| `elapsed_seconds` | int ≥ 0, default 0 | summed call durations across connections; drives the `maxSeconds` cap (1020s / 17 min) |
 | `reconnect_until` | timestamptz | set when `interrupted` (+24 h) |
 | `ended_at` | timestamptz | |
 | `plan` | jsonb | `InterviewPlan`: objectives (kind, priority, seed questions, facts, budget), known facts, ≤ 2 confirm facts, opening |
 | `state` | jsonb object, default `{}` | live state: facts board, current/done objectives, modes (anonymise clients, short on time), engagement, analyst guidance, extension offer/answer, wrap-up turns |
 | `state_version` | int | optimistic-concurrency counter for `state` writes (analyst vs. turn engine) |
 | `drafts` | jsonb | headline/bio, new engagements, key clients, in the member-edit section shapes |
-| `assessment` | jsonb | **admin-only**: depth, consistency, coverage, strengths, vague claims, contradictions |
+| `ledger` | jsonb | **v2.** `ClaimLedger` (backend `brain/types.ts`): every claim raised during the interview, its signals and probing state — the scorer's primary input, admin-only |
+| `audio_opt_in` | boolean, default `false` | **v2.** member's choice at start to keep the call recording after scoring; `false` deletes it |
+| `verified_at` | timestamptz | **v2.** set when the current scoring evidenced at least one claim (`isVerified` in `brain/scoring.ts`); null = not (yet) verified. Drives `MyInterviewDto.verified` / `MemberDto.interviewVerified` |
+| `llm_usage` | jsonb object, default `{}` | **v2.** per-model-role token counters (`{ turn: { calls, input, output, cached }, scorer: {...}, ... }`), updated atomically by `interview_add_llm_usage()` (below) — admin-only |
 | `summary` | text ≤ 1500 | redacted interview summary for search |
 | `summary_status` | text: `pending` / `approved` / `hidden` | member approves; admin hides |
 | `extract_attempts`, `extract_claimed_at`, `failure_reason` | | worker claim bookkeeping |
@@ -1134,16 +1140,188 @@ One row per ElevenLabs conversation; a reconnect adds a row on the same intervie
 | `elevenlabs_conversation_id` | text unique | set by the transcription webhook (dedupe key) |
 | `started_at`, `ended_at`, `duration_seconds` | | |
 | `transcript` | jsonb array | `{ role: 'agent'|'user', message, timeInCallSecs }[]` from the signed webhook |
-| `audio_path` | text | object path in `interview-audio` (`{interviewId}/{connectionId}.mp3`) |
+| `audio_path` | text | object path in `interview-audio` (`{interviewId}/{connectionId}.mp3`); null when `audio_opt_in` was false (never written) |
 | `transcript_received_at`, `audio_received_at` | timestamptz | |
+
+### Enum `facet_kind`
+
+`jurisdiction`, `instrument`, `work_type`, `forum`, `client_type`, `industry`, `scale`, `volume` —
+the eight sub-tag dimensions a service's evidence can be qualified by. `jurisdiction`,
+`work_type`, `client_type`, `scale`, `volume` and `industry` are **closed** (seeded once, the
+interview never adds to them — `CLOSED_FACETS` in `apps/backend/src/interviews/brain/normaliser.ts`);
+`instrument` and `forum` are **open** (an unmatched term from the interview becomes a `candidate`).
+
+### `interview_scorings`
+
+One row per scorer run for an interview; re-scoring (admin `rescore`) adds a row rather than
+overwriting.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `interview_id` | uuid FK → `member_interviews(id)` on delete cascade | |
+| `rubric_version` | text | from `Scorer.RUBRIC_VERSION` |
+| `model` | text | the model that produced this run |
+| `result` | jsonb object | `InterviewScoringResultDto` — claims (per-claim evidence level E3–NP, signals, facets, technical notes, credited/candidate service ids), adjacent services, search terms, interview quality. Admin-only, never returned to the member |
+| `is_current` | boolean, default `true` | exactly one `true` row per interview (partial unique index below); `findCurrentScoring` falls back to the newest row if none is flagged current |
+| `created_at` | timestamptz | |
+
+Lifecycle: insert (`is_current = false`) → every other row for the interview cleared to `false` →
+the new row flipped to `true` (three statements, not a transaction — see
+`InterviewResultsRepository.insertScoring`'s comment for why that ordering is still safe to retry).
+Index: **`interview_scorings_one_current` — unique `(interview_id) where is_current`.**
+
+### `facet_values`
+
+The sub-tag vocabulary, shared across all members.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `facet` | `facet_kind` | |
+| `label` | text, 1–120 chars | display label |
+| `slug` | text, `^[a-z0-9]+(-[a-z0-9]+)*$` | unique with `facet` |
+| `status` | text: `canonical` / `candidate` / `rejected`, default `canonical` | |
+| `aliases` | text[], default `{}` | lower-cased match strings (`normaliser.ts`'s `matchFacetValue`) |
+| `source_count` | int ≥ 0, default 0 | distinct members who produced this value (see `facet_value_sources`) |
+| `created_at`, `updated_at` | timestamptz | |
+
+Lifecycle: seeded rows start `canonical`. An interview's unmatched open-facet term starts
+`candidate`; `facet_value_add_source()` (below) promotes it to `canonical` once 3 distinct members
+have produced it, or an admin can promote/reject it directly via `PATCH /admin/facet-values/:id`.
+Only `canonical` values are attachable to a proposal (`resolveFacets` in
+`interview-scoring.service.ts`); a `candidate` is recorded as a source but never attached.
+
+### `facet_value_sources`
+
+| Column | Type | Notes |
+|---|---|---|
+| `facet_value_id` | uuid FK → `facet_values(id)` on delete cascade | |
+| `member_id` | uuid FK → `member_profiles(profile_id)` on delete cascade | |
+| `created_at` | timestamptz | |
+
+PK `(facet_value_id, member_id)` — one row per distinct member, which is exactly what
+`facet_value_add_source()`'s count-to-3 rule reads.
+
+### `member_service_evidence`
+
+One row per member×service the interview found evidence for — the ranking input and the gate for
+sub-tags on that service.
+
+| Column | Type | Notes |
+|---|---|---|
+| `member_id` | uuid FK → `member_profiles(profile_id)` on delete cascade | |
+| `service_id` | uuid FK → `services(id)` | |
+| `interview_id` | uuid FK → `member_interviews(id)` on delete cascade | |
+| `scoring_id` | uuid FK → `interview_scorings(id)` on delete cascade | |
+| `role` | smallint, 0–5 | the scorer's role-strength call for this service |
+| `evidence` | text: `E3`/`E2`/`E1`/`E0`/`EX`/`NP` | evidence level (recomputed in code from signals; `InterviewClaimScoreDto.evidence`) |
+| `recency_year` | int, 1950–2100, nullable | |
+| `evidence_summary` | text, 1–400 chars | member-facing summary; rewritable by the member (≥ 20 chars once rewritten) or admin |
+| `status` | text: `proposed` / `member_approved` / `active` / `rejected`, default `proposed` | |
+| `created_at`, `updated_at` | timestamptz | |
+
+PK `(member_id, service_id)` — **one evidence row per service per member**; a re-score or a new
+interview upserts in place via `interview_upsert_service_proposal()` (below), it never appends.
+Index `(interview_id)`.
+
+Lifecycle: `proposed` (fresh from scoring) → `member_approved` (member reviewed via
+`PATCH /interviews/me/subtags`) → `active` (admin accepted) or `rejected` (admin rejected). The
+admin decision endpoint doesn't require the member step first — it can act directly on `proposed`
+evidence. Only `active` evidence reaches the public profile (`MemberDto.serviceSubtags`) and the
+search card's "Interview evidence:" line.
+
+### `member_service_subtags`
+
+The sub-tag values attached to one member×service's evidence.
+
+| Column | Type | Notes |
+|---|---|---|
+| `member_id`, `service_id` | uuid | composite FK → `member_service_evidence(member_id, service_id)` on delete cascade |
+| `facet_value_id` | uuid FK → `facet_values(id)` on delete cascade | |
+| `status` | text: `proposed` / `member_approved` / `active` / `rejected`, default `proposed` | kept in step with the parent evidence row's status through the same request, not by a trigger |
+| `created_at` | timestamptz | |
+
+PK `(member_id, service_id, facet_value_id)`.
+
+### `interview_review_flags`
+
+Admin review queue for claims the scorer couldn't fully support. Nothing here acts automatically
+— a flag only ever changes status via an admin's explicit decision.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `interview_id` | uuid FK → `member_interviews(id)` on delete cascade | |
+| `member_id` | uuid FK → `member_profiles(profile_id)` on delete cascade | |
+| `scoring_id` | uuid FK → `interview_scorings(id)` on delete cascade | |
+| `claim_id` | text | the ledger claim this flag is about |
+| `claim_text` | text | |
+| `service_ids` | uuid[], default `{}` | |
+| `reason` | text: `unsupported` / `contradicted` / `anchor_conflict` / `firm_level_on_selected` / `technical_unverified` | |
+| `evidence` | jsonb array, default `[]` | `{ label, turn, quote }[]` — the quotes/turns backing the flag |
+| `status` | text: `open` / `dismissed` / `confirmed`, default `open` | |
+| `resolution_note` | text, ≤ 1000 chars, nullable | |
+| `resolved_by` | uuid FK → `profiles(id)`, nullable | |
+| `resolved_at` | timestamptz, nullable | |
+| `created_at`, `updated_at` | timestamptz | |
+
+Unique `(scoring_id, claim_id, reason)` — `insertFlags` upserts on that key, so re-scoring never
+duplicates an already-raised flag. Lifecycle: `open` → `dismissed` or `confirmed` (admin,
+`resolution_note` optional, `resolved_by`/`resolved_at` set). Index `(status, created_at desc)`.
+
+### `service_anchor_entries`
+
+Optional "could a bluffer fake this?" reference bank per service, authored by domain experts
+(loaded by SQL for now — no admin UI yet). Feeds both the scorer prompt and `buildFlags`'
+`anchor_conflict`/`technical_unverified` reasons.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `service_id` | uuid FK → `services(id)` on delete cascade | |
+| `deliverables`, `instruments`, `tools` | text[], default `{}` | |
+| `practitioner_detail` | text, 1–2000 chars | what a genuine practitioner would know |
+| `bluff_answer` | text, 1–2000 chars | the kind of answer a bluffer gives instead |
+| `created_at`, `updated_at` | timestamptz | |
+
+Index `(service_id)`.
+
+### Functions
+
+- **`interview_add_llm_usage(p_interview_id, p_role, p_input, p_output, p_cached)`** — `security
+  definer`, service-role only. Atomically merges one model call's token counts into
+  `member_interviews.llm_usage -> p_role`. Called by the turn engine and tracker on every LLM
+  call (`InterviewsRepository.addLlmUsage`), concurrently, hence the atomic `jsonb_set` rather
+  than a read-modify-write from the app.
+- **`facet_value_add_source(p_facet_value_id, p_member_id)`** — `security definer`, service-role
+  only. Inserts the `(facet_value_id, member_id)` source row (no-op if already present), recomputes
+  `source_count`, and promotes `candidate` → `canonical` once the count reaches 3. Called from
+  `InterviewResultsRepository.addFacetSource`, itself called by the scoring service for every
+  facet term it resolves.
+- **`interview_upsert_service_proposal(p_member_id, p_service_id, p_interview_id, p_scoring_id,
+  p_role, p_evidence, p_recency_year, p_summary, p_facet_value_ids)`** — `security definer`,
+  service-role only. Upserts the `member_service_evidence` row and replaces its
+  `member_service_subtags` rows in one statement, **unless** the existing row is already `active`
+  or `member_approved` (returns `false` and leaves it untouched) — a re-score never clobbers a
+  decision the member or an admin already made. Called from
+  `InterviewResultsRepository.upsertProposal`, once per service the scoring credited.
 
 ### Storage and triggers
 
 - Bucket **`interview-audio`**: private, `audio/mpeg` only, 40 MB limit, no `storage.objects`
-  policies. Written by the worker; admins get 15-minute signed URLs.
+  policies. Written by the worker only when `audio_opt_in` was true; admins get 15-minute signed
+  URLs.
 - **`interview_search_trg()`** (security definer, not executable by browser roles) re-enqueues the
-  member's search card when `summary`, `summary_status` or `status` changes. It's separate from
-  `search_trg()` so the shared function stays untouched. The card builder appends
-  `Interview highlights: <summary>` only for a `completed` interview with an `approved` summary.
+  member's search card. It's separate from `search_trg()` so the shared function stays untouched.
+  Three triggers call it:
+  - `interview_search_sync` on `member_interviews`, insert/delete/update of `summary`,
+    `summary_status`, `status` — the card builder appends `Interview highlights: <summary>` only
+    for a `completed` interview with an `approved` summary.
+  - `member_service_evidence_search_sync` on `member_service_evidence`, insert/delete/update —
+    **v2.** the card builder appends `Interview evidence: <serviceName>: <summary> [<tags>]`
+    entries, one per service, for `active` evidence only.
+  - `member_service_subtags_search_sync` on `member_service_subtags`, insert/delete/update —
+    **v2.** same reason: an accepted/rejected tag changes the evidence line's `[tags]` part.
 - Seed: `email_automations` row `interview_drafts_ready` → Resend alias `interview-drafts-ready`,
   disabled until the template is published.

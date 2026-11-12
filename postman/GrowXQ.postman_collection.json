@@ -2236,10 +2236,10 @@
                 "start"
               ]
             },
-            "description": "🔑 Member. First call creates the interview and runs the planner (≈5–15 s, LLM — shares the `ai` rate limit); while `can_reconnect` it opens a new connection on the same interview. Returns the ElevenLabs WebRTC `conversationToken` and a `sessionToken` — copy `sessionToken` into the `interviewSessionToken` environment variable to exercise the custom-LLM request below. `consentVersion` must equal `GET /interviews/me`'s value (else 400 `CONSENT_VERSION_MISMATCH`). 503 `INTERVIEW_PROVIDER_UNAVAILABLE` until the ElevenLabs/interviewer env vars are set; 409 `INTERVIEW_ALREADY_TAKEN` / `INTERVIEW_IN_PROGRESS` / `INTERVIEW_TIME_EXHAUSTED`.",
+            "description": "🔑 Member. First call creates the interview and runs the planner (≈5–15 s, LLM — shares the `ai` rate limit); while `can_reconnect` it opens a new connection on the same interview. Returns the ElevenLabs WebRTC `conversationToken` and a `sessionToken` — copy `sessionToken` into the `interviewSessionToken` environment variable to exercise the custom-LLM request below. `consentVersion` must equal `GET /interviews/me`'s value (else 400 `CONSENT_VERSION_MISMATCH`). 503 `INTERVIEW_PROVIDER_UNAVAILABLE` until the ElevenLabs/interviewer env vars are set; 409 `INTERVIEW_ALREADY_TAKEN` / `INTERVIEW_IN_PROGRESS` / `INTERVIEW_TIME_EXHAUSTED`.\n\nTo keep the recording, set audioOptIn to true.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"consentVersion\": \"2026-11-09\"\n}",
+              "raw": "{\n  \"consentVersion\": \"{{interviewConsentVersion}}\",\n  \"audioOptIn\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2309,6 +2309,47 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"summary\": \"Transfer pricing specialist advising mid-size manufacturers on benchmarking and audit defence across India and the UK.\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /interviews/me/subtags — member reviews suggested tags",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interviews/me/subtags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interviews",
+                "me",
+                "subtags"
+              ]
+            },
+            "description": "🔑 Member, `completed` interviews only. Member review of the AI's suggested sub-tags: per listed service, removes the given `removeFacetValueIds` and optionally rewrites `evidenceSummary` (20–400 chars once rewritten, redacted on save). Validates every listed `serviceId` has an open (`proposed`) proposal before writing anything. After the edits, **all** of the member's `proposed` services (not just the ones listed) move to `member_approved`. 409 `INTERVIEW_NOT_COMPLETED` when the interview isn't completed yet; 400 `INTERVIEW_SUBTAGS_NOT_PROPOSED` when a listed `serviceId` has no open proposal.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"removeFacetValueIds\": [],\n      \"evidenceSummary\": null\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3870,12 +3911,12 @@
                     }
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`ready`, `in_progress`, `interrupted`, `processing`, `completed`, `failed`, `voided`); `page` (default 1), `pageSize` (default 25, ≤ 100)."
+                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`ready`, `in_progress`, `interrupted`, `processing`, `completed`, `failed`, `voided`); `page` (default 1), `pageSize` (default 25, ≤ 100). Each item carries `hasScoring` and `verifiedAt` in place of v1's `hasAssessment`."
               },
               "response": []
             },
             {
-              "name": "GET /admin/interviews/:id — Detail with transcript, audio and assessment",
+              "name": "GET /admin/interviews/:id — Detail with transcript, audio, scoring and flags",
               "request": {
                 "method": "GET",
                 "header": [
@@ -3898,7 +3939,7 @@
                     "{{interviewId}}"
                   ]
                 },
-                "description": "🛡️ Admin + `manageMembers`. Plan, live state (facts board), drafts, summary, the admin-only assessment, and each connection's transcript plus a 15-minute signed audio URL."
+                "description": "🛡️ Admin + `manageMembers`. Plan, live state (facts board), drafts, summary, each connection's transcript plus a 15-minute signed audio URL (`null` when `audioOptIn` was false), and the v2 verification fields: `ledger`, `scoring` (current `InterviewScoringResultDto`, or null), `flags`, `audioOptIn`, `llmUsage`."
               },
               "response": []
             },
@@ -3970,6 +4011,350 @@
                     }
                   }
                 }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/interviews/:id/rescore — re-run the scorer on the stored transcript",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interviews/{{interviewId}}/rescore",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interviews",
+                    "{{interviewId}}",
+                    "rescore"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Re-runs the scorer (LLM call, shared `ai` rate limit) on the interview's stored transcript, refreshing `interview_scorings`, per-service evidence/sub-tag proposals and review flags, and updates `verifiedAt`. Never overwrites a service's evidence/sub-tags the member or an admin already decided on (`member_approved`/`active`/`rejected` rows are left alone). 409 `INTERVIEW_NOT_COMPLETED` unless the interview is `completed`; 409 `INTERVIEW_MEMBER_INACTIVE` if the member is no longer active."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Interview Review",
+          "description": "Admin review of the scorer's output (docs/rest-api.md \"AI interviewer\" → \"admin, interview review (v2)\"). The two state-changing PATCH routes re-read profiles.role fresh from the DB instead of trusting the JWT claim.",
+          "item": [
+            {
+              "name": "GET /admin/interview-flags?status=open&page=1 — review queue",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interview-flags?status=open&page=1&pageSize=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interview-flags"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "open"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "25"
+                    }
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Optional `status` filter (`open`, `dismissed`, `confirmed`); `page` (default 1), `pageSize` (default 25, ≤ 100). Newest first."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/interview-flags/:id — dismiss or confirm a flag",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/interview-flags/{{interviewFlagId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "interview-flags",
+                    "{{interviewFlagId}}"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Sets `resolvedBy`/`resolvedAt`.\n\nTo confirm the flag instead, replace the whole body with:\n```json\n{\n  \"status\": \"confirmed\",\n  \"note\": \"Claim contradicts an earlier answer; evidence not credited.\"\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"dismissed\",\n  \"note\": \"Short answers, genuine expert.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/members/:memberId/subtags — member's interview evidence and sub-tags",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/subtags",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members",
+                    "{{memberId}}",
+                    "subtags"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Every service this member has interview evidence for (any status), each with `role`, `evidence` (E3–NP), `recencyYear` on top of the member-facing proposal shape."
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/members/:memberId/subtags — accept or reject sub-tags",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/subtags",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members",
+                    "{{memberId}}",
+                    "subtags"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`, fresh role check (destructive). Validates every listed `serviceId` has evidence for this member before applying anything. `accept: true` → evidence + sub-tags → `active` (plus any `addFacetValueIds`, added as `active` sub-tags); `removeFacetValueIds` applied either way. 404 `INTERVIEW_EVIDENCE_NOT_FOUND` for an unknown `serviceId`.\n\nTo reject instead, replace the whole body with:\n```json\n{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": false,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId}}\",\n      \"accept\": true,\n      \"addFacetValueIds\": [],\n      \"removeFacetValueIds\": []\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/facet-values?status=candidate — candidate vocabulary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/facet-values?status=candidate&facet=forum&page=1&pageSize=50",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "facet-values"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "candidate"
+                    },
+                    {
+                      "key": "facet",
+                      "value": "forum",
+                      "disabled": true
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Optional `facet` filter (`jurisdiction`, `instrument`, `work_type`, `forum`, `client_type`, `industry`, `scale`, `volume`) and `status` filter (`canonical`, `candidate`, `rejected`); `page` (default 1), `pageSize` (default 50, ≤ 100). Ordered by `sourceCount` desc then `label`."
+              },
+              "response": []
+            },
+            {
+              "name": "POST /admin/facet-values — add a facet value",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/facet-values",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "facet-values"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Always created `canonical` (an admin adding a value by hand skips the 3-member candidate threshold). 400 `FACET_VALUE_EXISTS` on a duplicate `(facet, slug)`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"facet\": \"instrument\",\n  \"label\": \"Section 92CA reference\",\n  \"aliases\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /admin/facet-values/:id — approve, rename or reject a value",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/facet-values/{{facetValueId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "facet-values",
+                    "{{facetValueId}}"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. Any subset of `status`, `label`, `aliases`. 404 `FACET_VALUE_NOT_FOUND`.\n\nTo reject instead, replace the whole body with:\n```json\n{\n  \"status\": \"rejected\"\n}\n```\nTo rename instead:\n```json\n{\n  \"label\": \"Section 92CA benchmarking reference\"\n}\n```",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"canonical\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /admin/services/:id/anchor-entries — anchor bank for a service",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/services/{{serviceId}}/anchor-entries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "services",
+                    "{{serviceId}}",
+                    "anchor-entries"
+                  ]
+                },
+                "description": "🛡️ Admin + `manageMembers`. The \"could a bluffer fake this?\" reference bank for one service — read-only here; entries are authored by SQL, no write route yet."
               },
               "response": []
             }

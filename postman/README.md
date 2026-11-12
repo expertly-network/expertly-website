@@ -1,6 +1,6 @@
 # GrowXQ Postman collection
 
-`GrowXQ.postman_collection.json` covers every route in `apps/backend` (129 requests). Structure
+`GrowXQ.postman_collection.json` covers every route in `apps/backend` (139 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
@@ -52,8 +52,8 @@ generates one otherwise). Keep that header on any request you add.
 2. Most list endpoints (`GET /categories`, `GET /admin/applications`, `GET /admin/events`, ...)
    return real ids in their response. Copy those into the matching environment variable
    (`categoryId`, `serviceId`, `applicationId`, `articleId`, `aiGenerationId`, `eventId`, `memberId`, `memberSlug`,
-   `consultationId`, `memberEditId`, `recommendationId`, `interviewId`) to drive the detail/update/delete requests instead of the
-   placeholder UUIDs they ship with.
+   `consultationId`, `memberEditId`, `recommendationId`, `interviewId`, `interviewFlagId`, `facetValueId`) to drive
+   the detail/update/delete requests instead of the placeholder UUIDs they ship with.
 3. Every request body is a realistic, editable mock matching the DTO in
    `packages/shared-types/` — edit in place and hit Send.
 4. For a request whose description says "To test X instead, replace the whole body with: ...",
