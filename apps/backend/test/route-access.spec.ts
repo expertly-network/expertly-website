@@ -134,6 +134,7 @@ const EXPECTED: Record<string, string> = {
   'GET /v1/interviews/me': 'member',
   'POST /v1/interviews/me/start': 'member rl=ai',
   'POST /v1/interviews/me/end': 'member',
+  'PATCH /v1/interviews/me/subtags': 'member',
   'PATCH /v1/interviews/me/summary': 'member',
   'POST /v1/interviews/llm/chat/completions': 'public +InterviewLlmGuard',
   'POST /v1/interviews/webhooks/elevenlabs': 'public',

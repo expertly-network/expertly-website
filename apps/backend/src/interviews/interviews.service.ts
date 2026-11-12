@@ -10,30 +10,34 @@ import type {
   AdminInterviewDetail,
   AdminInterviewListItem,
   AdminInterviewListResponse,
-  InterviewAssessment,
   InterviewDrafts,
+  InterviewScoringResultDto,
   InterviewTranscriptTurn,
   MyInterviewDto,
   MyInterviewResponse,
   StartInterviewResponse,
 } from '@shared/interview';
+import type { InterviewProposedServiceDto } from '@shared/subtags';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { redactCardText } from '../search/redaction';
 import type { Json } from '../supabase/database.types';
-import { Planner } from './brain/planner';
-import { emptyState, type InterviewPlan } from './brain/types';
+import { initialState } from './brain/ladder';
+import { Preparer } from './brain/preparer';
+import { resolveLinkGroups } from './brain/service-links';
 import { ElevenLabsClient } from './elevenlabs.client';
 import { eligibilityOf } from './interview-eligibility';
 import { InterviewConfig } from './interview.config';
+import { InterviewResultsRepository } from './interview-results.repository';
 import { InterviewsRepository, type InterviewRow } from './interviews.repository';
 import { hashSessionToken, newSessionToken } from './session-token';
 import type { StartInterviewDto } from './dto/start-interview.dto';
 import type { UpdateSummaryDto } from './dto/update-summary.dto';
+import type { UpdateMySubtagsDto } from './dto/update-my-subtags.dto';
 import type { AdminListQueryDto } from './dto/admin-list-query.dto';
 
 const TOKEN_GRACE_SECONDS = 5 * 60;
 
-export function toMyInterviewDto(row: InterviewRow): MyInterviewDto {
+export function toMyInterviewDto(row: InterviewRow, proposals: InterviewProposedServiceDto[] = []): MyInterviewDto {
   const done = row.status === 'completed';
   return {
     id: row.id,
@@ -44,6 +48,8 @@ export function toMyInterviewDto(row: InterviewRow): MyInterviewDto {
     drafts: done ? ((row.drafts as InterviewDrafts | null) ?? null) : null,
     summary: done ? row.summary : null,
     summaryStatus: done ? row.summaryStatus : null,
+    proposedServices: done ? proposals : [],
+    verified: done && row.verifiedAt !== null,
   };
 }
 
@@ -58,7 +64,8 @@ function notEligible(): ForbiddenException {
 export class InterviewsService {
   constructor(
     private readonly repo: InterviewsRepository,
-    private readonly planner: Planner,
+    private readonly preparer: Preparer,
+    private readonly results: InterviewResultsRepository,
     private readonly elevenLabs: ElevenLabsClient,
     private readonly config: InterviewConfig
   ) {}
@@ -67,13 +74,18 @@ export class InterviewsService {
     if (user.role !== 'member' || user.memberStatus !== 'active') throw notEligible();
   }
 
+  private async myDto(row: InterviewRow): Promise<MyInterviewDto> {
+    const proposals = row.status === 'completed' ? await this.results.listProposals(row.memberId, row.id) : [];
+    return toMyInterviewDto(row, proposals);
+  }
+
   async getMine(user: AuthenticatedUser): Promise<MyInterviewResponse> {
     this.assertActiveMember(user);
     const current = await this.repo.findCurrent(user.id);
     const live = current ? await this.repo.findLiveConnection(current.id, new Date().toISOString()) : null;
     return {
       eligibility: eligibilityOf(current, live !== null, Date.now(), this.config.maxSeconds),
-      interview: current ? toMyInterviewDto(current) : null,
+      interview: current ? await this.myDto(current) : null,
       consentVersion: this.config.consentVersion,
       maxSeconds: this.config.maxSeconds,
     };
@@ -82,10 +94,12 @@ export class InterviewsService {
   private async planInto(interview: InterviewRow, memberId: string): Promise<InterviewRow> {
     const member = await this.repo.loadMemberContext(memberId);
     if (!member) throw notEligible();
-    const plan: InterviewPlan = await this.planner.plan(member);
+    const groups = resolveLinkGroups(await this.repo.loadTaxonomy());
+    const { ledger, plan } = await this.preparer.prepare(member, groups);
     return this.repo.updateInterview(interview.id, {
+      ledger: ledger as unknown as Json,
       plan: plan as unknown as Json,
-      state: { ...emptyState(), currentObjectiveId: plan.objectives[0]?.id ?? null } as unknown as Json,
+      state: initialState(plan) as unknown as Json,
     });
   }
 
@@ -122,10 +136,11 @@ export class InterviewsService {
         memberId: user.id,
         consentVersion: dto.consentVersion,
         consentAt: now.toISOString(),
+        audioOptIn: dto.audioOptIn ?? false,
       });
     }
     // Also covers a previous start that crashed between insert and planning.
-    if (!interview.plan) interview = await this.planInto(interview, user.id);
+    if (!interview.plan || !interview.ledger) interview = await this.planInto(interview, user.id);
 
     const remaining = Math.max(0, this.config.maxSeconds - interview.elapsedSeconds);
     if (remaining < 60)
@@ -178,7 +193,27 @@ export class InterviewsService {
       summary: redactCardText(dto.summary.trim()),
       summaryStatus: dto.approve ? 'approved' : 'pending',
     });
-    return toMyInterviewDto(updated);
+    return this.myDto(updated);
+  }
+
+  async updateMySubtags(user: AuthenticatedUser, dto: UpdateMySubtagsDto): Promise<MyInterviewDto> {
+    this.assertActiveMember(user);
+    const current = await this.repo.findCurrent(user.id);
+    if (!current || current.status !== 'completed')
+      throw new ConflictException({
+        code: 'INTERVIEW_NOT_COMPLETED',
+        message: 'Your suggested tags are not ready yet.',
+      });
+    await this.results.memberApprove(
+      user.id,
+      current.id,
+      dto.services.map((s) => ({
+        serviceId: s.serviceId,
+        removeFacetValueIds: s.removeFacetValueIds,
+        evidenceSummary: s.evidenceSummary ? redactCardText(s.evidenceSummary.trim()) : null,
+      }))
+    );
+    return this.myDto(current);
   }
 
   // ---- admin ---------------------------------------------------------------------------
@@ -202,7 +237,8 @@ export class InterviewsService {
       status: r.status,
       elapsedSeconds: r.elapsedSeconds,
       endedAt: r.endedAt,
-      hasAssessment: r.assessment !== null,
+      hasScoring: r.status === 'completed',
+      verifiedAt: r.verifiedAt,
       createdAt: r.createdAt,
     };
   }
@@ -224,6 +260,10 @@ export class InterviewsService {
         audioUrl: c.audioPath ? await this.repo.signedAudioUrl(c.audioPath, 15 * 60) : null,
       }))
     );
+    const [scoring, flags] = await Promise.all([
+      this.results.findCurrentScoring(id),
+      this.results.listFlagsForInterview(id, memberName),
+    ]);
     return {
       ...this.toListItem(r, memberName),
       plan: (r.plan as Record<string, unknown> | null) ?? null,
@@ -231,7 +271,11 @@ export class InterviewsService {
       drafts: (r.drafts as InterviewDrafts | null) ?? null,
       summary: r.summary,
       summaryStatus: r.summaryStatus,
-      assessment: (r.assessment as InterviewAssessment | null) ?? null,
+      ledger: (r.ledger as Record<string, unknown> | null) ?? null,
+      scoring: (scoring?.result as InterviewScoringResultDto | undefined) ?? null,
+      flags,
+      audioOptIn: r.audioOptIn,
+      llmUsage: (r.llmUsage as Record<string, unknown>) ?? {},
       failureReason: r.failureReason,
       connections: conns,
     };

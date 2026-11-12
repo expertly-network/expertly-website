@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InterviewWebhooksService } from './interview-webhooks.service';
 import { hashSessionToken } from './session-token';
-import { emptyState } from './brain/types';
+import { emptyStateV2 } from './brain/types';
 import type { InterviewsRepository } from './interviews.repository';
 import type { InterviewConfig } from './interview.config';
 
@@ -16,7 +16,7 @@ function setup(opts: { status?: string; elapsed?: number; wrapUpDone?: boolean; 
         id: 'i1',
         status: opts.status ?? 'in_progress',
         elapsedSeconds: opts.elapsed ?? 0,
-        state: { ...emptyState(), wrapUpDone: opts.wrapUpDone ?? false },
+        state: { ...emptyStateV2(), wrapUpDone: opts.wrapUpDone ?? false },
       },
     }),
     updateConnection: vi.fn(),

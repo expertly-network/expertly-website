@@ -8,6 +8,7 @@ import { MyInterviewDto, MyInterviewResponse, StartInterviewResponse } from '@sh
 import { InterviewsService } from './interviews.service';
 import { StartInterviewDto } from './dto/start-interview.dto';
 import { UpdateSummaryDto } from './dto/update-summary.dto';
+import { UpdateMySubtagsDto } from './dto/update-my-subtags.dto';
 
 // 🔑 Member — the service additionally requires member_profiles.status = active.
 @Roles('member')
@@ -36,5 +37,10 @@ export class InterviewsController {
   @Patch('me/summary')
   updateSummary(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateSummaryDto): Promise<MyInterviewDto> {
     return this.service.updateSummary(user, dto);
+  }
+
+  @Patch('me/subtags')
+  updateSubtags(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateMySubtagsDto): Promise<MyInterviewDto> {
+    return this.service.updateMySubtags(user, dto);
   }
 }

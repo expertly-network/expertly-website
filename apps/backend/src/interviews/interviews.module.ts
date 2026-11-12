@@ -1,8 +1,8 @@
 // interviews.module.ts
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { Analyst } from './brain/analyst';
-import { Planner } from './brain/planner';
+import { Preparer } from './brain/preparer';
+import { Tracker } from './brain/tracker';
 import { TurnEngine } from './brain/turn-engine';
 import { ElevenLabsClient } from './elevenlabs.client';
 import { InterviewLlmController } from './interview-llm.controller';
@@ -20,8 +20,8 @@ import { AdminInterviewsController } from './admin-interviews.controller';
   providers: [
     InterviewsService,
     InterviewWebhooksService,
-    Planner,
-    Analyst,
+    Preparer,
+    Tracker,
     TurnEngine,
     ElevenLabsClient,
     InterviewLlmGuard,

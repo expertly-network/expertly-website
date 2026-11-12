@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import type { Json } from '../supabase/database.types';
-import { parseState, type TranscriptTurn } from './brain/types';
+import { parseStateV2, type TranscriptTurn } from './brain/types';
 import { InterviewConfig } from './interview.config';
 import { InterviewsRepository } from './interviews.repository';
 import { hashSessionToken } from './session-token';
@@ -86,7 +86,7 @@ export class InterviewWebhooksService {
     const elapsedSeconds = Math.min(this.config.maxSeconds, interview.elapsedSeconds + duration);
     const finished =
       interview.status === 'processing' ||
-      parseState(interview.state).wrapUpDone ||
+      parseStateV2(interview.state).wrapUpDone ||
       this.config.maxSeconds - elapsedSeconds < MIN_REMAINING_FOR_RECONNECT;
     await this.repo.updateInterview(
       interview.id,
