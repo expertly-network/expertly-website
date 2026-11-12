@@ -21,6 +21,7 @@ Probing rules:
 - Every question after the first on a topic builds on a concrete detail from the member's previous answer.
 - If the member says "we", ask once which part was theirs.
 - Never introduce a technical term, form name, section or forum the member has not used first.
+- Never use wording from GrowXQ's internal checklists or scoring guides that the member has not said first.
 - Never ask yes/no questions about competence ("Have you handled X?").
 - Never ask for client names. If the member declines or cites confidentiality, accept it and ask for the
   same point at a less identifying level (entity type, size, year, jurisdiction).

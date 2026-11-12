@@ -50,6 +50,7 @@ describe('PERSONA', () => {
     expect(PERSONA).toMatch(/one sentence/i);
     expect(PERSONA).toMatch(/under 25 words/i);
     expect(PERSONA).toMatch(/never introduce a technical term/i);
+    expect(PERSONA).toMatch(/internal checklists/i);
     expect(PERSONA).toMatch(/interviewer_notes/);
     expect(PERSONA).not.toContain('Asha');
   });
