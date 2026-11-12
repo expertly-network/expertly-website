@@ -23,7 +23,7 @@ export interface InterviewSettings {
 }
 
 const PROVIDERS: readonly InterviewProvider[] = ['openai', 'anthropic', 'google'];
-const DEFAULT_CONSENT_VERSION = '2026-11-09';
+const DEFAULT_CONSENT_VERSION = '2026-11-12';
 
 function modelSpec(env: Record<string, string | undefined>, role: 'TURN' | 'REASONING'): ModelSpec | null {
   const provider = env[`INTERVIEW_${role}_PROVIDER`];
@@ -53,7 +53,7 @@ export function readInterviewConfig(env: Record<string, string | undefined>): In
     turn,
     reasoning,
     consentVersion: env.INTERVIEW_CONSENT_VERSION || DEFAULT_CONSENT_VERSION,
-    maxSeconds: 1800,
+    maxSeconds: 1020,
     reconnectHours: 24,
   };
 }

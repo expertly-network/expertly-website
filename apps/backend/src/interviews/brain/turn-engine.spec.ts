@@ -1,26 +1,23 @@
-// brain/turn-engine.spec.ts
 import { describe, expect, it, vi } from 'vitest';
-import { TurnEngine, type TurnChunk } from './turn-engine';
-import { emptyState, type InterviewPlan } from './types';
+import { bookkeep, TurnEngine, type TurnChunk } from './turn-engine';
+import { initialState } from './ladder';
+import type { ClaimLedger, InterviewPlanV2, InterviewStateV2 } from './types';
 import type { InterviewLlmService } from '../interview-llm.service';
 import type { InterviewsRepository } from '../interviews.repository';
-import type { Analyst } from './analyst';
+import type { Tracker } from './tracker';
 
-const PLAN: InterviewPlan = {
-  schemaVersion: 1,
-  opening: 'Open',
-  knownFacts: [],
-  confirmFacts: [],
-  sensitivities: [],
-  objectives: [
+const PLAN: InterviewPlanV2 = { schemaVersion: 2, baselineClaimId: 'c1', claimIds: ['c1'], opening: 'Open' };
+const LEDGER: ClaimLedger = {
+  claims: [
     {
-      id: 'e1',
-      kind: 'signature_engagement',
-      priority: 1,
-      rationale: '',
-      seedQuestions: ['q'],
-      facts: ['outcome'],
-      budgetSeconds: 600,
+      id: 'c1',
+      text: 'TP',
+      serviceIds: [],
+      type: 'engagement',
+      periodFrom: null,
+      periodTo: null,
+      source: 'bio',
+      flags: [],
     },
   ],
 };
@@ -31,81 +28,115 @@ async function collect(gen: AsyncGenerator<TurnChunk>): Promise<TurnChunk[]> {
   return out;
 }
 
-function setup(
-  opts: { status?: string; elapsed?: number; startedSecondsAgo?: number; state?: object; found?: boolean } = {}
-) {
-  const startedAt = new Date(Date.now() - (opts.startedSecondsAgo ?? 60) * 1000).toISOString();
+function setup(o: { elapsed?: number; state?: Partial<InterviewStateV2>; found?: boolean } = {}) {
   const repo = {
     findByTokenHash: vi.fn().mockResolvedValue(
-      opts.found === false
+      o.found === false
         ? null
         : {
             connection: {
               id: 'c1',
-              startedAt,
+              startedAt: new Date(Date.now() - 10_000).toISOString(),
               sessionTokenExpiresAt: new Date(Date.now() + 600_000).toISOString(),
               endedAt: null,
             },
             interview: {
               id: 'i1',
               memberId: 'm1',
-              status: opts.status ?? 'in_progress',
-              elapsedSeconds: opts.elapsed ?? 0,
+              status: 'in_progress',
+              elapsedSeconds: o.elapsed ?? 0,
               plan: PLAN,
-              state: { ...emptyState(), currentObjectiveId: 'e1', ...(opts.state ?? {}) },
+              ledger: LEDGER,
+              state: { ...initialState(PLAN), ...(o.state ?? {}) },
               stateVersion: 3,
             },
           }
     ),
     updateStateIfVersion: vi.fn().mockResolvedValue(true),
     loadMemberContext: vi.fn().mockResolvedValue({ firstName: 'Asha', services: [] }),
+    addLlmUsage: vi.fn().mockResolvedValue(undefined),
   } as unknown as InterviewsRepository;
-  async function* tokens() {
-    yield 'Hello ';
-    yield 'there.';
-  }
-  const llm = { stream: vi.fn().mockReturnValue(tokens()) } as unknown as InterviewLlmService;
-  const analyst = { analyse: vi.fn().mockResolvedValue(undefined) } as unknown as Analyst;
-  return { engine: new TurnEngine(repo, llm, analyst), repo, llm, analyst };
+  const llm = {
+    stream: vi.fn().mockImplementation(async function* () {
+      yield 'Hello ';
+      yield 'there.';
+    }),
+  } as unknown as InterviewLlmService;
+  const tracker = { track: vi.fn().mockResolvedValue(undefined) } as unknown as Tracker;
+  return { engine: new TurnEngine(repo, llm, tracker), repo, llm, tracker };
 }
+const input = (messages: { role: 'user' | 'assistant'; content: string }[]) => ({
+  sessionToken: 't',
+  messages,
+  canEndCall: true,
+});
 
-const msgs = [
-  { role: 'assistant' as const, content: 'Hi, ready?' },
-  { role: 'user' as const, content: 'Yes' },
-];
+describe('bookkeep', () => {
+  it('moves to close at 12 minutes and counts close turns', () => {
+    const r = bookkeep(PLAN, initialState(PLAN), 'close', 730);
+    expect(r.state).toMatchObject({ step: 'close', closeTurns: 1 });
+    expect(r.endsNow).toBe(false);
+  });
+  it('ends after the two closing questions', () => {
+    const r = bookkeep(PLAN, { ...initialState(PLAN), step: 'close', closeTurns: 2 }, 'close', 800);
+    expect(r).toMatchObject({ endsNow: true, goodbye: true });
+    expect(r.state.wrapUpDone).toBe(true);
+  });
+  it('ends immediately at the hard stop or when the member asked to stop', () => {
+    expect(bookkeep(PLAN, initialState(PLAN), 'stop', 1020)).toMatchObject({ endsNow: true, goodbye: true });
+    expect(bookkeep(PLAN, { ...initialState(PLAN), stopRequested: true }, 'normal', 60)).toMatchObject({
+      endsNow: true,
+    });
+  });
+  it('moves on from a claim over its budget', () => {
+    const r = bookkeep(PLAN, { ...initialState(PLAN), step: 3 }, 'normal', 300);
+    expect(r.state.step).toBe('close'); // only one claim planned
+  });
+  it('returns the same object when nothing changes', () => {
+    const s = initialState(PLAN);
+    expect(bookkeep(PLAN, s, 'normal', 30).state).toBe(s);
+  });
+});
 
 describe('TurnEngine.run', () => {
-  it('streams the turn model reply and fires the analyst without awaiting it', async () => {
-    const { engine, analyst, llm } = setup();
-    const out = await collect(engine.run({ sessionToken: 't', messages: msgs, canEndCall: true }));
+  it('says the closing line and ends when the session is unknown', async () => {
+    const { engine } = setup({ found: false });
+    const out = await collect(engine.run(input([{ role: 'user', content: 'hi' }])));
+    expect(out.at(-1)).toEqual({ type: 'end_call' });
+  });
+  it('streams with the static persona plus notes, and tracks a substantive answer', async () => {
+    const { engine, llm, tracker } = setup();
+    const out = await collect(
+      engine.run(
+        input([
+          { role: 'assistant', content: 'Hi' },
+          { role: 'user', content: 'it was a captive in Pune for a US group' },
+        ])
+      )
+    );
     expect(out).toEqual([
       { type: 'text', text: 'Hello ' },
       { type: 'text', text: 'there.' },
     ]);
-    expect((llm.stream as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe('turn');
-    expect(analyst.analyse).toHaveBeenCalledWith('i1', msgs);
+    const args = (llm.stream as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(args.system).not.toContain('Asha');
+    expect(args.notes).toContain('Asha');
+    expect(tracker.track).toHaveBeenCalledWith('i1', expect.any(Array));
   });
-  it('ends the call for an unknown token', async () => {
-    const { engine } = setup({ found: false });
-    const out = await collect(engine.run({ sessionToken: 't', messages: msgs, canEndCall: true }));
+  it('does not track a short acknowledgement', async () => {
+    const { engine, tracker } = setup({ state: { step: 3 } });
+    await collect(engine.run(input([{ role: 'user', content: 'yes' }])));
+    expect(tracker.track).not.toHaveBeenCalled();
+  });
+  it('emits end_call after the goodbye turn', async () => {
+    const { engine } = setup({ elapsed: 800, state: { step: 'close', closeTurns: 2 } });
+    const out = await collect(engine.run(input([{ role: 'user', content: 'tp markups' }])));
     expect(out.at(-1)).toEqual({ type: 'end_call' });
   });
-  it('records the extension offer in the offer window', async () => {
-    const { engine, repo } = setup({ elapsed: 21 * 60, state: { engagement: 'high' } });
-    await collect(engine.run({ sessionToken: 't', messages: msgs, canEndCall: true }));
-    const saved = (repo.updateStateIfVersion as ReturnType<typeof vi.fn>).mock.calls[0][1] as {
-      extension: { offeredAt: string | null };
-    };
-    expect(saved.extension.offeredAt).not.toBeNull();
-  });
-  it('says goodbye and ends the call on the second wrap-up turn', async () => {
-    const { engine } = setup({ elapsed: 28 * 60, state: { wrapUpTurns: 1 } });
-    const out = await collect(engine.run({ sessionToken: 't', messages: msgs, canEndCall: true }));
-    expect(out.at(-1)).toEqual({ type: 'end_call' });
-  });
-  it('does not emit end_call when ElevenLabs did not offer the tool', async () => {
-    const { engine } = setup({ elapsed: 28 * 60, state: { wrapUpTurns: 1 } });
-    const out = await collect(engine.run({ sessionToken: 't', messages: msgs, canEndCall: false }));
-    expect(out.some((c) => c.type === 'end_call')).toBe(false);
+  it('caches the first name per interview', async () => {
+    const { engine, repo } = setup();
+    await collect(engine.run(input([{ role: 'user', content: 'a' }])));
+    await collect(engine.run(input([{ role: 'user', content: 'b' }])));
+    expect(repo.loadMemberContext).toHaveBeenCalledTimes(1);
   });
 });

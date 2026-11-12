@@ -13,7 +13,7 @@ const FULL = {
   INTERVIEW_REASONING_PROVIDER: 'anthropic',
   INTERVIEW_REASONING_MODEL: 'claude-sonnet-5',
   INTERVIEW_REASONING_API_KEY: 'r',
-  INTERVIEW_CONSENT_VERSION: '2026-11-09',
+  INTERVIEW_CONSENT_VERSION: '2026-11-12',
 };
 
 describe('readInterviewConfig', () => {
@@ -21,7 +21,7 @@ describe('readInterviewConfig', () => {
     const c = readInterviewConfig(FULL);
     expect(c.enabled).toBe(true);
     expect(c.turn).toEqual({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001', apiKey: 't' });
-    expect(c.maxSeconds).toBe(1800);
+    expect(c.maxSeconds).toBe(1020);
   });
 
   it.each(Object.keys(FULL).filter((k) => k !== 'INTERVIEW_CONSENT_VERSION'))('is disabled without %s', (key) => {
@@ -30,7 +30,7 @@ describe('readInterviewConfig', () => {
   });
 
   it('defaults the consent version', () => {
-    expect(readInterviewConfig({ ...FULL, INTERVIEW_CONSENT_VERSION: undefined }).consentVersion).toBe('2026-11-09');
+    expect(readInterviewConfig({ ...FULL, INTERVIEW_CONSENT_VERSION: undefined }).consentVersion).toBe('2026-11-12');
   });
 
   it('never borrows the article-AI or search keys', () => {

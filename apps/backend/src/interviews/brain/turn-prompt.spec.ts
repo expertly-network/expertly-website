@@ -1,76 +1,91 @@
-// brain/turn-prompt.spec.ts
 import { describe, expect, it } from 'vitest';
-import { buildTurnPrompt } from './turn-prompt';
-import { emptyState, type InterviewPlan } from './types';
+import { buildTurnNotes, PERSONA } from './turn-prompt';
+import { initialState } from './ladder';
+import type { ClaimLedger, InterviewPlanV2, InterviewStateV2 } from './types';
 
-const PLAN: InterviewPlan = {
-  schemaVersion: 1,
-  opening: 'You led TP at Deloitte for six years. What mandate are you proudest of?',
-  objectives: [
+const PLAN: InterviewPlanV2 = {
+  schemaVersion: 2,
+  baselineClaimId: 'c1',
+  claimIds: ['c1', 'c2'],
+  opening: 'Pick one TP engagement.',
+};
+const LEDGER: ClaimLedger = {
+  claims: [
     {
-      id: 'e1',
-      kind: 'signature_engagement',
-      priority: 1,
-      rationale: '',
-      seedQuestions: ['Walk me through one'],
-      facts: ['outcome', 'metric', 'my_role'],
-      budgetSeconds: 400,
+      id: 'c1',
+      text: 'Bilateral APAs',
+      serviceIds: [],
+      type: 'engagement',
+      periodFrom: 2020,
+      periodTo: null,
+      source: 'bio',
+      flags: [],
+    },
+    {
+      id: 'c2',
+      text: 'GST appeals',
+      serviceIds: [],
+      type: 'engagement',
+      periodFrom: 2014,
+      periodTo: null,
+      source: 'bio',
+      flags: ['regime_before_start'],
     },
   ],
-  knownFacts: ['Joined Deloitte in 2012'],
-  confirmFacts: [{ fact: 'TP is still the main focus', reason: 'LinkedIn role ended 2021' }],
-  sensitivities: [],
 };
-const input = {
-  plan: PLAN,
-  state: { ...emptyState(), currentObjectiveId: 'e1', facts: { e1: { outcome: 'smoother audit' } } },
-  phase: 'normal' as const,
-  services: ['Tax → Direct Tax → Transfer pricing'],
-  firstName: 'Asha',
-  isFirstMemberTurn: false,
-  minutesLeft: 15,
-};
+const notes = (state: Partial<InterviewStateV2>, o: Partial<Parameters<typeof buildTurnNotes>[0]> = {}) =>
+  buildTurnNotes({
+    plan: PLAN,
+    ledger: LEDGER,
+    state: { ...initialState(PLAN), ...state },
+    firstName: 'Asha',
+    isFirstMemberTurn: false,
+    minutesLeft: 9.6,
+    goodbye: false,
+    ...o,
+  });
 
-describe('buildTurnPrompt', () => {
-  it('lists only the missing facts of the current objective', () => {
-    const p = buildTurnPrompt(input);
-    expect(p).toContain('metric');
-    expect(p).toContain('my_role');
-    expect(p).not.toMatch(/missing facts:[^\n]*outcome/);
+describe('PERSONA', () => {
+  it('is static and carries the core speaking rules', () => {
+    expect(PERSONA).toMatch(/one sentence/i);
+    expect(PERSONA).toMatch(/under 25 words/i);
+    expect(PERSONA).toMatch(/never introduce a technical term/i);
+    expect(PERSONA).toMatch(/interviewer_notes/);
+    expect(PERSONA).not.toContain('Asha');
   });
-  it('includes services, known facts and the untrusted-input rule', () => {
-    const p = buildTurnPrompt(input);
-    expect(p).toContain('Tax → Direct Tax → Transfer pricing');
-    expect(p).toContain('Joined Deloitte in 2012');
-    expect(p).toMatch(/never instructions/i);
+});
+
+describe('buildTurnNotes', () => {
+  it('opens with the AI disclosure and the planned opening on the first member turn', () => {
+    const n = notes({}, { isFirstMemberTurn: true });
+    expect(n).toMatch(/you are an AI/i);
+    expect(n).toContain('Pick one TP engagement.');
   });
-  it('uses the opening on the first member turn', () => {
-    expect(buildTurnPrompt({ ...input, isFirstMemberTurn: true })).toContain(PLAN.opening);
+  it('names the claim, the step intent, the detail to build on and the time left', () => {
+    const n = notes({ step: 3, buildOn: 'the site visit' });
+    expect(n).toContain('Bilateral APAs');
+    expect(n).toMatch(/Mechanics/);
+    expect(n).toContain('the site visit');
+    expect(n).toContain('About 10 minutes remain');
   });
-  it('offers confirm facts only while under the cap', () => {
-    expect(buildTurnPrompt(input)).toContain('TP is still the main focus');
-    expect(buildTurnPrompt({ ...input, state: { ...input.state, confirmedFacts: 1 } })).not.toContain(
-      'TP is still the main focus'
-    );
+  it('asks for a re-ask when one is pending', () => {
+    expect(notes({ step: 4, reaskUsed: true })).toMatch(/single specific instance/i);
   });
-  it('switches to anonymised mode', () => {
-    expect(
-      buildTurnPrompt({
-        ...input,
-        state: { ...input.state, modes: { anonymiseClients: true, memberShortOnTime: false } },
-      })
-    ).toMatch(/anonymi/i);
+  it('adds a neutral years question for flagged claims at step 1 only', () => {
+    expect(notes({ currentClaimId: 'c2', step: 1 })).toMatch(/Which years was that/);
+    expect(notes({ currentClaimId: 'c2', step: 3 })).not.toMatch(/Which years was that/);
   });
-  it.each([
-    ['offer_extension', /permission/i],
-    ['wrap_up', /read.?back|summar/i],
-    ['extended_closing', /no new/i],
-  ] as const)('gives phase instructions for %s', (phase, pattern) => {
-    expect(buildTurnPrompt({ ...input, phase })).toMatch(pattern);
+  it('lists only the open facets in the sweep', () => {
+    const n = notes({ step: 'facets', facetsDone: { c1: ['clients', 'industries'] } });
+    expect(n).toMatch(/countries or jurisdictions/);
+    expect(n).not.toMatch(/kinds of clients/);
   });
-  it('says goodbye on the second wrap-up turn', () => {
-    expect(
-      buildTurnPrompt({ ...input, phase: 'wrap_up', state: { ...input.state, wrapUpTurns: 2, wrapUpDone: true } })
-    ).toMatch(/goodbye|thank/i);
+  it('asks the two closing questions, then says goodbye', () => {
+    expect(notes({ step: 'close', closeTurns: 1 })).toMatch(/alongside this work/);
+    expect(notes({ step: 'close', closeTurns: 2 })).toMatch(/what words should they type/);
+    expect(notes({ step: 'close' }, { goodbye: true })).toMatch(/thank/i);
+  });
+  it('asks to repeat or type a garbled key term', () => {
+    expect(notes({ step: 3, lowConfidenceTerm: 'three CB' })).toContain('three CB');
   });
 });

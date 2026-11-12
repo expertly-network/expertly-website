@@ -3,42 +3,61 @@ import type { Json } from '../../supabase/database.types';
 import { InterviewLlmService, type ChatMessage } from '../interview-llm.service';
 import { InterviewsRepository } from '../interviews.repository';
 import { hashSessionToken } from '../session-token';
-import { Analyst, openHighValue } from './analyst';
-import { phaseAt, type TimePhase } from './time-keeper';
-import { buildTurnPrompt } from './turn-prompt';
-import { parseState, storedPlanSchema, type InterviewState } from './types';
+import { nextClaim, overClaimBudget } from './ladder';
+import { phaseAt, STOP_AT_SECONDS, type TimePhase } from './time-keeper';
+import { shouldTrack, Tracker } from './tracker';
+import { buildTurnNotes, PERSONA } from './turn-prompt';
+import { ledgerSchema, parseStateV2, planV2Schema, type InterviewPlanV2, type InterviewStateV2 } from './types';
 
 export type TurnChunk = { type: 'text'; text: string } | { type: 'end_call' };
 
-const MAX_TOKENS_TURN = 300;
-const MAX_SECONDS = 1800;
+const MAX_TOKENS_TURN = 200;
 const CLOSING_LINE = "Thank you, that's all the time we have today. Goodbye.";
+const NAME_CACHE_MAX = 500;
 
-/** Time-phase bookkeeping for one agent turn (exported for the simulated-interview script). */
+/**
+ * Per-agent-turn bookkeeping (exported for the simulated-interview script). Returns the same state
+ * object when nothing changed, so callers can skip the write.
+ */
 export function bookkeep(
-  state: InterviewState,
+  plan: InterviewPlanV2,
+  state: InterviewStateV2,
   phase: TimePhase,
-  nowIso: string
-): { state: InterviewState; endsNow: boolean } {
-  if (phase === 'offer_extension' && !state.extension.offeredAt)
-    return { state: { ...state, extension: { ...state.extension, offeredAt: nowIso } }, endsNow: false };
-  if (phase === 'wrap_up' || phase === 'stop') {
-    const wrapUpTurns = state.wrapUpTurns + 1;
-    const wrapUpDone = phase === 'stop' || wrapUpTurns >= 2;
-    return { state: { ...state, wrapUpTurns, wrapUpDone }, endsNow: wrapUpDone && !state.wrapUpDone };
+  elapsedSeconds: number
+): { state: InterviewStateV2; endsNow: boolean; goodbye: boolean } {
+  if (state.wrapUpDone) return { state, endsNow: false, goodbye: true };
+  if (phase === 'stop' || state.stopRequested)
+    return { state: { ...state, step: 'close', wrapUpDone: true }, endsNow: true, goodbye: true };
+  let s = state;
+  if (phase === 'close' && s.step !== 'close') s = { ...s, step: 'close' };
+  if (s.step !== 'close' && overClaimBudget(s, elapsedSeconds)) s = nextClaim(plan, s, elapsedSeconds);
+  if (s.step === 'close') {
+    if (s.closeTurns >= 2) return { state: { ...s, wrapUpDone: true }, endsNow: true, goodbye: true };
+    s = { ...s, closeTurns: s.closeTurns + 1 };
   }
-  return { state, endsNow: false };
+  return { state: s, endsNow: false, goodbye: false };
 }
 
 @Injectable()
 export class TurnEngine {
   private readonly logger = new Logger(TurnEngine.name);
+  private readonly names = new Map<string, string>();
 
   constructor(
     private readonly repo: InterviewsRepository,
     private readonly llm: InterviewLlmService,
-    private readonly analyst: Analyst
+    private readonly tracker: Tracker
   ) {}
+
+  private async firstName(interviewId: string, memberId: string): Promise<string> {
+    const cached = this.names.get(interviewId);
+    if (cached !== undefined) return cached;
+    const member = await this.repo.loadMemberContext(memberId);
+    const name = member?.firstName ?? '';
+    if (this.names.size >= NAME_CACHE_MAX) this.names.delete(this.names.keys().next().value as string);
+    this.names.set(interviewId, name);
+    return name;
+  }
 
   async *run(input: {
     sessionToken: string;
@@ -47,59 +66,55 @@ export class TurnEngine {
     abortSignal?: AbortSignal;
   }): AsyncGenerator<TurnChunk> {
     const found = await this.repo.findByTokenHash(hashSessionToken(input.sessionToken));
-    const now = new Date();
+    const now = Date.now();
     if (
       !found ||
       found.interview.status !== 'in_progress' ||
       found.connection.endedAt !== null ||
-      Date.parse(found.connection.sessionTokenExpiresAt) < now.getTime() ||
-      !found.interview.plan
+      Date.parse(found.connection.sessionTokenExpiresAt) < now ||
+      !found.interview.plan ||
+      !found.interview.ledger
     ) {
       yield { type: 'text', text: CLOSING_LINE };
       if (input.canEndCall) yield { type: 'end_call' };
       return;
     }
     const { connection, interview } = found;
-    const plan = storedPlanSchema.parse(interview.plan);
-    const elapsed = interview.elapsedSeconds + Math.max(0, (now.getTime() - Date.parse(connection.startedAt)) / 1000);
-    let state = parseState(interview.state);
-    const phase = phaseAt({
-      elapsedSeconds: elapsed,
-      engagement: state.engagement,
-      openHighValueObjective: openHighValue(plan, state),
-      extension: state.extension,
-      memberShortOnTime: state.modes.memberShortOnTime,
-    });
-    const booked = bookkeep(state, phase, now.toISOString());
-    if (booked.state !== state) {
+    const plan = planV2Schema.parse(interview.plan);
+    const ledger = ledgerSchema.parse(interview.ledger);
+    const elapsed = interview.elapsedSeconds + Math.max(0, (now - Date.parse(connection.startedAt)) / 1000);
+    const current = parseStateV2(interview.state);
+    const booked = bookkeep(plan, current, phaseAt({ elapsedSeconds: elapsed }), elapsed);
+    if (booked.state !== current) {
       const saved = await this.repo.updateStateIfVersion(
         interview.id,
-        booked.state as unknown as Json,
+        booked.state as unknown as NonNullable<Json>,
         interview.stateVersion
       );
-      if (!saved)
-        this.logger.debug(`State changed under turn for ${interview.id}; using the computed state for this turn.`);
-      state = booked.state;
+      if (!saved) this.logger.debug(`State changed under turn for ${interview.id}; using the computed state.`);
     }
+    const state = booked.state;
 
     const last = input.messages.at(-1);
-    if (last?.role === 'user') void this.analyst.analyse(interview.id, input.messages.slice(-6));
+    if (last?.role === 'user' && !booked.goodbye && shouldTrack(state, last.content))
+      void this.tracker.track(interview.id, input.messages);
 
-    const member = await this.repo.loadMemberContext(interview.memberId);
-    const system = buildTurnPrompt({
+    const notes = buildTurnNotes({
       plan,
+      ledger,
       state,
-      phase,
-      services: (member?.services ?? []).map((s) => `${s.serviceLine} → ${s.category} → ${s.service}`),
-      firstName: member?.firstName ?? '',
+      firstName: await this.firstName(interview.id, interview.memberId),
       isFirstMemberTurn: input.messages.filter((m) => m.role === 'user').length === 1,
-      minutesLeft: (MAX_SECONDS - elapsed) / 60,
+      minutesLeft: (STOP_AT_SECONDS - 120 - elapsed) / 60,
+      goodbye: booked.goodbye,
     });
     for await (const text of this.llm.stream('turn', {
-      system,
+      system: PERSONA,
       messages: input.messages,
+      notes,
       maxOutputTokens: MAX_TOKENS_TURN,
       abortSignal: input.abortSignal,
+      onUsage: (u) => void this.repo.addLlmUsage(interview.id, 'turn', u).catch(() => undefined),
     })) {
       yield { type: 'text', text };
     }
