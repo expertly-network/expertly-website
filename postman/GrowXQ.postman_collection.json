@@ -2204,7 +2204,7 @@
                 "me"
               ]
             },
-            "description": "🔑 Member (active member profile). Returns `eligibility` (`available`, `in_progress`, `can_reconnect`, `processing`, `completed`, `failed`), the current interview (drafts/summary only once `completed`), the current `consentVersion` and `maxSeconds`. Never returns the plan, live state, assessment or audio."
+            "description": "🔑 Member (active member profile). Returns `eligibility` (`available`, `in_progress`, `can_reconnect`, `processing`, `completed`, `failed`), the current interview (drafts/summary/proposedServices only once `completed`, `verified` once the current scoring evidenced at least one claim) and the current `consentVersion` and `maxSeconds`. Never returns the plan, live state, scoring, flags, ledger, llmUsage or audio."
           },
           "response": []
         },

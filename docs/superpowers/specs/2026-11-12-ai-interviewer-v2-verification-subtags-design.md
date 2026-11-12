@@ -527,12 +527,18 @@ adds it with a search eval run.
   audio/transcript retention control: **Audio saving** (`platform_settings.privacy.record_voice`)
   and **Retention** (`platform_settings.privacy.retention_days`, default 2 years) are both
   agent-level settings, not something passed at session start or per conversation. **What we
-  do:** unchanged — the worker simply never calls `GET .../conversations/{id}/audio` when
-  `audio_opt_in` is false, so nothing is downloaded or stored on our side; ElevenLabs' own copy
-  ages out under the agent's `retention_days` regardless. A follow-up could call
-  `DELETE /v1/convai/conversations/{id}` right after the transcript webhook lands for an
-  `audio_opt_in = false` interview, to purge ElevenLabs' copy immediately rather than wait on
-  retention — **not implemented in this plan**.
+  do (shipped, not a follow-up):** `ElevenLabsClient.deleteConversation()` wraps exactly this
+  endpoint (`xi-api-key` header, 15 s timeout, best-effort — swallows errors, logs a warning,
+  never throws). `InterviewExtractionService.handleAudio()` calls it per connection on **every**
+  claimed extraction attempt once the transcript is in, before deciding `no_transcript`/`no_plan`/
+  success — so a non-opted-in member's recording can't survive a failed or retried extraction
+  either: `audio_opt_in = false` → delete immediately (we never even call
+  `GET .../conversations/{id}/audio`); `audio_opt_in = true` → first archive the recording into
+  our private `interview-audio` bucket (`archive()`: download, verify MP3 magic bytes, upload,
+  mark `audioPath`), then delete the ElevenLabs copy — unless archiving itself failed, in which
+  case the row is left at ElevenLabs (not deleted) so a later retry can still archive it; an
+  already-archived connection just re-deletes on retry, which is harmless. Tested in
+  `elevenlabs.client.spec.ts` and `interview-extraction.service.spec.ts`.
   https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/delete ,
   https://elevenlabs.io/docs/eleven-agents/customization/privacy/audio-saving ,
   https://elevenlabs.io/docs/eleven-agents/customization/privacy/retention
@@ -572,8 +578,6 @@ adds it with a search eval run.
 - Anchor-bank admin UI (SQL load only).
 - ElevenLabs ASR keyword boosting per conversation (`asr.keywords`, confirmed supported — §11;
   needs the Security-tab override enabled on the agent first).
-- Explicit `DELETE /v1/convai/conversations/{id}` call for `audio_opt_in = false` interviews, to
-  purge ElevenLabs' own copy immediately instead of relying on the agent's `retention_days` (§11).
 - Golden-set calibration (25–30 labelled interviews) — people work; the simulated-interview
   script is extended to run personas (genuine / bluffing an adjacent service / firm-level only)
   as a smoke test, not a substitute.
