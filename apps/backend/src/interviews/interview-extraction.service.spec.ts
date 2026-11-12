@@ -114,4 +114,15 @@ describe('InterviewExtractionService.run (v2)', () => {
     await svc.run(() => false);
     expect(repo.updateInterview).toHaveBeenCalledWith('i1', { status: 'failed', failureReason: 'no_plan' });
   });
+  it('deletes a non-opted-in conversation even when the extraction fails with no_transcript', async () => {
+    const { svc, repo, elevenLabs } = setup(row(), [
+      conn({ transcript: [{ role: 'agent', message: 'hi', timeInCallSecs: 0 }] }),
+    ]);
+    await svc.run(() => false);
+    expect(repo.updateInterview).toHaveBeenCalledWith(
+      'i1',
+      expect.objectContaining({ status: 'failed', failureReason: 'no_transcript' })
+    );
+    expect(elevenLabs.deleteConversation).toHaveBeenCalledWith('conv1');
+  });
 });

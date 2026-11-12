@@ -44,6 +44,9 @@ export class InterviewExtractionService {
           await this.repo.updateInterview(row.id, { extractClaimedAt: null, extractAttempts: row.extractAttempts - 1 });
           continue;
         }
+        // Runs on every claimed attempt once transcripts are in, regardless of outcome below —
+        // a non-opted-in member's recording must not survive a failed/retried extraction either.
+        await this.handleAudio(row, connections);
         const transcript = connections.flatMap((c) =>
           Array.isArray(c.transcript) ? (c.transcript as TranscriptTurn[]) : []
         );
@@ -67,7 +70,6 @@ export class InterviewExtractionService {
           scoring: scored.result,
           onUsage: (u) => void this.repo.addLlmUsage(row.id, 'drafter', u).catch(() => undefined),
         });
-        await this.handleAudio(row, connections);
         await this.repo.updateInterview(row.id, {
           status: 'completed',
           drafts: drafts as unknown as Json,
@@ -95,9 +97,14 @@ export class InterviewExtractionService {
   }
 
   /**
-   * Opted-in members: copy each recording into the private bucket, then delete the ElevenLabs copy.
-   * Everyone else: delete the ElevenLabs copy without archiving (spec §2). An opted-in recording that
-   * could not be archived yet is left at ElevenLabs. Best effort: never blocks completion.
+   * Runs on every claimed attempt once transcripts are in, regardless of outcome (no_transcript,
+   * no_plan, member_inactive, exhausted retries, or a successful completion) — a non-opted-in
+   * member's recording must not survive a failed or retried extraction (spec §2: audio deleted
+   * unless opted in). Opted-in members: copy each recording into the private bucket, then delete
+   * the ElevenLabs copy. Everyone else: delete the ElevenLabs copy without archiving. An opted-in
+   * recording that could not be archived yet is left at ElevenLabs. Idempotent across retries
+   * (already-archived connections skip archiving; a repeated DELETE is harmless). Best effort:
+   * never blocks completion.
    */
   private async handleAudio(row: InterviewRow, connections: ConnectionRow[]): Promise<void> {
     for (const c of connections) {
