@@ -7,6 +7,7 @@ import { ElevenLabsClient } from './elevenlabs.client';
 import { InterviewConfig } from './interview.config';
 import { InterviewExtractionService } from './interview-extraction.service';
 import { InterviewLlmService } from './interview-llm.service';
+import { InterviewResultsRepository } from './interview-results.repository';
 import { InterviewsRepository } from './interviews.repository';
 
 // Shared by the API module and the worker (which must not register controllers).
@@ -16,6 +17,7 @@ import { InterviewsRepository } from './interviews.repository';
     InterviewConfig,
     InterviewLlmService,
     InterviewsRepository,
+    InterviewResultsRepository,
     Extractor,
     InterviewExtractionService,
     ElevenLabsClient,
@@ -24,6 +26,7 @@ import { InterviewsRepository } from './interviews.repository';
     InterviewConfig,
     InterviewLlmService,
     InterviewsRepository,
+    InterviewResultsRepository,
     Extractor,
     InterviewExtractionService,
     ElevenLabsClient,
