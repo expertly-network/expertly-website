@@ -1,124 +1,116 @@
 import { z } from 'zod';
 
-export const OBJECTIVE_KIND_VALUES = [
-  'signature_engagement',
-  'niche_depth',
-  'differentiation',
-  'ideal_client',
-  'consistency_check',
-] as const;
-export type ObjectiveKind = (typeof OBJECTIVE_KIND_VALUES)[number];
+export const CLAIM_TYPES = ['engagement', 'credential', 'volume', 'seniority', 'specialisation'] as const;
+export const CLAIM_SOURCES = ['bio', 'experience', 'engagement', 'selected_service'] as const;
+export const CLAIM_FLAGS = ['regime_before_start', 'timeline_conflict', 'selected_no_evidence'] as const;
+export type ClaimFlag = (typeof CLAIM_FLAGS)[number];
 
-export const objectiveSchema = z.object({
-  id: z.string().min(1).max(60),
-  kind: z.enum(OBJECTIVE_KIND_VALUES),
-  priority: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  rationale: z.string().max(300),
-  seedQuestions: z.array(z.string().max(400)).min(1).max(3),
-  facts: z.array(z.string().max(60)).min(1).max(12),
-  budgetSeconds: z.number().int().min(30).max(900),
+const year = z.number().int().min(1950).max(2100);
+
+/** A claim as the Preparer model returns it (flat, strict-schema safe). */
+export const claimSchema = z.object({
+  id: z.string().regex(/^c\d{1,2}$/),
+  text: z.string().min(1).max(200),
+  serviceIds: z.array(z.string().max(40)).max(6),
+  type: z.enum(CLAIM_TYPES),
+  periodFrom: year.nullable(),
+  periodTo: year.nullable(),
+  source: z.enum(CLAIM_SOURCES),
 });
-export type Objective = z.infer<typeof objectiveSchema>;
+export type ModelClaim = z.infer<typeof claimSchema>;
+/** A stored claim: the model's claim plus flags computed in code. */
+export type Claim = ModelClaim & { flags: ClaimFlag[] };
 
-export const planSchema = z.object({
-  schemaVersion: z.number().int(),
-  opening: z.string().min(1).max(600),
-  objectives: z.array(objectiveSchema).min(3).max(10),
-  knownFacts: z.array(z.string().max(300)).max(40),
-  confirmFacts: z.array(z.object({ fact: z.string().max(300), reason: z.string().max(300) })).max(2),
-  sensitivities: z.array(z.string().max(300)).max(10),
+export const ledgerSchema = z.object({
+  claims: z.array(claimSchema.extend({ flags: z.array(z.enum(CLAIM_FLAGS)) })).max(20),
 });
-export type InterviewPlan = z.infer<typeof planSchema>;
+export type ClaimLedger = z.infer<typeof ledgerSchema>;
 
-/**
- * A plan as stored on the interview. Looser than planSchema (which validates the planner's own
- * output): the analyst may add or drop objectives mid-call, so the 3–10 bound no longer holds.
- */
-export const storedPlanSchema = planSchema.extend({ objectives: z.array(objectiveSchema).max(30) });
-
-export const analystUpdateSchema = z.object({
-  filledFacts: z.array(z.object({ objectiveId: z.string(), fact: z.string(), value: z.string().max(500) })).max(20),
-  currentObjectiveDone: z.boolean(),
-  nextObjectiveId: z.string().nullable(),
-  planChanges: z
-    .array(
-      z.discriminatedUnion('op', [
-        z.object({ op: z.literal('add'), objective: objectiveSchema }),
-        z.object({
-          op: z.literal('reprioritise'),
-          objectiveId: z.string(),
-          priority: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-        }),
-        z.object({ op: z.literal('drop'), objectiveId: z.string() }),
-      ])
-    )
-    .max(5),
-  modes: z.object({ anonymiseClients: z.boolean().optional(), memberShortOnTime: z.boolean().optional() }),
-  engagement: z.enum(['high', 'normal', 'low']),
-  /** The member's answer, if the last agent turn offered more time. */
-  extensionAnswer: z.enum(['yes', 'no']).nullable(),
-  /** The last exchange included one of the plan's confirmFacts checks. */
-  confirmationAsked: z.boolean(),
-  guidance: z.string().max(400),
+export const preparerOutputSchema = z.object({
+  claims: z.array(claimSchema).min(1).max(20),
+  baselineClaimId: z.string(),
+  claimIds: z.array(z.string()).min(1).max(4),
+  opening: z.string().min(1).max(300),
 });
-export type AnalystUpdate = z.infer<typeof analystUpdateSchema>;
+export type PreparerOutput = z.infer<typeof preparerOutputSchema>;
 
-// OpenAI Structured Outputs rejects the discriminated union above (`oneOf`). Use one
-// nullable shape at the model boundary, then validate the operation-specific fields.
-export const analystModelUpdateSchema = analystUpdateSchema.omit({ planChanges: true, modes: true }).extend({
-  planChanges: z
-    .array(
-      z.object({
-        op: z.enum(['add', 'reprioritise', 'drop']),
-        objective: objectiveSchema.nullable(),
-        objectiveId: z.string().nullable(),
-        priority: objectiveSchema.shape.priority.nullable(),
-      })
-    )
-    .max(5),
-  modes: z.object({ anonymiseClients: z.boolean(), memberShortOnTime: z.boolean() }),
+export const planV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  baselineClaimId: z.string(),
+  claimIds: z.array(z.string()).min(1).max(4),
+  opening: z.string().min(1).max(300),
 });
+export type InterviewPlanV2 = z.infer<typeof planV2Schema>;
 
-/** member_interviews.state — the live conversation state (spec §6.2). */
-export interface InterviewState {
-  version: 1;
-  facts: Record<string, Record<string, string>>;
-  currentObjectiveId: string | null;
-  doneObjectiveIds: string[];
-  modes: { anonymiseClients: boolean; memberShortOnTime: boolean };
-  engagement: 'high' | 'normal' | 'low';
-  guidance: string;
-  confirmedFacts: number;
-  extension: { offeredAt: string | null; accepted: boolean | null };
-  /** Agent turns spoken in the wrap_up phase: 0 → read-back, 1 → goodbye + end_call. */
-  wrapUpTurns: number;
+export const FACET_QUESTIONS = ['clients', 'industries', 'jurisdictions', 'scale'] as const;
+export type FacetQuestion = (typeof FACET_QUESTIONS)[number];
+
+export type LadderStep = 1 | 2 | 3 | 4 | 5 | 6 | 'facets' | 'close';
+
+/** member_interviews.state — the live ladder state (spec §6.3). */
+export interface InterviewStateV2 {
+  version: 2;
+  currentClaimId: string | null;
+  step: LadderStep;
+  /** The current step's one re-ask has been used (the next turn is the re-ask). */
+  reaskUsed: boolean;
+  personalRole: Record<string, boolean | null>;
+  facetsDone: Record<string, FacetQuestion[]>;
+  doneClaimIds: string[];
+  /** Interview seconds elapsed when the current claim started (for the ~4 min budget). */
+  claimStartedAtSeconds: number;
+  buildOn: string;
+  lowConfidenceTerm: string | null;
+  /** Messages (ElevenLabs history entries) already read by the Tracker. */
+  lastTrackedIndex: number;
+  /** Agent turns spoken in the close step: 0 → Q14, 1 → Q15, 2 → goodbye. */
+  closeTurns: number;
+  stopRequested: boolean;
   wrapUpDone: boolean;
 }
 
-export function emptyState(): InterviewState {
+export function emptyStateV2(): InterviewStateV2 {
   return {
-    version: 1,
-    facts: {},
-    currentObjectiveId: null,
-    doneObjectiveIds: [],
-    modes: { anonymiseClients: false, memberShortOnTime: false },
-    engagement: 'normal',
-    guidance: '',
-    confirmedFacts: 0,
-    extension: { offeredAt: null, accepted: null },
-    wrapUpTurns: 0,
+    version: 2,
+    currentClaimId: null,
+    step: 1,
+    reaskUsed: false,
+    personalRole: {},
+    facetsDone: {},
+    doneClaimIds: [],
+    claimStartedAtSeconds: 0,
+    buildOn: '',
+    lowConfidenceTerm: null,
+    lastTrackedIndex: 0,
+    closeTurns: 0,
+    stopRequested: false,
     wrapUpDone: false,
   };
 }
 
-/** Reads a stored state document, falling back to defaults for missing keys (forward-compatible). */
-export function parseState(raw: unknown): InterviewState {
-  const base = emptyState();
+/** Reads a stored state; anything that isn't a v2 document becomes a fresh state. */
+export function parseStateV2(raw: unknown): InterviewStateV2 {
+  const base = emptyStateV2();
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
-  return { ...base, ...(raw as Partial<InterviewState>), version: 1 };
+  const doc = raw as Partial<InterviewStateV2>;
+  if (doc.version !== 2) return base;
+  return { ...base, ...doc, version: 2 };
 }
 
-/** What the planner and turn prompt know about the member (read by InterviewsRepository). */
+export const trackerUpdateSchema = z.object({
+  stepCovered: z.boolean(),
+  vague: z.boolean(),
+  personalRoleShown: z.boolean().nullable(),
+  buildOn: z.string().max(160),
+  endClaimEarly: z.boolean(),
+  facetsAnswered: z.array(z.enum(FACET_QUESTIONS)).max(4),
+  memberShortOnTime: z.boolean(),
+  memberAskedToStop: z.boolean(),
+  lowConfidenceTerm: z.string().max(60).nullable(),
+});
+export type TrackerUpdate = z.infer<typeof trackerUpdateSchema>;
+
+/** What the preparer and turn engine know about the member (read by InterviewsRepository). */
 export interface MemberContext {
   memberId: string;
   firstName: string;
@@ -132,8 +124,8 @@ export interface MemberContext {
   educations: unknown[];
   engagements: unknown[];
   keyClients: unknown[];
-  /** "Service line → Category → Service" strings, custom "Other" labels resolved. */
-  services: { serviceLine: string; category: string; service: string }[];
+  /** Selected services, custom "Other" labels resolved. */
+  services: { serviceId: string; serviceLine: string; category: string; service: string }[];
 }
 
 export interface TranscriptTurn {
