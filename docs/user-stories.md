@@ -280,9 +280,11 @@ own detail page — everything the applicant submitted, read-only — and approv
 - [ ] Before approving, the admin can correct names, contact/work email, phone, location, years
       of experience, rates, bio, LinkedIn, work history and education. Corrections go only to the
       member profile created on approval; the application itself stays exactly as submitted
-      (changed 2026-11-12: the page used to be fully read-only). Peer references, documents,
-      photo and consents stay read-only. Edits to an already-approved member still go through
+      (changed 2026-11-12: the page used to be fully read-only). Peer references, documents
+      and consents stay read-only. Edits to an already-approved member still go through
       the `member_profile_edits` flow (US-09-01)
+- [ ] The admin can replace the applicant's photo during review. Unlike the other corrections
+      this overwrites the application's photo immediately (the original isn't kept)
 - [ ] Corrected fields show the applicant's original value struck through, so the admin sees
       exactly what will be approved; corrections can be discarded in one action; rejecting never
       sends them

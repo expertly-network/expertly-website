@@ -1,4 +1,17 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
+import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequiresPermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -45,5 +58,20 @@ export class AdminApplicationsController {
     @Body() dto: ReviewApplicationDto
   ) {
     return this.applicationsService.reviewApplication(id, admin, dto);
+  }
+
+  // Replaces the applicant's photo (multipart `file`, JPEG/PNG ≤ 5MB) while the application awaits
+  // review. Overwrites the application's own photo immediately — see replacePhotoForReview.
+  @RateLimit('upload', ...RATE_LIMITS.upload)
+  @Post('applications/:id/photo')
+  async replacePhoto(@Param('id', ParseUUIDPipe) id: string, @Req() request: FastifyRequest): Promise<ApplicationDto> {
+    const part = await request.file();
+    if (!part) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'No file provided.' });
+    const buffer = await part.toBuffer();
+    return this.applicationsService.replacePhotoForReview(id, {
+      buffer,
+      size: buffer.length,
+      originalname: part.filename,
+    });
   }
 }

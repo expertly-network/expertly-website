@@ -82,6 +82,7 @@ const EXPECTED: Record<string, string> = {
   'GET /v1/admin/applications': 'admin:manageApplications',
   'GET /v1/admin/applications/:id': 'admin:manageApplications',
   'PATCH /v1/admin/applications/:id': 'admin:manageApplications',
+  'POST /v1/admin/applications/:id/photo': 'admin:manageApplications rl=upload',
 
   // Members
   'GET /v1/members': 'public',

@@ -451,6 +451,25 @@ export class ApplicationsRepository {
     return this.updateDraft(id, patch, 'Failed to save upload reference.');
   }
 
+  // 🛡️ Admin photo replacement during review — the one admin write to a submitted application
+  // besides the decision itself. updated_at is set explicitly: photoUrl's cache-buster reads it.
+  async setPhotoForReview(id: string, path: string): Promise<ApplicationRow> {
+    const { data, error } = await this.membershipApplications()
+      .update({ photo_path: path, updated_at: new Date().toISOString() } as MembershipApplicationUpdate)
+      .eq('id', id)
+      .in('status', ['submitted', 'under_review'])
+      .select(APPLICATION_ROW_COLUMNS.join(', '))
+      .maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to save the photo.');
+    if (!data) {
+      throw new ConflictException({
+        code: 'APPLICATION_NOT_REVIEWABLE',
+        message: 'Only a submitted or under-review application can be reviewed.',
+      });
+    }
+    return data as unknown as ApplicationRow;
+  }
+
   // application-assets is a public bucket — this is a plain, permanent URL, not a signed one.
   // No network call, no expiry, safe to call on every read. Photos only — never documents.
   getPublicUrl(path: string): string {

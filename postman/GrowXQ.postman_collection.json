@@ -2938,6 +2938,46 @@
                 }
               },
               "response": []
+            },
+            {
+              "name": "POST /admin/applications/{{applicationId}}/photo — Replace the applicant's photo during review",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/applications/{{applicationId}}/photo",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "applications",
+                    "{{applicationId}}",
+                    "photo"
+                  ]
+                },
+                "description": "🛡️ manageApplications. `multipart/form-data` with a single `file` (JPEG/PNG, 5MB max, checked by magic bytes). Only while the application is `submitted`/`under_review`. Overwrites the application's own photo **immediately** (same fixed path as the applicant's upload, so the original is gone) — unlike `profileOverrides`, which only reach the member profile on approval. Returns the updated `ApplicationDto`; `photoUrl`'s `?v=` changes so browsers fetch the new image. On approval the member profile uses this photo.\n\nCodes: `FILE_REQUIRED`, `FILE_TOO_LARGE`, `FILE_INVALID_TYPE` (400) · `APPLICATION_NOT_FOUND` (404) · `APPLICATION_NOT_REVIEWABLE` (409). Rate-limited with the `upload` bucket. Added 2026-11-12.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "Select a JPEG/PNG from disk."
+                    }
+                  ]
+                }
+              },
+              "response": []
             }
           ]
         },

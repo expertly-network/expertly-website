@@ -395,6 +395,23 @@ including `servicePreferences[]` so the admin can pick which one to approve.
 **Response `200`:** `ApplicationDto`. **Errors:** `401`/`403` per the 🛡️ badge · `404` no such
 application. Codes: `404 APPLICATION_NOT_FOUND`.
 
+### 🛡️ `manageApplications` `POST /v1/admin/applications/:id/photo`
+
+Added 2026-11-12. Replaces the applicant's profile photo while the application is `submitted` /
+`under_review` (`409 APPLICATION_NOT_REVIEWABLE` otherwise). `multipart/form-data`, one `file`:
+JPEG/PNG, 5MB max, validated by magic bytes like `POST /v1/applications/me/uploads`
+(`400 FILE_REQUIRED` / `FILE_TOO_LARGE` / `FILE_INVALID_TYPE`). Rate-limited with the `upload`
+bucket.
+
+Deliberately unlike `profileOverrides`: this **overwrites the application's own photo,
+immediately** — same fixed Storage path as the applicant's upload
+(`members/application/<applicantId>/profile-photo`), so the original isn't kept, and rejecting or
+discarding corrections doesn't bring it back. The row's `updated_at` is bumped, so `photoUrl`'s
+`?v=` cache-buster changes. On approval the member profile carries this photo as it does any
+application photo.
+
+**Response `200`:** the updated `ApplicationDto`.
+
 ### 🛡️ `manageApplications` `PATCH /v1/admin/applications/:id`
 
 Approve or reject a `submitted`/`under_review` application. Consumed by

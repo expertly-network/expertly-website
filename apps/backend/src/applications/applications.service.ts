@@ -346,20 +346,7 @@ export class ApplicationsService {
     kind: UploadKind,
     file: { buffer: Buffer; size: number; originalname: string }
   ): Promise<ApplicationDto> {
-    if (file.size > MAX_BYTES[kind]) {
-      throw new BadRequestException({
-        code: 'FILE_TOO_LARGE',
-        message: `File too large — max ${MAX_BYTES[kind] / 1024 / 1024}MB for ${kind}.`,
-      });
-    }
-
-    const sniffed = await sniffFileType(file.buffer);
-    if (!sniffed || !ALLOWED_MIME[kind].includes(sniffed.mime)) {
-      throw new BadRequestException({
-        code: 'FILE_INVALID_TYPE',
-        message: `Unsupported file type for ${kind}.`,
-      });
-    }
+    const sniffed = await this.assertUploadable(kind, file);
 
     let existing = await this.applicationsRepository.findLatestForUpload(user.id);
     if (existing && existing.status !== 'draft') {
@@ -435,6 +422,49 @@ export class ApplicationsService {
   // `sourceUrl` (the high-res photo from the LinkedIn import, LinkedIn's media CDN only) that
   // image is used; otherwise the low-res `picture` claim off the caller's linked LinkedIn OAuth
   // identity. Callers decide whether replacing the current photo is appropriate.
+  // 🛡️ manageApplications — an admin replacing the applicant's photo during review. Unlike other
+  // corrections (profileOverrides, applied only to the member profile), this overwrites the
+  // application's own photo, immediately: same fixed path as the applicant's upload, so the
+  // original is gone. Bumping the row changes photoUrl's ?v= so browsers fetch the new image.
+  async replacePhotoForReview(
+    applicationId: string,
+    file: { buffer: Buffer; size: number; originalname: string }
+  ): Promise<ApplicationDto> {
+    const sniffed = await this.assertUploadable('photo', file);
+    const application = await this.applicationsRepository.findByIdForReview(applicationId);
+    if (!['submitted', 'under_review'].includes(application.status)) {
+      throw new ConflictException({
+        code: 'APPLICATION_NOT_REVIEWABLE',
+        message: 'Only a submitted or under-review application can be reviewed.',
+      });
+    }
+    const path = `members/application/${application.applicant_id}/profile-photo`;
+    await this.applicationsRepository.uploadPhoto(path, file.buffer, sniffed.mime);
+    const saved = await this.applicationsRepository.setPhotoForReview(application.id, path);
+    return this.toDto(saved, await this.resolveServiceDetails(saved.service_preferences ?? []));
+  }
+
+  // Size and magic-byte checks shared by every upload path (applicant and admin).
+  private async assertUploadable(
+    kind: UploadKind,
+    file: { buffer: Buffer; size: number }
+  ): Promise<{ mime: string; ext: string }> {
+    if (file.size > MAX_BYTES[kind]) {
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: `File too large — max ${MAX_BYTES[kind] / 1024 / 1024}MB for ${kind}.`,
+      });
+    }
+    const sniffed = await sniffFileType(file.buffer);
+    if (!sniffed || !ALLOWED_MIME[kind].includes(sniffed.mime)) {
+      throw new BadRequestException({
+        code: 'FILE_INVALID_TYPE',
+        message: `Unsupported file type for ${kind}.`,
+      });
+    }
+    return sniffed;
+  }
+
   async importPhotoFromLinkedIn(user: AuthenticatedUser, sourceUrl?: string): Promise<ApplicationDto> {
     const pictureUrl = sourceUrl ?? (await this.applicationsRepository.findLinkedInPictureUrl(user.id));
     if (!pictureUrl)
