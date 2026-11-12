@@ -304,7 +304,9 @@ arrives, it is **queued once** (coalesced) and re-run with everything since
 2. Q15: "If someone were searching for exactly your kind of expertise, what words should they
    type?"
 
-Then thank them; they'll receive draft profile updates and suggested tags to review.
+Then thank them; they'll receive draft profile updates and suggested tags to review. (The source spec's one
+step-2 follow-up after Q14 is not built in this phase: the close is a fixed Q14 → Q15 → goodbye sequence;
+work surfaced by Q14 is still captured by the scorer as `adjacentServices`.)
 
 ### 6.5 Time (`time-keeper.ts` rewrite)
 
@@ -406,7 +408,7 @@ resurface as facet values in later interviews).
 
 ### 8.1 Member
 
-- `POST /interviews/me/start` — body gains `audioOptIn: boolean` (required). Consent version
+- `POST /interviews/me/start` — body gains `audioOptIn?: boolean` (optional, default `false`, so the current member screen keeps working until the frontend session adds the checkbox). Consent version
   bumps (AI assesses answers; transcript retention; audio deleted unless opted in).
 - `GET /interviews/me` — `interview` gains:
   ```ts
