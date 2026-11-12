@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTurnMessages, normaliseMessages, stripNotesTag } from './interview-llm.service';
+import { buildTurnMessages, normaliseMessages, stripNotesTag, temperatureFor } from './interview-llm.service';
 
 describe('normaliseMessages', () => {
   it('prepends a user line when the conversation starts with the agent greeting', () => {
@@ -42,5 +42,13 @@ describe('buildTurnMessages', () => {
   });
   it('leaves messages untouched without notes', () => {
     expect(buildTurnMessages([{ role: 'user', content: 'a' }])).toHaveLength(1);
+  });
+});
+
+describe('temperatureFor', () => {
+  it('drops temperature for Anthropic (current Claude models reject sampling params) and keeps it elsewhere', () => {
+    expect(temperatureFor({ provider: 'anthropic', model: 'claude-sonnet-5', apiKey: 'k' }, 0)).toBeUndefined();
+    expect(temperatureFor({ provider: 'openai', model: 'gpt-4.1', apiKey: 'k' }, 0)).toBe(0);
+    expect(temperatureFor({ provider: 'google', model: 'g', apiKey: 'k' }, undefined)).toBeUndefined();
   });
 });

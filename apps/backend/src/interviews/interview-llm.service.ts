@@ -60,6 +60,14 @@ function toUsage(u: LanguageModelUsage | undefined): LlmUsage {
   };
 }
 
+/**
+ * Current Claude models (Sonnet 5, Opus 5 and later) reject sampling parameters with a 400, so
+ * temperature is only sent to providers that accept it.
+ */
+export function temperatureFor(spec: ModelSpec, temperature: number | undefined): number | undefined {
+  return spec.provider === 'anthropic' ? undefined : temperature;
+}
+
 function toModel(spec: ModelSpec): LanguageModel {
   switch (spec.provider) {
     case 'openai':
@@ -106,13 +114,14 @@ export class InterviewLlmService {
     }
   ): Promise<T> {
     try {
+      const spec = this.spec(role);
       const result = await generateText({
-        model: toModel(this.spec(role)),
+        model: toModel(spec),
         system: input.system,
         prompt: input.prompt,
         output: Output.object({ schema: input.schema }),
         maxOutputTokens: input.maxOutputTokens,
-        temperature: input.temperature,
+        temperature: temperatureFor(spec, input.temperature),
         abortSignal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         maxRetries: 1,
       });
