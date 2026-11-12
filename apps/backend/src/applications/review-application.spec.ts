@@ -122,9 +122,9 @@ describe('reviewApplication — approve', () => {
 
   it('rejects a rate range whose max is not above min, before any write', async () => {
     const { repo, approve } = setup({}, { 'pref-1': detail({ isCustom: true }) });
-    await expect(approve({ approvedServiceId: 'pref-1', profileOverrides: { rateMinCents: 20000 } })).rejects.toMatchObject(
-      { response: { code: 'INVALID_RATE_RANGE' } }
-    );
+    await expect(
+      approve({ approvedServiceId: 'pref-1', profileOverrides: { rateMinCents: 20000 } })
+    ).rejects.toMatchObject({ response: { code: 'INVALID_RATE_RANGE' } });
     expect(repo.claimForDecision).not.toHaveBeenCalled();
   });
 
