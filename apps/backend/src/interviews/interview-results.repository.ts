@@ -51,6 +51,31 @@ const FLAG_COLUMNS = [
   'resolvedAt:resolved_at',
   'createdAt:created_at',
 ].join(', ');
+/**
+ * Flag listings hide open flags left behind by an older scoring of the same interview (a re-score
+ * makes a new scoring current; its own flags replace them). Resolved flags stay visible as history.
+ * PostgREST: left-embed the flag's scoring only when it is current, then keep rows that are either
+ * resolved or have that embed.
+ */
+const FLAG_LIST_SELECT = `${FLAG_COLUMNS}, interview_scorings!left(id)`;
+const FLAG_LIST_VISIBLE = 'status.neq.open,interview_scorings.not.is.null';
+type FlagRow = Omit<InterviewReviewFlagDto, 'memberName'>;
+const stripScoring = (rows: unknown[] | null): FlagRow[] =>
+  ((rows ?? []) as (FlagRow & { interview_scorings?: unknown })[]).map((r) => {
+    const { interview_scorings: _scoring, ...flag } = r;
+    return flag;
+  });
+
+export interface AdminEvidenceInput {
+  memberId: string;
+  serviceId: string;
+  interviewId: string;
+  scoringId: string;
+  role: number;
+  evidence: string;
+  recencyYear: number | null;
+  summary: string;
+}
 
 /** v2 interview outputs: scorings, facet vocabulary, service evidence/sub-tags, flags, anchors. */
 @Injectable()
@@ -325,32 +350,69 @@ export class InterviewResultsRepository {
     if (ev.error) throw dbError(`evidence approve failed: ${ev.error.message}`);
   }
 
+  /** This interview's flags: the current scoring's, plus resolved ones from any scoring. */
   async listFlagsForInterview(interviewId: string, memberName: string): Promise<InterviewReviewFlagDto[]> {
     const { data, error } = await this.db
       .from('interview_review_flags')
-      .select(FLAG_COLUMNS)
+      .select(FLAG_LIST_SELECT)
       .eq('interview_id', interviewId)
+      .eq('interview_scorings.is_current', true)
+      .or(FLAG_LIST_VISIBLE)
       .order('created_at', { ascending: true });
     if (error) throw dbError(`flags read failed: ${error.message}`);
-    return ((data ?? []) as unknown as Omit<InterviewReviewFlagDto, 'memberName'>[]).map((f) => ({
-      ...f,
-      memberName,
-    }));
+    return stripScoring(data as unknown[] | null).map((f) => ({ ...f, memberName }));
   }
 
   async listFlags(input: {
     status?: ReviewFlagStatus;
     offset: number;
     limit: number;
-  }): Promise<{ rows: Omit<InterviewReviewFlagDto, 'memberName'>[]; total: number }> {
-    let q = this.db.from('interview_review_flags').select(FLAG_COLUMNS, { count: 'exact' });
+  }): Promise<{ rows: FlagRow[]; total: number }> {
+    let q = this.db
+      .from('interview_review_flags')
+      .select(FLAG_LIST_SELECT, { count: 'exact' })
+      .eq('interview_scorings.is_current', true)
+      .or(FLAG_LIST_VISIBLE);
     if (input.status) q = q.eq('status', input.status);
     const { data, error, count } = await q
       .order('created_at', { ascending: false })
       .range(input.offset, input.offset + input.limit - 1);
     if (error) throw dbError(`flags list failed: ${error.message}`);
-    const rows = (data ?? []) as unknown as Omit<InterviewReviewFlagDto, 'memberName'>[];
+    const rows = stripScoring(data as unknown[] | null);
     return { rows, total: count ?? rows.length };
+  }
+
+  /**
+   * After a re-score: drop this interview's still-`proposed` evidence rows that the new scoring did
+   * not re-propose (their proposed sub-tags cascade). Acted-on rows (approved/active/rejected) stay.
+   */
+  async deleteStaleProposals(interviewId: string, currentScoringId: string): Promise<void> {
+    const { error } = await this.db
+      .from('member_service_evidence')
+      .delete()
+      .eq('interview_id', interviewId)
+      .eq('status', 'proposed')
+      .neq('scoring_id', currentScoringId);
+    if (error) throw dbError(`stale proposals delete failed: ${error.message}`);
+  }
+
+  /** An admin accepting a service the scorer did not propose: the evidence row, created `active`. */
+  async insertAdminEvidence(e: AdminEvidenceInput): Promise<void> {
+    const { error } = await this.db.from('member_service_evidence').upsert(
+      {
+        member_id: e.memberId,
+        service_id: e.serviceId,
+        interview_id: e.interviewId,
+        scoring_id: e.scoringId,
+        role: e.role,
+        evidence: e.evidence,
+        recency_year: e.recencyYear,
+        evidence_summary: e.summary,
+        status: 'active',
+      },
+      { onConflict: 'member_id,service_id', ignoreDuplicates: true }
+    );
+    if (error) throw dbError(`evidence insert failed: ${error.message}`);
   }
 
   async resolveFlag(
@@ -469,9 +531,15 @@ export class InterviewResultsRepository {
   }
 
   async createFacetValue(facet: FacetKind, label: string, aliases: string[]): Promise<FacetValueDto> {
+    const slug = slugify(label);
+    if (!slug)
+      throw new BadRequestException({
+        code: 'FACET_VALUE_INVALID',
+        message: 'The label needs at least one Latin letter or digit.',
+      });
     const { data, error } = await this.db
       .from('facet_values')
-      .insert({ facet, label: label.trim(), slug: slugify(label), status: 'canonical', aliases })
+      .insert({ facet, label: label.trim(), slug, status: 'canonical', aliases })
       .select(FACET_COLUMNS)
       .single();
     if (error?.code === '23505')

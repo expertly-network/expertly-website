@@ -232,6 +232,17 @@ describe('InterviewsService.updateMySubtags', () => {
     }[];
     expect(edits[0].evidenceSummary).not.toContain('asha@example.com');
   });
+  it('keeps the redacted summary within 400 characters (redaction can lengthen it)', async () => {
+    const { service, results } = setup(COMPLETED_ROW);
+    await service.updateMySubtags(MEMBER_USER, {
+      services: [{ serviceId: 's1', removeFacetValueIds: [], evidenceSummary: `${'a'.repeat(390)} x@y.io` }],
+    });
+    const edits = (results.memberApprove as ReturnType<typeof vi.fn>).mock.calls[0][2] as {
+      evidenceSummary: string | null;
+    }[];
+    expect(edits[0].evidenceSummary?.length).toBeLessThanOrEqual(400);
+    expect(edits[0].evidenceSummary).not.toContain('x@y.io');
+  });
 });
 
 describe('InterviewsService admin', () => {

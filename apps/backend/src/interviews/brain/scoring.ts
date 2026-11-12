@@ -175,10 +175,12 @@ export function finaliseScoring(raw: ScoringModelOutput, ctx: FinaliseContext): 
       if (turn === null) return [];
       return [{ ...t, turn, kind: anchored ? t.kind : ('technical_unverified' as const) }];
     });
-    const role = r.role ?? 0;
+    // A null model role stays null ("unknown"): it never earns R2+ outputs, and buildFlags does not
+    // read it as firm-level work either.
+    const role = r.role;
+    const personal = (role ?? 0) >= 2;
     let credits = [...new Set(r.creditServiceIds.filter((id) => ctx.allowedServiceIds.has(id)))];
-    if (!credits.length && role >= 2) credits = claim.serviceIds.filter((id) => ctx.allowedServiceIds.has(id));
-    const summary = redactCardText(r.evidenceSummary.trim()).slice(0, 400).trim();
+    if (!credits.length && personal) credits = claim.serviceIds.filter((id) => ctx.allowedServiceIds.has(id));
     return {
       ...base,
       probed: true,
@@ -188,10 +190,11 @@ export function finaliseScoring(raw: ScoringModelOutput, ctx: FinaliseContext): 
       signals,
       technical,
       lowConfidenceTerms: r.lowConfidenceTerms,
-      facets: role >= 2 ? r.facets : emptyFacets(),
+      facets: personal ? r.facets : emptyFacets(),
       creditServiceIds: credits,
-      candidateSubtags: role >= 2 ? r.candidateSubtags : [],
-      evidenceSummary: summary || (role >= 2 ? claim.text : ''),
+      candidateSubtags: personal ? r.candidateSubtags : [],
+      // No fallback to the raw claim text (it is not redacted): an empty summary means no proposal.
+      evidenceSummary: redactCardText(r.evidenceSummary.trim()).slice(0, 400).trim(),
     };
   });
   return {
@@ -221,10 +224,19 @@ export interface ServiceProposal {
   facets: Record<FacetKind, string[]>;
 }
 
-export function buildProposals(result: InterviewScoringResultDto): ServiceProposal[] {
+/**
+ * One proposal per credited service, from the strongest eligible claim. A claim is eligible only when
+ * it was probed, shows a personal role (R2+), lands at E1–E3 with at least one quote-verified
+ * `supports` signal, has a non-empty (redacted) summary, and raised no review flag — spec §7.2: a
+ * flag's only automatic effect is that the claim gets no sub-tags.
+ */
+export function buildProposals(result: InterviewScoringResultDto, flags: FlagDraft[]): ServiceProposal[] {
+  const flagged = new Set(flags.map((f) => f.claimId));
   const best = new Map<string, InterviewClaimScoreDto>();
   for (const c of result.claims) {
     if (!c.probed || (c.role ?? 0) < 2 || RANK[c.evidence] === 0) continue;
+    if (flagged.has(c.claimId) || !c.evidenceSummary.trim()) continue;
+    if (!SIGNAL_NAMES.some((n) => c.signals[n].rating === 'supports')) continue;
     for (const serviceId of c.creditServiceIds) {
       const cur = best.get(serviceId);
       const better =
@@ -276,8 +288,9 @@ export function buildFlags(
         'anchor_conflict',
         conflicts.map((t) => ({ label: t.kind, turn: t.turn, quote: t.quote }))
       );
-    if ((c.role ?? 0) <= 1 && c.serviceIds.some((id) => selectedServiceIds.has(id)))
-      flag('firm_level_on_selected', [{ label: `role R${c.role ?? 0}`, turn: null, quote: null }, ...weak]);
+    // A null role means the scorer could not tell — unknown, not firm-level.
+    if (c.role !== null && c.role <= 1 && c.serviceIds.some((id) => selectedServiceIds.has(id)))
+      flag('firm_level_on_selected', [{ label: `role R${c.role}`, turn: null, quote: null }, ...weak]);
     const unverified = c.technical.filter((t) => t.kind === 'technical_unverified');
     if (unverified.length && c.serviceIds.some((id) => anchoredServiceIds.has(id)))
       flag(

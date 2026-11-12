@@ -122,6 +122,45 @@ describe('InterviewScoringService.scoreAndStore', () => {
     expect(results.upsertProposal).toHaveBeenCalledWith(expect.objectContaining({ scoringId: 'sc0' }));
     expect(results.insertFlags).toHaveBeenCalledWith([expect.objectContaining({ scoringId: 'sc0' })]);
   });
+  it('gives a flagged claim no proposal (spec §7.2)', async () => {
+    const { svc, scorer, results } = setup();
+    const conflicted = {
+      ...RESULT,
+      claims: [claim({ technical: [{ kind: 'anchor_conflict', turn: 2, quote: 'q' }] })],
+    };
+    (scorer.score as ReturnType<typeof vi.fn>).mockResolvedValue({ result: conflicted, model: 'm' });
+    await svc.scoreAndStore(ROW, [], MEMBER);
+    expect(results.upsertProposal).not.toHaveBeenCalled();
+    expect(results.insertFlags).toHaveBeenCalledWith([expect.objectContaining({ reason: 'anchor_conflict' })]);
+  });
+  it('skips unsluggable facet values and keeps going when one value fails in the DB', async () => {
+    const { svc, scorer, results } = setup();
+    const odd = {
+      ...RESULT,
+      claims: [
+        claim({
+          facets: { ...claim({}).facets, jurisdiction: ['UK'], instrument: ['§§', 'Form 3CEB', 'Section 92CA'] },
+        }),
+      ],
+    };
+    (scorer.score as ReturnType<typeof vi.fn>).mockResolvedValue({ result: odd, model: 'm' });
+    (results.upsertCandidate as ReturnType<typeof vi.fn>)
+      .mockRejectedValueOnce(new Error('db boom'))
+      .mockResolvedValueOnce({ id: 'fv-92', status: 'candidate', facet: 'instrument' });
+    await svc.scoreAndStore(ROW, [], MEMBER);
+    expect(results.upsertCandidate).not.toHaveBeenCalledWith('instrument', '§§');
+    expect(results.upsertCandidate).toHaveBeenCalledWith('instrument', 'Form 3CEB');
+    expect(results.upsertCandidate).toHaveBeenCalledWith('instrument', 'Section 92CA');
+    expect(results.upsertProposal).toHaveBeenCalledWith(expect.objectContaining({ facetValueIds: ['fv-uk'] }));
+  });
+  it('throws a typed 409 INTERVIEW_NOT_V2 for a v1 row with no ledger', async () => {
+    const { svc, scorer } = setup();
+    await expect(svc.scoreAndStore({ ...ROW, ledger: null } as InterviewRow, [], MEMBER)).rejects.toMatchObject({
+      status: 409,
+      response: { code: 'INTERVIEW_NOT_V2' },
+    });
+    expect(scorer.score).not.toHaveBeenCalled();
+  });
   it('runs the full pipeline when reuseCurrent is requested but no scoring exists yet', async () => {
     const { svc, scorer, results } = setup(null);
     const out = await svc.scoreAndStore(ROW, [], MEMBER, { reuseCurrent: true });

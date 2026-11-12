@@ -92,6 +92,10 @@ describe('bookkeep', () => {
     const r = bookkeep(PLAN, { ...initialState(PLAN), step: 3 }, 'normal', 300);
     expect(r.state.step).toBe('close'); // only one claim planned
   });
+  it('ends again on a repeat turn after the goodbye', () => {
+    const s = { ...initialState(PLAN), step: 'close' as const, wrapUpDone: true };
+    expect(bookkeep(PLAN, s, 'close', 820)).toEqual({ state: s, endsNow: true, goodbye: true });
+  });
   it('returns the same object when nothing changes', () => {
     const s = initialState(PLAN);
     expect(bookkeep(PLAN, s, 'normal', 30).state).toBe(s);
@@ -121,7 +125,14 @@ describe('TurnEngine.run', () => {
     const args = (llm.stream as ReturnType<typeof vi.fn>).mock.calls[0][1];
     expect(args.system).not.toContain('Asha');
     expect(args.notes).toContain('Asha');
-    expect(tracker.track).toHaveBeenCalledWith('i1', expect.any(Array));
+    expect(tracker.track).toHaveBeenCalledWith('i1', expect.any(Array), { claimId: 'c1', step: 1 });
+  });
+  it('tracks an answer under the claim/step it was given at, even when this turn switches claim', async () => {
+    // 300s elapsed on claim c1 (started at 0) → bookkeep moves on (only one claim → close).
+    const { engine, tracker, repo } = setup({ elapsed: 300, state: { step: 3 } });
+    await collect(engine.run(input([{ role: 'user', content: 'it was a captive in Pune for a US group' }])));
+    expect((repo.updateStateIfVersion as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ step: 'close' });
+    expect(tracker.track).toHaveBeenCalledWith('i1', expect.any(Array), { claimId: 'c1', step: 3 });
   });
   it('does not track a short acknowledgement', async () => {
     const { engine, tracker } = setup({ state: { step: 3 } });

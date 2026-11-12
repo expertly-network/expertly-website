@@ -3,7 +3,7 @@ import type { Json } from '../../supabase/database.types';
 import type { ChatMessage, LlmUsage } from '../interview-llm.service';
 import { InterviewLlmService } from '../interview-llm.service';
 import { InterviewsRepository } from '../interviews.repository';
-import { applyTrackerUpdate, remainingFacets } from './ladder';
+import { applyTrackerUpdate, remainingFacets, type TrackContext } from './ladder';
 import {
   ledgerSchema,
   parseStateV2,
@@ -66,18 +66,23 @@ export async function runTracking(
   state: InterviewStateV2,
   messages: ChatMessage[],
   elapsedSeconds: number,
-  onUsage?: (u: LlmUsage) => void
+  onUsage?: (u: LlmUsage) => void,
+  context?: TrackContext
 ): Promise<{ update: TrackerUpdate; state: InterviewStateV2 }> {
   // Everything since the last tracked message, plus the question before it for context.
   const recent = messages.slice(Math.max(0, state.lastTrackedIndex - 1));
   const transcript = recent.map((m) => `${m.role === 'user' ? 'MEMBER' : 'INTERVIEWER'}: ${m.content}`).join('\n');
-  const claim = ledger.claims.find((c) => c.id === state.currentClaimId);
+  // Describe the question the answer was given under, not wherever the state has moved since.
+  const asked = context ?? { claimId: state.currentClaimId, step: state.step };
+  const claim = ledger.claims.find((c) => c.id === asked.claimId);
   const update = await llm.object('turn', {
     system: SYSTEM,
     prompt: [
       `Current claim: ${claim ? claim.text : 'none (closing)'}`,
-      `Current step: ${STEP_INTENT[String(state.step)]}`,
-      state.step === 'facets' ? `Facets still open: ${remainingFacets(state).join(', ')}` : '',
+      `Current step: ${STEP_INTENT[String(asked.step)]}`,
+      asked.step === 'facets'
+        ? `Facets still open: ${remainingFacets({ ...state, currentClaimId: asked.claimId }).join(', ')}`
+        : '',
       `<recent_conversation>\n${transcript}\n</recent_conversation>`,
     ]
       .filter(Boolean)
@@ -87,14 +92,14 @@ export async function runTracking(
     timeoutMs: 15_000,
     onUsage,
   });
-  return { update, state: applyTrackerUpdate(plan, state, update, messages.length, elapsedSeconds) };
+  return { update, state: applyTrackerUpdate(plan, state, update, messages.length, elapsedSeconds, context) };
 }
 
 @Injectable()
 export class Tracker {
   private readonly logger = new Logger(Tracker.name);
   private readonly running = new Map<string, Promise<void>>();
-  private readonly pending = new Map<string, ChatMessage[]>();
+  private readonly pending = new Map<string, { messages: ChatMessage[]; context: TrackContext }>();
 
   constructor(
     private readonly llm: InterviewLlmService,
@@ -104,14 +109,16 @@ export class Tracker {
   /**
    * Fire-and-forget: never throws. If a run is in flight, the latest messages are kept and tracked
    * once it finishes (answers are never skipped; runs read everything since lastTrackedIndex).
+   * `context` is the claim/step the latest answer was given under; if the stored state has moved
+   * on by the time the update lands, the ladder is not advanced (see applyTrackerUpdate).
    */
-  track(interviewId: string, messages: ChatMessage[]): Promise<void> {
+  track(interviewId: string, messages: ChatMessage[], context: TrackContext): Promise<void> {
     const inFlight = this.running.get(interviewId);
     if (inFlight) {
-      this.pending.set(interviewId, messages);
+      this.pending.set(interviewId, { messages, context });
       return inFlight;
     }
-    const run = this.run(interviewId, messages)
+    const run = this.run(interviewId, messages, context)
       .catch((error: unknown) => {
         this.logger.warn(
           `Tracker failed for ${interviewId}: ${error instanceof Error ? error.message : String(error)}`
@@ -122,14 +129,14 @@ export class Tracker {
         const next = this.pending.get(interviewId);
         if (next) {
           this.pending.delete(interviewId);
-          void this.track(interviewId, next);
+          void this.track(interviewId, next.messages, next.context);
         }
       });
     this.running.set(interviewId, run);
     return run;
   }
 
-  private async run(interviewId: string, messages: ChatMessage[]): Promise<void> {
+  private async run(interviewId: string, messages: ChatMessage[], context: TrackContext): Promise<void> {
     let interview = await this.repo.findById(interviewId);
     if (!interview?.plan || !interview.ledger) return;
     const plan = planV2Schema.parse(interview.plan);
@@ -142,11 +149,12 @@ export class Tracker {
       parseStateV2(interview.state),
       messages,
       elapsed,
-      (u) => void this.repo.addLlmUsage(interviewId, 'tracker', u).catch(() => undefined)
+      (u) => void this.repo.addLlmUsage(interviewId, 'tracker', u).catch(() => undefined),
+      context
     );
     // The turn engine also writes state (close bookkeeping); re-apply on a fresh read once.
     for (let attempt = 0; attempt < 2 && interview; attempt += 1) {
-      const next = applyTrackerUpdate(plan, parseStateV2(interview.state), update, messages.length, elapsed);
+      const next = applyTrackerUpdate(plan, parseStateV2(interview.state), update, messages.length, elapsed, context);
       if (
         await this.repo.updateStateIfVersion(interviewId, next as unknown as NonNullable<Json>, interview.stateVersion)
       )

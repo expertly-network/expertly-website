@@ -25,7 +25,8 @@ export function bookkeep(
   phase: TimePhase,
   elapsedSeconds: number
 ): { state: InterviewStateV2; endsNow: boolean; goodbye: boolean } {
-  if (state.wrapUpDone) return { state, endsNow: false, goodbye: true };
+  // Already said goodbye: end again (a repeated end_call is harmless; a call left open is not).
+  if (state.wrapUpDone) return { state, endsNow: true, goodbye: true };
   if (phase === 'stop' || state.stopRequested)
     return { state: { ...state, step: 'close', wrapUpDone: true }, endsNow: true, goodbye: true };
   let s = state;
@@ -95,9 +96,11 @@ export class TurnEngine {
     }
     const state = booked.state;
 
+    // The member's answer was given under the state before this turn's bookkeeping (which may have
+    // switched claim on time budget), so that is the context the tracker applies it to.
     const last = input.messages.at(-1);
-    if (last?.role === 'user' && !booked.goodbye && shouldTrack(state, last.content))
-      void this.tracker.track(interview.id, input.messages);
+    if (last?.role === 'user' && !booked.goodbye && shouldTrack(current, last.content))
+      void this.tracker.track(interview.id, input.messages, { claimId: current.currentClaimId, step: current.step });
 
     const notes = buildTurnNotes({
       plan,

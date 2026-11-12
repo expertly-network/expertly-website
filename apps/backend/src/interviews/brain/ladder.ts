@@ -40,18 +40,44 @@ export function overClaimBudget(state: InterviewStateV2, elapsedSeconds: number)
   return state.step !== 'close' && elapsedSeconds - state.claimStartedAtSeconds > CLAIM_BUDGET_SECONDS;
 }
 
+/** The claim and ladder step a tracked answer was given under. */
+export interface TrackContext {
+  claimId: string | null;
+  step: InterviewStateV2['step'];
+}
+
+/**
+ * When the state moved on since the answer was given (the turn engine switched claim on time
+ * budget, or closed): record only what does not depend on the current step — the tracked index,
+ * stop / short-on-time, facets for the ORIGINAL claim and the low-confidence term. The ladder is
+ * not advanced (the update describes a question that is no longer the current one).
+ */
+function applyStaleUpdate(state: InterviewStateV2, u: TrackerUpdate, ctx: TrackContext, trackedIndex: number) {
+  let s: InterviewStateV2 = { ...state, lastTrackedIndex: trackedIndex, lowConfidenceTerm: u.lowConfidenceTerm };
+  if (ctx.claimId && u.facetsAnswered.length) {
+    const prev = s.facetsDone[ctx.claimId] ?? [];
+    s = { ...s, facetsDone: { ...s.facetsDone, [ctx.claimId]: [...new Set([...prev, ...u.facetsAnswered])] } };
+  }
+  if (u.memberAskedToStop) return { ...s, step: 'close' as const, stopRequested: true };
+  if (u.memberShortOnTime) return { ...s, step: 'close' as const };
+  return s;
+}
+
 export function applyTrackerUpdate(
   plan: InterviewPlanV2,
   state: InterviewStateV2,
   u: TrackerUpdate,
   trackedIndex: number,
-  elapsedSeconds: number
+  elapsedSeconds: number,
+  context?: TrackContext
 ): InterviewStateV2 {
+  if (context && (context.claimId !== state.currentClaimId || context.step !== state.step))
+    return applyStaleUpdate(state, u, context, trackedIndex);
   const claim = state.currentClaimId;
   let s: InterviewStateV2 = {
     ...state,
     lastTrackedIndex: trackedIndex,
-    buildOn: u.buildOn || state.buildOn,
+    buildOn: u.buildOn,
     lowConfidenceTerm: u.lowConfidenceTerm,
   };
   if (claim && u.facetsAnswered.length) {

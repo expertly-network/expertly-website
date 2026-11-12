@@ -260,5 +260,91 @@ describe('InterviewResultsRepository', () => {
       expect(argsOf(calls[0], 'eq')).toEqual(['interview_id', 'i1']);
       expect(argsOf(calls[0], 'order')).toEqual(['created_at', { ascending: true }]);
     });
+
+    it("hides an older scoring's still-open flags but keeps resolved ones, and strips the embed", async () => {
+      const { service, calls } = fakeSupabaseService(() => ({
+        data: [{ id: 'flag-1', memberId: 'm1', status: 'open', interview_scorings: { id: 'sc2' } }],
+      }));
+      const repo = new InterviewResultsRepository(service);
+
+      const out = await repo.listFlagsForInterview('i1', 'Asha B');
+
+      expect(out[0]).not.toHaveProperty('interview_scorings');
+      expect(argsOf(calls[0], 'select')?.[0]).toContain('interview_scorings!left(id)');
+      const eqs = calls[0].steps.filter((s) => s.method === 'eq').map((s) => s.args);
+      expect(eqs).toContainEqual(['interview_scorings.is_current', true]);
+      expect(argsOf(calls[0], 'or')).toEqual(['status.neq.open,interview_scorings.not.is.null']);
+    });
+  });
+
+  describe('listFlags', () => {
+    it('applies the current-scoring-or-resolved filter alongside the status filter', async () => {
+      const { service, calls } = fakeSupabaseService(() => ({
+        data: [{ id: 'flag-1', memberId: 'm1', status: 'open', interview_scorings: { id: 'sc2' } }],
+        count: 1,
+      }));
+      const repo = new InterviewResultsRepository(service);
+
+      const out = await repo.listFlags({ status: 'open', offset: 0, limit: 25 });
+
+      expect(out).toEqual({ rows: [{ id: 'flag-1', memberId: 'm1', status: 'open' }], total: 1 });
+      const eqs = calls[0].steps.filter((s) => s.method === 'eq').map((s) => s.args);
+      expect(eqs).toEqual([
+        ['interview_scorings.is_current', true],
+        ['status', 'open'],
+      ]);
+      expect(argsOf(calls[0], 'or')).toEqual(['status.neq.open,interview_scorings.not.is.null']);
+    });
+  });
+
+  describe('deleteStaleProposals', () => {
+    it("deletes only this interview's proposed rows from other scorings", async () => {
+      const { service, calls } = fakeSupabaseService(() => ({ data: null }));
+      const repo = new InterviewResultsRepository(service);
+
+      await repo.deleteStaleProposals('i1', 'sc2');
+
+      expect(calls[0].table).toBe('member_service_evidence');
+      expect(calls[0].steps.map((s) => s.method)).toEqual(['delete', 'eq', 'eq', 'neq']);
+      expect(calls[0].steps.slice(1).map((s) => s.args)).toEqual([
+        ['interview_id', 'i1'],
+        ['status', 'proposed'],
+        ['scoring_id', 'sc2'],
+      ]);
+    });
+  });
+
+  describe('insertAdminEvidence', () => {
+    it('creates the evidence row as active, never overwriting an existing one', async () => {
+      const { service, calls } = fakeSupabaseService(() => ({ data: null }));
+      const repo = new InterviewResultsRepository(service);
+
+      await repo.insertAdminEvidence({
+        memberId: 'm1',
+        serviceId: 's1',
+        interviewId: 'i1',
+        scoringId: 'sc1',
+        role: 4,
+        evidence: 'E2',
+        recencyYear: 2025,
+        summary: 'Led an APA.',
+      });
+
+      const [row, opts] = argsOf(calls[0], 'upsert') as [Record<string, unknown>, Record<string, unknown>];
+      expect(row).toMatchObject({ member_id: 'm1', service_id: 's1', scoring_id: 'sc1', status: 'active' });
+      expect(opts).toEqual({ onConflict: 'member_id,service_id', ignoreDuplicates: true });
+    });
+  });
+
+  describe('createFacetValue', () => {
+    it('rejects a label with no sluggable characters before any write', async () => {
+      const { service, calls } = fakeSupabaseService(() => ({ data: null }));
+      const repo = new InterviewResultsRepository(service);
+
+      await expect(repo.createFacetValue('instrument', '—', [])).rejects.toMatchObject({
+        response: { code: 'FACET_VALUE_INVALID' },
+      });
+      expect(calls).toHaveLength(0);
+    });
   });
 });

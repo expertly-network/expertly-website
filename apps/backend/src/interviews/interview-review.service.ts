@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   AdminInterviewDetail,
+  InterviewClaimScoreDto,
   InterviewReviewFlagDto,
   InterviewReviewFlagListResponse,
   ReviewFlagStatus,
@@ -17,8 +18,9 @@ import type {
   UpdateFacetValueRequest,
 } from '@shared/subtags';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
+import { redactCardText } from '../search/redaction';
 import type { TranscriptTurn } from './brain/types';
-import { InterviewResultsRepository } from './interview-results.repository';
+import { InterviewResultsRepository, type AdminEvidenceInput } from './interview-results.repository';
 import { InterviewScoringService } from './interview-scoring.service';
 import { InterviewsRepository } from './interviews.repository';
 import { InterviewsService } from './interviews.service';
@@ -47,13 +49,21 @@ export class InterviewReviewService {
         code: 'INTERVIEW_NOT_COMPLETED',
         message: 'Only completed interviews can be re-scored.',
       });
+    if (!row.ledger || !row.plan)
+      throw new ConflictException({
+        code: 'INTERVIEW_NOT_V2',
+        message: 'This interview predates claim ledgers and cannot be re-scored.',
+      });
     const member = await this.repo.loadMemberContext(row.memberId);
     if (!member)
       throw new ConflictException({ code: 'INTERVIEW_MEMBER_INACTIVE', message: 'The member is not active.' });
     const transcript = (await this.repo.listConnections(id)).flatMap((c) =>
       Array.isArray(c.transcript) ? (c.transcript as TranscriptTurn[]) : []
     );
-    const { verified } = await this.scoring.scoreAndStore(row, transcript, member);
+    const { scoringId, verified } = await this.scoring.scoreAndStore(row, transcript, member);
+    // The old scoring's open flags drop out of the listings by query (see listFlags); its
+    // still-proposed evidence the new scoring did not re-propose is removed here.
+    await this.results.deleteStaleProposals(id, scoringId);
     await this.repo.updateInterview(id, { verifiedAt: verified ? new Date().toISOString() : null });
     return this.interviews.adminGet(id);
   }
@@ -90,10 +100,12 @@ export class InterviewReviewService {
   }
 
   /**
-   * Validate every requested serviceId has interview evidence for this member BEFORE applying
-   * any decision (one read) — the same lesson as Task 13's memberApprove: processing the batch
-   * sequentially would leave an earlier valid decision applied even when a later item in the
-   * same request is invalid. applyAdminDecision keeps its own not-found check too, as a backstop.
+   * Resolve every item BEFORE applying any decision — the same lesson as memberApprove: processing
+   * the batch sequentially would leave an earlier valid decision applied even when a later item is
+   * invalid. An item for a service with no evidence row (the scorer flagged the claim, so it was
+   * never proposed) is resolvable only with `accept: true` and only when the member's current
+   * completed interview's current scoring has a claim covering that service; that claim seeds a new
+   * `active` evidence row. applyAdminDecision keeps its own not-found check too, as a backstop.
    */
   async decideSubtags(
     admin: AuthenticatedUser,
@@ -102,14 +114,49 @@ export class InterviewReviewService {
   ): Promise<AdminMemberServiceEvidenceDto[]> {
     await this.assertFreshAdmin(admin);
     const known = new Set(await this.results.listEvidenceServiceIds(memberId));
-    const unknown = dto.services.map((s) => s.serviceId).filter((id) => !known.has(id));
-    if (unknown.length)
-      throw new NotFoundException({
+    const missing = dto.services.filter((s) => !known.has(s.serviceId));
+    const creates = missing.length ? await this.evidenceFromScoring(memberId, missing) : [];
+    for (const e of creates) await this.results.insertAdminEvidence(e);
+    for (const item of dto.services) await this.results.applyAdminDecision(memberId, item);
+    return this.results.listMemberEvidence(memberId);
+  }
+
+  /** New evidence rows for accepted, not-yet-proposed services; throws 404 if any can't be seeded. */
+  private async evidenceFromScoring(
+    memberId: string,
+    items: AdminUpdateSubtagsRequest['services']
+  ): Promise<AdminEvidenceInput[]> {
+    const notFound = () =>
+      new NotFoundException({
         code: 'INTERVIEW_EVIDENCE_NOT_FOUND',
         message: 'No interview evidence for that service.',
       });
-    for (const item of dto.services) await this.results.applyAdminDecision(memberId, item);
-    return this.results.listMemberEvidence(memberId);
+    if (items.some((i) => !i.accept)) throw notFound();
+    const interview = await this.repo.findCurrent(memberId);
+    const scoring = interview?.status === 'completed' ? await this.results.findCurrentScoring(interview.id) : null;
+    if (!interview || !scoring) throw notFound();
+    return items.map((item) => {
+      const claims = scoring.result.claims;
+      const claim: InterviewClaimScoreDto | undefined =
+        claims.find((c) => c.creditServiceIds.includes(item.serviceId)) ??
+        claims.find((c) => c.serviceIds.includes(item.serviceId));
+      const summary = claim
+        ? redactCardText((claim.evidenceSummary || claim.claimText).trim())
+            .slice(0, 400)
+            .trim()
+        : '';
+      if (!claim || !summary) throw notFound();
+      return {
+        memberId,
+        serviceId: item.serviceId,
+        interviewId: interview.id,
+        scoringId: scoring.id,
+        role: claim.role ?? 0,
+        evidence: claim.evidence,
+        recencyYear: claim.facets.recencyYear,
+        summary,
+      };
+    });
   }
 
   async listFacetValues(q: {

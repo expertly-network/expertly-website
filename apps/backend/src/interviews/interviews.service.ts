@@ -210,7 +210,9 @@ export class InterviewsService {
       dto.services.map((s) => ({
         serviceId: s.serviceId,
         removeFacetValueIds: s.removeFacetValueIds,
-        evidenceSummary: s.evidenceSummary ? redactCardText(s.evidenceSummary.trim()) : null,
+        evidenceSummary: s.evidenceSummary
+          ? redactCardText(s.evidenceSummary.trim()).slice(0, 400).trim() || null
+          : null,
       }))
     );
     return this.myDto(current);

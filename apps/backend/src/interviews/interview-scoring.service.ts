@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import type { InterviewScoringResultDto } from '@shared/interview';
 import { FACET_KINDS, type FacetKind } from '@shared/subtags';
-import { CLOSED_FACETS, matchFacetValue, type FacetValueRow } from './brain/normaliser';
+import { CLOSED_FACETS, matchFacetValue, slugify, type FacetValueRow } from './brain/normaliser';
 import { RUBRIC_VERSION, Scorer } from './brain/scorer';
 import { buildFlags, buildProposals, isVerified } from './brain/scoring';
 import { linkedIds, resolveLinkGroups } from './brain/service-links';
@@ -12,6 +12,8 @@ import { InterviewsRepository, type InterviewRow } from './interviews.repository
 /** Score → store → normalise facets → service proposals → review flags (spec §7, steps 1–3). */
 @Injectable()
 export class InterviewScoringService {
+  private readonly logger = new Logger(InterviewScoringService.name);
+
   constructor(
     private readonly scorer: Scorer,
     private readonly results: InterviewResultsRepository,
@@ -24,6 +26,11 @@ export class InterviewScoringService {
     member: MemberContext,
     opts: { reuseCurrent?: boolean } = {}
   ): Promise<{ scoringId: string; result: InterviewScoringResultDto; verified: boolean }> {
+    if (!interview.ledger || !interview.plan)
+      throw new ConflictException({
+        code: 'INTERVIEW_NOT_V2',
+        message: 'This interview predates claim ledgers and cannot be scored.',
+      });
     const ledger = ledgerSchema.parse(interview.ledger);
     const plan = planV2Schema.parse(interview.plan);
     const selected = new Set(member.services.map((s) => s.serviceId));
@@ -88,7 +95,9 @@ export class InterviewScoringService {
     anchored: Set<string>
   ): Promise<void> {
     const vocabulary = await this.results.listFacetValues();
-    for (const p of buildProposals(result)) {
+    // Flags first: a flagged claim never becomes a proposal (spec §7.2).
+    const flags = buildFlags(result, selected, anchored);
+    for (const p of buildProposals(result, flags)) {
       const facetValueIds = await this.resolveFacets(member.memberId, p.facets, vocabulary);
       await this.results.upsertProposal({
         memberId: member.memberId,
@@ -103,7 +112,7 @@ export class InterviewScoringService {
       });
     }
     await this.results.insertFlags(
-      buildFlags(result, selected, anchored).map((f) => ({
+      flags.map((f) => ({
         ...f,
         interviewId,
         memberId: member.memberId,
@@ -112,7 +121,11 @@ export class InterviewScoringService {
     );
   }
 
-  /** Canonical matches are attached; open-facet misses become candidates (never attached). */
+  /**
+   * Canonical matches are attached; open-facet misses become candidates (never attached). One bad
+   * value (unsluggable text, a DB error on its candidate/source write) is logged and skipped — it
+   * must never fail the whole interview's scoring.
+   */
   private async resolveFacets(
     memberId: string,
     facets: Record<FacetKind, string[]>,
@@ -122,16 +135,21 @@ export class InterviewScoringService {
     for (const facet of FACET_KINDS) {
       const values = vocabulary.filter((v) => v.facet === facet);
       for (const raw of facets[facet]) {
-        const hit = matchFacetValue(raw, values);
-        if (hit) {
-          if (hit.status === 'canonical') ids.add(hit.id);
-          await this.results.addFacetSource(hit.id, memberId);
-          continue;
+        try {
+          const hit = matchFacetValue(raw, values);
+          if (hit) {
+            if (hit.status === 'canonical') ids.add(hit.id);
+            await this.results.addFacetSource(hit.id, memberId);
+            continue;
+          }
+          // Unsluggable text (only punctuation/non-Latin) would violate facet_values' slug check.
+          if (CLOSED_FACETS.has(facet) || !slugify(raw)) continue;
+          const candidate = await this.results.upsertCandidate(facet, raw);
+          vocabulary.push(candidate);
+          await this.results.addFacetSource(candidate.id, memberId);
+        } catch (error: unknown) {
+          this.logger.warn(`Facet value skipped (${facet}): ${error instanceof Error ? error.message : String(error)}`);
         }
-        if (CLOSED_FACETS.has(facet)) continue;
-        const candidate = await this.results.upsertCandidate(facet, raw);
-        vocabulary.push(candidate);
-        await this.results.addFacetSource(candidate.id, memberId);
       }
     }
     return [...ids];

@@ -247,8 +247,16 @@ export class MembersRepository {
         .eq('member_id', memberId)
         .eq('status', 'active'),
     ]);
-    if (interviewRes.error) throw new InternalServerErrorException('Failed to load interview status.');
-    if (subtagRes.error) throw new InternalServerErrorException('Failed to load interview sub-tags.');
+    if (interviewRes.error)
+      throw new InternalServerErrorException({
+        code: 'INTERVIEW_DB_ERROR',
+        message: 'Failed to load interview status.',
+      });
+    if (subtagRes.error)
+      throw new InternalServerErrorException({
+        code: 'INTERVIEW_DB_ERROR',
+        message: 'Failed to load interview sub-tags.',
+      });
 
     const one = <T>(v: T | T[]): T => (Array.isArray(v) ? v[0] : v);
     const byService = new Map<string, PublicServiceSubtagsDto>();

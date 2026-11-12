@@ -25,6 +25,10 @@ describe('ladder', () => {
     const s = applyTrackerUpdate(PLAN, initialState(PLAN), u(), 4, 60);
     expect(s).toMatchObject({ step: 2, reaskUsed: false, buildOn: 'the site visit', lastTrackedIndex: 4 });
   });
+  it('replaces buildOn with the latest answer, clearing a stale detail when there is none', () => {
+    const s = applyTrackerUpdate(PLAN, at({ step: 3, buildOn: 'old detail' }), u({ buildOn: '' }), 4, 60);
+    expect(s.buildOn).toBe('');
+  });
   it('uses one re-ask on a vague answer, then moves on even if still vague', () => {
     const s1 = applyTrackerUpdate(PLAN, at({ step: 3 }), u({ stepCovered: false, vague: true }), 2, 60);
     expect(s1).toMatchObject({ step: 3, reaskUsed: true });
@@ -77,6 +81,33 @@ describe('ladder', () => {
   it('does not move the ladder once closing', () => {
     const s = applyTrackerUpdate(PLAN, at({ step: 'close', closeTurns: 1 }), u(), 2, 800);
     expect(s).toMatchObject({ step: 'close', closeTurns: 1 });
+  });
+  it('applies only context-independent parts when the state moved on since the answer', () => {
+    // Answer given at c1 step 'facets'; the turn engine has since switched to c2 step 1 on time budget.
+    const moved = at({ currentClaimId: 'c2', step: 1, doneClaimIds: ['c1'], buildOn: '' });
+    const ctx = { claimId: 'c1', step: 'facets' as const };
+    const s = applyTrackerUpdate(
+      PLAN,
+      moved,
+      u({ facetsAnswered: ['clients'], lowConfidenceTerm: '3CEB', buildOn: 'c1 detail' }),
+      6,
+      300,
+      ctx
+    );
+    expect(s).toMatchObject({ currentClaimId: 'c2', step: 1, lastTrackedIndex: 6, lowConfidenceTerm: '3CEB' });
+    expect(s.buildOn).toBe('');
+    expect(s.facetsDone).toEqual({ c1: ['clients'] });
+    expect(applyTrackerUpdate(PLAN, moved, u({ memberAskedToStop: true }), 6, 300, ctx)).toMatchObject({
+      step: 'close',
+      stopRequested: true,
+    });
+    expect(applyTrackerUpdate(PLAN, moved, u({ memberShortOnTime: true }), 6, 300, ctx).step).toBe('close');
+    // Same claim, different step: still not advanced.
+    expect(applyTrackerUpdate(PLAN, at({ step: 4 }), u(), 6, 300, { claimId: 'c1', step: 3 }).step).toBe(4);
+  });
+  it('advances normally when the context still matches the state', () => {
+    const s = applyTrackerUpdate(PLAN, at({ step: 3 }), u(), 6, 300, { claimId: 'c1', step: 3 });
+    expect(s.step).toBe(4);
   });
   it('flags a claim over its ~4 minute budget', () => {
     expect(overClaimBudget(at({ claimStartedAtSeconds: 0 }), 241)).toBe(true);

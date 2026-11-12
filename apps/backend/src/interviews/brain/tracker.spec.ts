@@ -20,6 +20,7 @@ const LEDGER = {
     },
   ],
 };
+const CTX = { claimId: 'c1', step: 1 as const };
 const UPDATE: TrackerUpdate = {
   stepCovered: true,
   vague: false,
@@ -67,9 +68,9 @@ function setup() {
 describe('Tracker', () => {
   it('coalesces answers that arrive while a run is in flight into exactly one follow-up run', async () => {
     const { tracker, llm, release } = setup();
-    const first = tracker.track('i1', [{ role: 'user', content: 'a long enough answer about the work' }]);
-    void tracker.track('i1', [{ role: 'user', content: 'second' }]);
-    void tracker.track('i1', [{ role: 'user', content: 'third' }]);
+    const first = tracker.track('i1', [{ role: 'user', content: 'a long enough answer about the work' }], CTX);
+    void tracker.track('i1', [{ role: 'user', content: 'second' }], CTX);
+    void tracker.track('i1', [{ role: 'user', content: 'third' }], CTX);
     release();
     await first;
     await vi.waitFor(() => expect(llm.object).toHaveBeenCalledTimes(2));
@@ -80,14 +81,51 @@ describe('Tracker', () => {
     const { tracker, repo, release } = setup();
     (repo.updateStateIfVersion as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     release();
-    await tracker.track('i1', [{ role: 'user', content: 'an answer with enough words in it' }]);
+    await tracker.track('i1', [{ role: 'user', content: 'an answer with enough words in it' }], CTX);
     expect(repo.findById).toHaveBeenCalledTimes(2);
     expect(repo.updateStateIfVersion).toHaveBeenCalledTimes(2);
+  });
+  it('does not advance the ladder when the claim switched before the update landed', async () => {
+    const { tracker, repo, release } = setup();
+    // The turn engine moved to closing (time budget) after the answer was given at c1 step 1.
+    (repo.findById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'i1',
+      plan: PLAN,
+      ledger: LEDGER,
+      state: { ...initialState(PLAN), currentClaimId: null, step: 'close', doneClaimIds: ['c1'] },
+      stateVersion: 2,
+    });
+    release();
+    await tracker.track('i1', [{ role: 'user', content: 'an answer with enough words in it' }], CTX);
+    const saved = (repo.updateStateIfVersion as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(saved).toMatchObject({ step: 'close', currentClaimId: null, lastTrackedIndex: 1 });
+  });
+  it('advances the ladder when the state still matches the answer context', async () => {
+    const { tracker, repo, release } = setup();
+    release();
+    await tracker.track('i1', [{ role: 'user', content: 'an answer with enough words in it' }], CTX);
+    const saved = (repo.updateStateIfVersion as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(saved).toMatchObject({ step: 2, currentClaimId: 'c1', buildOn: 'site visit' });
+  });
+  it('describes the question the answer was given under in the prompt', async () => {
+    const { tracker, llm, repo, release } = setup();
+    (repo.findById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'i1',
+      plan: PLAN,
+      ledger: LEDGER,
+      state: { ...initialState(PLAN), currentClaimId: null, step: 'close' },
+      stateVersion: 2,
+    });
+    release();
+    await tracker.track('i1', [{ role: 'user', content: 'an answer with enough words in it' }], CTX);
+    const prompt = (llm.object as ReturnType<typeof vi.fn>).mock.calls[0][1].prompt as string;
+    expect(prompt).toContain('Current claim: TP');
+    expect(prompt).toContain('Current step: Context');
   });
   it('never throws', async () => {
     const { tracker, llm, release } = setup();
     (llm.object as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'));
     release();
-    await expect(tracker.track('i1', [{ role: 'user', content: 'x y z a b c' }])).resolves.toBeUndefined();
+    await expect(tracker.track('i1', [{ role: 'user', content: 'x y z a b c' }], CTX)).resolves.toBeUndefined();
   });
 });

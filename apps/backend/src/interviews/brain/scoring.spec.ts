@@ -175,6 +175,19 @@ describe('finaliseScoring', () => {
     expect(r.claims[0].facets.jurisdiction).toEqual([]);
     expect(r.claims[0].technical[0].kind).toBe('technical_unverified');
   });
+  it('keeps an empty summary empty instead of falling back to the raw (unredacted) claim text', () => {
+    const r = finaliseScoring(
+      { claims: [rawClaim({ evidenceSummary: '  ' })], adjacentServices: [], searchTerms: [] },
+      ctx
+    );
+    expect(r.claims[0].evidenceSummary).toBe('');
+    expect(buildProposals(r, [])).toEqual([]);
+  });
+  it('keeps a null model role as null (unknown), with no facets or subtags', () => {
+    const r = finaliseScoring({ claims: [rawClaim({ role: null })], adjacentServices: [], searchTerms: [] }, ctx);
+    expect(r.claims[0].role).toBeNull();
+    expect(r.claims[0].facets.jurisdiction).toEqual([]);
+  });
 });
 
 const scored = (claims: Partial<InterviewScoringResultDto['claims'][number]>[]): InterviewScoringResultDto =>
@@ -210,8 +223,40 @@ describe('buildProposals', () => {
       { role: 1, evidence: 'E3', creditServiceIds: ['s-ma'] },
       { role: 4, evidence: 'E0', creditServiceIds: ['s-dd'] },
     ]);
-    const p = buildProposals(r);
+    const p = buildProposals(r, []);
     expect(p.map((x) => [x.serviceId, x.claimId])).toEqual([['s-tp', 'c2']]);
+  });
+  it('gives a claim with an anchor_conflict flag no proposal, even at E2', () => {
+    const technical = [{ kind: 'anchor_conflict' as const, turn: 2, quote: 'x' }];
+    const r = scored([{ role: 4, evidence: 'E2', technical, creditServiceIds: ['s-tp'] }]);
+    const flags = buildFlags(r, new Set(), new Set());
+    expect(flags.map((f) => f.reason)).toEqual(['anchor_conflict']);
+    expect(buildProposals(r, flags)).toEqual([]);
+  });
+  it('gives any flagged claim (firm_level_on_selected, unsupported) no proposal', () => {
+    const r = scored([
+      { role: 4, evidence: 'E2', creditServiceIds: ['s-tp'] },
+      { role: 4, evidence: 'E2', creditServiceIds: ['s-ma'] },
+      { role: 4, evidence: 'E2', creditServiceIds: ['s-dd'] },
+    ]);
+    const flag = (claimId: string, reason: 'firm_level_on_selected' | 'unsupported') => ({
+      claimId,
+      claimText: 'x',
+      serviceIds: [],
+      reason,
+      evidence: [],
+    });
+    const p = buildProposals(r, [flag('c1', 'firm_level_on_selected'), flag('c2', 'unsupported')]);
+    expect(p.map((x) => x.claimId)).toEqual(['c3']);
+  });
+  it('needs at least one verified supports signal: a probed R4/E1 claim with none gets no proposal and no flag', () => {
+    const r = scored([{ role: 4, evidence: 'E1', signals: signals(0, 0), creditServiceIds: ['s-tp'] }]);
+    const flags = buildFlags(r, new Set(['s1']), new Set(['s1']));
+    expect(flags).toEqual([]);
+    expect(buildProposals(r, flags)).toEqual([]);
+  });
+  it('skips a claim whose summary is empty', () => {
+    expect(buildProposals(scored([{ evidenceSummary: '' }]), [])).toEqual([]);
   });
 });
 
@@ -231,6 +276,10 @@ describe('buildFlags', () => {
       ['c3', 'firm_level_on_selected'],
     ]);
     expect(flags[0].evidence.length).toBe(2);
+  });
+  it('does not read a null role on a selected service as firm-level work', () => {
+    const r = scored([{ role: null, evidence: 'E1', serviceIds: ['sel'] }]);
+    expect(buildFlags(r, new Set(['sel']), new Set())).toEqual([]);
   });
   it('creates technical_unverified only for anchored services', () => {
     const technical = [{ kind: 'technical_unverified' as const, turn: 2, quote: 'x' }];

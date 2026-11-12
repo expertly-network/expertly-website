@@ -145,6 +145,7 @@ async function simulate(llm: InterviewLlmService, persona: string): Promise<void
     anchors: [],
     serviceNames: new Map(MEMBER.services.map((s) => [s.serviceId, s.service])),
   });
+  const flags = buildFlags(result, new Set(MEMBER.services.map((s) => s.serviceId)), new Set());
   const sorted = [...ttfts].sort((a, b) => a - b);
   logger.log(
     JSON.stringify(
@@ -156,10 +157,12 @@ async function simulate(llm: InterviewLlmService, persona: string): Promise<void
         claims: result.claims
           .filter((c) => c.probed)
           .map((c) => ({ claim: c.claimText, role: c.role, evidence: c.evidence, model: c.modelEvidence })),
-        proposals: buildProposals(result).map((p) => ({ service: p.serviceId, role: p.role, evidence: p.evidence })),
-        flags: buildFlags(result, new Set(MEMBER.services.map((s) => s.serviceId)), new Set()).map(
-          (f) => `${f.claimText}: ${f.reason}`
-        ),
+        proposals: buildProposals(result, flags).map((p) => ({
+          service: p.serviceId,
+          role: p.role,
+          evidence: p.evidence,
+        })),
+        flags: flags.map((f) => `${f.claimText}: ${f.reason}`),
         searchTerms: result.searchTerms,
       },
       null,
