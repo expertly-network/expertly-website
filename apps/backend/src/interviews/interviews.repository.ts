@@ -6,6 +6,7 @@ import type { Database, Json } from '../supabase/database.types';
 type InterviewUpdate = Database['public']['Tables']['member_interviews']['Update'];
 type ConnectionUpdate = Database['public']['Tables']['member_interview_connections']['Update'];
 import type { MemberContext } from './brain/types';
+import type { TaxonomyEntry } from './brain/service-links';
 
 const INTERVIEW_COLUMNS = [
   'id',
@@ -20,7 +21,10 @@ const INTERVIEW_COLUMNS = [
   'state',
   'stateVersion:state_version',
   'drafts',
-  'assessment',
+  'ledger',
+  'audioOptIn:audio_opt_in',
+  'verifiedAt:verified_at',
+  'llmUsage:llm_usage',
   'summary',
   'summaryStatus:summary_status',
   'extractAttempts:extract_attempts',
@@ -62,7 +66,8 @@ const INTERVIEW_PATCH_COLUMNS: Record<string, string> = {
   plan: 'plan',
   state: 'state',
   drafts: 'drafts',
-  assessment: 'assessment',
+  ledger: 'ledger',
+  verifiedAt: 'verified_at',
   summary: 'summary',
   summaryStatus: 'summary_status',
   extractAttempts: 'extract_attempts',
@@ -104,6 +109,7 @@ function stripPrivate(items: unknown): unknown[] {
 type One<T> = T | T[];
 const one = <T>(v: One<T>): T => (Array.isArray(v) ? v[0] : v);
 interface ServiceLinkRow {
+  service_id: string;
   custom_label: string | null;
   services: One<{ name: string; categories: One<{ name: string; service_lines: One<{ name: string }> }> }>;
 }
@@ -121,7 +127,10 @@ export interface InterviewRow {
   state: unknown;
   stateVersion: number;
   drafts: unknown;
-  assessment: unknown;
+  ledger: unknown;
+  audioOptIn: boolean;
+  verifiedAt: string | null;
+  llmUsage: unknown;
   summary: string | null;
   summaryStatus: InterviewSummaryStatus | null;
   extractAttempts: number;
@@ -151,7 +160,8 @@ export type InterviewPatch = Partial<{
   plan: Json;
   state: Json;
   drafts: Json | null;
-  assessment: Json | null;
+  ledger: Json;
+  verifiedAt: string | null;
   summary: string | null;
   summaryStatus: InterviewSummaryStatus | null;
   extractAttempts: number;
@@ -201,7 +211,7 @@ export class InterviewsRepository {
         .maybeSingle(),
       this.profiles().select('first_name').eq('id', memberId).maybeSingle(),
       this.memberServices()
-        .select('custom_label, services!inner(name, categories!inner(name, service_lines!inner(name)))')
+        .select('service_id, custom_label, services!inner(name, categories!inner(name, service_lines!inner(name)))')
         .eq('member_id', memberId),
     ]);
     if (profileRes.error) throw dbError(`member_profiles read failed: ${profileRes.error.message}`);
@@ -218,7 +228,7 @@ export class InterviewsRepository {
         : label
           ? `${svc.name} - ${label}`
           : svc.name;
-      return { serviceLine: one(cat.service_lines).name, category: cat.name, service };
+      return { serviceId: l.service_id, serviceLine: one(cat.service_lines).name, category: cat.name, service };
     });
     return {
       memberId,
@@ -237,6 +247,17 @@ export class InterviewsRepository {
     };
   }
 
+  /** The whole service taxonomy (id, category, service), for resolving linked-service groups. */
+  async loadTaxonomy(): Promise<TaxonomyEntry[]> {
+    const { data, error } = await this.supabase.db.from('services').select('id, name, categories!inner(name)');
+    if (error) throw dbError(`services read failed: ${error.message}`);
+    return ((data ?? []) as unknown as { id: string; name: string; categories: One<{ name: string }> }[]).map((s) => ({
+      id: s.id,
+      service: s.name,
+      category: one(s.categories).name,
+    }));
+  }
+
   async findCurrent(memberId: string): Promise<InterviewRow | null> {
     const { data, error } = await this.interviews()
       .select(INTERVIEW_COLUMNS)
@@ -253,9 +274,19 @@ export class InterviewsRepository {
     return (data as unknown as InterviewRow) ?? null;
   }
 
-  async insertInterview(input: { memberId: string; consentVersion: string; consentAt: string }): Promise<InterviewRow> {
+  async insertInterview(input: {
+    memberId: string;
+    consentVersion: string;
+    consentAt: string;
+    audioOptIn: boolean;
+  }): Promise<InterviewRow> {
     const { data, error } = await this.interviews()
-      .insert({ member_id: input.memberId, consent_version: input.consentVersion, consent_at: input.consentAt })
+      .insert({
+        member_id: input.memberId,
+        consent_version: input.consentVersion,
+        consent_at: input.consentAt,
+        audio_opt_in: input.audioOptIn,
+      })
       .select(INTERVIEW_COLUMNS)
       .single();
     if (error?.code === '23505')
@@ -277,7 +308,7 @@ export class InterviewsRepository {
     return data as unknown as InterviewRow;
   }
 
-  async updateStateIfVersion(id: string, state: Json, expectedVersion: number): Promise<boolean> {
+  async updateStateIfVersion(id: string, state: NonNullable<Json>, expectedVersion: number): Promise<boolean> {
     const { data, error } = await this.interviews()
       .update({ state, state_version: expectedVersion + 1 })
       .eq('id', id)
