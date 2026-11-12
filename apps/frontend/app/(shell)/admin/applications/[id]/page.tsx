@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getAdminApplicationServer } from '@/lib/api/server';
+import { getAdminApplicationServer, getCategoriesServer } from '@/lib/api/server';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHero } from '@/components/layout/PageHero';
 import { ApplicationReviewDetail } from '@/components/admin/ApplicationReviewDetail';
@@ -19,7 +19,7 @@ export default async function AdminApplicationDetailPage(props: { params: Promis
     redirect('/');
   }
 
-  const application = await getAdminApplicationServer(params.id);
+  const [application, categories] = await Promise.all([getAdminApplicationServer(params.id), getCategoriesServer()]);
   if (!application) {
     notFound();
   }
@@ -29,7 +29,7 @@ export default async function AdminApplicationDetailPage(props: { params: Promis
       <PageHero eyebrow="Admin" title="Membership Application" lede="Review this membership application." />
       <section className="py-12">
         <PageContainer>
-          <ApplicationReviewDetail application={application} />
+          <ApplicationReviewDetail application={application} categories={categories} />
         </PageContainer>
       </section>
     </div>

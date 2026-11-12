@@ -3,12 +3,12 @@
 import { useRef, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { FIELD_FOCUS_WITHIN } from '@/components/ui/field-styles';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
 import { LocationFields } from '@/components/apply/LocationFields';
-import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
+import { PhoneField } from '@/components/apply/PhoneField';
+import type { WizardFormState } from '@/components/apply/types';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
 import { uploadApplicationFile } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
@@ -220,54 +220,16 @@ export function IdentityStep({
         </div>
 
         <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="phone" className="text-xs font-medium text-ink-2">
-              WhatsApp / Phone
-              <span aria-hidden="true" className="text-error">
-                {' '}
-                *
-              </span>
-            </label>
-            <div
-              className={`flex overflow-hidden rounded-input border ${
-                errors.phone ? 'border-error' : `border-line ${FIELD_FOCUS_WITHIN}`
-              }`}
-            >
-              <select
-                aria-label="Phone country code"
-                className="max-w-[9.5rem] border-r border-line bg-bg-alt px-2 text-xs text-ink outline-none"
-                value={form.phoneCountryCode}
-                onChange={(e) => update({ phoneCountryCode: e.target.value })}
-              >
-                {PHONE_COUNTRY_CODES.map(({ country, code }) => (
-                  <option key={country} value={code}>
-                    {country} ({code})
-                  </option>
-                ))}
-              </select>
-              <input
-                id="phone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel-national"
-                required
-                aria-invalid={errors.phone ? true : undefined}
-                aria-describedby={errors.phone ? 'phone-error' : undefined}
-                placeholder="7700 900 000"
-                className="min-w-0 flex-1 bg-transparent px-3.5 py-3 text-sm text-ink outline-none"
-                value={form.phone}
-                onChange={(e) => {
-                  update({ phone: e.target.value });
-                  clearError('phone');
-                }}
-              />
-            </div>
-            {errors.phone && (
-              <span id="phone-error" className="text-xs text-error">
-                {errors.phone}
-              </span>
-            )}
-          </div>
+          <PhoneField
+            countryCode={form.phoneCountryCode}
+            phone={form.phone}
+            onCountryCodeChange={(phoneCountryCode) => update({ phoneCountryCode })}
+            onPhoneChange={(phone) => {
+              update({ phone });
+              clearError('phone');
+            }}
+            error={errors.phone}
+          />
         </div>
 
         {/* Region is no longer picked here — the backend derives it server-side from country. */}

@@ -229,9 +229,7 @@ export function AdminApplicationsTable({
                     ) : (
                       <div className="flex flex-col gap-0.5">
                         {sortedPreferences(application).map((p) => (
-                          <span key={p.serviceId}>
-                            {serviceLabel(p)}
-                          </span>
+                          <span key={p.serviceId}>{serviceLabel(p)}</span>
                         ))}
                       </div>
                     )}
