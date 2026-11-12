@@ -1,10 +1,11 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { InterviewScoringResultDto } from '@shared/interview';
 import type { AnchorEntryDto, FacetKind } from '@shared/subtags';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Json } from '../supabase/database.types';
 import { slugify, type FacetValueRow } from './brain/normaliser';
 import type { FlagDraft } from './brain/scoring';
+import { dbError } from './interviews.repository';
 
 export interface ProposalInput {
   memberId: string;
@@ -25,10 +26,6 @@ export interface FlagInsert extends FlagDraft {
 
 const FACET_COLUMNS = 'id, facet, label, slug, status, aliases, sourceCount:source_count';
 
-export function resultsDbError(message: string): InternalServerErrorException {
-  return new InternalServerErrorException({ code: 'INTERVIEW_DB_ERROR', message });
-}
-
 /** v2 interview outputs: scorings, facet vocabulary, service evidence/sub-tags, flags, anchors. */
 @Injectable()
 export class InterviewResultsRepository {
@@ -38,15 +35,20 @@ export class InterviewResultsRepository {
     return this.supabase.db;
   }
 
+  /**
+   * Three statements, not a transaction (Supabase-js has no cross-statement transaction here):
+   * (1) insert the new row as not-current so a failed insert never touches existing rows,
+   * (2) clear every other row for this interview, (3) mark the new row current. If (2) or (3)
+   * never runs, `findCurrentScoring`'s "newest row" fallback still returns this row's `result`,
+   * since the data itself is already correct after step (1).
+   */
   async insertScoring(
     interviewId: string,
     rubricVersion: string,
     model: string,
     result: InterviewScoringResultDto
   ): Promise<string> {
-    const off = await this.db.from('interview_scorings').update({ is_current: false }).eq('interview_id', interviewId);
-    if (off.error) throw resultsDbError(`scoring update failed: ${off.error.message}`);
-    const { data, error } = await this.db
+    const { data: inserted, error: insertError } = await this.db
       .from('interview_scorings')
       .insert({
         interview_id: interviewId,
@@ -55,12 +57,21 @@ export class InterviewResultsRepository {
         // `result` is typed NonNullable<Json> (required) by the generated types; the DTO is a
         // plain object tree, not a Json union member by structural type, so it goes via unknown.
         result: result as unknown as NonNullable<Json>,
-        is_current: true,
+        is_current: false,
       })
       .select('id')
       .single();
-    if (error) throw resultsDbError(`scoring insert failed: ${error.message}`);
-    return data.id;
+    if (insertError) throw dbError(`scoring insert failed: ${insertError.message}`);
+    const newId = inserted.id;
+    const off = await this.db
+      .from('interview_scorings')
+      .update({ is_current: false })
+      .eq('interview_id', interviewId)
+      .neq('id', newId);
+    if (off.error) throw dbError(`scoring update failed: ${off.error.message}`);
+    const current = await this.db.from('interview_scorings').update({ is_current: true }).eq('id', newId);
+    if (current.error) throw dbError(`scoring update failed: ${current.error.message}`);
+    return newId;
   }
 
   async findCurrentScoring(interviewId: string): Promise<{ id: string; result: InterviewScoringResultDto } | null> {
@@ -70,13 +81,24 @@ export class InterviewResultsRepository {
       .eq('interview_id', interviewId)
       .eq('is_current', true)
       .maybeSingle();
-    if (error) throw resultsDbError(`scoring read failed: ${error.message}`);
-    return data ? { id: data.id, result: data.result as unknown as InterviewScoringResultDto } : null;
+    if (error) throw dbError(`scoring read failed: ${error.message}`);
+    if (data) return { id: data.id, result: data.result as unknown as InterviewScoringResultDto };
+    // No row is flagged current (e.g. insertScoring's step 2/3 above never completed) — fall
+    // back to the newest row for this interview, which always holds a correct `result`.
+    const { data: latest, error: latestError } = await this.db
+      .from('interview_scorings')
+      .select('id, result')
+      .eq('interview_id', interviewId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestError) throw dbError(`scoring read failed: ${latestError.message}`);
+    return latest ? { id: latest.id, result: latest.result as unknown as InterviewScoringResultDto } : null;
   }
 
   async listFacetValues(): Promise<FacetValueRow[]> {
     const { data, error } = await this.db.from('facet_values').select(FACET_COLUMNS).neq('status', 'rejected');
-    if (error) throw resultsDbError(`facet values read failed: ${error.message}`);
+    if (error) throw dbError(`facet values read failed: ${error.message}`);
     return (data ?? []) as unknown as FacetValueRow[];
   }
 
@@ -90,14 +112,14 @@ export class InterviewResultsRepository {
         ignoreDuplicates: true,
       }
     );
-    if (ins.error) throw resultsDbError(`facet candidate insert failed: ${ins.error.message}`);
+    if (ins.error) throw dbError(`facet candidate insert failed: ${ins.error.message}`);
     const { data, error } = await this.db
       .from('facet_values')
       .select(FACET_COLUMNS)
       .eq('facet', facet)
       .eq('slug', slug)
       .single();
-    if (error) throw resultsDbError(`facet candidate read failed: ${error.message}`);
+    if (error) throw dbError(`facet candidate read failed: ${error.message}`);
     return data as unknown as FacetValueRow;
   }
 
@@ -106,7 +128,7 @@ export class InterviewResultsRepository {
       p_facet_value_id: facetValueId,
       p_member_id: memberId,
     });
-    if (error) throw resultsDbError(`facet source failed: ${error.message}`);
+    if (error) throw dbError(`facet source failed: ${error.message}`);
   }
 
   /** False when the member already approved, or an admin activated, this service's proposal. */
@@ -125,7 +147,7 @@ export class InterviewResultsRepository {
       p_summary: p.summary,
       p_facet_value_ids: p.facetValueIds,
     });
-    if (error) throw resultsDbError(`proposal upsert failed: ${error.message}`);
+    if (error) throw dbError(`proposal upsert failed: ${error.message}`);
     return data === true;
   }
 
@@ -145,7 +167,7 @@ export class InterviewResultsRepository {
       })),
       { onConflict: 'scoring_id,claim_id,reason', ignoreDuplicates: true }
     );
-    if (error) throw resultsDbError(`flags insert failed: ${error.message}`);
+    if (error) throw dbError(`flags insert failed: ${error.message}`);
   }
 
   async listAnchorEntries(serviceIds: string[]): Promise<AnchorEntryDto[]> {
@@ -156,7 +178,7 @@ export class InterviewResultsRepository {
         'id, serviceId:service_id, deliverables, instruments, tools, practitionerDetail:practitioner_detail, bluffAnswer:bluff_answer'
       )
       .in('service_id', [...new Set(serviceIds)]);
-    if (error) throw resultsDbError(`anchor entries read failed: ${error.message}`);
+    if (error) throw dbError(`anchor entries read failed: ${error.message}`);
     return (data ?? []) as unknown as AnchorEntryDto[];
   }
 
@@ -166,7 +188,7 @@ export class InterviewResultsRepository {
       .from('services')
       .select('id, name')
       .in('id', [...new Set(serviceIds)]);
-    if (error) throw resultsDbError(`services read failed: ${error.message}`);
+    if (error) throw dbError(`services read failed: ${error.message}`);
     return new Map((data ?? []).map((s) => [s.id, s.name.trim().replace(/[.:;,\s]+$/u, '')]));
   }
 }

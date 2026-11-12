@@ -93,7 +93,7 @@ function toColumns<T>(patch: Record<string, unknown>, map: Record<string, string
   return out as T;
 }
 
-function dbError(message: string): InternalServerErrorException {
+export function dbError(message: string): InternalServerErrorException {
   return new InternalServerErrorException({ code: 'INTERVIEW_DB_ERROR', message });
 }
 
