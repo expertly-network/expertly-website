@@ -45,12 +45,15 @@ const facetsSchema = z.object({
   volume: facetList,
   recencyYear: z.number().int().min(1950).max(2100).nullable(),
 });
+// Key order matters: the model lists concrete details and rates signals before it commits to a role.
+// concreteDetails is a reasoning scaffold only (the model paraphrases it too often to verify in code).
 const claimScoreSchema = z.object({
   claimId: z.string(),
   probed: z.boolean(),
+  concreteDetails: z.array(z.string().max(200)).max(12),
+  signals: signalsSchema,
   role: z.number().int().min(0).max(5).nullable(),
   evidence: z.enum(EVIDENCE_LEVELS),
-  signals: signalsSchema,
   technical: z
     .array(
       z.object({

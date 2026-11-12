@@ -8,6 +8,7 @@ import {
   finaliseScoring,
   isVerified,
   numberTranscript,
+  scoringModelSchema,
   type ScoringModelOutput,
 } from './scoring';
 import type { ClaimLedger, InterviewPlanV2, TranscriptTurn } from './types';
@@ -103,9 +104,10 @@ const emptyFacets = {
 const rawClaim = (o: object) => ({
   claimId: 'c1',
   probed: true,
+  concreteDetails: ['functional analysis'],
+  signals: signals(5, 0),
   role: 5,
   evidence: 'E3' as const,
-  signals: signals(5, 0),
   technical: [],
   lowConfidenceTerms: [],
   facets: { ...emptyFacets, jurisdiction: ['India'], recencyYear: 2025 },
@@ -124,6 +126,13 @@ const ctx = {
   wrapUpDone: true,
   rubricVersion: 'r1',
 };
+
+describe('scoringModelSchema', () => {
+  it('asks for concrete details and signals before the role and evidence level', () => {
+    const keys = Object.keys(scoringModelSchema.shape.claims.element.shape);
+    expect(keys.slice(0, 6)).toEqual(['claimId', 'probed', 'concreteDetails', 'signals', 'role', 'evidence']);
+  });
+});
 
 describe('finaliseScoring', () => {
   it('fills NP for claims the model skipped and keeps the model evidence for comparison', () => {

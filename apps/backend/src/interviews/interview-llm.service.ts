@@ -99,6 +99,8 @@ export class InterviewLlmService {
       prompt: string;
       schema: z.ZodType<T>;
       maxOutputTokens: number;
+      /** Omitted = provider default. The scorer passes 0 so one transcript gets one grade. */
+      temperature?: number;
       timeoutMs?: number;
       onUsage?: (usage: LlmUsage) => void;
     }
@@ -110,6 +112,7 @@ export class InterviewLlmService {
         prompt: input.prompt,
         output: Output.object({ schema: input.schema }),
         maxOutputTokens: input.maxOutputTokens,
+        temperature: input.temperature,
         abortSignal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         maxRetries: 1,
       });
