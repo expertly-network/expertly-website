@@ -210,7 +210,6 @@ export type ApplicationProfileOverrides = Partial<
     | 'workEmail'
     | 'phoneCountryCode'
     | 'phone'
-    | 'region'
     | 'country'
     | 'state'
     | 'city'

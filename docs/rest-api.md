@@ -420,14 +420,14 @@ lifecycle fact" concept at provisioning time, not a new one.
   → `400 APPROVED_SERVICE_INVALID`. A preference's `customLabel` is carried onto `member_services`;
   an admin-picked service gets `custom_label = null`.
 - `profileOverrides` (optional, approve-only) corrects what goes onto the new member profile:
-  `firstName`, `lastName`, `contactEmail`, `workEmail`, `phoneCountryCode`, `phone`, `region`,
-  `country`, `state`, `city`, `linkedinUrl`, `bio`, `yearsOfExperience`, `rateMinCents`,
+  `firstName`, `lastName`, `contactEmail`, `workEmail`, `phoneCountryCode`, `phone`, `country`, `state`, `city`, `linkedinUrl`, `bio`, `yearsOfExperience`, `rateMinCents`,
   `rateMaxCents`, `workExperiences` (whole array), `educations` (whole array). Same validators and
   limits as `POST /v1/applications/me`; unknown keys are rejected. Each field is the override if
   sent, else the application's value. **The application row is never modified** — it stays as the
   applicant submitted it. A corrected `firstName`/`lastName` also updates the account
   (`profiles.first_name/last_name/initials`, where a member's displayed name lives) and the slug is
-  built from it.
+  built from it. `region` isn't accepted: as on the applicant's own saves, it's re-derived from a
+  corrected `country`.
 - Tier: `memberTier` if sent; else, if `yearsOfExperience` was corrected, recomputed from it
   (more than 12 years → `seasoned_professional`); else the applicant's `selected_tier`.
 - `APPLICATION_INCOMPLETE` (`409`) is evaluated after corrections, so an admin can fill in a missing

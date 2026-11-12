@@ -67,3 +67,15 @@ describe('ProfileOverridesDto validation', () => {
     expect(errors.map((e) => e.property).sort()).toEqual(['couponCode', 'workEmail']);
   });
 });
+
+describe('applyProfileOverrides — region', () => {
+  it('re-derives region from a corrected country', () => {
+    const merged = applyProfileOverrides({ ...row, region: 'south_asia' } as ApplicationRow, { country: 'Germany' });
+    expect(merged.region).toBe('europe');
+  });
+  it('rejects region as an override key', async () => {
+    const dto = plainToInstance(ProfileOverridesDto, { region: 'europe' });
+    const errors = await validate(dto, { forbidNonWhitelisted: true, whitelist: true });
+    expect(errors.map((e) => e.property)).toEqual(['region']);
+  });
+});

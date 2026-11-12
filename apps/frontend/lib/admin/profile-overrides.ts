@@ -8,7 +8,6 @@ export const OVERRIDE_KEYS = [
   'workEmail',
   'phoneCountryCode',
   'phone',
-  'region',
   'country',
   'state',
   'city',

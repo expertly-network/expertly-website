@@ -2,6 +2,7 @@ import type { MembershipTier } from '@shared/membership-application';
 import type { ApplicationRow } from './applications.repository';
 import type { ProfileOverridesDto } from './dto/profile-overrides.dto';
 import { computeTier } from './constants/pricing';
+import { deriveRegion } from './constants/country-region';
 
 const COLUMN: { [K in keyof Required<ProfileOverridesDto>]: keyof ApplicationRow } = {
   firstName: 'first_name',
@@ -10,7 +11,6 @@ const COLUMN: { [K in keyof Required<ProfileOverridesDto>]: keyof ApplicationRow
   workEmail: 'work_email',
   phoneCountryCode: 'phone_country_code',
   phone: 'phone',
-  region: 'region',
   country: 'country',
   state: 'state',
   city: 'city',
@@ -30,6 +30,8 @@ export function applyProfileOverrides(row: ApplicationRow, overrides: ProfileOve
     if (value === undefined) continue;
     merged[COLUMN[key as keyof ProfileOverridesDto]] = value;
   }
+  // Region is never entered directly — re-derive it from a corrected country, as saveOrSubmit does.
+  if (overrides?.country !== undefined) merged.region = deriveRegion(overrides.country);
   return merged as unknown as ApplicationRow;
 }
 
