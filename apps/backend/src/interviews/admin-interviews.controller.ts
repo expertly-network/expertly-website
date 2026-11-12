@@ -5,6 +5,8 @@ import { RequiresPermission } from '../auth/decorators/require-permission.decora
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { AdminInterviewDetail, AdminInterviewListResponse } from '@shared/interview';
+import { RATE_LIMITS, RateLimit } from '../common/rate-limit/rate-limit.decorator';
+import { InterviewReviewService } from './interview-review.service';
 import { InterviewsService } from './interviews.service';
 import { AdminListQueryDto } from './dto/admin-list-query.dto';
 import { AdminUpdateSummaryDto } from './dto/admin-update-summary.dto';
@@ -14,7 +16,10 @@ import { AdminUpdateSummaryDto } from './dto/admin-update-summary.dto';
 @RequiresPermission('manageMembers')
 @Controller('admin/interviews')
 export class AdminInterviewsController {
-  constructor(private readonly service: InterviewsService) {}
+  constructor(
+    private readonly service: InterviewsService,
+    private readonly review: InterviewReviewService
+  ) {}
 
   @Get()
   list(@Query() q: AdminListQueryDto): Promise<AdminInterviewListResponse> {
@@ -38,5 +43,12 @@ export class AdminInterviewsController {
     @Body() dto: AdminUpdateSummaryDto
   ): Promise<AdminInterviewDetail> {
     return this.service.adminSetSummaryHidden(id, dto.hidden);
+  }
+
+  // Runs the scorer (an LLM call) again on the stored transcript.
+  @RateLimit('ai', ...RATE_LIMITS.ai)
+  @Post(':id/rescore')
+  rescore(@Param('id', ParseUUIDPipe) id: string): Promise<AdminInterviewDetail> {
+    return this.review.rescore(id);
   }
 }

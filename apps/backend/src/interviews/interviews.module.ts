@@ -13,13 +13,22 @@ import { InterviewsController } from './interviews.controller';
 import { InterviewsCoreModule } from './interviews-core.module';
 import { InterviewsService } from './interviews.service';
 import { AdminInterviewsController } from './admin-interviews.controller';
+import { AdminInterviewReviewController } from './admin-interview-review.controller';
+import { InterviewReviewService } from './interview-review.service';
 
 @Module({
   imports: [AuthModule, InterviewsCoreModule],
-  controllers: [InterviewsController, InterviewLlmController, InterviewWebhooksController, AdminInterviewsController],
+  controllers: [
+    InterviewsController,
+    InterviewLlmController,
+    InterviewWebhooksController,
+    AdminInterviewsController,
+    AdminInterviewReviewController,
+  ],
   providers: [
     InterviewsService,
     InterviewWebhooksService,
+    InterviewReviewService,
     Preparer,
     Tracker,
     TurnEngine,

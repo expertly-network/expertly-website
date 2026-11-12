@@ -142,6 +142,15 @@ const EXPECTED: Record<string, string> = {
   'GET /v1/admin/interviews/:id': 'admin:manageMembers',
   'POST /v1/admin/interviews/:id/redo': 'admin:manageMembers',
   'PATCH /v1/admin/interviews/:id/summary': 'admin:manageMembers',
+  'POST /v1/admin/interviews/:id/rescore': 'admin:manageMembers rl=ai',
+  'GET /v1/admin/interview-flags': 'admin:manageMembers',
+  'PATCH /v1/admin/interview-flags/:id': 'admin:manageMembers',
+  'GET /v1/admin/members/:memberId/subtags': 'admin:manageMembers',
+  'PATCH /v1/admin/members/:memberId/subtags': 'admin:manageMembers',
+  'GET /v1/admin/facet-values': 'admin:manageMembers',
+  'POST /v1/admin/facet-values': 'admin:manageMembers',
+  'PATCH /v1/admin/facet-values/:id': 'admin:manageMembers',
+  'GET /v1/admin/services/:id/anchor-entries': 'admin:manageMembers',
 
   // Articles
   'GET /v1/articles': 'public',

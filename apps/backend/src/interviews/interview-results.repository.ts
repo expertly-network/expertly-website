@@ -1,17 +1,23 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import type { InterviewReviewFlagDto, InterviewScoringResultDto } from '@shared/interview';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { InterviewReviewFlagDto, InterviewScoringResultDto, ReviewFlagStatus } from '@shared/interview';
 import type {
+  AdminMemberServiceEvidenceDto,
+  AdminSubtagDecisionItem,
   AnchorEntryDto,
   FacetKind,
+  FacetValueDto,
+  FacetValueStatus,
   InterviewProposedServiceDto,
   MemberSubtagEditItem,
   SubtagStatus,
 } from '@shared/subtags';
 import { SupabaseService } from '../auth/supabase.service';
-import type { Json } from '../supabase/database.types';
+import type { Database, Json } from '../supabase/database.types';
 import { slugify, type FacetValueRow } from './brain/normaliser';
 import type { FlagDraft } from './brain/scoring';
 import { dbError } from './interviews.repository';
+
+type FacetValueUpdate = Database['public']['Tables']['facet_values']['Update'];
 
 export interface ProposalInput {
   memberId: string;
@@ -330,5 +336,166 @@ export class InterviewResultsRepository {
       ...f,
       memberName,
     }));
+  }
+
+  async listFlags(input: {
+    status?: ReviewFlagStatus;
+    offset: number;
+    limit: number;
+  }): Promise<{ rows: Omit<InterviewReviewFlagDto, 'memberName'>[]; total: number }> {
+    let q = this.db.from('interview_review_flags').select(FLAG_COLUMNS, { count: 'exact' });
+    if (input.status) q = q.eq('status', input.status);
+    const { data, error, count } = await q
+      .order('created_at', { ascending: false })
+      .range(input.offset, input.offset + input.limit - 1);
+    if (error) throw dbError(`flags list failed: ${error.message}`);
+    const rows = (data ?? []) as unknown as Omit<InterviewReviewFlagDto, 'memberName'>[];
+    return { rows, total: count ?? rows.length };
+  }
+
+  async resolveFlag(
+    id: string,
+    status: 'dismissed' | 'confirmed',
+    note: string | null,
+    adminId: string
+  ): Promise<Omit<InterviewReviewFlagDto, 'memberName'>> {
+    const { data, error } = await this.db
+      .from('interview_review_flags')
+      .update({ status, resolution_note: note, resolved_by: adminId, resolved_at: new Date().toISOString() })
+      .eq('id', id)
+      .select(FLAG_COLUMNS)
+      .maybeSingle();
+    if (error) throw dbError(`flag update failed: ${error.message}`);
+    if (!data) throw new NotFoundException({ code: 'INTERVIEW_FLAG_NOT_FOUND', message: 'Flag not found.' });
+    return data as unknown as Omit<InterviewReviewFlagDto, 'memberName'>;
+  }
+
+  /** Service ids this member has interview evidence for — the validation read decideSubtags
+   *  uses to check every requested serviceId before applying any write (same lesson as
+   *  memberApprove above: validate the whole batch first, so one bad id never leaves an
+   *  earlier valid decision half-applied). */
+  async listEvidenceServiceIds(memberId: string): Promise<string[]> {
+    const { data, error } = await this.db
+      .from('member_service_evidence')
+      .select('service_id')
+      .eq('member_id', memberId);
+    if (error) throw dbError(`evidence read failed: ${error.message}`);
+    return (data ?? []).map((r) => r.service_id);
+  }
+
+  async listMemberEvidence(memberId: string): Promise<AdminMemberServiceEvidenceDto[]> {
+    const { data, error } = await this.db
+      .from('member_service_evidence')
+      .select('service_id, interview_id, role, evidence, recency_year')
+      .eq('member_id', memberId);
+    if (error) throw dbError(`evidence read failed: ${error.message}`);
+    const rows = (data ?? []) as {
+      service_id: string;
+      interview_id: string;
+      role: number;
+      evidence: string;
+      recency_year: number | null;
+    }[];
+    const out: AdminMemberServiceEvidenceDto[] = [];
+    for (const interviewId of [...new Set(rows.map((r) => r.interview_id))]) {
+      for (const p of await this.listProposals(memberId, interviewId)) {
+        const r = rows.find((x) => x.service_id === p.serviceId)!;
+        out.push({ ...p, role: r.role, evidence: r.evidence, recencyYear: r.recency_year });
+      }
+    }
+    return out;
+  }
+
+  /** Admin acceptance/rejection and manual edits of one member's sub-tags. */
+  async applyAdminDecision(memberId: string, item: AdminSubtagDecisionItem): Promise<void> {
+    const status = item.accept ? 'active' : 'rejected';
+    const ev = await this.db
+      .from('member_service_evidence')
+      .update({ status })
+      .eq('member_id', memberId)
+      .eq('service_id', item.serviceId)
+      .select('service_id');
+    if (ev.error) throw dbError(`evidence decision failed: ${ev.error.message}`);
+    if (!ev.data?.length)
+      throw new NotFoundException({
+        code: 'INTERVIEW_EVIDENCE_NOT_FOUND',
+        message: 'No interview evidence for that service.',
+      });
+    if (item.removeFacetValueIds?.length) {
+      const del = await this.db
+        .from('member_service_subtags')
+        .delete()
+        .eq('member_id', memberId)
+        .eq('service_id', item.serviceId)
+        .in('facet_value_id', item.removeFacetValueIds);
+      if (del.error) throw dbError(`subtag delete failed: ${del.error.message}`);
+    }
+    const upd = await this.db
+      .from('member_service_subtags')
+      .update({ status })
+      .eq('member_id', memberId)
+      .eq('service_id', item.serviceId);
+    if (upd.error) throw dbError(`subtag decision failed: ${upd.error.message}`);
+    if (item.accept && item.addFacetValueIds?.length) {
+      const ins = await this.db.from('member_service_subtags').upsert(
+        item.addFacetValueIds.map((id) => ({
+          member_id: memberId,
+          service_id: item.serviceId,
+          facet_value_id: id,
+          status: 'active',
+        })),
+        { onConflict: 'member_id,service_id,facet_value_id' }
+      );
+      if (ins.error) throw dbError(`subtag add failed: ${ins.error.message}`);
+    }
+  }
+
+  async listFacetValuesAdmin(input: {
+    facet?: FacetKind;
+    status?: FacetValueStatus;
+    offset: number;
+    limit: number;
+  }): Promise<{ items: FacetValueDto[]; total: number }> {
+    let q = this.db.from('facet_values').select(FACET_COLUMNS, { count: 'exact' });
+    if (input.facet) q = q.eq('facet', input.facet);
+    if (input.status) q = q.eq('status', input.status);
+    const { data, error, count } = await q
+      .order('source_count', { ascending: false })
+      .order('label', { ascending: true })
+      .range(input.offset, input.offset + input.limit - 1);
+    if (error) throw dbError(`facet values list failed: ${error.message}`);
+    const items = (data ?? []) as unknown as FacetValueDto[];
+    return { items, total: count ?? items.length };
+  }
+
+  async createFacetValue(facet: FacetKind, label: string, aliases: string[]): Promise<FacetValueDto> {
+    const { data, error } = await this.db
+      .from('facet_values')
+      .insert({ facet, label: label.trim(), slug: slugify(label), status: 'canonical', aliases })
+      .select(FACET_COLUMNS)
+      .single();
+    if (error?.code === '23505')
+      throw new BadRequestException({ code: 'FACET_VALUE_EXISTS', message: 'That value already exists.' });
+    if (error) throw dbError(`facet value insert failed: ${error.message}`);
+    return data as unknown as FacetValueDto;
+  }
+
+  async updateFacetValue(
+    id: string,
+    patch: { status?: FacetValueStatus; label?: string; aliases?: string[] }
+  ): Promise<FacetValueDto> {
+    const update: FacetValueUpdate = {};
+    if (patch.status) update.status = patch.status;
+    if (patch.label) update.label = patch.label.trim();
+    if (patch.aliases) update.aliases = patch.aliases.map((a) => a.trim().toLowerCase()).filter(Boolean);
+    const { data, error } = await this.db
+      .from('facet_values')
+      .update(update)
+      .eq('id', id)
+      .select(FACET_COLUMNS)
+      .maybeSingle();
+    if (error) throw dbError(`facet value update failed: ${error.message}`);
+    if (!data) throw new NotFoundException({ code: 'FACET_VALUE_NOT_FOUND', message: 'Value not found.' });
+    return data as unknown as FacetValueDto;
   }
 }
