@@ -9,9 +9,19 @@ import { searchDirectory, sendSearchFeedback } from '@/lib/api/search';
 import { createClient } from '@/lib/supabase/client';
 import type { SearchResponse, SearchScope } from '@shared/search';
 import { SearchResults } from '@/components/search/SearchResults';
+import { StagedTicker } from '@/components/ui/StagedTicker';
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 500;
+
+// Mirrors the real pipeline order (see docs/rest-api.md "AI search"): planner, then embedding +
+// hybrid search, then the judge re-score — a static "Searching…" label reads as frozen over the
+// several seconds that takes, so this ticks through what's actually happening instead.
+const SEARCH_STAGES = [
+  'Understanding your question…',
+  'Searching members, articles and events…',
+  'Ranking the best matches…',
+];
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 type Feedback = 'none' | 'sending' | 'sent' | 'failed';
@@ -248,12 +258,8 @@ export function SearchModal({
           )}
 
           {status === 'loading' && (
-            <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 px-5 text-center text-sm text-ink-3">
-              <span
-                aria-hidden="true"
-                className="h-5 w-5 animate-spin rounded-full border-2 border-line-2 border-t-accent"
-              />
-              Searching the network…
+            <div className="min-h-[220px] px-5">
+              <StagedTicker stages={SEARCH_STAGES} caption="Usually under 10 seconds." />
             </div>
           )}
 

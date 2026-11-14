@@ -5,13 +5,26 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepActions } from '@/components/apply/StepActions';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
-import { ImportingLoader } from '@/components/apply/ImportingLoader';
+import { StagedTicker } from '@/components/ui/StagedTicker';
 import { LinkedInUrlGuide } from '@/components/apply/LinkedInUrlGuide';
 import { PHONE_COUNTRY_CODES, type WizardFormState } from '@/components/apply/types';
 import { importLinkedIn, importLinkedInPhoto } from '@/lib/api/applications';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { hasLinkedInIdentity, linkLinkedInIdentity } from '@/lib/auth/linkedin';
 import { IMPORT_CONSENT_POLICY_URL } from '@/lib/consent';
+
+// The mock provider simulates realistic latency (see mock-linkedin-import.provider.ts) because the
+// real n8n-backed one may take anywhere from a few seconds to a couple of minutes, and a static
+// "Importing…" label reads as frozen over that span — see StagedTicker.
+const LINKEDIN_IMPORT_STAGES = [
+  'Connecting to your LinkedIn profile…',
+  'Fetching your basic details…',
+  'Reading your work experience…',
+  'Reading your education history…',
+  'Organizing everything for you…',
+  'Almost done…',
+];
+const LINKEDIN_IMPORT_CAPTION = 'This can take anywhere from a few seconds to a couple of minutes.';
 
 // Imports normalized profile data; fields it couldn't produce are left for manual entry.
 export function LinkedInImportStep({
@@ -29,7 +42,7 @@ export function LinkedInImportStep({
   onNext: (overrides?: Partial<WizardFormState>) => void;
 }) {
   const [importing, setImporting] = useState(false);
-  // Set once the real import response is in, so ImportingLoader knows to catch up to its last
+  // Set once the real import response is in, so StagedTicker knows to catch up to its last
   // stage instead of holding at normal pace — see handleLoaderReachedEnd for why navigation
   // itself waits on that, not on the fetch alone.
   const [importDone, setImportDone] = useState(false);
@@ -180,7 +193,7 @@ export function LinkedInImportStep({
       <div>
         <h2 className="text-heading text-ink">Connect your LinkedIn.</h2>
         <div className="mt-7 rounded-2xl border border-line bg-bg-alt">
-          <ImportingLoader />
+          <StagedTicker stages={LINKEDIN_IMPORT_STAGES} caption={LINKEDIN_IMPORT_CAPTION} />
         </div>
       </div>
     );
@@ -216,7 +229,12 @@ export function LinkedInImportStep({
 
       {busy ? (
         <div className="mt-7 rounded-2xl border border-line bg-bg-alt">
-          <ImportingLoader done={importDone} onReachedEnd={handleLoaderReachedEnd} />
+          <StagedTicker
+            stages={LINKEDIN_IMPORT_STAGES}
+            caption={LINKEDIN_IMPORT_CAPTION}
+            done={importDone}
+            onReachedEnd={handleLoaderReachedEnd}
+          />
         </div>
       ) : (
         <>

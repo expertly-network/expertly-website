@@ -125,18 +125,8 @@ export class SearchService {
 
     // 2. resolve names to real values
     const countries: string[] = plan.countries.slice(0, 5).map(normalizeCountry).filter(Boolean);
-    // terms are independent: look them up in parallel, merge in term order (same set order as sequential)
-    const serviceIds = new Set<string>();
-    const matched = await Promise.all(
-      plan.service_terms.slice(0, 4).map((term) => this.repo.matchServices(term, SEARCH_SETTINGS.serviceMatchLimit))
-    );
-    for (const rows of matched) {
-      for (const s of rows) {
-        if (s.score >= 0.5) serviceIds.add(s.service_id);
-      }
-    }
 
-    // 3. embed the topic (cached); skipped for filter-only questions.
+    // 3. topic (used to decide whether to embed); skipped for filter-only questions.
     // A question with no topic AND no filters at all (for example a bare name) is searched as written.
     const hasFilters =
       plan.countries.length > 0 ||
@@ -148,7 +138,25 @@ export class SearchService {
       plan.requested_count != null;
     let topic: string | null = plan.semantic_query?.trim() || null;
     if (!topic && !hasFilters) topic = question.trim();
-    const embedding = topic ? await timed('embedding', () => this.embedTopic(topic as string, degraded)) : null;
+
+    // Service-term lookup (DB, repo.matchServices) and topic embedding (OpenAI call) don't depend on
+    // each other's output, so run them concurrently instead of back-to-back — shaves the shorter of
+    // the two off total latency for free.
+    const [matched, embedding] = await Promise.all([
+      Promise.all(
+        plan.service_terms.slice(0, 4).map((term) => this.repo.matchServices(term, SEARCH_SETTINGS.serviceMatchLimit))
+      ),
+      topic
+        ? timed('embedding', () => this.embedTopic(topic as string, degraded))
+        : Promise.resolve<string | null>(null),
+    ]);
+    // terms are independent: merge in term order (same set order as sequential)
+    const serviceIds = new Set<string>();
+    for (const rows of matched) {
+      for (const s of rows) {
+        if (s.score >= 0.5) serviceIds.add(s.service_id);
+      }
+    }
 
     // 4. search (fetch extra candidates when an AI re-score follows); if nothing matches, relax soft filters one at a time
     const wanted = Math.min(Math.max(opts.limit ?? plan.requested_count ?? SEARCH_SETTINGS.defaultLimit, 1), 20);

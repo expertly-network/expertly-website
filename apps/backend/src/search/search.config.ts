@@ -25,7 +25,7 @@ export const SEARCH_SETTINGS = {
   /** Cosine-similarity gate for the vector channel. */
   minVecSimilarity: 0.2,
   judgeMinScore: 3,
-  candidateMultiplier: 3,
+  candidateMultiplier: 2,
   defaultLimit: 10,
   /** Practice areas kept per planner service term (search_match_services caps at 25). A generic term such
    * as "tax" matches dozens of services with the same score, so a tiny limit silently picks an arbitrary few. */
