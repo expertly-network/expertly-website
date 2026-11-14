@@ -1724,10 +1724,17 @@ signed in), `429`. Codes: `400 SEARCH_QUERY_LENGTH`, `SEARCH_FEEDBACK_INVALID`.
 Counts are kept in memory, so they are **per API instance** (a second API instance has its own
 counters). Keyed by user id.
 
-**Latency:** several seconds is normal — it is two sequential AI calls plus the database. Measured
-on dev (5 sequential questions, 40 documents): median ≈ 7.4 s, worst ≈ 15.5 s end-to-end; planner
-≈ 1.6 s, judge ≈ 3.1 s, hybrid search + hydration ≈ 2.2 s, embedding ≈ 0.5 s (cached topics: 0).
-The first call after a cold start is the slowest.
+**Latency:** several seconds is normal — it is two sequential AI calls plus the database. Since
+2026-11-09, service-term lookup (DB) and topic embedding (OpenAI) run concurrently instead of
+back-to-back (`search.service.ts`, step 3), and the judge scores at most `wanted ×
+candidateMultiplier` candidates (`candidateMultiplier: 2`, down from 3 — `search.config.ts`) rather
+than a fixed 30-candidate ceiling, since judge output time scales with how many candidates it has
+to score. Measured on dev (20 questions across member/article/event/combined scopes): median ≈
+7.5 s, worst ≈ 10.4 s end-to-end — down from a prior median ≈ 7.4 s / worst ≈ 15.5 s baseline,
+mainly cutting the worst-case tail rather than the median. The first call after a cold start is the
+slowest. A smaller `candidateMultiplier` trades off the judge's ability to replace a weak initial
+hybrid-search hit with a better one from a larger candidate pool — worth re-checking result quality
+if latency is tuned further.
 
 **Worker:** cards are rebuilt and embedded by a separate process (`pnpm worker`, one container,
 no HTTP port): an embedder loop (~1 min) and an outbox loop (~15 s). Search works without the worker for already-indexed content,
