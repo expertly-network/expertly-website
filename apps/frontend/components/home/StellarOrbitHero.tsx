@@ -55,7 +55,7 @@ const RINGS: Ring[] = [
   },
 ];
 
-const DOT_SIZE = { sm: 30, md: 44, lg: 58 } as const;
+const DOT_SIZE = { sm: 36, md: 44, lg: 58 } as const;
 // Slots without a member photo render as small glowing points, so the orbit reads as a
 // constellation rather than a row of empty avatars.
 const POINT_SIZE = { sm: 6, md: 8, lg: 10 } as const;

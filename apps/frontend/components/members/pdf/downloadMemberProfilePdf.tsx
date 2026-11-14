@@ -2,7 +2,15 @@ import { pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { MemberDto, MemberRecommendationDto } from '@shared/member';
 import { apiFetch } from '@/lib/api/client';
-import { fileStem, loadImageAsPng, loadPdfLogo, publicSiteUrl, registerPdfFonts, saveBlob } from '@/lib/pdf/browser';
+import {
+  fileStem,
+  loadImageAsPng,
+  loadPdfLogo,
+  publicSiteUrl,
+  registerPdfFonts,
+  saveBlob,
+  stampLogoOnQr,
+} from '@/lib/pdf/browser';
 import { MemberProfilePdf, type PdfRecommendation } from './MemberProfilePdf';
 
 // Client-only: builds the member profile PDF in the browser and saves it. Imported lazily from
@@ -45,12 +53,13 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
   const profileUrl = memberProfileUrl(member.slug);
 
   const [qrDataUrl, photoDataUrl, recommendations, logoDataUrl] = await Promise.all([
+    // `H` error correction: the brand mark stamped on the middle covers ~6% of the code's area.
     QRCode.toDataURL(profileUrl, {
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'H',
       margin: 0,
-      width: 300,
+      width: 360,
       color: { dark: '#0b0b0c', light: '#ffffff' },
-    }),
+    }).then((url) => stampLogoOnQr(url)),
     member.photoUrl ? loadImageAsPng(member.photoUrl) : Promise.resolve(null),
     loadRecommendations(member.id),
     loadPdfLogo(),

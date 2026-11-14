@@ -1,5 +1,5 @@
 import { Font } from '@react-pdf/renderer';
-import { LOGO_SRC } from '@/lib/brand';
+import { FAVICON_SRC, LOGO_SRC } from '@/lib/brand';
 import { PDF_FONT_FAMILY, PDF_HEADING_FONT_FAMILY } from './theme';
 
 // Client-only helpers shared by the downloadable PDFs. Only ever imported from the lazily loaded
@@ -78,6 +78,55 @@ export async function loadPdfLogo(): Promise<string> {
   const logo = await loadImageAsPng(`${window.location.origin}${LOGO_SRC.dark}`, 1196, 'natural');
   if (!logo) throw new Error('Could not load the logo for the PDF. Please try again.');
   return logo;
+}
+
+function loadImage(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+/**
+ * The brand mark on a white tile in the middle of a QR code. Generate the code with error
+ * correction `H` so the covered modules (about a quarter of the width here) are recoverable.
+ * Falls back to the plain code if either image can't be drawn.
+ */
+export async function stampLogoOnQr(qrDataUrl: string, fraction = 0.24): Promise<string> {
+  const [qr, logo] = await Promise.all([
+    loadImage(qrDataUrl),
+    loadImage(`${window.location.origin}${FAVICON_SRC.light}`),
+  ]);
+  if (!qr || !logo) return qrDataUrl;
+  try {
+    const size = qr.naturalWidth;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return qrDataUrl;
+    ctx.drawImage(qr, 0, 0, size, size);
+    const tile = Math.round(size * fraction);
+    const x = (size - tile) / 2;
+    const radius = tile * 0.18;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(x + radius, x);
+    ctx.arcTo(x + tile, x, x + tile, x + tile, radius);
+    ctx.arcTo(x + tile, x + tile, x, x + tile, radius);
+    ctx.arcTo(x, x + tile, x, x, radius);
+    ctx.arcTo(x, x, x + tile, x, radius);
+    ctx.closePath();
+    ctx.fill();
+    const pad = tile * 0.12;
+    ctx.drawImage(logo, x + pad, x + pad, tile - 2 * pad, tile - 2 * pad);
+    return canvas.toDataURL('image/png');
+  } catch {
+    return qrDataUrl;
+  }
 }
 
 /** Turns a name/title into a safe file-name stem. */

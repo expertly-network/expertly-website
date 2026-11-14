@@ -5,7 +5,7 @@ import type { MemberDto } from '@shared/member';
 import { MEMBER_TIER_LABEL, displayHost, externalHref, formatMonthYear } from '@/lib/members/format';
 import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
 import { toTextBlocks } from '@/lib/text/text-blocks';
-import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
+import { PDF_CONTACT_NOTE } from '@/lib/members/contact-visibility';
 import { formatDate } from '@/lib/dates';
 import { PDF_COLORS, PDF_FONT_FAMILY } from '@/lib/pdf/theme';
 
@@ -91,8 +91,8 @@ const s = StyleSheet.create({
   memberText: { color: C.ink3 },
   designation: { fontSize: 11, fontWeight: 500, color: C.ink3, marginTop: 7 },
   stats: { fontSize: 9, color: C.ink3, marginTop: 6 },
-  qrBox: { alignItems: 'center', width: 84 },
-  qr: { width: 76, height: 76 },
+  qrBox: { alignItems: 'center', width: 92 },
+  qr: { width: 84, height: 84 },
   qrCaption: { fontSize: 7, color: C.ink4, marginTop: 3, textAlign: 'center' },
 
   // Contact panel — the only summary box (no availability or fees: the PDF is a shareable
@@ -114,6 +114,7 @@ const s = StyleSheet.create({
   contactCell: { width: '50%', paddingRight: 12 },
   contactKey: { fontSize: 7.5, fontWeight: 600, color: C.ink4, letterSpacing: 0.3, marginBottom: 2 },
   contactVal: { fontSize: 9.5, color: C.ink, lineHeight: 1.35 },
+  contactValRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   link: { color: C.accent, textDecoration: 'none' },
 
   // Sections
@@ -178,7 +179,7 @@ const s = StyleSheet.create({
   roleDesc: { fontSize: 9, color: C.ink2, lineHeight: 1.6 },
   roleDescWrap: { marginTop: 4 },
   // Company (ink) and its roles (brand green) in two colours so the two read apart at a glance.
-  groupCompany: { fontSize: 10.5, fontWeight: 700, color: C.ink, flex: 1 },
+  groupCompany: { fontSize: 12, fontWeight: 700, color: C.ink, flex: 1 },
   groupRoles: { borderTopWidth: 1, borderTopColor: C.line, marginTop: 6, paddingTop: 6, gap: 9 },
   subRoleTitle: { fontSize: 10, fontWeight: 600, color: C.accent, flex: 1 },
   nextRole: { marginTop: 9 },
@@ -332,18 +333,49 @@ function Section({ title, lead, children }: { title: string; lead?: ReactNode; c
   );
 }
 
-function ContactLine({ label, value, href }: { label: string; value: string; href?: string }) {
+function ContactLine({
+  label,
+  value,
+  href,
+  icon,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+  /** Small mark drawn before the value (e.g. the LinkedIn "in"). */
+  icon?: ReactNode;
+}) {
+  const text = href ? (
+    <Link src={href} style={[s.contactVal, s.link]}>
+      {value}
+    </Link>
+  ) : (
+    <Text style={s.contactVal}>{value}</Text>
+  );
   return (
     <View style={s.contactCell}>
       <Text style={s.contactKey}>{label.toUpperCase()}</Text>
-      {href ? (
-        <Link src={href} style={[s.contactVal, s.link]}>
-          {value}
-        </Link>
+      {icon ? (
+        <View style={s.contactValRow}>
+          {icon}
+          {text}
+        </View>
       ) : (
-        <Text style={s.contactVal}>{value}</Text>
+        text
       )}
     </View>
+  );
+}
+
+// LinkedIn's "in" glyph, in the accent colour, for the Connect panel.
+function LinkedInMark({ size }: { size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        fill={C.accent}
+        d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zM7.119 20.452H3.555V9h3.564v11.452z"
+      />
+    </Svg>
   );
 }
 
@@ -452,49 +484,32 @@ export function MemberProfilePdf({
             </View>
           </View>
 
-          {/* Contact panel. Availability and the consultation fee are deliberately left out of the
-              PDF (a shareable document) — they stay on the profile page only. */}
+          {/* Connect panel. Direct contact details (emails, phone, personal site) are deliberately
+              left out: the PDF is a shareable document, and anyone with the file would otherwise
+              have them. It points back to the GrowXQ profile, LinkedIn and the firm instead. */}
           <View style={s.contactPanel} wrap={false}>
-            <Text style={s.label}>Contact</Text>
-            {/* Same notice as the Contact tab when the API withheld the direct contact fields. */}
-            {!isContactVisible(member) && <Text style={[s.notes, { marginBottom: 10 }]}>{CONTACT_HIDDEN_MESSAGE}</Text>}
+            <Text style={s.label}>Connect</Text>
             <View style={s.contactGrid}>
-              {member.contactEmail && (
-                <ContactLine label="Email" value={member.contactEmail} href={`mailto:${member.contactEmail}`} />
-              )}
-              {member.workEmail && (
-                <ContactLine label="Work email" value={member.workEmail} href={`mailto:${member.workEmail}`} />
-              )}
-              {member.contactPhone && (
-                <ContactLine
-                  label="Phone"
-                  value={member.contactPhone}
-                  href={`tel:${member.contactPhone.replace(/\s/g, '')}`}
-                />
-              )}
+              <ContactLine label="GrowXQ profile" value={displayHost(profileUrl)} href={profileUrl} />
               {member.linkedinUrl && (
                 <ContactLine
                   label="LinkedIn"
-                  value={displayHost(member.linkedinUrl)}
+                  value="View profile"
                   href={externalHref(member.linkedinUrl) ?? undefined}
+                  icon={<LinkedInMark size={11} />}
                 />
               )}
-              {member.website && (
+              {(firm || member.firmWebsite) && (
                 <ContactLine
-                  label="Website"
-                  value={displayHost(member.website)}
-                  href={externalHref(member.website) ?? undefined}
-                />
-              )}
-              {member.firmWebsite && (
-                <ContactLine
-                  label={firm ? 'Company' : 'Company site'}
-                  value={firm ? `${firm} · ${displayHost(member.firmWebsite)}` : displayHost(member.firmWebsite)}
+                  label="Company"
+                  value={[firm, member.firmWebsite ? displayHost(member.firmWebsite) : null]
+                    .filter(Boolean)
+                    .join(' · ')}
                   href={externalHref(member.firmWebsite) ?? undefined}
                 />
               )}
-              <ContactLine label="GrowXQ profile" value={displayHost(profileUrl)} href={profileUrl} />
             </View>
+            <Text style={[s.notes, { marginTop: 10 }]}>{PDF_CONTACT_NOTE}</Text>
           </View>
 
           {(member.headline || member.bio) && (

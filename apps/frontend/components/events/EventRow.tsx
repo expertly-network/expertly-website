@@ -19,10 +19,13 @@ import {
 export function EventRow({
   event,
   topics = [],
+  first = false,
   adminBadge,
   adminActions,
 }: {
   event: EventDto;
+  /** The first event of its month: tinted so the start of a new month stands out in the list. */
+  first?: boolean;
   /** Topic category names, shown as tags in the badge row above the title. */
   topics?: string[];
   adminBadge?: ReactNode;
@@ -104,7 +107,7 @@ export function EventRow({
       }}
       className={`scroll-mt-32 border-b border-line py-4 target:ring-2 target:ring-accent target:ring-offset-4 sm:py-7 ${
         hasMore ? 'cursor-pointer' : ''
-      }`}
+      } ${first ? '-mx-3 rounded-xl bg-[color-mix(in_oklab,var(--accent)_6%,transparent)] px-3 sm:-mx-4 sm:px-4' : ''}`}
     >
       {/* Phones: date block, type/format, title, "dates · location" and a compact Register link.
           Tapping the row expands the description and organiser, as on larger screens. */}

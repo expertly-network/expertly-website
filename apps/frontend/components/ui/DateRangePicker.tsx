@@ -76,6 +76,7 @@ export function DateRangePicker({
   placeholder = 'Any dates',
   hasEvent,
   clearValue = { from: null, to: null },
+  clearedLabel,
   onVisibleMonthsChange,
 }: {
   value: DateRange;
@@ -88,6 +89,8 @@ export function DateRangePicker({
   hasEvent?: (day: Date) => boolean;
   /** What "Clear" resets to — e.g. the list's default "Upcoming" range rather than all dates. */
   clearValue?: DateRange;
+  /** What the trigger says while on `clearValue` (e.g. nothing after a "When" prefix) instead of that range's name. */
+  clearedLabel?: string;
   /** Called with the first and last day on screen while open — e.g. to load `hasEvent` data. */
   onVisibleMonthsChange?: (first: Date, last: Date) => void;
 }) {
@@ -164,7 +167,7 @@ export function DateRangePicker({
 
   const isCleared = sameRange(value, clearValue);
   const months = [month, addMonths(month, 1)];
-  const label = rangeLabel(value, presets, placeholder);
+  const label = isCleared && clearedLabel !== undefined ? clearedLabel : rangeLabel(value, presets, placeholder);
   const hint = pending.from && !pending.to ? 'Now choose an end date' : 'Choose a start date';
 
   return (

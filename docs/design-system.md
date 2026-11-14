@@ -279,7 +279,7 @@ the catalogue of the shared pieces (all hidden or reset from `sm` up unless note
 
 | Pattern | Use | Where |
 |---|---|---|
-| Swipe row | A list of cards → horizontal snap row, next card peeking in | `components/ui/SwipeRow.tsx` (children get `snap-start min-w-0`; desktop grid via `className`) — Testimonials, `UpcomingEvents`, `DualCta`, learning paths, perk toolkits, template kits |
+| Swipe row | A list of cards → horizontal snap row, next card peeking in | `components/ui/SwipeRow.tsx` (children get `snap-start min-w-0`; desktop grid via `className`, or `scroll="always"` + `itemWidth="card"` to stay a horizontal row on every width, with optional arrow buttons paging it via `scrollRef` — profile testimonials) — Testimonials, `UpcomingEvents`, `DualCta`, learning paths, perk toolkits, template kits |
 | Phone filters | Many filter dropdowns → one sticky "Filters" bar + bottom sheet + chips | `components/ui/MobileFilterBar.tsx` + `components/ui/FilterSheet.tsx` (+ `lib/hooks/useLiveCount.ts` for "Show N …") — articles, events, members, learnings. `MobileFilterBar` must be a direct child of the page/list container, or it only sticks inside its wrapper |
 | Sticky under the top bar | Anything pinned below the 62px mobile top bar | `STICKY_UNDER_MOBILE_BAR` in `lib/ui/mobile.ts` — never repeat `top-[61px]` |
 | Shorter copy | Text that would truncate on a phone (search placeholders) | `lib/hooks/usePhoneText.ts` — articles, events, members heroes |
