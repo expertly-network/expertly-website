@@ -91,7 +91,7 @@ immutable snapshot again, same as the original design. Approving an application
 | `contact_email` | citext, nullable | deliberately separate from `profiles.email`; kept on file only — never emailed (2026-11-08) |
 | `work_email` | citext, nullable | **Added 2026-11-08.** Required to submit; copied to `member_profiles.work_email` on approval. The **only** address GrowXQ sends email to (no fallback to `contact_email` or `profiles.email`) |
 | `phone_country_code`, `phone` | text | optional, always |
-| `region` | enum (7 values: `asia_pacific`…`africa`), nullable | **not client-settable** (2026-09-26) — derived server-side from `country` via a fixed map (`apps/backend/src/applications/constants/country-region.ts`); required at submit except when `country = 'Other'`, which has no defensible region and stays `null` |
+| `region` | enum (7 values: `asia_pacific`…`africa`), nullable | **not client-settable** (2026-09-26) — derived server-side from `country` via a fixed map of every country (`apps/backend/src/applications/constants/country-region.ts`), re-derived on every save from the row's resulting `country` (2026-11-14; previously only when the write touched `country`, which left pre-fix rows with an unmapped country stuck at `null`); required at submit except when `country = 'Other'`, which has no defensible region and stays `null` |
 | `country` | text, nullable | free text in the design (fixed option list + "Other"), not its own lookup table yet; required at submit |
 | `state`, `city` | text | optional, always |
 | `linkedin_url` | text, nullable | required at submit |

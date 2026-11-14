@@ -200,11 +200,13 @@ export class ApplicationsService {
       patch.work_experiences = sortWorkHistoryNewestFirst(dto.workExperiences);
     }
 
-    // Re-derive region whenever country is part of this write, so it never drifts out of sync
-    // with whatever country the applicant last saved.
-    if (patch.country !== undefined) {
-      patch.region = deriveRegion(patch.country as string);
-    }
+    // Re-derive region from whatever country the row ends up with — on every write, not only when
+    // this write touches country. A draft saved before 2026-11-14 with a then-unmapped country
+    // (Mexico, Sri Lanka, …) holds region = null and the wizard offers no way to re-pick the same
+    // country; deriving from the merged country heals such a row on the applicant's next save or
+    // submit, with no data backfill.
+    const country = patch.country !== undefined ? patch.country : existing?.country;
+    patch.region = deriveRegion(country);
 
     const merged: ApplicationPatch = { ...(existing ?? { status: 'draft' }), ...patch };
 

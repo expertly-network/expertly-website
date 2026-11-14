@@ -255,9 +255,13 @@ wizard step to resume on, pure UX convenience, not validated).
   `@IsUrl` alone admitted e.g. `ftp://`): `400 URL_INVALID` otherwise.
 - `region` — **no longer accepted from the client at all** (accepted-but-ignored if sent; the DTO
   field is kept only for backward compatibility with older callers). Always derived server-side
-  from `country` via a small fixed map (`apps/backend/src/applications/constants/country-region.ts`)
-  whenever a call's patch touches `country`. `country: 'Other'` has no defensible region and is
-  left `null`, exempted from the submit-completeness check.
+  from `country` via a fixed map covering every country
+  (`apps/backend/src/applications/constants/country-region.ts`, the inverse of the frontend's
+  `REGION_COUNTRIES`), re-derived from the row's resulting `country` on **every** save/submit, not
+  only when the call touches `country` (2026-11-14 — a row saved earlier with a then-unmapped
+  country such as Mexico or Sri Lanka held `region = null` and could never submit; it now heals on
+  the next write). `country: 'Other'` or any unknown name has no defensible region and is left
+  `null`; only `'Other'` is exempted from the submit-completeness check.
 - `selectedTier`, `listPriceCents`, `discountAmountCents`, `amountDueCents`, `paymentStatus`,
   `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
   from the client** — computed server-side exactly as before:
