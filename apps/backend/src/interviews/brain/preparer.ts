@@ -10,7 +10,8 @@ import {
   type PreparerOutput,
 } from './types';
 
-const MAX_TOKENS_PREPARE = 3_000;
+// Reasoning models spend part of this budget before producing the structured plan.
+const MAX_TOKENS_PREPARE = 8_000;
 const MAX_PLANNED = 4;
 
 const SYSTEM = `You prepare a 12 to 15 minute voice interview for GrowXQ, a network of finance, tax and legal
@@ -102,7 +103,8 @@ export class Preparer {
       prompt,
       schema: preparerOutputSchema,
       maxOutputTokens: MAX_TOKENS_PREPARE,
-      timeoutMs: 45_000,
+      reasoningEffort: 'low',
+      timeoutMs: 60_000,
     });
     return finalisePreparation(raw, member, groups);
   }

@@ -38,7 +38,7 @@ export class InterviewExtractionService {
       try {
         const connections = await this.repo.listConnections(row.id);
         const waiting = connections.some(
-          (c) => !c.transcriptReceivedAt && now - Date.parse(c.startedAt) < TRANSCRIPT_WAIT_MS
+          (c) => !c.transcriptReceivedAt && !c.endedAt && now - Date.parse(c.startedAt) < TRANSCRIPT_WAIT_MS
         );
         if (waiting) {
           await this.repo.updateInterview(row.id, { extractClaimedAt: null, extractAttempts: row.extractAttempts - 1 });

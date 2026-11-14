@@ -114,6 +114,7 @@ export class InterviewLlmService {
       maxOutputTokens: number;
       /** Omitted = provider default. The scorer passes 0 so one transcript gets one grade. */
       temperature?: number;
+      reasoningEffort?: 'low' | 'medium';
       timeoutMs?: number;
       onUsage?: (usage: LlmUsage) => void;
     }
@@ -127,6 +128,10 @@ export class InterviewLlmService {
         output: Output.object({ schema: input.schema }),
         maxOutputTokens: input.maxOutputTokens,
         temperature: temperatureFor(spec, input.temperature),
+        providerOptions:
+          spec.provider === 'openai' && OPENAI_REASONING_MODEL.test(spec.model) && input.reasoningEffort
+            ? { openai: { reasoningEffort: input.reasoningEffort } }
+            : undefined,
         abortSignal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         maxRetries: 1,
       });

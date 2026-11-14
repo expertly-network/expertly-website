@@ -33,18 +33,26 @@ export function InterviewExperience({
     try {
       const next = await getMyInterview();
       setStatus(next);
+      setChecking((current) => current && next.eligibility === 'in_progress');
       if (next.eligibility === 'completed') router.refresh(); // server re-renders with the member profile
     } catch {
       // keep the last known state; the next poll retries
     }
   }, [router]);
 
-  // Processing: poll until the drafts are ready.
+  // After a call ends, the provider webhook can take longer than the initial status check.
+  // Keep polling while we wait for it, then continue polling while drafts are processed.
   useEffect(() => {
-    if (session || status.eligibility !== 'processing') return;
+    if (session || (!checking && status.eligibility !== 'processing')) return;
     const id = setInterval(() => void refresh(), POLL_MS);
     return () => clearInterval(id);
-  }, [session, status.eligibility, refresh]);
+  }, [session, checking, status.eligibility, refresh]);
+
+  useEffect(() => {
+    if (!checking) return;
+    const id = setTimeout(() => setChecking(false), 120_000);
+    return () => clearTimeout(id);
+  }, [checking]);
 
   async function onStart(audioOptIn: boolean) {
     setError(null);
@@ -82,7 +90,7 @@ export function InterviewExperience({
             );
           // The webhook decides interrupted vs processing; give it a moment, then re-read.
           setChecking(true);
-          setTimeout(() => void refresh().finally(() => setChecking(false)), 4000);
+          setTimeout(() => void refresh(), 4000);
         }}
       />
     );

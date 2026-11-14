@@ -125,4 +125,18 @@ describe('InterviewExtractionService.run (v2)', () => {
     );
     expect(elevenLabs.deleteConversation).toHaveBeenCalledWith('conv1');
   });
+  it('does not wait for the missing transcript of a closed failed call', async () => {
+    const { svc, repo } = setup(row(), [
+      conn({ id: 'failed', endedAt: new Date().toISOString(), transcriptReceivedAt: null, transcript: null }),
+      conn(),
+    ]);
+    await svc.run(() => false);
+    expect(repo.updateInterview).toHaveBeenCalledWith('i1', expect.objectContaining({ status: 'completed' }));
+  });
+  it('waits for a recent open call whose transcript has not arrived', async () => {
+    const { svc, repo, scoring } = setup(row(), [conn({ endedAt: null, transcriptReceivedAt: null, transcript: null })]);
+    await svc.run(() => false);
+    expect(scoring.scoreAndStore).not.toHaveBeenCalled();
+    expect(repo.updateInterview).toHaveBeenCalledWith('i1', { extractClaimedAt: null, extractAttempts: 0 });
+  });
 });

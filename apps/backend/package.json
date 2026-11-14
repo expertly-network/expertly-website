@@ -11,6 +11,7 @@
     "dev": "node scripts/dev.mjs",
     "worker": "nest build && node scripts/postbuild.mjs && node dist/apps/backend/src/worker.js",
     "start:worker": "node dist/apps/backend/src/worker.js",
+    "start:interview-worker": "node dist/apps/backend/src/interviews/worker.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint \"{src,scripts,test}/**/*.ts\"",
