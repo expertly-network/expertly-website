@@ -21,7 +21,20 @@ const APPLICATION_REGIONS = [
   'africa',
 ];
 
-export type FirmSize = 'solo' | '2_10' | '11_50' | '51_200' | '200_plus';
+// LinkedIn's company-size bands (2026-11-14; the wizard previously stopped at '200_plus').
+// '200_plus' is legacy: still accepted so applications saved before the change keep validating,
+// but the wizard no longer offers it.
+export type FirmSize =
+  | 'solo'
+  | '2_10'
+  | '11_50'
+  | '51_200'
+  | '201_500'
+  | '501_1000'
+  | '1001_5000'
+  | '5001_10000'
+  | '10001_plus'
+  | '200_plus';
 
 // Derived server-side from years of experience at submission; never accepted from the client.
 export type MembershipTier = 'budding_entrepreneur' | 'seasoned_professional';
@@ -38,7 +51,21 @@ export class WorkExperienceInput {
   @ApiProperty() title!: string;
   @ApiProperty() company!: string;
   @ApiPropertyOptional() city?: string;
-  @ApiPropertyOptional({ enum: ['solo', '2_10', '11_50', '51_200', '200_plus'] }) firmSize?: FirmSize;
+  @ApiPropertyOptional({
+    enum: [
+      'solo',
+      '2_10',
+      '11_50',
+      '51_200',
+      '201_500',
+      '501_1000',
+      '1001_5000',
+      '5001_10000',
+      '10001_plus',
+      '200_plus',
+    ],
+  })
+  firmSize?: FirmSize;
   @ApiPropertyOptional() companyUrl?: string;
   @ApiPropertyOptional() startMonth?: number; // 1-12
   @ApiProperty() startYear!: number;

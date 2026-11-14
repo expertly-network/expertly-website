@@ -445,13 +445,26 @@ export const PHONE_COUNTRY_CODES: { country: string; code: string }[] = [
   { country: 'Zimbabwe', code: '+263' },
 ];
 
+// LinkedIn's company-size bands (2026-11-14). The old top band '200_plus' is deliberately not
+// offered any more; an application that already holds it keeps the value (the backend still
+// accepts it) — see firmSizeLabel for how it's displayed.
 export const FIRM_SIZES: { value: NonNullable<WorkExperienceInput['firmSize']>; label: string }[] = [
   { value: 'solo', label: 'Solo' },
   { value: '2_10', label: '2–10' },
   { value: '11_50', label: '11–50' },
   { value: '51_200', label: '51–200' },
-  { value: '200_plus', label: '200+' },
+  { value: '201_500', label: '201–500' },
+  { value: '501_1000', label: '501–1,000' },
+  { value: '1001_5000', label: '1,001–5,000' },
+  { value: '5001_10000', label: '5,001–10,000' },
+  { value: '10001_plus', label: '10,001+' },
 ];
+
+export function firmSizeLabel(value: WorkExperienceInput['firmSize']): string | undefined {
+  if (!value) return undefined;
+  if (value === '200_plus') return '200+';
+  return FIRM_SIZES.find((f) => f.value === value)?.label ?? value;
+}
 
 // Month labels live with the other application display helpers.
 export { MONTHS } from '@/lib/apply/format';

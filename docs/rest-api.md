@@ -449,6 +449,12 @@ Changed 2026-11-05: that same `isCurrent` entry's `firmSize` is also required at
 cross-field `assertComplete()` rule, `400 APPLICATION_INCOMPLETE` naming it). The wizard asks for
 firm size and company website only for the current company and doesn't send them for past ones.
 
+Changed 2026-11-14: `firmSize` uses LinkedIn's company-size bands — `solo` · `2_10` · `11_50` ·
+`51_200` · `201_500` · `501_1000` · `1001_5000` · `5001_10000` · `10001_plus`. The old top band
+`200_plus` is **legacy**: still accepted (`@IsIn`) so applications saved before this date keep
+validating, but the wizard no longer offers it. Additive, no version bump; anything else →
+`400 VALIDATION_FAILED`.
+
 Changed 2026-09-29: that same `isCurrent` entry's `companyUrl` is now also required at submit —
 `member_profiles.firm_website` became `NOT NULL`, so it's no longer optional the way
 `WorkExperienceDto.companyUrl` (`@IsOptional() @IsUrl()`, unchanged) suggests in isolation; the
