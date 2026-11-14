@@ -1,4 +1,5 @@
 import type { ICity, ICountry, IState } from 'country-state-city';
+import { datasetCountryName } from '@/lib/location/dataset-aliases';
 
 // The dataset is large (~several MB of JSON) — loaded on demand via dynamic import so it never
 // lands in the initial bundle, only when the identity step actually renders location fields.
@@ -21,10 +22,15 @@ export interface LocationOption {
   isoCode: string;
 }
 
+// One option per allowed (canonical) name that the dataset knows — under the canonical spelling,
+// since that is what the application stores. Names the dataset lacks entirely are dropped.
 export function toCountryOptions(countries: ICountry[], allowedNames: readonly string[]): LocationOption[] {
-  return countries
-    .filter((c) => allowedNames.includes(c.name))
-    .map((c) => ({ name: c.name, isoCode: c.isoCode }))
+  const isoByDatasetName = new Map(countries.map((c) => [c.name, c.isoCode]));
+  return allowedNames
+    .flatMap((name) => {
+      const isoCode = isoByDatasetName.get(datasetCountryName(name));
+      return isoCode ? [{ name, isoCode }] : [];
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

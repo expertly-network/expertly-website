@@ -1,8 +1,10 @@
 import { City, Country, State } from 'country-state-city';
+import { datasetCountryName } from './constants/country-dataset-aliases';
 
 // Same dataset (and version) as the frontend's cascading Country -> State -> City dropdowns, so a
 // combination the form offers always passes. Names, not ISO codes, are what the application
-// stores. Returns a human-readable problem, or null when the combination is consistent.
+// stores — the app's canonical country names, bridged to the dataset's spelling where they differ.
+// Returns a human-readable problem, or null when the combination is consistent.
 //
 // Countries outside the dataset ("Other", or a free-text fallback) can't be checked and pass.
 export function findLocationMismatch(
@@ -11,7 +13,8 @@ export function findLocationMismatch(
   city: string | null | undefined
 ): string | null {
   if (!country) return null;
-  const countryIso = Country.getAllCountries().find((c) => c.name === country)?.isoCode;
+  const datasetName = datasetCountryName(country);
+  const countryIso = Country.getAllCountries().find((c) => c.name === datasetName)?.isoCode;
   if (!countryIso) return null;
 
   const states = State.getStatesOfCountry(countryIso);

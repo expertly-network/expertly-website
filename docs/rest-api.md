@@ -262,6 +262,12 @@ wizard step to resume on, pure UX convenience, not validated).
   country such as Mexico or Sri Lanka held `region = null` and could never submit; it now heals on
   the next write). `country: 'Other'` or any unknown name has no defensible region and is left
   `null`; only `'Other'` is exempted from the submit-completeness check.
+- `country` is one of the app's canonical country names (the frontend's `ALL_COUNTRIES`, 195
+  entries, = the keys of `COUNTRY_TO_REGION`) or `'Other'`. The wizard offers all of them in a
+  searchable list (2026-11-14; previously an 18-country shortlist). The submit-time State/City
+  consistency check uses the `country-state-city` dataset, which spells 18 of those names
+  differently — bridged by `constants/country-dataset-aliases.ts` (mirrored in the frontend's
+  `lib/location/dataset-aliases.ts`), so the stored value is always the canonical spelling.
 - `selectedTier`, `listPriceCents`, `discountAmountCents`, `amountDueCents`, `paymentStatus`,
   `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
   from the client** — computed server-side exactly as before:

@@ -32,6 +32,7 @@ export function Combobox({
   error,
   markRequired,
   clearable = false,
+  disabled = false,
 }: {
   /** Lands on the trigger button, so scrollToFirstError can focus it. */
   id?: string;
@@ -46,6 +47,8 @@ export function Combobox({
   markRequired?: boolean;
   /** Shows a ✕ on the trigger to empty an optional field. */
   clearable?: boolean;
+  /** Greys the trigger out and keeps the list closed (e.g. a City list before a state is chosen). */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -152,9 +155,10 @@ export function Combobox({
           aria-controls={open ? listId : undefined}
           aria-labelledby={`${labelId} ${triggerId}`}
           aria-describedby={error ? `${triggerId}-error` : undefined}
+          disabled={disabled}
           onClick={() => (open ? close() : setOpen(true))}
           onKeyDown={onTriggerKeyDown}
-          className={`flex min-h-[46px] w-full items-center rounded-input border bg-bg py-2 pl-3.5 text-left text-sm focus:outline-none focus:ring-[3px] ${
+          className={`flex min-h-[46px] w-full items-center rounded-input border bg-bg py-2 pl-3.5 text-left text-sm focus:outline-none focus:ring-[3px] disabled:cursor-not-allowed disabled:bg-bg-alt disabled:text-ink-3 ${
             clearable && selected ? 'pr-16' : 'pr-9'
           } ${
             error
@@ -174,7 +178,7 @@ export function Combobox({
           )}
         </button>
 
-        {clearable && selected && (
+        {clearable && selected && !disabled && (
           <button
             type="button"
             aria-label={`Clear ${label}`}

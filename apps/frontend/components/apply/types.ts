@@ -192,28 +192,6 @@ export const REGIONS: { value: ApplicationRegion; label: string }[] = [
   { value: 'africa', label: 'Africa' },
 ];
 
-export const COUNTRIES = [
-  'India',
-  'Singapore',
-  'United Kingdom',
-  'United States',
-  'United Arab Emirates',
-  'Germany',
-  'France',
-  'Italy',
-  'Spain',
-  'Japan',
-  'Australia',
-  'Canada',
-  'Brazil',
-  'China',
-  'Ghana',
-  'Nigeria',
-  'Egypt',
-  'South Africa',
-  'Other',
-];
-
 // Every ITU-assigned calling code, one entry per country/territory. Several countries share a
 // code (e.g. +1 for the US/Canada/Caribbean); the option label disambiguates which was picked.
 export const PHONE_COUNTRY_CODES: { country: string; code: string }[] = [

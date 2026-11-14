@@ -3,11 +3,10 @@ import type { ApplicationRegion } from '@shared/membership-application';
 // Region is a business classification derived from country, not something the applicant picks
 // directly — this is the server-side source of truth for that derivation.
 //
-// Covers every country, not just the wizard dropdown's shortlist (COUNTRIES in
-// apps/frontend/components/apply/types.ts): the LinkedIn import copies the applicant's country
-// verbatim, so an applicant from e.g. Mexico or Sri Lanka arrives here with a country the dropdown
-// never offered. Until 2026-11-14 those derived to null and the applicant could not submit
-// ("Location" incomplete) with no way to fix it from the form.
+// Covers every country the wizard's country list offers (ALL_COUNTRIES in
+// apps/frontend/lib/members/countries.ts). Until 2026-11-14 this was an 18-country shortlist while
+// the LinkedIn import copied the applicant's country verbatim, so an applicant from e.g. Mexico or
+// Sri Lanka derived to null and could not submit ("Location" incomplete) with no way to fix it.
 //
 // Must agree with the frontend's REGION_COUNTRIES (apps/frontend/lib/members/country-regions.ts),
 // which drives the member-directory region filter — same list, inverted. The frontend may only
