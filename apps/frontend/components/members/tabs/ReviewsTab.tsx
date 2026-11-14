@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal } from '@/components/ui';
+import { Modal, SwipeRow } from '@/components/ui';
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
 import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
 import { MemberRecommendations } from '@/components/members/tabs/MemberRecommendations';
@@ -66,17 +66,18 @@ export function ReviewsTab({
   onEdit: (section: 'testimonials' | 'awards') => void;
 }) {
   const [openTestimonial, setOpenTestimonial] = useState<MemberTestimonial | null>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [canScroll, setCanScroll] = useState(false);
-  const [atBottom, setAtBottom] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(false);
   const closeModal = useCallback(() => setOpenTestimonial(null), []);
 
-  // `.mp-testi-scroll-btn` — the grid has a max height; show a chevron only when it overflows.
+  // The testimonials are one horizontal row on every width. Phones swipe; from `sm` up a pair of
+  // arrow buttons pages the row for mouse users, each enabled only while there is more that way.
   const measure = useCallback(() => {
-    const el = gridRef.current;
+    const el = rowRef.current;
     if (!el) return;
-    setCanScroll(el.scrollHeight > el.clientHeight + 1);
-    setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 4);
+    setCanPrev(el.scrollLeft > 4);
+    setCanNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   }, []);
 
   useEffect(() => {
@@ -85,10 +86,10 @@ export function ReviewsTab({
     return () => window.removeEventListener('resize', measure);
   }, [measure, member.testimonials.length]);
 
-  function scrollGrid() {
-    const el = gridRef.current;
+  function scrollRow(direction: -1 | 1) {
+    const el = rowRef.current;
     if (!el) return;
-    el.scrollTo({ top: atBottom ? 0 : el.scrollTop + el.clientHeight, behavior: 'smooth' });
+    el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: 'smooth' });
   }
 
   const edit = (section: 'testimonials' | 'awards') => (isOwnProfile ? () => onEdit(section) : undefined);
@@ -114,19 +115,20 @@ export function ReviewsTab({
             />
           ) : (
             <>
-              {/* `.mp-testi-outer` — 4 / 2 / 1 columns, one row visible (two / four on narrower
-                  screens), anything beyond scrolls inside the box. */}
-              <div
-                ref={gridRef}
+              {/* `.mp-testi-outer` — a horizontal snap row (not a scrolling grid), next card peeking in. */}
+              <SwipeRow
+                label="Client testimonials"
+                scroll="always"
+                itemWidth="card"
+                scrollRef={rowRef}
                 onScroll={measure}
-                className="grid max-h-[360px] grid-cols-4 gap-4 overflow-y-auto scroll-smooth max-[1100px]:max-h-[736px] max-[1100px]:grid-cols-2 max-[560px]:max-h-[1488px] max-[560px]:grid-cols-1"
               >
                 {member.testimonials.map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => setOpenTestimonial(t)}
-                    className="relative flex h-full flex-col gap-2 overflow-hidden rounded-2xl border border-line bg-bg-card px-[15px] pb-[13px] pt-4 text-left transition-[background,border-color,box-shadow] odd:bg-bg-alt hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]"
+                    className="relative flex h-full min-w-0 snap-start flex-col gap-2 overflow-hidden rounded-2xl border border-line bg-bg-card px-[15px] pb-[13px] pt-4 text-left transition-[background,border-color,box-shadow] odd:bg-bg-alt hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]"
                   >
                     <span
                       aria-hidden="true"
@@ -138,31 +140,37 @@ export function ReviewsTab({
                     <TestimonialAuthor t={t} compact />
                   </button>
                 ))}
-              </div>
-              {canScroll && (
-                <button
-                  type="button"
-                  onClick={scrollGrid}
-                  aria-label={atBottom ? 'Scroll testimonials to top' : 'Show more testimonials'}
-                  className="mx-auto mt-3.5 flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-bg-card text-accent transition-colors hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:bg-[color-mix(in_oklab,var(--accent)_8%,var(--bg-card))]"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
-                    className={`transition-transform ${atBottom ? 'rotate-180' : ''}`}
-                  >
-                    <path
-                      d="M6 9l6 6 6-6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+              </SwipeRow>
+              {(canPrev || canNext) && (
+                <div className="mt-3.5 hidden justify-center gap-2 sm:flex">
+                  {([-1, 1] as const).map((direction) => (
+                    <button
+                      key={direction}
+                      type="button"
+                      onClick={() => scrollRow(direction)}
+                      disabled={direction === -1 ? !canPrev : !canNext}
+                      aria-label={direction === -1 ? 'Previous testimonials' : 'More testimonials'}
+                      className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-bg-card text-accent transition-colors hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:bg-[color-mix(in_oklab,var(--accent)_8%,var(--bg-card))] disabled:cursor-default disabled:text-ink-4 disabled:hover:border-line disabled:hover:bg-bg-card"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                        className={direction === -1 ? 'rotate-90' : '-rotate-90'}
+                      >
+                        <path
+                          d="M6 9l6 6 6-6"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
               )}
             </>
           )}

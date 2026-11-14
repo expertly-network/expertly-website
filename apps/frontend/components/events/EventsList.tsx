@@ -274,10 +274,13 @@ export function EventsList({
   const resultCount = remote ? remoteTotal : clientFiltered.length;
   const showCount = !(remote && loading) && !loadError;
   const filtersKey = JSON.stringify(remoteQuery);
-  const renderEvent = (event: EventDto) => (
+  // `index` is the event's position within its month: the first row is tinted so a new month reads
+  // at a glance while scrolling.
+  const renderEvent = (event: EventDto, index: number) => (
     <EventRow
       key={event.id}
       event={event}
+      first={index === 0}
       topics={event.categoryIds.map((id) => topicNameById.get(id)).filter((n): n is string => !!n)}
       adminBadge={getAdminBadge?.(event)}
       adminActions={getAdminActions?.(event)}
@@ -421,18 +424,20 @@ export function EventsList({
       )}
 
       <div className="hidden flex-wrap items-center gap-2.5 border-b border-line pb-[18px] pt-3.5 sm:flex">
+        {/* Reads "When" alone while on the default range; a chosen preset or range replaces it. */}
         <DateRangePicker
-          prefix="When:"
+          prefix="When"
           value={dateRange}
           onChange={setDateRange}
           presets={DATE_PRESETS.map((p) => ({ label: p.label, range: p.range }))}
           clearValue={defaultRange}
+          clearedLabel=""
           hasEvent={(day) => (remote ? remoteDays.has(toIsoDate(day)) : eventDays.has(dayKey(day)))}
           onVisibleMonthsChange={remote ? loadDays : undefined}
         />
         {lineOptions.length > 0 && (
           <FilterPopover
-            label="All areas"
+            label="Areas"
             options={lineOptions}
             selected={lineFilter}
             onChange={(values) => {
@@ -445,61 +450,36 @@ export function EventsList({
           />
         )}
         {topicOptions.length > 0 && (
-          <FilterPopover label="All topics" options={topicOptions} selected={topicFilter} onChange={setTopicFilter} />
+          <FilterPopover label="Topics" options={topicOptions} selected={topicFilter} onChange={setTopicFilter} />
         )}
         <FilterPopover
-          label="All countries"
+          label="Countries"
           options={ALL_COUNTRIES.map((c) => ({ value: c, label: c }))}
           selected={countryFilter}
           onChange={setCountryFilter}
         />
         {organiserOptions.length > 0 && (
           <FilterPopover
-            label="All organisers"
+            label="Organisers"
             options={organiserOptions}
             selected={organiserFilter}
             onChange={setOrganiserFilter}
           />
         )}
         <FilterPopover
-          label="All event types"
+          label="Type"
           options={EVENT_TYPES.map((t) => ({ value: t, label: t }))}
           selected={typeFilter}
           onChange={setTypeFilter}
         />
-        {FORMAT_TOGGLES.map((opt) => {
-          const active = formatFilter.includes(opt.value);
-          // Both formats tint the brand green (--ok is an alias of --accent).
-          const activeColorVar = opt.value === 'in_person' ? '--ok' : '--accent';
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() =>
-                setFormatFilter((prev) => (active ? prev.filter((f) => f !== opt.value) : [...prev, opt.value]))
-              }
-              className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] bg-bg-card px-3.5 py-2 font-mono text-[12px] font-semibold transition-colors ${
-                active ? '' : 'border-line-2 text-ink-3 hover:border-ink-3 hover:text-ink'
-              }`}
-              style={
-                active
-                  ? {
-                      borderColor: `color-mix(in oklab, var(${activeColorVar}) 35%, transparent)`,
-                      background: `color-mix(in oklab, var(${activeColorVar}) 10%, var(--bg-card))`,
-                      color: 'var(--accent)',
-                    }
-                  : undefined
-              }
-            >
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 flex-none rounded-full"
-                style={{ background: active ? `var(${activeColorVar})` : 'var(--line-2)' }}
-              />
-              {opt.label}
-            </button>
-          );
-        })}
+        {/* In person / Online as one dropdown like the others (both → hybrid only, see formatsForToggles). */}
+        <FilterPopover
+          label="Format"
+          options={FORMAT_TOGGLES}
+          selected={formatFilter}
+          onChange={(values) => setFormatFilter(values as FormatToggle[])}
+          searchable={false}
+        />
       </div>
 
       <div className="hidden min-h-9 items-center justify-between gap-3 pt-4 sm:flex">

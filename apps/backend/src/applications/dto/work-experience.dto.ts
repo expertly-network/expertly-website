@@ -2,7 +2,20 @@ import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Max, MaxLength, Mi
 import type { FirmSize } from '@shared/membership-application';
 import { FREE_TEXT_MAX, LABEL_MAX, PLACE_MAX, URL_MAX, YEAR_MAX, YEAR_MIN } from './field-limits';
 
-const FIRM_SIZES: FirmSize[] = ['solo', '2_10', '11_50', '51_200', '200_plus'];
+// LinkedIn's company-size bands. '200_plus' is the pre-2026-11-14 top band: no longer offered by
+// the wizard, still accepted so an application saved with it keeps validating on later saves.
+const FIRM_SIZES: FirmSize[] = [
+  'solo',
+  '2_10',
+  '11_50',
+  '51_200',
+  '201_500',
+  '501_1000',
+  '1001_5000',
+  '5001_10000',
+  '10001_plus',
+  '200_plus',
+];
 
 // title/company may be blank in a draft (a half-filled card saved by the wizard's per-step save);
 // both are required at submit — see application-completeness.ts.

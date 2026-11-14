@@ -75,4 +75,33 @@ describe('draft DTOs', () => {
     );
     expect(errors).toEqual([]);
   });
+
+  it('accept every firm-size band (nine current + legacy 200_plus), reject anything else', () => {
+    const errs = (firmSize: string) =>
+      validateSync(
+        plainToInstance(WorkExperienceDto, {
+          title: 'Partner',
+          company: 'Acme',
+          startYear: 2020,
+          isCurrent: true,
+          firmSize,
+        })
+      ).map((e) => e.property);
+    for (const band of [
+      'solo',
+      '2_10',
+      '11_50',
+      '51_200',
+      '201_500',
+      '501_1000',
+      '1001_5000',
+      '5001_10000',
+      '10001_plus',
+      '200_plus',
+    ]) {
+      expect(errs(band), band).toEqual([]);
+    }
+    expect(errs('1500_plus')).toEqual(['firmSize']);
+    expect(errs('')).toEqual(['firmSize']);
+  });
 });

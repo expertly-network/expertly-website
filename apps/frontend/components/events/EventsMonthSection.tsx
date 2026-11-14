@@ -48,7 +48,7 @@ export function EventsMonthSection({
   /** The current filters — from/to are the whole list's range and get clamped to this month. */
   query: ListEventsQuery;
   first: boolean;
-  renderEvent: (event: EventDto) => ReactNode;
+  renderEvent: (event: EventDto, index: number) => ReactNode;
 }) {
   const [items, setItems] = useState<EventDto[]>([]);
   const [total, setTotal] = useState<number | null>(null);

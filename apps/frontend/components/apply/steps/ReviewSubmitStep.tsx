@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { StepActions } from '@/components/apply/StepActions';
 import { scrollToFirstError } from '@/components/apply/scrollToError';
-import { FIRM_SIZES, REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
+import { firmSizeLabel, REGIONS, TERMS_VERSION, PRIVACY_VERSION, type WizardFormState } from '@/components/apply/types';
 import { USER_AGREEMENT_URL, PRIVACY_POLICY_URL, COOKIE_POLICY_URL } from '@/lib/consent';
 import { previewCoupon } from '@/lib/api/applications';
 import { ReviewRow, ReviewListRow, ReviewWorkHistoryRow } from '@/components/shared/ApplicationReview';
@@ -284,7 +284,7 @@ export function ReviewSubmitStep({
               const firmSize = roles.find((w) => w.firmSize)?.firmSize;
               return {
                 name: roles[0].company || 'Company not named',
-                detail: firmSize ? `Firm size: ${FIRM_SIZES.find((f) => f.value === firmSize)?.label}` : undefined,
+                detail: firmSize ? `Firm size: ${firmSizeLabel(firmSize)}` : undefined,
                 link: externalLink(roles.find((w) => w.companyUrl)?.companyUrl, 'Website'),
                 roles: roles.map((w) => ({
                   title: w.title,

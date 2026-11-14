@@ -255,9 +255,19 @@ wizard step to resume on, pure UX convenience, not validated).
   `@IsUrl` alone admitted e.g. `ftp://`): `400 URL_INVALID` otherwise.
 - `region` — **no longer accepted from the client at all** (accepted-but-ignored if sent; the DTO
   field is kept only for backward compatibility with older callers). Always derived server-side
-  from `country` via a small fixed map (`apps/backend/src/applications/constants/country-region.ts`)
-  whenever a call's patch touches `country`. `country: 'Other'` has no defensible region and is
-  left `null`, exempted from the submit-completeness check.
+  from `country` via a fixed map covering every country
+  (`apps/backend/src/applications/constants/country-region.ts`, the inverse of the frontend's
+  `REGION_COUNTRIES`), re-derived from the row's resulting `country` on **every** save/submit, not
+  only when the call touches `country` (2026-11-14 — a row saved earlier with a then-unmapped
+  country such as Mexico or Sri Lanka held `region = null` and could never submit; it now heals on
+  the next write). `country: 'Other'` or any unknown name has no defensible region and is left
+  `null`; only `'Other'` is exempted from the submit-completeness check.
+- `country` is one of the app's canonical country names (the frontend's `ALL_COUNTRIES`, 195
+  entries, = the keys of `COUNTRY_TO_REGION`) or `'Other'`. The wizard offers all of them in a
+  searchable list (2026-11-14; previously an 18-country shortlist). The submit-time State/City
+  consistency check uses the `country-state-city` dataset, which spells 18 of those names
+  differently — bridged by `constants/country-dataset-aliases.ts` (mirrored in the frontend's
+  `lib/location/dataset-aliases.ts`), so the stored value is always the canonical spelling.
 - `selectedTier`, `listPriceCents`, `discountAmountCents`, `amountDueCents`, `paymentStatus`,
   `status` (beyond the `'draft'|'submitted'` request flag), `applicantId` are **never accepted
   from the client** — computed server-side exactly as before:
@@ -484,6 +494,12 @@ optional.
 Changed 2026-11-05: that same `isCurrent` entry's `firmSize` is also required at submit (same
 cross-field `assertComplete()` rule, `400 APPLICATION_INCOMPLETE` naming it). The wizard asks for
 firm size and company website only for the current company and doesn't send them for past ones.
+
+Changed 2026-11-14: `firmSize` uses LinkedIn's company-size bands — `solo` · `2_10` · `11_50` ·
+`51_200` · `201_500` · `501_1000` · `1001_5000` · `5001_10000` · `10001_plus`. The old top band
+`200_plus` is **legacy**: still accepted (`@IsIn`) so applications saved before this date keep
+validating, but the wizard no longer offers it. Additive, no version bump; anything else →
+`400 VALIDATION_FAILED`.
 
 Changed 2026-09-29: that same `isCurrent` entry's `companyUrl` is now also required at submit —
 `member_profiles.firm_website` became `NOT NULL`, so it's no longer optional the way

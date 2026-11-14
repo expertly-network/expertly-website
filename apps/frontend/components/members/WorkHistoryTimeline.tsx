@@ -92,7 +92,7 @@ export function WorkHistoryTimeline({
             <div className="rounded-panel border border-line bg-bg-card p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
               <div className="flex items-start justify-between gap-2 max-[480px]:flex-col max-[480px]:gap-1">
                 <div className="min-w-0">
-                  <div className="text-profile-item font-semibold text-ink">{group.company}</div>
+                  <div className="text-title font-semibold text-ink">{group.company}</div>
                   {multiple && <div className="mt-0.5 text-profile-meta text-ink-3">{group.roles.length} roles</div>}
                 </div>
                 <Period {...groupPeriod(group.roles)} />
