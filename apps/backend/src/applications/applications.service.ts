@@ -584,6 +584,15 @@ export class ApplicationsService {
         rejection_reason: dto.rejectionReason,
       });
       if (!claimed) throw this.alreadyReviewed();
+      try {
+        await this.emailService.enqueueAutomation(
+          'application_rejected',
+          { profileId: application.applicant_id, workEmail: application.work_email },
+          { idempotencyKey: `application_rejected:${applicationId}`, variables: { REASON: dto.rejectionReason! } }
+        );
+      } catch {
+        this.logger.error(`Application ${applicationId}: rejection email enqueue failed`);
+      }
       return { status: 'rejected' };
     }
 
@@ -647,6 +656,16 @@ export class ApplicationsService {
     } catch (error) {
       await this.rollbackApproval(application, profileCreated);
       throw error;
+    }
+
+    try {
+      await this.emailService.enqueueAutomation(
+        'application_approved',
+        { profileId: application.applicant_id, workEmail: application.work_email },
+        { idempotencyKey: `application_approved:${applicationId}` }
+      );
+    } catch {
+      this.logger.error(`Application ${applicationId}: approval email enqueue failed`);
     }
 
     return { status: 'approved' };

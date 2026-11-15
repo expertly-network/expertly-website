@@ -56,12 +56,21 @@ function setup() {
     ],
     documents: [],
   } as unknown as ApplicationRow;
+  const submitted = { ...draft, status: 'submitted' } as unknown as ApplicationRow;
   const repo = {
     findLatestByApplicant: vi.fn().mockResolvedValue(draft),
     hasLinkedInIdentity: vi.fn().mockResolvedValue(true),
     updateById: vi.fn(async (_id: string, patch: Partial<ApplicationRow>) => ({ ...draft, ...patch })),
     findServiceDetails: vi.fn().mockResolvedValue(new Map()),
     createSignedDocumentUrls: vi.fn().mockResolvedValue({}),
+    findByIdForReview: vi.fn().mockResolvedValue(submitted),
+    claimForDecision: vi.fn().mockResolvedValue(true),
+    findUniqueMemberSlug: vi.fn().mockResolvedValue('alex-morgan'),
+    insertMemberProfile: vi.fn().mockResolvedValue(undefined),
+    insertMemberServices: vi.fn().mockResolvedValue(undefined),
+    promoteToMember: vi.fn().mockResolvedValue(undefined),
+    revertDecision: vi.fn().mockResolvedValue(undefined),
+    deleteMemberProfile: vi.fn().mockResolvedValue(undefined),
   };
   const consent = {
     getActiveVersionIds: vi.fn().mockResolvedValue({
@@ -120,5 +129,59 @@ describe('application submission emails', () => {
       'save failed'
     );
     expect(email.enqueueAutomation).not.toHaveBeenCalled();
+  });
+});
+
+const reviewer = {
+  id: 'admin-1',
+  email: 'admin@example.com',
+  role: 'admin',
+  status: 'active',
+  memberStatus: null,
+  firstName: 'Ada',
+  lastName: 'Min',
+} satisfies AuthenticatedUser;
+
+describe('application review emails', () => {
+  it('enqueues application_approved to the applicant on approval', async () => {
+    const { service, email } = setup();
+    const result = await service.reviewApplication('application-1', reviewer, {
+      status: 'approved',
+      approvedServiceId: 'service-1',
+      memberTier: 'budding_entrepreneur',
+    });
+    expect(result.status).toBe('approved');
+    expect(email.enqueueAutomation).toHaveBeenCalledWith(
+      'application_approved',
+      { profileId: user.id, workEmail: 'jane@work.example' },
+      { idempotencyKey: 'application_approved:application-1' }
+    );
+  });
+  it('enqueues application_rejected with the rejection reason on rejection', async () => {
+    const { service, email } = setup();
+    const result = await service.reviewApplication('application-1', reviewer, {
+      status: 'rejected',
+      rejectionReason: 'Peer references could not be verified.',
+    });
+    expect(result.status).toBe('rejected');
+    expect(email.enqueueAutomation).toHaveBeenCalledWith(
+      'application_rejected',
+      { profileId: user.id, workEmail: 'jane@work.example' },
+      {
+        idempotencyKey: 'application_rejected:application-1',
+        variables: { REASON: 'Peer references could not be verified.' },
+      }
+    );
+  });
+  it('still approves/rejects when the decision email fails to enqueue', async () => {
+    const { service, email } = setup();
+    email.enqueueAutomation.mockRejectedValueOnce(new Error('queue unavailable'));
+    await expect(
+      service.reviewApplication('application-1', reviewer, {
+        status: 'approved',
+        approvedServiceId: 'service-1',
+        memberTier: 'budding_entrepreneur',
+      })
+    ).resolves.toMatchObject({ status: 'approved' });
   });
 });

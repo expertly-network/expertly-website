@@ -532,6 +532,12 @@ returns — the queue is small and already fully loaded per request either way. 
 
 **On reject:** stamps `reviewed_by`/`reviewed_at`/`rejection_reason` only.
 
+**Added 2026-11-15:** both outcomes enqueue an email to the applicant's `workEmail` — the
+`application_approved` automation on approve, `application_rejected` (carrying `REASON` =
+`rejectionReason`) on reject — see "Email engine" for the automations themselves. Enqueue is
+best-effort and happens after the decision is already committed: a failure is logged and does not
+fail or roll back the review.
+
 **Errors:** `401`/`403` per the 🛡️ badge · `404` no such application · `409` application isn't
 `submitted`/`under_review` · `400` rejecting without a `rejectionReason`, approving without a
 valid `approvedServiceId`. Codes: `404 APPLICATION_NOT_FOUND` · `409 APPLICATION_NOT_REVIEWABLE` / `APPLICATION_ALREADY_REVIEWED` / `MEMBER_SLUG_TAKEN` (approval lost the member-slug race 3 times — retried with a fresh slug first) · `400 REJECTION_REASON_REQUIRED`, `APPROVED_SERVICE_REQUIRED`, `APPROVED_SERVICE_INVALID`, `VALIDATION_FAILED` (2026-10-30: `rejectionReason` ≤ 2000; `approvedServiceId` must be a UUID).
@@ -2019,22 +2025,30 @@ Message list filters: `status`, `automationKey`, `email` (exact, case-insensitiv
 **Template variables.** Every email is sent with `NAME` (the recipient's first name, `there` when
 blank — Resend reserves `FIRST_NAME`) and `SITE_URL` (the backend's `SITE_URL`, so image and link
 paths resolve per environment: `{{{SITE_URL}}}/brand/email/logo-dark.png`). `renewal_due_soon`
-also sends `RENEWAL_DATE` (e.g. `7 Dec 2026`). A template must declare only these; a declared
-variable with no fallback that the event doesn't send makes Resend reject the send (the message
-fails with `Resend HTTP 422` — fix the template, then retry the message).
+also sends `RENEWAL_DATE` (e.g. `7 Dec 2026`); `application_rejected` also sends `REASON` (the
+admin's `rejectionReason`, unescaped — it is internal/admin-authored text, not end-user input). A
+template must declare only these; a declared variable with no fallback that the event doesn't send
+makes Resend reject the send (the message fails with `Resend HTTP 422` — fix the template, then
+retry the message).
 
 **Recipient.** Every email goes to the recipient's **work email** only — the application's
-`workEmail` for submission confirmations, `member_profiles.work_email` for renewal reminders. There
-is no fallback to the contact or login email; without a work email nothing is queued.
+`workEmail` for submission confirmations and review decisions, `member_profiles.work_email` for
+renewal reminders. There is no fallback to the contact or login email; without a work email nothing
+is queued.
 
 **Automations.** `founding_application_submitted` → `founding-seat-held` (initially enabled),
 `application_submitted` → `application-received` (initially disabled), `renewal_due_soon` →
-`renewal-due-soon` (initially disabled). A successful application submission chooses the founding
-automation when `SITE_LAUNCHED=false`, otherwise the regular one; enqueue failures are logged
-without failing the saved submission. Renewal reminders go to active members with a null/non-paid
-payment override, within the 30 days before their 12-month anniversary. Each message snapshots
-the template it was queued with. Duplicate protection: one message per application/event (a new
-application after a rejection gets its own confirmation) and per member/renewal due date.
+`renewal-due-soon` (initially disabled), `application_approved` → `application-approved` (initially
+disabled), `application_rejected` → `application-rejected` (initially disabled). A successful
+application submission chooses the founding automation when `SITE_LAUNCHED=false`, otherwise the
+regular one; enqueue failures are logged without failing the saved submission. `PATCH
+/admin/applications/:id` (see "Membership applications — admin") enqueues `application_approved`
+or `application_rejected` the same way — best-effort, after the decision is committed, never
+failing the review itself. Renewal reminders go to active members with a null/non-paid payment override,
+within the 30 days before their 12-month anniversary. Each message snapshots the template it was
+queued with. Duplicate protection: one message per application/event (a new application after a
+rejection gets its own confirmation, and approving/rejecting each key off `applicationId`) and per
+member/renewal due date.
 
 **Delivery.** The worker (`EMAIL_WORKER_ENABLED=true`) sends `template: { id, variables }` with
 `from`/`reply_to` from the environment. A failed attempt is retried with backoff (1 min, 5 min,
