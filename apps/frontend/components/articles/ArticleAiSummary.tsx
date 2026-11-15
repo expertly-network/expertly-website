@@ -21,9 +21,9 @@ export function ArticleAiSummary({ summary, className = '' }: { summary: string 
   if (points.length === 0) return null;
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--accent)_22%,transparent)] bg-[color-mix(in_oklab,var(--accent)_6%,var(--bg-alt))] p-4 min-[640px]:p-6 ${className}`}
+      className={`relative overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--accent)_22%,transparent)] bg-[color-mix(in_oklab,var(--accent)_6%,var(--bg-alt))] p-3.5 min-[640px]:p-5 ${className}`}
     >
-      <div className="mb-3.5 flex items-center gap-2">
+      <div className="mb-2.5 flex items-center gap-2">
         <div className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-accent text-bg-card">
           <svg
             width="12"
@@ -41,7 +41,7 @@ export function ArticleAiSummary({ summary, className = '' }: { summary: string 
         <span className="text-mono-label font-bold text-accent">AI SUMMARY</span>
         <span className="art-ai-pulse ml-auto h-1.5 w-1.5 flex-none rounded-full bg-accent" />
       </div>
-      <ul className="relative flex flex-col gap-2.5">
+      <ul className="relative flex flex-col gap-2">
         {points.map((point, i) => (
           // From 640px every point shows; on phones the later ones move into the disclosure below.
           <Point key={i} text={point} className={i < PHONE_POINTS ? 'flex' : 'hidden sm:flex'} />
@@ -49,7 +49,7 @@ export function ArticleAiSummary({ summary, className = '' }: { summary: string 
       </ul>
       {points.length > PHONE_POINTS && (
         <details className="group sm:hidden">
-          <summary className="mt-3 flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">
+          <summary className="mt-2 flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">
             <span className="group-open:hidden">
               Show {points.length - PHONE_POINTS} more takeaway{points.length - PHONE_POINTS === 1 ? '' : 's'}
             </span>
@@ -69,7 +69,7 @@ export function ArticleAiSummary({ summary, className = '' }: { summary: string 
               <path d="M6 9l6 6 6-6" />
             </svg>
           </summary>
-          <ul className="flex flex-col gap-2.5 pb-1">
+          <ul className="flex flex-col gap-2 pb-1">
             {points.slice(PHONE_POINTS).map((point, i) => (
               <Point key={i} text={point} />
             ))}

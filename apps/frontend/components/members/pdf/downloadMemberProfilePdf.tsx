@@ -11,6 +11,7 @@ import {
   saveBlob,
   stampLogoOnQr,
 } from '@/lib/pdf/browser';
+import { stripEmojiDeep } from '@/lib/pdf/strip-emoji';
 import { MemberProfilePdf, type PdfRecommendation } from './MemberProfilePdf';
 
 // Client-only: builds the member profile PDF in the browser and saves it. Imported lazily from
@@ -67,13 +68,13 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
 
   const blob = await pdf(
     <MemberProfilePdf
-      member={member}
+      member={stripEmojiDeep(member)}
       profileUrl={profileUrl}
       qrDataUrl={qrDataUrl}
       logoSrc={logoDataUrl}
       photoDataUrl={photoDataUrl}
       generatedAt={new Date()}
-      recommendations={recommendations}
+      recommendations={stripEmojiDeep(recommendations)}
     />
   ).toBlob();
 

@@ -11,6 +11,7 @@ export const PDF_COLORS = {
   bgAlt: '#efeee7',
   accent: '#00a682',
   accentTint: '#dbf2ed',
+  accentSoft: '#99dbcd', // accent at ~40% on white: a quiet rule beside highlighted entries
   band: '#0b0b0c', // header band, same as the web profile's `.mp-header-band`
   white: '#ffffff',
   seasonedText: '#b45309',

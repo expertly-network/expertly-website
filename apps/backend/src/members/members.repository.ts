@@ -5,9 +5,6 @@ import type { ApplicationRegion, MembershipTier } from '@shared/membership-appli
 import type {
   MemberAward,
   MemberCredential,
-  MemberEditItemDecision,
-  MemberEditSection,
-  MemberEditStatus,
   MemberEducation,
   MemberEngagement,
   MemberKeyClient,
@@ -27,7 +24,6 @@ const MEMBER_PROFILE_COLUMNS = [
   'headline',
   'bio',
   'firm_name',
-  'firm_website',
   'region',
   'country',
   'state',
@@ -45,6 +41,7 @@ const MEMBER_PROFILE_COLUMNS = [
   'linkedin_url',
   'website',
   'is_verified',
+  'contact_verified',
   'photo_path',
   'status',
   'application_id',
@@ -62,21 +59,6 @@ const MEMBER_DETAIL_JSONB_COLUMNS = [
   'testimonials',
   'awards',
   'key_clients',
-] as const;
-
-const MEMBER_PROFILE_EDIT_COLUMNS = [
-  'id',
-  'member_id',
-  'section',
-  'payload',
-  'proof_file_url',
-  'proof_link',
-  'status',
-  'review_note',
-  'item_reviews',
-  'reviewed_by',
-  'reviewed_at',
-  'submitted_at',
 ] as const;
 
 const PROFILE_IDENTITY_COLUMNS = [
@@ -103,7 +85,6 @@ export interface MemberProfileRow {
   headline: string | null;
   bio: string | null;
   firm_name: string | null;
-  firm_website: string | null;
   region: ApplicationRegion | null;
   country: string;
   state: string | null;
@@ -121,6 +102,7 @@ export interface MemberProfileRow {
   linkedin_url: string | null;
   website: string | null;
   is_verified: boolean;
+  contact_verified: boolean;
   // Path within the (public) application-assets bucket, same convention and same file as the
   // source application's photo_path — or a legacy/seed full external URL. Never a signed URL.
   photo_path: string | null;
@@ -139,21 +121,6 @@ export interface MemberProfileDetailRow extends MemberProfileRow {
   testimonials: MemberTestimonial[];
   awards: MemberAward[];
   key_clients: MemberKeyClient[];
-}
-
-export interface MemberProfileEditRow {
-  id: string;
-  member_id: string;
-  section: MemberEditSection;
-  payload: unknown;
-  proof_file_url: string | null;
-  proof_link: string | null;
-  status: MemberEditStatus;
-  review_note: string | null;
-  item_reviews: { index: number; decision: MemberEditItemDecision; reason: string | null }[] | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  submitted_at: string;
 }
 
 export interface ProfileIdentityRow {
@@ -179,8 +146,6 @@ export interface MemberDirectoryFilters {
 }
 
 export type MemberProfileUpdate = Database['public']['Tables']['member_profiles']['Update'];
-export type MemberProfileEditInsert = Database['public']['Tables']['member_profile_edits']['Insert'];
-export type MemberProfileEditUpdate = Database['public']['Tables']['member_profile_edits']['Update'];
 
 @Injectable()
 export class MembersRepository {
@@ -188,10 +153,6 @@ export class MembersRepository {
 
   private memberProfiles() {
     return this.supabase.db.from('member_profiles');
-  }
-
-  private memberProfileEdits() {
-    return this.supabase.db.from('member_profile_edits');
   }
 
   private memberServices() {
@@ -330,27 +291,6 @@ export class MembersRepository {
     return data.publicUrl;
   }
 
-  async insertEdit(row: MemberProfileEditInsert): Promise<MemberProfileEditRow> {
-    const { data: inserted, error } = await this.memberProfileEdits()
-      .insert(row)
-      .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .single();
-
-    if (error || !inserted) throw new InternalServerErrorException('Failed to submit profile edit.');
-    return inserted as unknown as MemberProfileEditRow;
-  }
-
-  async findEditsByMember(memberId: string): Promise<MemberProfileEditRow[]> {
-    const { data, error } = await this.memberProfileEdits()
-      .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .eq('member_id', memberId)
-      .order('submitted_at', { ascending: false })
-      .limit(MAX_LIST_ROWS);
-
-    if (error) throw new InternalServerErrorException('Failed to load profile edits.');
-    return (data ?? []) as unknown as MemberProfileEditRow[];
-  }
-
   async adminFindAllProfiles(): Promise<MemberProfileRow[]> {
     const { data, error } = await this.memberProfiles()
       .select(MEMBER_PROFILE_COLUMNS.join(', ') + ', status')
@@ -375,47 +315,6 @@ export class MembersRepository {
         message: 'Member profile not found.',
       });
     return updated as unknown as MemberProfileRow;
-  }
-
-  // `status` 'all' returns every edit regardless of status.
-  async findAllEditsByStatus(status: MemberEditStatus | 'all'): Promise<MemberProfileEditRow[]> {
-    let query = this.memberProfileEdits().select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '));
-    if (status !== 'all') query = query.eq('status', status);
-    const { data, error } = await query.order('submitted_at', { ascending: false }).limit(MAX_LIST_ROWS);
-
-    if (error) throw new InternalServerErrorException('Failed to load profile edits.');
-    return (data ?? []) as unknown as MemberProfileEditRow[];
-  }
-
-  async findEditById(id: string): Promise<MemberProfileEditRow> {
-    const { data, error } = await this.memberProfileEdits()
-      .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .eq('id', id)
-      .maybeSingle();
-
-    if (error) throw new InternalServerErrorException('Failed to load profile edit.');
-    if (!data)
-      throw new NotFoundException({
-        code: 'MEMBER_EDIT_NOT_FOUND',
-        message: 'Profile edit not found.',
-      });
-    return data as unknown as MemberProfileEditRow;
-  }
-
-  // Closes any older still-pending edit for the same member + section once a newer one is
-  // submitted, so approving a stale request can never overwrite a newer one.
-  async supersedePendingEdits(memberId: string, section: MemberEditSection, exceptId: string): Promise<void> {
-    const { error } = await this.memberProfileEdits()
-      .update({
-        status: 'rejected',
-        review_note: 'Replaced by a newer submission.',
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq('member_id', memberId)
-      .eq('section', section)
-      .eq('status', 'pending')
-      .neq('id', exceptId);
-    if (error) throw new InternalServerErrorException('Failed to update earlier profile edits.');
   }
 
   // Short-lived read URLs for private member-proofs objects, for the admin review page.
@@ -487,28 +386,6 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to store client logo.');
   }
 
-  // Records a review decision only while the edit is still pending; null when it no longer is
-  // (already reviewed, or superseded by a newer submission).
-  async claimEditDecision(id: string, patch: MemberProfileEditUpdate): Promise<MemberProfileEditRow | null> {
-    const { data: updated, error } = await this.memberProfileEdits()
-      .update(patch)
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select(MEMBER_PROFILE_EDIT_COLUMNS.join(', '))
-      .maybeSingle();
-
-    if (error) throw new InternalServerErrorException('Failed to record review decision.');
-    return (updated as unknown as MemberProfileEditRow | null) ?? null;
-  }
-
-  // Undoes claimEditDecision when applying the approved edit fails.
-  async revertEditDecision(id: string): Promise<void> {
-    const { error } = await this.memberProfileEdits()
-      .update({ status: 'pending', review_note: null, item_reviews: null, reviewed_by: null, reviewed_at: null })
-      .eq('id', id);
-    if (error) throw new InternalServerErrorException('Failed to revert review decision.');
-  }
-
   // PATCH /members/:id — the owner's directly-editable columns.
   async updateOwnFields(memberId: string, patch: MemberSelfUpdate): Promise<void> {
     const { data, error } = await this.memberProfiles()
@@ -529,26 +406,59 @@ export class MembersRepository {
     if (error) throw new InternalServerErrorException('Failed to apply headline/bio edit.');
   }
 
-  async applyContactEdit(
+  // Live contact save (2026-11-15). The personal contact_email is no longer collected, so it is
+  // left untouched. `contactVerified` is false whenever a field changed.
+  async applyContactLive(
     memberId: string,
     contact: {
-      contactEmail: string | null;
       workEmail: string | null;
       contactPhone: string | null;
       linkedinUrl: string | null;
       website: string | null;
-    }
+    },
+    contactVerified: boolean
   ): Promise<void> {
     const { error } = await this.memberProfiles()
       .update({
-        contact_email: contact.contactEmail,
         work_email: contact.workEmail,
         contact_phone: contact.contactPhone,
         linkedin_url: contact.linkedinUrl,
         website: contact.website,
+        contact_verified: contactVerified,
       })
       .eq('profile_id', memberId);
-    if (error) throw new InternalServerErrorException('Failed to apply contact edit.');
+    if (error) throw new InternalServerErrorException('Failed to save contact information.');
+  }
+
+  async setContactVerified(memberId: string, verified: boolean): Promise<void> {
+    const { data, error } = await this.memberProfiles()
+      .update({ contact_verified: verified })
+      .eq('profile_id', memberId)
+      .select('profile_id')
+      .maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to update contact verification.');
+    if (!data) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+  }
+
+  /** The admin's whole-profile "GrowXQ Verified" decision (independent of the per-entry ticks). */
+  async setProfileVerified(memberId: string, verified: boolean): Promise<void> {
+    const { data, error } = await this.memberProfiles()
+      .update({ is_verified: verified })
+      .eq('profile_id', memberId)
+      .select('profile_id')
+      .maybeSingle();
+    if (error) throw new InternalServerErrorException('Failed to update profile verification.');
+    if (!data) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+  }
+
+  // Every active member's verifiable sections, for the admin's "what needs verifying" list.
+  async findAllForVerification(): Promise<MemberProfileDetailRow[]> {
+    const { data, error } = await this.memberProfiles()
+      .select([...MEMBER_PROFILE_COLUMNS, ...MEMBER_DETAIL_JSONB_COLUMNS].join(', '))
+      .eq('status', 'active')
+      .limit(MAX_LIST_ROWS);
+    if (error) throw new InternalServerErrorException('Failed to load members for verification.');
+    return data as unknown as MemberProfileDetailRow[];
   }
 
   async applySectionEdit(

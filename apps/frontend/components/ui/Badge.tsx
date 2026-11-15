@@ -8,7 +8,7 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   brand: 'bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-accent',
   success: 'bg-[color-mix(in_oklab,var(--ok)_10%,transparent)] text-ok',
   danger: 'bg-[color-mix(in_oklab,var(--error)_10%,transparent)] text-error',
-  // The `warn` token pair (tailwind.config.ts), shared with SectionBadge's "pending verification" chip.
+  // The `warn` token pair (tailwind.config.ts), shared with VerificationBadge's "Pending Verification" chip.
   warning: 'bg-warn-soft text-warn',
   // Same one-off-Tailwind-default pattern as `warning`, for a status that isn't success/error/
   // pending-review but still needs its own distinct hue.

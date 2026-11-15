@@ -119,12 +119,6 @@
       "description": "A consultation_requests.id, e.g. from GET /consultations/mine."
     },
     {
-      "key": "memberEditId",
-      "value": "00000000-0000-0000-0000-000000000009",
-      "type": "string",
-      "description": "A member_profile_edits.id, e.g. from GET /admin/member-edits."
-    },
-    {
       "key": "perkId",
       "value": "",
       "type": "string"
@@ -183,6 +177,24 @@
       "value": "",
       "type": "string",
       "description": "Valid v1,base64 HMAC signature over exact body."
+    },
+    {
+      "key": "section",
+      "value": "awards",
+      "type": "string",
+      "description": "A self-editable section name: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards."
+    },
+    {
+      "key": "itemId",
+      "value": "00000000-0000-0000-0000-00000000000b",
+      "type": "string",
+      "description": "The id of one item inside a profile section (from GET /members/:slug)."
+    },
+    {
+      "key": "recommendationRequestId",
+      "value": "00000000-0000-0000-0000-00000000000d",
+      "type": "string",
+      "description": "A recommendation_requests.id, e.g. from GET /members/me/recommendation-requests."
     }
   ],
   "item": [
@@ -1200,6 +1212,40 @@
       ]
     },
     {
+      "name": "Stats",
+      "item": [
+        {
+          "name": "GET /stats — Home hero figures (real counts)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stats"
+              ]
+            },
+            "description": "Public, no auth. { members, jurisdictions, practiceAreas, consultations }: active members; distinct countries among them; active categories; every consultation request received (any status). The home page hero's count-up figures.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Events",
       "item": [
         {
@@ -1631,7 +1677,7 @@
                 "{{memberSlug}}"
               ]
             },
-            "description": "🔒 Auth, any role. Keyed on slug, NOT the UUID. `404` if not found, not active, or a deactivated profile that isn’t the caller’s own.\n\nContact details (2026-10-30): `contactEmail`, `workEmail`, `contactPhone`, `linkedinUrl` are returned only to the owner, an admin with `manageMembers`, an active member, or a client with any consultation request to this member — everyone else gets `null` for those four. New field `contactVisible: boolean` says which (website/firmWebsite stay public). To check both sides, run this as a client before and after `POST /consultations`."
+            "description": "🔒 Auth, any role. Keyed on slug, NOT the UUID. `404` if not found, not active, or a deactivated profile that isn’t the caller’s own.\n\nContact details (2026-10-30): `contactEmail`, `workEmail`, `contactPhone`, `linkedinUrl` are returned only to the owner, an admin with `manageMembers`, an active member, or a client with any consultation request to this member — everyone else gets `null` for those four. New field `contactVisible: boolean` says which (`website` stays public). To check both sides, run this as a client before and after `POST /consultations`."
           },
           "response": []
         },
@@ -1673,75 +1719,6 @@
                 }
               }
             }
-          },
-          "response": []
-        },
-        {
-          "name": "POST /members/{{memberId}}/edits — Submit edit (pick a section)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{$guid}}",
-                "type": "text",
-                "disabled": true,
-                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/members/{{memberId}}/edits",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "members",
-                "{{memberId}}",
-                "edits"
-              ]
-            },
-            "description": "🔒 member, owner-only. Creates a `pending` edit — never touches the live profile until admin approval. Shipped body is the `headline_bio` section (no proof needed). `section` can be any of: headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards — each has a different `payload` shape, see docs/rest-api.md / packages/shared-types/member.ts. `work_experiences`/`education` share one top-level proof (`proofFileUrl`) for the whole batch; engagements/testimonials/awards/key_clients carry proof per item instead. Any file path in a proof field must start with `{{memberId}}/` (where the upload endpoint puts them).\n\n**To test work_experiences instead, replace the whole body with:**\n```json\n{\n  \"section\": \"work_experiences\",\n  \"payload\": [\n    {\n      \"title\": \"Principal Consultant\",\n      \"company\": \"Reyes Tax Advisory\",\n      \"startYear\": 2015,\n      \"endYear\": null,\n      \"isCurrent\": true,\n      \"description\": \"Lead advisor for cross-border structuring engagements.\"\n    }\n  ],\n  \"proofFileUrl\": \"{{memberId}}/work-experience-proof.pdf\"\n}\n```\n\n**Updated 2026-10-10.** Proof is optional everywhere. Items may carry `id` (live item id when editing) — live items now return their `proofAttachments` so you can resend them. Server rules: engagements need `clientName` (+ optional `clientEmail`, `verificationMethods` from engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other, `verificationMethodOther`); key_clients max 20; work_experiences may overlap (concurrent roles; stored newest-first; only end-before-start is rejected); contact accepts `workEmail`; testimonials accept optional `clientEmail` (2026-10-21). `clientEmail` on engagements/testimonials is only returned to the owner/admin.\n\n**To test engagements instead, replace the whole body with:**\n```json\n{\n  \"section\": \"engagements\",\n  \"payload\": [\n    {\n      \"title\": \"Cross-border restructuring\",\n      \"organization\": \"Acme Holdings\",\n      \"clientName\": \"Jane Doe\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"verificationMethods\": [\"engagement_letter\", \"other\"],\n      \"verificationMethodOther\": \"Signed scope email\",\n      \"year\": 2024,\n      \"url\": null,\n      \"proofAttachments\": [{ \"type\": \"link\", \"url\": \"https://example.com/letter.pdf\", \"label\": \"Engagement letter\" }]\n    }\n  ]\n}\n```\n\n**To test contact instead, replace the whole body with:**\n```json\n{\n  \"section\": \"contact\",\n  \"payload\": {\n    \"contactEmail\": \"priya@example.com\",\n    \"workEmail\": \"priya@firm.example.com\",\n    \"contactPhone\": \"+65 5555 0100\",\n    \"linkedinUrl\": \"https://www.linkedin.com/in/priya-menon\",\n    \"website\": null\n  }\n}\n```\n\n**To test testimonials instead, replace the whole body with:**\n```json\n{\n  \"section\": \"testimonials\",\n  \"payload\": [\n    {\n      \"quote\": \"Clear, practical advice on our Singapore holding structure.\",\n      \"clientName\": \"Jane Doe\",\n      \"clientTitle\": \"CFO\",\n      \"clientCompany\": \"Acme Holdings\",\n      \"clientEmail\": \"jane@acme.example\",\n      \"serviceName\": \"International Tax\",\n      \"occurredOn\": \"2026-03-01\",\n      \"proofAttachments\": []\n    }\n  ]\n}\n``` URL fields (contact.linkedinUrl/website, engagements[].url, key_clients[].logoUrl, link-type proofAttachments, proofLink) must be http(s) — anything else is `400 URL_INVALID`. Bounds: ≤50 items per array section, ≤10 proof attachments per item, ≤20 newly attached files per edit.\n\n**Payload hardening (2026-10-30):** unknown keys in a payload/item are stripped (`isVerified` included); proofAttachments entries keep only {type,url,label}. `400 FIELD_TOO_LONG`: short text (title, organization, clientName, company, degree, institution, field, name, issuingBody, clientTitle, clientCompany, serviceName, occurredOn, id, logoUploadPath, headline) > 300; description/quote > 2000; bio > 5000; URLs > 2048; emails > 254; contactPhone > 50; proof url > 2048 / label > 300. `400 PAYLOAD_ITEM_INVALID`: a text field that is not a string/null, a number field (year, endYear, startYear, startMonth, endMonth) not a number/null, or a non-boolean isCurrent. key_clients: an item without a new `logoUploadPath` keeps the live item's logoUrl on approval; a client-sent `logoUrl` is ignored. `429 RATE_LIMITED` (`write` bucket).",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"section\": \"headline_bio\",\n  \"payload\": {\n    \"headline\": \"Cross-Border Tax & Transfer Pricing Advisor\",\n    \"bio\": \"I help fast-growing companies manage multi-jurisdiction tax exposure as they scale internationally.\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "GET /members/{{memberId}}/edits — List my edit requests",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Request-Id",
-                "value": "{{$guid}}",
-                "type": "text",
-                "disabled": true,
-                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/members/{{memberId}}/edits",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "members",
-                "{{memberId}}",
-                "edits"
-              ]
-            },
-            "description": "🔒 Owner-only. Any status, newest first — drives the \"pending verification\" badge."
           },
           "response": []
         },
@@ -1887,6 +1864,163 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"isHidden\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT members/{{memberId}}/sections/{{section}} — Save a profile section (goes live at once)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/sections/{{section}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "sections",
+                "{{section}}"
+              ]
+            },
+            "description": "🔑 member, owner-only. Replaces the whole section and applies it immediately; new or materially changed items show \"Pending Verification\" until an admin verifies them. `{{section}}` is one of headline_bio, contact, engagements, education, work_experiences, key_clients, testimonials, awards. Returns `{ changed, member }` (`changed: false` when nothing differed — nothing is written). Proof is per item: `proofAttachments: [{ type: 'link'|'file', url, label }]` (a file's `url` is the `path` from POST /members/{{memberId}}/uploads). The shipped body is the `awards` shape; to test another section, replace the whole body with the matching example:\n\n**engagements:** `{ \"payload\": [{ \"title\": \"Cross-border restructuring\", \"clientName\": \"Acme Holdings\", \"isConfidential\": false, \"year\": 2024 }] }`\n\n**testimonials:** `{ \"payload\": [{ \"quote\": \"Clear, rigorous and easy to work with.\", \"clientName\": \"Asha Rao\", \"clientTitle\": \"CFO\", \"clientCompany\": \"Acme Holdings\" }] }`\n\n**education:** `{ \"payload\": [{ \"degree\": \"MBA\", \"field\": \"Finance\", \"institution\": \"IIM Ahmedabad\", \"endYear\": 2008 }] }`\n\n**work_experiences:** `{ \"payload\": [{ \"title\": \"Partner\", \"company\": \"M2K Advisors\", \"startYear\": 2014, \"isCurrent\": true }] }`\n\n**key_clients:** `{ \"payload\": [{ \"name\": \"Acme Holdings\" }] }`\n\n**contact:** `{ \"payload\": { \"workEmail\": \"jane@firm.com\", \"contactPhone\": \"+91 98765 43210\", \"linkedinUrl\": \"https://www.linkedin.com/in/jane\", \"website\": \"https://firm.com\" } }`\n\n**headline_bio:** `{ \"payload\": { \"headline\": \"Partner, Direct Tax\", \"bio\": \"…\" } }`\n\nErrors: 400 (ENGAGEMENT_TITLE_REQUIRED, ENGAGEMENT_CLIENT_NAME_REQUIRED, TESTIMONIAL_QUOTE_REQUIRED, TESTIMONIAL_NAME_REQUIRED, AWARD_TITLE_REQUIRED, EDUCATION_INVALID, WORK_HISTORY_INVALID, UPLOAD_NOT_OWNED, UPLOAD_INVALID_TYPE, …), 403 MEMBER_NOT_OWNER.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payload\": [\n    {\n      \"id\": \"00000000-0000-0000-0000-00000000000b\",\n      \"title\": \"Best Tax Advisory Firm\",\n      \"issuingBody\": \"Economic Times\",\n      \"year\": 2024,\n      \"description\": \"Recognised for cross-border M&A tax structuring.\",\n      \"proofAttachments\": [\n        {\n          \"type\": \"link\",\n          \"url\": \"https://example.com/award-announcement\",\n          \"label\": \"Announcement\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST members/{{memberId}}/recommendation-requests — Ask a member for a recommendation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/{{memberId}}/recommendation-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "{{memberId}}",
+                "recommendation-requests"
+              ]
+            },
+            "description": "🔑 member. `{{memberId}}` is the member being asked (any active member other than you). Emails them (`recommendation_requested`). `message` optional, ≤ 500 chars. Errors: 400 RECOMMENDATION_REQUEST_SELF, 403 RECOMMENDATION_AUTHOR_NOT_ACTIVE_MEMBER, 404 MEMBER_NOT_FOUND, 409 RECOMMENDATION_REQUEST_PENDING / RECOMMENDATION_ALREADY_GIVEN, 429 RECOMMENDATION_REQUEST_COOLDOWN (30 days after an ignored or cancelled request) / RECOMMENDATION_REQUEST_LIMIT (10 open).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"We worked together on the Acme restructuring — would you share a few words about it?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET members/me/recommendation-requests — List my recommendation requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/members/me/recommendation-requests?direction=received",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "members",
+                "me",
+                "recommendation-requests"
+              ],
+              "query": [
+                {
+                  "key": "direction",
+                  "value": "received"
+                }
+              ]
+            },
+            "description": "🔑 member. `direction=received` (default): pending requests asking me. `direction=sent`: requests I made — an ignored request is reported to the requester as `pending`."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH recommendation-requests/{{recommendationRequestId}} — Ignore (recipient) or cancel (requester) a request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{$guid}}",
+                "type": "text",
+                "disabled": true,
+                "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recommendation-requests/{{recommendationRequestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recommendation-requests",
+                "{{recommendationRequestId}}"
+              ]
+            },
+            "description": "🔑 member. The recipient sends `ignore` (a silent decline the requester never sees); the requester sends `cancel`. To cancel instead, replace the whole body with: `{ \"action\": \"cancel\" }`. Errors: 403 RECOMMENDATION_REQUEST_FORBIDDEN, 404 RECOMMENDATION_REQUEST_NOT_FOUND, 409 RECOMMENDATION_REQUEST_NOT_PENDING.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"ignore\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3445,7 +3579,7 @@
               "response": []
             },
             {
-              "name": "GET /admin/members/{{memberId}}/edits — Get member edits detail (per-member review page)",
+              "name": "GET admin/member-verification — Members with anything awaiting verification",
               "request": {
                 "method": "GET",
                 "header": [
@@ -3458,7 +3592,34 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/edits",
+                  "raw": "{{baseUrl}}/admin/member-verification",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "member-verification"
+                  ]
+                },
+                "description": "🛡️ manageMembers. One row per member with unverified items, an unverified contact block or open requests; members who responded to a request come first."
+              },
+              "response": []
+            },
+            {
+              "name": "GET admin/members/{{memberId}}/verification — Get one member's verification detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/verification",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -3466,49 +3627,15 @@
                     "admin",
                     "members",
                     "{{memberId}}",
-                    "edits"
+                    "verification"
                   ]
                 },
-                "description": "🛡️ manageMembers. Current live values + every edit + signed proof-file URLs, in one call."
+                "description": "🛡️ manageMembers. The member's identity, the live value of every section with its proof, `contactVerified`, the open requests, and `fileUrls` (storage path → signed URL, 1 hour) for the private proof files."
               },
               "response": []
             },
             {
-              "name": "GET /admin/member-edits — List all edit requests (queue)",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "X-Request-Id",
-                    "value": "{{$guid}}",
-                    "type": "text",
-                    "disabled": true,
-                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/admin/member-edits?status=all",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "member-edits"
-                  ],
-                  "query": [
-                    {
-                      "key": "status",
-                      "value": "all",
-                      "disabled": false
-                    }
-                  ]
-                },
-                "description": "🛡️ manageMembers. `status`: pending (default) | verified | rejected | all."
-              },
-              "response": []
-            },
-            {
-              "name": "PATCH /admin/member-edits/{{memberEditId}} — Review edit (per item, or whole edit)",
+              "name": "PATCH admin/members/{{memberId}}/sections/{{section}}/items/{{itemId}} — Verify (or un-verify) one item",
               "request": {
                 "method": "PATCH",
                 "header": [
@@ -3525,20 +3652,108 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/admin/member-edits/{{memberEditId}}",
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/sections/{{section}}/items/{{itemId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
                     "admin",
-                    "member-edits",
-                    "{{memberEditId}}"
+                    "members",
+                    "{{memberId}}",
+                    "sections",
+                    "{{section}}",
+                    "items",
+                    "{{itemId}}"
                   ]
                 },
-                "description": "🛡️ manageMembers. Shipped body is the per-item review for an array-section edit (engagements, education, work_experiences, key_clients, testimonials, awards): `items` must cover every payload index exactly once. Decisions: `approved_verified` (live WITH Verified badge; item must have proof, else 400 VERIFIED_REQUIRES_PROOF), `approved_hygiene` (live WITHOUT badge; `reason` required, shown to member), `rejected` (not applied; `reason` required). `status` is derived (verified if any item accepted) — omit it. Accepted items go live, rejected items are dropped (a live item stays as-is); decisions are stored in `itemReviews`.\n\n**To review a headline_bio / contact edit (or approve the whole edit) instead, replace the whole body with:**\n```json\n{\n  \"status\": \"verified\"\n}\n```\n\n**To reject the whole edit instead, replace the whole body with:**\n```json\n{\n  \"status\": \"rejected\",\n  \"reviewNote\": \"Please attach a proof document for this engagement before resubmitting.\"\n}\n```\n\n2026-10-30: a key-client logo over 2MB fails with `400 LOGO_TOO_LARGE` from storage metadata, before download (`LOGO_INVALID_TYPE` for a non-image). Approved key_clients without a new upload keep the live logoUrl.",
+                "description": "🛡️ manageMembers. Sets the item's `isVerified`. Verifying also resolves its open requests. 204 on success. `{{section}}` is an item section (engagements, education, work_experiences, key_clients, testimonials, awards). Errors: 404 MEMBER_ITEM_NOT_FOUND, 400 MEMBER_EDIT_SECTION_INVALID.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"items\": [\n    {\n      \"index\": 0,\n      \"decision\": \"approved_verified\"\n    },\n    {\n      \"index\": 1,\n      \"decision\": \"approved_hygiene\",\n      \"reason\": \"Proof not attached\"\n    },\n    {\n      \"index\": 2,\n      \"decision\": \"rejected\",\n      \"reason\": \"Could not confirm this client relationship\"\n    }\n  ],\n  \"reviewNote\": \"Thanks for the update.\"\n}",
+                  "raw": "{\n  \"verified\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH admin/members/{{memberId}}/contact-verification — Verify (or un-verify) the contact block",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/contact-verification",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members",
+                    "{{memberId}}",
+                    "contact-verification"
+                  ]
+                },
+                "description": "🛡️ manageMembers. One flag for the whole contact block. 204 on success.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"verified\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH admin/members/{{memberId}}/profile-verification — Give or remove the whole-profile GrowXQ Verified badge",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Request-Id",
+                    "value": "{{$guid}}",
+                    "type": "text",
+                    "disabled": true,
+                    "description": "Optional. Echoed back in the X-Request-Id response header and API log lines; must match ^[A-Za-z0-9._-]{1,64}$ or a UUID is generated instead."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/members/{{memberId}}/profile-verification",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "members",
+                    "{{memberId}}",
+                    "profile-verification"
+                  ]
+                },
+                "description": "🛡️ manageMembers. The whole-profile \"GrowXQ Verified\" flag, independent of the per-entry ticks (the site only shows the badge while every entry is also verified). 204 on success.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"verified\": true\n}",
                   "options": {
                     "raw": {
                       "language": "json"

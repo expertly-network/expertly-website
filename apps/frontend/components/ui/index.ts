@@ -11,6 +11,8 @@ export { MultiSelect } from './MultiSelect';
 export { Combobox } from './Combobox';
 export type { ComboboxOption } from './Combobox';
 export { Input } from './Input';
+export { MonthYearField } from './MonthYearField';
+export { YearPicker } from './YearPicker';
 export { Select } from './Select';
 export { Textarea } from './Textarea';
 export { Modal } from './Modal';

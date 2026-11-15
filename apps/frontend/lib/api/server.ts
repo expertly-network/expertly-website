@@ -5,13 +5,12 @@ import { getApiBaseUrlServer } from '@/lib/api/base-url.server';
 import { ARTICLES_TOTAL_COUNT_HEADER, buildArticlesQueryString } from '@/lib/api/articles-query';
 import type { AdminApplicationListItemDto, ApplicationDto } from '@shared/membership-application';
 import type {
-  AdminMemberEditsDetailDto,
+  AdminMemberVerificationDetailDto,
   MemberDto,
-  MemberEditStatusFilter,
   MemberListItemDto,
-  MemberProfileEditDto,
   MyMemberProfileDto,
 } from '@shared/member';
+import type { AdminMemberVerificationSummaryDto } from '@shared/member-verification';
 import type { CategoryDto } from '@shared/category';
 import type {
   AdminAiGenerationDetailDto,
@@ -22,6 +21,7 @@ import type {
   ArticleListItemDto,
   ListArticlesQuery,
 } from '@shared/article';
+import type { PlatformStatsResponse } from '@shared/platform-stats';
 import type { EventCalendarResponse, EventDto, EventStatsResponse, ListEventsQuery } from '@shared/event';
 import { buildEventsQueryString, EVENTS_TOTAL_COUNT_HEADER } from '@/lib/api/events-query';
 import type { ConsultationRequestDto } from '@shared/consultation-request';
@@ -186,19 +186,6 @@ export function getMyMemberProfileServer(): Promise<MyMemberProfileDto | null> {
   });
 }
 
-// Returns the caller's own pending profile edit requests. Best-effort: the profile page renders
-// without the "pending edits" badges rather than failing when this one call errors.
-export async function getMyMemberEditsServer(id: string): Promise<MemberProfileEditDto[]> {
-  try {
-    return await authedGet<MemberProfileEditDto[], MemberProfileEditDto[]>(`/members/${encodeURIComponent(id)}/edits`, {
-      signedOut: [],
-      errorMessage: 'Failed to load your profile edits.',
-    });
-  } catch {
-    return [];
-  }
-}
-
 // Returns the active category→service taxonomy tree.
 export function getCategoriesServer(): Promise<CategoryDto[]> {
   return publicList<CategoryDto>('/categories', 'Failed to load categories.');
@@ -305,6 +292,17 @@ export async function getEventStatsServer(): Promise<EventStatsResponse | null> 
   }
 }
 
+// The home hero's real figures; null when the API can't supply them (the hero then hides the stat
+// row rather than showing made-up numbers).
+export async function getPlatformStatsServer(): Promise<PlatformStatsResponse | null> {
+  try {
+    const res = await publicGet('/stats', 'Failed to load platform stats.');
+    return res ? ((await res.json()) as PlatformStatsResponse) : null;
+  } catch {
+    return null;
+  }
+}
+
 // Returns every event for the admin list, regardless of status.
 export function getAdminEventsServer(): Promise<EventDto[]> {
   return authedGet<EventDto[], EventDto[]>('/admin/events', {
@@ -322,19 +320,18 @@ export function getAdminEventServer(id: string): Promise<EventDto | null> {
   });
 }
 
-// Admin profile-edit queue — every member's edits with the given status (default: pending).
-export function getAdminMemberEditsServer(status: MemberEditStatusFilter = 'pending'): Promise<MemberProfileEditDto[]> {
-  return authedGet<MemberProfileEditDto[], MemberProfileEditDto[]>(
-    `/admin/member-edits?status=${encodeURIComponent(status)}`,
-    { signedOut: [], errorMessage: 'Failed to load profile edits.' }
+// Members with anything awaiting verification (items, contact, open proof requests).
+export function getAdminVerificationSummaryServer(): Promise<AdminMemberVerificationSummaryDto[]> {
+  return authedGet<AdminMemberVerificationSummaryDto[], AdminMemberVerificationSummaryDto[]>(
+    '/admin/member-verification',
+    { signedOut: [], errorMessage: 'Failed to load the verification queue.' }
   );
 }
 
-// One member's edits + live section values for the admin review page, or null if not found.
-export function getAdminMemberEditsDetailServer(memberId: string): Promise<AdminMemberEditsDetailDto | null> {
-  return authedGet<AdminMemberEditsDetailDto, null>(`/admin/members/${encodeURIComponent(memberId)}/edits`, {
-    signedOut: null,
-    emptyOn: [400, 404],
-    errorMessage: 'Failed to load profile edits.',
-  });
+// One member's live sections + proof + open requests for the verification page, or null if not found.
+export function getAdminMemberVerificationServer(memberId: string): Promise<AdminMemberVerificationDetailDto | null> {
+  return authedGet<AdminMemberVerificationDetailDto, null>(
+    `/admin/members/${encodeURIComponent(memberId)}/verification`,
+    { signedOut: null, emptyOn: [400, 404], errorMessage: 'Failed to load the member for verification.' }
+  );
 }

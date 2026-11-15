@@ -320,6 +320,26 @@ Used by the articles list (`ArticleFiltersSheet`), the events list (`EventFilter
 the admin events list, without the live count) and the member directory (`MemberFiltersSheet`,
 which writes the URL like the desktop dropdowns).
 
+## Member profile — live edits & verification (2026-11-15)
+
+Profile edits go live at once; entries are then verified by the GrowXQ team. The shared pieces:
+
+- `VerificationBadge` (`components/members/VerificationBadge.tsx`) — a green "Verified" pill, or an
+  amber **"Pending Verification"** pill whose tooltip (hover, focus or tap) explains the entry is
+  live but not yet checked and that proof may be requested. One per entry; the contact block has a
+  single badge in its section header. Never invent a per-page variant.
+- `ProfileSectionHeader` — owner-only **+ New** (list sections) and **Edit** (sections edited as a
+  whole: bio, contact, key clients); `EntryEditButton` is the small per-entry **Edit** link.
+- `HighlightedEntry` — the year-in-accent entry used by Education and Awards (`actions` and
+  `footer` slots carry the badge, Edit/reorder buttons and any admin notice).
+- `AddProofPrompt` — owner-only line under a pending entry ("Add proof to get verified faster" /
+  "Proof added — waiting for the GrowXQ team"). There is no admin-to-member messaging.
+- `SectionEditModal` — one editor: a whole section for `headline_bio` / `contact` / `key_clients`,
+  or **one entry** (`itemId`, `'new'` to add) for every other list section. Every field has a
+  sample answer (`placeholder`) and, where useful, a `hint`; proof is optional per entry
+  (`ProofAttachments`).
+- Key-client fallback initials use the single `bg-accent` colour, not a per-client palette.
+
 ## Changing something
 
 - **A color, anywhere it's used** → edit the CSS variable in `apps/frontend/app/globals.css`.

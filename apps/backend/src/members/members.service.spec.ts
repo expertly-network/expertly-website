@@ -1,12 +1,7 @@
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import type { AdminAccessService } from '../auth/admin-access.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
-import type {
-  MemberProfileDetailRow,
-  MemberProfileEditRow,
-  MembersRepository,
-  ProfileIdentityRow,
-} from './members.repository';
+import type { MemberProfileDetailRow, MembersRepository, ProfileIdentityRow } from './members.repository';
 import { MembersService } from './members.service';
 
 const MEMBER_ID = '22222222-2222-4222-8222-222222222222';
@@ -20,7 +15,6 @@ function detailRow(overrides: Partial<MemberProfileDetailRow> = {}): MemberProfi
     headline: 'CA',
     bio: 'Bio',
     firm_name: 'Doe & Co',
-    firm_website: null,
     region: null,
     country: 'IN',
     state: null,
@@ -38,6 +32,7 @@ function detailRow(overrides: Partial<MemberProfileDetailRow> = {}): MemberProfi
     linkedin_url: 'https://linkedin.com/in/jane',
     website: 'https://doe.co',
     is_verified: true,
+    contact_verified: false,
     photo_path: null,
     status: 'active',
     application_id: null,
@@ -103,13 +98,11 @@ function setup({
     findSlugAndPhotoByProfileIds: vi.fn().mockResolvedValue(new Map()),
     hasConsultationWith: vi.fn().mockResolvedValue(hasConsultation),
     buildPhotoUrl: vi.fn((path: string) => `https://cdn.test/${path}`),
-    findEditById: vi.fn(),
-    claimEditDecision: vi.fn(),
-    revertEditDecision: vi.fn(),
     applySectionEdit: vi.fn(),
     findProofFileSize: vi.fn(),
     downloadProofFile: vi.fn(),
     uploadPublicAsset: vi.fn(),
+    readProofFileHead: vi.fn(),
     recordProfileView: vi.fn().mockResolvedValue(undefined),
   } as unknown as RepoMock;
   const adminAccess = { hasFreshPermission: vi.fn().mockResolvedValue(managesMembers) };
@@ -128,8 +121,9 @@ describe('MembersService.findOneBySlug — contact visibility', () => {
     linkedinUrl: null,
     contactVisible: false,
   };
+  // The personal email is no longer collected or shown (2026-11-15): null even when visible.
   const CONTACT_SHOWN = {
-    contactEmail: 'jane@doe.co',
+    contactEmail: null,
     workEmail: 'work@doe.co',
     contactPhone: '+91 98765 43210',
     linkedinUrl: 'https://linkedin.com/in/jane',
@@ -238,68 +232,55 @@ describe('MembersService.findOneBySlug — contact visibility', () => {
   });
 });
 
-describe('MembersService.adminReviewEdit — key-client logos', () => {
-  const admin = viewer({ id: 'admin-1', role: 'admin' });
+describe('MembersService.saveSection — key-client logos', () => {
+  const owner = viewer({ id: MEMBER_ID, role: 'member', memberStatus: 'active' });
+  const PNG = Buffer.from(
+    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d69c4f0000000049454e44ae426082',
+    'hex'
+  );
 
-  function keyClientEdit(item: Record<string, unknown>): MemberProfileEditRow {
-    return {
-      id: 'edit-1',
-      member_id: MEMBER_ID,
-      section: 'key_clients',
-      payload: [item],
-      proof_file_url: null,
-      proof_link: null,
-      status: 'pending',
-      review_note: null,
-      item_reviews: null,
-      reviewed_by: null,
-      reviewed_at: null,
-      submitted_at: '2026-10-29T00:00:00Z',
-    };
+  function setupSave(live: Record<string, unknown>[] = []) {
+    return setup({ row: detailRow({ key_clients: live as unknown as MemberProfileDetailRow['key_clients'] }) });
   }
 
-  function setupReview(edit: MemberProfileEditRow, live: Record<string, unknown>[] = []) {
-    const ctx = setup({ row: detailRow({ key_clients: live as unknown as MemberProfileDetailRow['key_clients'] }) });
-    ctx.repo.findEditById.mockResolvedValue(edit);
-    ctx.repo.claimEditDecision.mockResolvedValue({ ...edit, status: 'verified' });
-    return ctx;
-  }
-
-  function appliedItems(repo: RepoMock): Record<string, unknown>[] {
+  function savedItems(repo: RepoMock): Record<string, unknown>[] {
     expect(repo.applySectionEdit).toHaveBeenCalledTimes(1);
     return repo.applySectionEdit.mock.calls[0][3] as Record<string, unknown>[];
   }
 
   it('ignores a client-supplied logoUrl on a new item', async () => {
-    const { service, repo } = setupReview(keyClientEdit({ name: 'Acme', logoUrl: 'https://evil.example/tracker.png' }));
-    await service.adminReviewEdit('edit-1', admin, { status: 'verified' });
-    const [item] = appliedItems(repo);
-    expect(item).toMatchObject({ name: 'Acme', logoUrl: null, isVerified: false });
+    const { service, repo } = setupSave();
+    await service.saveSection(MEMBER_ID, owner, 'key_clients', [
+      { name: 'Acme', logoUrl: 'https://evil.example/tracker.png' },
+    ]);
+    expect(savedItems(repo)[0]).toMatchObject({ name: 'Acme', logoUrl: null, isVerified: false });
     expect(repo.uploadPublicAsset).not.toHaveBeenCalled();
   });
 
   it('keeps the live logoUrl of an edited item rather than the payload one', async () => {
-    const { service, repo } = setupReview(
-      keyClientEdit({ id: 'k1', name: 'Acme Ltd', logoUrl: 'https://evil.example/x.png' }),
-      [{ id: 'k1', name: 'Acme', logoUrl: 'https://cdn.test/members/m/client-logos/old.png' }]
-    );
-    await service.adminReviewEdit('edit-1', admin, { status: 'verified' });
-    expect(appliedItems(repo)[0]).toMatchObject({
+    const { service, repo } = setupSave([
+      { id: 'k1', name: 'Acme', logoUrl: 'https://cdn.test/members/m/client-logos/old.png', isVerified: true },
+    ]);
+    await service.saveSection(MEMBER_ID, owner, 'key_clients', [
+      { id: 'k1', name: 'Acme Ltd', logoUrl: 'https://evil.example/x.png' },
+    ]);
+    expect(savedItems(repo)[0]).toMatchObject({
       id: 'k1',
       name: 'Acme Ltd',
       logoUrl: 'https://cdn.test/members/m/client-logos/old.png',
+      isVerified: false,
     });
   });
 
-  it("refuses a logoUploadPath that isn't the member's own upload and reverts the decision", async () => {
-    const { service, repo } = setupReview(
-      keyClientEdit({ name: 'Acme', logoUploadPath: `${OTHER_MEMBER_ID}/1698765432101-logo.png` })
-    );
-    await expect(service.adminReviewEdit('edit-1', admin, { status: 'verified' })).rejects.toMatchObject({
-      response: { code: 'UPLOAD_NOT_OWNED' },
-    });
+  it("refuses a logoUploadPath that isn't the member's own upload", async () => {
+    const { service, repo } = setupSave();
+    await expect(
+      service.saveSection(MEMBER_ID, owner, 'key_clients', [
+        { name: 'Acme', logoUploadPath: `${OTHER_MEMBER_ID}/1698765432101-logo.png` },
+      ])
+    ).rejects.toMatchObject({ response: { code: 'UPLOAD_NOT_OWNED' } });
     expect(repo.downloadProofFile).not.toHaveBeenCalled();
-    expect(repo.revertEditDecision).toHaveBeenCalledWith('edit-1');
+    expect(repo.applySectionEdit).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -307,44 +288,50 @@ describe('MembersService.adminReviewEdit — key-client logos', () => {
     `${MEMBER_ID}/1-%2e%2e-logo.png`,
     `${MEMBER_ID}/x/1-logo.png`,
   ])('refuses a traversal-shaped path %j', async (logoUploadPath) => {
-    const { service } = setupReview(keyClientEdit({ name: 'Acme', logoUploadPath }));
-    await expect(service.adminReviewEdit('edit-1', admin, { status: 'verified' })).rejects.toMatchObject({
-      response: { code: 'UPLOAD_NOT_OWNED' },
-    });
+    const { service } = setupSave();
+    await expect(
+      service.saveSection(MEMBER_ID, owner, 'key_clients', [{ name: 'Acme', logoUploadPath }])
+    ).rejects.toMatchObject({ response: { code: 'UPLOAD_NOT_OWNED' } });
   });
 
   it('publishes an owned PNG upload and points logoUrl at the public copy', async () => {
-    const png = Buffer.from(
-      '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d69c4f0000000049454e44ae426082',
-      'hex'
-    );
-    const { service, repo } = setupReview(
-      keyClientEdit({
-        name: 'Acme',
-        logoUrl: 'https://evil.example/x.png',
-        logoUploadPath: `${MEMBER_ID}/1698765432101-logo.png`,
-      })
-    );
-    repo.findProofFileSize.mockResolvedValue(png.length);
-    repo.downloadProofFile.mockResolvedValue(png);
-    await service.adminReviewEdit('edit-1', admin, { status: 'verified' });
+    const { service, repo } = setupSave();
+    repo.readProofFileHead.mockResolvedValue({ head: PNG, size: PNG.length });
+    repo.findProofFileSize.mockResolvedValue(PNG.length);
+    repo.downloadProofFile.mockResolvedValue(PNG);
+    await service.saveSection(MEMBER_ID, owner, 'key_clients', [
+      { name: 'Acme', logoUrl: 'https://evil.example/x.png', logoUploadPath: `${MEMBER_ID}/1698765432101-logo.png` },
+    ]);
     const [publicPath, , mime] = repo.uploadPublicAsset.mock.calls[0] as [string, Buffer, string];
     expect(publicPath).toMatch(new RegExp(`^members/${MEMBER_ID}/client-logos/[0-9a-f-]{36}\\.png$`));
     expect(mime).toBe('image/png');
-    const [item] = appliedItems(repo);
+    const [item] = savedItems(repo);
     expect(item.logoUrl).toBe(`https://cdn.test/${publicPath}`);
     expect(item).not.toHaveProperty('logoUploadPath');
   });
 
-  it('rejects an owned upload that is not an image', async () => {
-    const { service, repo } = setupReview(
-      keyClientEdit({ name: 'Acme', logoUploadPath: `${MEMBER_ID}/1698765432101-logo.png` })
-    );
-    repo.findProofFileSize.mockResolvedValue(20);
-    repo.downloadProofFile.mockResolvedValue(Buffer.from('<svg onload="alert(1)"/>'));
-    await expect(service.adminReviewEdit('edit-1', admin, { status: 'verified' })).rejects.toMatchObject({
-      response: { code: 'LOGO_INVALID_TYPE' },
-    });
+  it('rejects an owned upload that is not an allowed file type', async () => {
+    const { service, repo } = setupSave();
+    repo.readProofFileHead.mockResolvedValue({ head: Buffer.from('<svg onload="alert(1)"/>'), size: 20 });
+    await expect(
+      service.saveSection(MEMBER_ID, owner, 'key_clients', [
+        { name: 'Acme', logoUploadPath: `${MEMBER_ID}/1698765432101-logo.png` },
+      ])
+    ).rejects.toMatchObject({ response: { code: 'UPLOAD_INVALID_TYPE' } });
+    expect(repo.uploadPublicAsset).not.toHaveBeenCalled();
+  });
+
+  it('rejects a PDF as a logo (allowed as proof, but a logo must be an image)', async () => {
+    const { service, repo } = setupSave();
+    const pdf = Buffer.from('%PDF-1.7\n1 0 obj\n<<>>\nendobj\n');
+    repo.readProofFileHead.mockResolvedValue({ head: pdf, size: pdf.length });
+    repo.findProofFileSize.mockResolvedValue(pdf.length);
+    repo.downloadProofFile.mockResolvedValue(pdf);
+    await expect(
+      service.saveSection(MEMBER_ID, owner, 'key_clients', [
+        { name: 'Acme', logoUploadPath: `${MEMBER_ID}/1698765432101-logo.pdf` },
+      ])
+    ).rejects.toMatchObject({ response: { code: 'LOGO_INVALID_TYPE' } });
     expect(repo.uploadPublicAsset).not.toHaveBeenCalled();
   });
 });

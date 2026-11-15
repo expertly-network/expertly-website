@@ -1,16 +1,20 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AdminAccessService } from '../auth/admin-access.service';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type { MemberRecommendationDto } from '@shared/member';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
 import { RecommendationsRepository, type RecommendationRow } from './recommendations.repository';
+import { RecommendationRequestsService } from './recommendation-requests.service';
 
 @Injectable()
 export class RecommendationsService {
+  private readonly logger = new Logger(RecommendationsService.name);
+
   constructor(
     private readonly repository: RecommendationsRepository,
-    private readonly adminAccess: AdminAccessService
+    private readonly adminAccess: AdminAccessService,
+    private readonly requests: RecommendationRequestsService
   ) {}
 
   // Any active member may recommend another active member — never themselves.
@@ -43,6 +47,12 @@ export class RecommendationsService {
     }
 
     const row = await this.repository.insert(user.id, recipientId, dto.body.trim());
+    // If the recommended member had asked for this one, that request is now fulfilled.
+    try {
+      await this.requests.fulfill(recipientId, user.id);
+    } catch {
+      this.logger.error(`Recommendation ${row.id}: could not close the matching request`);
+    }
     const [result] = await this.toDtos([row]);
     return result;
   }

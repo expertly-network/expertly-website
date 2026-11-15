@@ -40,7 +40,7 @@ export function ArticleByline({
     </div>
   );
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-line pb-5">
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line pb-4">
       {showAuthor ? (
         <div className="flex min-w-0 items-center gap-3.5">
           {article.authorPhotoUrl ? (

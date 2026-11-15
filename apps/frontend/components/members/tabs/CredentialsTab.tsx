@@ -1,71 +1,35 @@
+'use client';
+
+import { GRADUATION_ICON, HighlightedEntry } from '@/components/members/HighlightedEntry';
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
+import { VerificationBadge } from '@/components/members/VerificationBadge';
+import { AddProofPrompt } from '@/components/members/AddProofPrompt';
 import { WorkHistoryTimeline } from '@/components/members/WorkHistoryTimeline';
-import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
-import type { MemberDto, MemberProfileEditDto } from '@shared/member';
+import type { EditTarget } from '@/components/members/edit/SectionEditModal';
+import type { MemberDto } from '@shared/member';
 
 export function CredentialsTab({
   member,
-  edits,
   isOwnProfile,
   onEdit,
 }: {
   member: MemberDto;
-  edits: MemberProfileEditDto[];
   isOwnProfile: boolean;
-  onEdit: (section: 'education' | 'work_experiences') => void;
+  onEdit: (target: EditTarget) => void;
 }) {
-  const edit = (section: 'education' | 'work_experiences') => (isOwnProfile ? () => onEdit(section) : undefined);
+  const editWork = isOwnProfile ? () => onEdit({ section: 'work_experiences' }) : undefined;
+  const editEducation = isOwnProfile ? () => onEdit({ section: 'education' }) : undefined;
 
   return (
     <div className="flex flex-col gap-7">
       <section>
-        <ProfileSectionHeader
-          label="Education"
-          icon={SECTION_ICONS.education}
-          badge={getSectionEditBadge('education', edits, member.isVerified)}
-          onEdit={edit('education')}
-          rejectionNote={getSectionRejectionNote('education', edits)}
-        />
-        {member.educations.length === 0 ? (
-          isOwnProfile ? (
-            <ProfileSectionEmpty title="No education yet." hint="Add your degrees" onEdit={edit('education')} />
-          ) : (
-            <p className="text-profile-item text-ink-3">No education listed yet.</p>
-          )
-        ) : (
-          // `.mp-edu-grid` / `.mp-edu-card`
-          <div className="grid grid-cols-2 gap-3 max-[639px]:grid-cols-1">
-            {member.educations.map((edu) => (
-              <div
-                key={edu.id}
-                className="rounded-panel border border-line bg-bg-card p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
-              >
-                <div className="text-profile-item font-semibold text-ink">{edu.degree}</div>
-                <div className="mt-[3px] text-profile-meta text-ink-3">
-                  {edu.institution}
-                  {edu.endYear ? ` · ${edu.endYear}` : ''}
-                </div>
-                {edu.field && <div className="text-profile-meta text-ink-3">{edu.field}</div>}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <ProfileSectionHeader
-          label="Work Experience"
-          icon={SECTION_ICONS.work}
-          badge={getSectionEditBadge('work_experiences', edits, member.isVerified)}
-          onEdit={edit('work_experiences')}
-          rejectionNote={getSectionRejectionNote('work_experiences', edits)}
-        />
+        <ProfileSectionHeader label="Work Experience" icon={SECTION_ICONS.work} onEdit={editWork} />
         {member.workExperiences.length === 0 ? (
           isOwnProfile ? (
             <ProfileSectionEmpty
               title="No work experience yet."
               hint="Add the roles that shaped your expertise"
-              onEdit={edit('work_experiences')}
+              onEdit={editWork}
             />
           ) : (
             <p className="text-profile-item text-ink-3">No work experience listed yet.</p>
@@ -73,8 +37,51 @@ export function CredentialsTab({
         ) : (
           <WorkHistoryTimeline
             works={member.workExperiences}
-            onAddDescription={isOwnProfile ? () => onEdit('work_experiences') : undefined}
+            onAddDescription={
+              isOwnProfile ? (role) => onEdit({ section: 'work_experiences', itemId: role.id }) : undefined
+            }
+            companyBadge={(roles) => <VerificationBadge verified={roles.every((r) => r.isVerified)} />}
+            companyFooter={(roles) => (
+              <AddProofPrompt
+                isOwnProfile={isOwnProfile}
+                verified={roles.every((r) => r.isVerified)}
+                hasProof={roles.some((r) => (r.proofAttachments?.length ?? 0) > 0)}
+                onAddProof={() => onEdit({ section: 'work_experiences' })}
+              />
+            )}
           />
+        )}
+      </section>
+
+      <section>
+        <ProfileSectionHeader label="Education" icon={SECTION_ICONS.education} onEdit={editEducation} />
+        {member.educations.length === 0 ? (
+          isOwnProfile ? (
+            <ProfileSectionEmpty title="No education yet." hint="Add your degrees" onEdit={editEducation} />
+          ) : (
+            <p className="text-profile-item text-ink-3">No education listed yet.</p>
+          )
+        ) : (
+          <ul className="flex flex-col gap-5">
+            {member.educations.map((edu) => (
+              <HighlightedEntry
+                key={edu.id}
+                year={edu.endYear}
+                icon={GRADUATION_ICON}
+                title={edu.field ? `${edu.degree}, ${edu.field}` : edu.degree}
+                subtitle={edu.institution}
+                actions={<VerificationBadge verified={edu.isVerified} />}
+                footer={
+                  <AddProofPrompt
+                    isOwnProfile={isOwnProfile}
+                    verified={edu.isVerified}
+                    hasProof={(edu.proofAttachments?.length ?? 0) > 0}
+                    onAddProof={() => onEdit({ section: 'education', itemId: edu.id })}
+                  />
+                }
+              />
+            ))}
+          </ul>
         )}
       </section>
     </div>

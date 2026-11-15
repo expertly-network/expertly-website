@@ -1,14 +1,43 @@
+import { PENDING_VERIFICATION_TOOLTIP } from '@/components/members/VerificationBadge';
 import type { MemberKeyClient } from '@shared/member';
-import { CLIENT_ICON_COLORS } from '@/lib/members/key-client-colors';
 
 // A row only scrolls once it holds at least this many logos; fewer sit still, each shown once.
 export const MARQUEE_MIN_LOGOS = 6;
 
-function ClientCard({ client, colorIndex, hidden }: { client: MemberKeyClient; colorIndex: number; hidden?: boolean }) {
+// A small status mark in the card's top-right corner: green tick once verified, the soft yellow circled "i"
+// while pending. `title` carries the explanation (a custom tooltip would be clipped by the
+// scrolling row).
+function StatusMark({ verified }: { verified: boolean }) {
+  return (
+    <span
+      title={verified ? 'Verified by the GrowXQ team.' : PENDING_VERIFICATION_TOOLTIP}
+      className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full ${
+        verified ? 'bg-accent text-bg-card' : 'bg-warn-soft text-warn'
+      }`}
+    >
+      <span className="sr-only">{verified ? 'Verified' : 'Pending verification'}</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        {verified ? (
+          <path
+            d="M5 12.5l4.5 4.5L19 7"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <path d="M12 11v5M12 8h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
+function ClientCard({ client, hidden }: { client: MemberKeyClient; hidden?: boolean }) {
   return (
     <li
       aria-hidden={hidden ? true : undefined}
-      className="flex min-w-[160px] flex-none items-center gap-3 rounded-panel border border-line bg-bg-card py-2.5 pl-2.5 pr-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-shadow hover:border-line-2 hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)]"
+      className="relative flex min-w-[160px] flex-none items-center gap-3 rounded-panel border border-line bg-bg-card py-2.5 pl-2.5 pr-9 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-shadow hover:border-line-2 hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)]"
     >
       {client.logoUrl ? (
         // Raw <img>: a key-client logo may be a member-entered URL on any host (not only Storage),
@@ -22,26 +51,22 @@ function ClientCard({ client, colorIndex, hidden }: { client: MemberKeyClient; c
           className="h-11 w-11 flex-none rounded-[11px] object-cover"
         />
       ) : (
-        <span
-          className="flex h-11 w-11 flex-none items-center justify-center rounded-[11px] font-mono text-lg font-extrabold text-bg-card"
-          style={{ background: CLIENT_ICON_COLORS[colorIndex % CLIENT_ICON_COLORS.length] }}
-        >
+        // One theme colour for every fallback initial (no rainbow of per-client hues).
+        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[11px] bg-accent font-mono text-lg font-extrabold text-bg-card">
           {client.name.charAt(0)}
         </span>
       )}
+      <StatusMark verified={client.isVerified} />
       <span className="whitespace-nowrap text-[15px] font-semibold leading-[1.25] text-ink">{client.name}</span>
     </li>
   );
 }
 
-function ClientRow({ label, clients, offset }: { label: string; clients: MemberKeyClient[]; offset: number }) {
+function ClientRow({ label, clients }: { label: string; clients: MemberKeyClient[] }) {
   if (clients.length === 0) return null;
   const animated = clients.length >= MARQUEE_MIN_LOGOS;
   return (
     <div>
-      <div className="mb-2 font-mono text-[10px] font-semibold uppercase text-ink-3">
-        {label} ({clients.length})
-      </div>
       {animated ? (
         // `.mp-clients-outer` — auto-scrolling marquee, pauses on hover. The list is rendered twice
         // back to back so translateX(-50%) loops seamlessly; the copy is hidden from screen readers.
@@ -57,19 +82,14 @@ function ClientRow({ label, clients, offset }: { label: string; clients: MemberK
             className="flex w-max animate-marquee gap-2.5 group-hover:[animation-play-state:paused] motion-reduce:animate-none"
           >
             {[...clients, ...clients].map((client, i) => (
-              <ClientCard
-                key={`${client.id}-${i}`}
-                client={client}
-                colorIndex={offset + (i % clients.length)}
-                hidden={i >= clients.length}
-              />
+              <ClientCard key={`${client.id}-${i}`} client={client} hidden={i >= clients.length} />
             ))}
           </ul>
         </div>
       ) : (
         <ul aria-label={label} className="flex flex-wrap gap-2.5">
-          {clients.map((client, i) => (
-            <ClientCard key={client.id} client={client} colorIndex={offset + i} />
+          {clients.map((client) => (
+            <ClientCard key={client.id} client={client} />
           ))}
         </ul>
       )}
@@ -77,14 +97,7 @@ function ClientRow({ label, clients, offset }: { label: string; clients: MemberK
   );
 }
 
-/** Verified and unverified key clients, one row each (a row is omitted when empty). */
+/** Every key client in one row; each logo carries its own verified / pending mark. */
 export function KeyClientsRows({ clients }: { clients: MemberKeyClient[] }) {
-  const verified = clients.filter((c) => c.isVerified);
-  const unverified = clients.filter((c) => !c.isVerified);
-  return (
-    <div className="flex flex-col gap-4">
-      <ClientRow label="Verified clients" clients={verified} offset={0} />
-      <ClientRow label="Unverified clients" clients={unverified} offset={verified.length} />
-    </div>
-  );
+  return <ClientRow label="Key clients" clients={clients} />;
 }

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import { normalizeLiveItem, validateAndPrepareEditPayload } from './member-sections';
+import { CONFIDENTIAL_CLIENT_LABEL, normalizeLiveItem, validateAndPrepareEditPayload } from './member-sections';
 
 function codeOf(run: () => unknown): string {
   try {
@@ -37,7 +37,11 @@ describe('validateAndPrepareEditPayload', () => {
 
     it('keeps only { type, url, label } on proof attachments', () => {
       const [item] = validateAndPrepareEditPayload('testimonials', [
-        { quote: 'Great', proofAttachments: [{ ...proof(), path: '../../other', signedUrl: 'x' }] },
+        {
+          quote: 'Great',
+          clientName: 'Asha Rao',
+          proofAttachments: [{ ...proof(), path: '../../other', signedUrl: 'x' }],
+        },
       ]) as { proofAttachments: unknown[] }[];
       expect(item.proofAttachments).toEqual([proof()]);
     });
@@ -45,11 +49,12 @@ describe('validateAndPrepareEditPayload', () => {
     it('drops unknown contact keys', () => {
       expect(
         validateAndPrepareEditPayload('contact', {
-          contactEmail: 'a@firm.com',
+          workEmail: 'a@firm.com',
+          contactEmail: 'personal@home.com',
           website: 'https://firm.com',
           phoneVerified: true,
         })
-      ).toEqual({ contactEmail: 'a@firm.com', website: 'https://firm.com' });
+      ).toEqual({ workEmail: 'a@firm.com', website: 'https://firm.com' });
     });
   });
 
@@ -71,9 +76,9 @@ describe('validateAndPrepareEditPayload', () => {
     });
 
     it.each(BAD)('rejects an engagement url %j', (url) => {
-      expect(codeOf(() => validateAndPrepareEditPayload('engagements', [{ clientName: 'Acme', url }]))).toBe(
-        'URL_INVALID'
-      );
+      expect(
+        codeOf(() => validateAndPrepareEditPayload('engagements', [{ title: 'Deal', clientName: 'Acme', url }]))
+      ).toBe('URL_INVALID');
     });
 
     it.each(BAD)('rejects a key-client logoUrl %j', (url) => {
@@ -109,7 +114,7 @@ describe('validateAndPrepareEditPayload', () => {
         () => validateAndPrepareEditPayload('awards', [{ title: 't', description: 'x'.repeat(2001) }]),
       ],
       ['bio (5000)', () => validateAndPrepareEditPayload('headline_bio', { headline: 'h', bio: 'x'.repeat(5001) })],
-      ['email (254)', () => validateAndPrepareEditPayload('contact', { contactEmail: `${'a'.repeat(250)}@firm.com` })],
+      ['email (254)', () => validateAndPrepareEditPayload('contact', { workEmail: `${'a'.repeat(250)}@firm.com` })],
       ['phone (50)', () => validateAndPrepareEditPayload('contact', { contactPhone: '1'.repeat(51) })],
       [
         'proof label (300)',
@@ -199,7 +204,9 @@ describe('validateAndPrepareEditPayload', () => {
       [
         'engagement duplicate methods',
         () =>
-          validateAndPrepareEditPayload('engagements', [{ clientName: 'A', verificationMethods: ['other', 'other'] }]),
+          validateAndPrepareEditPayload('engagements', [
+            { title: 'T', clientName: 'A', verificationMethods: ['other', 'other'] },
+          ]),
         'ENGAGEMENT_VERIFICATION_METHODS_INVALID',
       ],
       [
@@ -208,9 +215,31 @@ describe('validateAndPrepareEditPayload', () => {
         'KEY_CLIENT_NAME_REQUIRED',
       ],
       [
-        'testimonial bad email',
-        () => validateAndPrepareEditPayload('testimonials', [{ quote: 'q', clientEmail: 'x@' }]),
-        'TESTIMONIAL_CLIENT_EMAIL_INVALID',
+        'engagement without title',
+        () => validateAndPrepareEditPayload('engagements', [{ clientName: 'A' }]),
+        'ENGAGEMENT_TITLE_REQUIRED',
+      ],
+      [
+        'testimonial without a quote',
+        () => validateAndPrepareEditPayload('testimonials', [{ clientName: 'Asha' }]),
+        'TESTIMONIAL_QUOTE_REQUIRED',
+      ],
+      [
+        'testimonial without a person',
+        () => validateAndPrepareEditPayload('testimonials', [{ quote: 'q' }]),
+        'TESTIMONIAL_NAME_REQUIRED',
+      ],
+      ['award without title', () => validateAndPrepareEditPayload('awards', [{ year: 2020 }]), 'AWARD_TITLE_REQUIRED'],
+      [
+        'education without institution',
+        () => validateAndPrepareEditPayload('education', [{ degree: 'MBA' }]),
+        'EDUCATION_INVALID',
+      ],
+      [
+        'work experience without company',
+        () =>
+          validateAndPrepareEditPayload('work_experiences', [{ title: 'Partner', startYear: 2010, isCurrent: true }]),
+        'WORK_HISTORY_INVALID',
       ],
       [
         'work experience without startYear',
@@ -240,20 +269,40 @@ describe('normalizeLiveItem', () => {
     isVerified: 'yes',
   };
 
-  it('strips proof and the client email for non-privileged viewers', () => {
+  it('strips proof for non-privileged viewers, and a legacy client email for everyone', () => {
     expect(normalizeLiveItem('engagements', item, false)).toEqual({
       id: 'e1',
       clientName: 'Acme',
+      isConfidential: false,
       isVerified: false,
       verificationMethods: [],
       verificationMethodOther: null,
     });
+    expect(normalizeLiveItem('engagements', item, true)).not.toHaveProperty('clientEmail');
   });
 
-  it('keeps them for the owner / admin', () => {
-    expect(normalizeLiveItem('engagements', item, true)).toMatchObject({
-      clientEmail: 'cfo@acme.com',
-      proofAttachments: [proof()],
+  it('keeps proof for the owner / admin', () => {
+    expect(normalizeLiveItem('engagements', item, true)).toMatchObject({ proofAttachments: [proof()] });
+  });
+
+  describe('confidential clients', () => {
+    const confidential = { ...item, isConfidential: true };
+    it('masks the name for other viewers', () => {
+      expect(normalizeLiveItem('engagements', confidential, false)).toMatchObject({
+        clientName: CONFIDENTIAL_CLIENT_LABEL,
+        isConfidential: true,
+      });
+    });
+    it('shows the real name to the owner / admin', () => {
+      expect(normalizeLiveItem('engagements', confidential, true)).toMatchObject({
+        clientName: 'Acme',
+        isConfidential: true,
+      });
+    });
+    it('does not require a client name when confidential', () => {
+      expect(
+        codeOf(() => validateAndPrepareEditPayload('engagements', [{ title: 'Deal', isConfidential: true }]))
+      ).toBe('OK');
     });
   });
 });

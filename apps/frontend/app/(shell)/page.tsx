@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import {
   getMembersServer,
+  getPlatformStatsServer,
   getCategoriesServer,
   getArticlesServer,
   getEventCalendarServer,
@@ -221,7 +222,7 @@ async function EventsSection() {
 }
 
 export default async function HomePage() {
-  const [members, user] = await Promise.all([loadFeaturedMembers(), getSessionUser()]);
+  const [members, user, stats] = await Promise.all([loadFeaturedMembers(), getSessionUser(), getPlatformStatsServer()]);
   const showApply = canApplyForMembership(user);
 
   const heroAvatarUrls = members
@@ -232,7 +233,12 @@ export default async function HomePage() {
   return (
     <div>
       <SiteJsonLd />
-      <StellarOrbitHero avatarUrls={heroAvatarUrls} showApply={showApply} showMyProfile={user?.role === 'member'} />
+      <StellarOrbitHero
+        avatarUrls={heroAvatarUrls}
+        stats={stats}
+        showApply={showApply}
+        showMyProfile={user?.role === 'member'}
+      />
       <AiSearchTeaser />
 
       {/* Featured members — split layout, panel on the left */}

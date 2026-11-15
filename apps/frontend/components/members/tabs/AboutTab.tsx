@@ -1,58 +1,47 @@
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
-import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
+import { VerificationBadge } from '@/components/members/VerificationBadge';
+import { AddProofPrompt } from '@/components/members/AddProofPrompt';
 import { KeyClientsRows } from '@/components/members/KeyClientsRows';
 import { FormattedText } from '@/components/shared/FormattedText';
 import { ExternalLink } from '@/components/shared/ExternalLink';
-import type { MemberDto, MemberProfileEditDto } from '@shared/member';
+import type { EditTarget } from '@/components/members/edit/SectionEditModal';
+import type { MemberDto } from '@shared/member';
 
 export function AboutTab({
   member,
-  edits,
   isOwnProfile,
   onEdit,
 }: {
   member: MemberDto;
-  edits: MemberProfileEditDto[];
   isOwnProfile: boolean;
-  onEdit: (section: 'headline_bio' | 'engagements' | 'key_clients') => void;
+  onEdit: (target: EditTarget) => void;
 }) {
-  const edit = (section: 'headline_bio' | 'engagements' | 'key_clients') =>
-    isOwnProfile ? () => onEdit(section) : undefined;
-  const hasBio = Boolean(member.headline || member.bio);
+  // The headline is the line under the member's name, not part of About — About is the bio alone.
+  const hasBio = Boolean(member.bio);
   const hasClients = member.keyClients.length > 0;
+  const editBio = isOwnProfile ? () => onEdit({ section: 'headline_bio' }) : undefined;
+  const editClients = isOwnProfile ? () => onEdit({ section: 'key_clients' }) : undefined;
+  const editEngagements = isOwnProfile ? () => onEdit({ section: 'engagements' }) : undefined;
 
   return (
     <div className="flex flex-col gap-7">
       {(hasBio || isOwnProfile) && (
         <section>
-          <ProfileSectionHeader
-            label="About"
-            badge={getSectionEditBadge('headline_bio', edits, member.isVerified)}
-            onEdit={edit('headline_bio')}
-            rejectionNote={getSectionRejectionNote('headline_bio', edits)}
-          />
-          {member.headline && <p className="mb-3 text-base font-semibold leading-normal text-ink">{member.headline}</p>}
+          {/* The tab above already says "About", so the paragraph starts straight away. */}
+          <ProfileSectionHeader label="About" hideLabel onEdit={editBio} />
           {member.bio && <FormattedText text={member.bio} className="text-profile-body text-ink-3" />}
-          {!hasBio && (
-            <ProfileSectionEmpty title="No bio yet." hint="Tell clients who you are" onEdit={edit('headline_bio')} />
-          )}
+          {!hasBio && <ProfileSectionEmpty title="No bio yet." hint="Tell clients who you are" onEdit={editBio} />}
         </section>
       )}
 
       <section>
-        <ProfileSectionHeader
-          label="Key Engagements"
-          icon={SECTION_ICONS.engagements}
-          badge={getSectionEditBadge('engagements', edits, member.isVerified)}
-          onEdit={edit('engagements')}
-          rejectionNote={getSectionRejectionNote('engagements', edits)}
-        />
+        <ProfileSectionHeader label="Key Engagements" icon={SECTION_ICONS.engagements} onEdit={editEngagements} />
         {member.engagements.length === 0 ? (
           isOwnProfile ? (
             <ProfileSectionEmpty
               title="No key engagements yet."
               hint="Showcase your most impactful work"
-              onEdit={edit('engagements')}
+              onEdit={editEngagements}
             />
           ) : (
             <p className="text-profile-item text-ink-3">No engagements listed yet.</p>
@@ -61,28 +50,26 @@ export function AboutTab({
           <ul className="flex flex-col gap-2">
             {member.engagements.map((eng) => (
               // `.mp-engagement` — light-gray row (var(--line)) on the white tab card.
-              <li key={eng.id} className="flex items-start gap-3 rounded-panel border border-line bg-line px-4 py-3">
-                <span className="mt-px flex h-5 w-5 flex-none items-center justify-center rounded-full bg-black/[0.06]">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M3 8l4 4 6-7"
-                      stroke="var(--accent)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                <span className="min-w-0 flex-1 text-profile-item font-medium text-ink">
-                  {[eng.title, eng.organization, eng.year].filter(Boolean).join(' · ')}
-                </span>
-                <ExternalLink
-                  url={eng.url}
-                  aria-label={`Open link for ${eng.title}`}
-                  className="mt-0.5 flex-none text-profile-meta text-ink-2 hover:underline"
-                >
-                  ↗
-                </ExternalLink>
+              <li key={eng.id} className="rounded-panel border border-line bg-bg-alt px-4 py-3">
+                <div className="flex flex-wrap items-start gap-x-2.5 gap-y-1.5">
+                  <span className="min-w-0 flex-1 text-profile-item font-medium text-ink">
+                    {[eng.title, eng.clientName, eng.year].filter(Boolean).join(' · ')}
+                  </span>
+                  <ExternalLink
+                    url={eng.url}
+                    aria-label={`Open link for ${eng.title}`}
+                    className="mt-0.5 flex-none text-profile-meta text-ink-2 hover:underline"
+                  >
+                    ↗
+                  </ExternalLink>
+                  <VerificationBadge verified={eng.isVerified} />
+                </div>
+                <AddProofPrompt
+                  isOwnProfile={isOwnProfile}
+                  verified={eng.isVerified}
+                  hasProof={(eng.proofAttachments?.length ?? 0) > 0}
+                  onAddProof={() => onEdit({ section: 'engagements', itemId: eng.id })}
+                />
               </li>
             ))}
           </ul>
@@ -91,18 +78,12 @@ export function AboutTab({
 
       {(hasClients || isOwnProfile) && (
         <section>
-          <ProfileSectionHeader
-            label="Key Clients"
-            icon={SECTION_ICONS.clients}
-            badge={getSectionEditBadge('key_clients', edits, member.isVerified)}
-            onEdit={edit('key_clients')}
-            rejectionNote={getSectionRejectionNote('key_clients', edits)}
-          />
+          <ProfileSectionHeader label="Key Clients" icon={SECTION_ICONS.clients} onEdit={editClients} />
           {!hasClients ? (
             <ProfileSectionEmpty
               title="No key clients yet."
               hint="Showcase who you've worked with"
-              onEdit={edit('key_clients')}
+              onEdit={editClients}
             />
           ) : (
             <KeyClientsRows clients={member.keyClients} />

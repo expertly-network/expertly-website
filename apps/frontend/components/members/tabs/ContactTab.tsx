@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { ProfileSectionEmpty, ProfileSectionHeader } from '@/components/members/ProfileSection';
-import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
+import type { EditTarget } from '@/components/members/edit/SectionEditModal';
 import { displayHost, externalHref } from '@/lib/members/format';
 import { CONTACT_HIDDEN_MESSAGE, isContactVisible } from '@/lib/members/contact-visibility';
 import { Button } from '@/components/ui';
-import type { MemberDto, MemberProfileEditDto } from '@shared/member';
+import type { MemberDto } from '@shared/member';
 
 interface ContactItem {
   label: string;
@@ -60,33 +60,23 @@ const ICONS = {
 
 export function ContactTab({
   member,
-  edits,
   isOwnProfile,
   onEdit,
   onRequestConsultation,
 }: {
   member: MemberDto;
-  edits: MemberProfileEditDto[];
   isOwnProfile: boolean;
-  onEdit: (section: 'contact') => void;
+  onEdit: (target: EditTarget) => void;
   /** Opens the request-consultation modal — the way a viewer without contact access gets in touch. */
   onRequestConsultation?: () => void;
 }) {
   // The owner always sees their own details; for anyone else the API may have withheld them.
   const contactHidden = !isOwnProfile && !isContactVisible(member);
   const items: ContactItem[] = [];
-  if (member.contactEmail) {
-    items.push({
-      label: 'Email',
-      value: member.contactEmail,
-      href: `mailto:${member.contactEmail}`,
-      external: false,
-      icon: ICONS.email,
-    });
-  }
+  // The personal email is no longer collected or shown — only the work email.
   if (member.workEmail) {
     items.push({
-      label: 'Work email',
+      label: 'Email',
       value: member.workEmail,
       href: `mailto:${member.workEmail}`,
       external: false,
@@ -103,10 +93,6 @@ export function ContactTab({
     });
   }
   // Links render only when they're a safe http(s) address (see externalHref).
-  const linkedinHref = externalHref(member.linkedinUrl);
-  if (linkedinHref) {
-    items.push({ label: 'LinkedIn', value: 'View Profile', href: linkedinHref, external: true, icon: ICONS.linkedin });
-  }
   const websiteHref = externalHref(member.website);
   if (member.website && websiteHref) {
     items.push({
@@ -117,27 +103,20 @@ export function ContactTab({
       icon: ICONS.website,
     });
   }
-  // Firm website comes from the member's firm record, not the contact section — so it's shown
-  // here read-only, labelled with the firm's name when there is one.
-  const firmHref = externalHref(member.firmWebsite);
-  if (member.firmWebsite && firmHref) {
-    const firm = member.firmName && member.firmName !== 'Independent' ? member.firmName : null;
-    items.push({
-      label: firm ? `Company · ${firm}` : 'Company website',
-      value: displayHost(member.firmWebsite),
-      href: firmHref,
-      external: true,
-      icon: ICONS.company,
-    });
+  // LinkedIn sits right after the website links.
+  const linkedinHref = externalHref(member.linkedinUrl);
+  if (linkedinHref) {
+    items.push({ label: 'LinkedIn', value: 'View Profile', href: linkedinHref, external: true, icon: ICONS.linkedin });
   }
+  // The verification badge covers the details a viewer can actually see.
+  const hasContactDetails = [member.workEmail, member.contactPhone, member.linkedinUrl, member.website].some(Boolean);
 
   return (
     <section>
       <ProfileSectionHeader
         label="Contact Information"
-        badge={getSectionEditBadge('contact', edits, member.isVerified)}
-        onEdit={isOwnProfile ? () => onEdit('contact') : undefined}
-        rejectionNote={getSectionRejectionNote('contact', edits)}
+        verified={hasContactDetails ? member.contactVerified : undefined}
+        onEdit={isOwnProfile ? () => onEdit({ section: 'contact' }) : undefined}
       />
       {contactHidden && (
         // Website / company links stay public, so they can still render below this notice.
@@ -155,7 +134,7 @@ export function ContactTab({
           <ProfileSectionEmpty
             title="No contact details yet."
             hint="Let clients reach you"
-            onEdit={() => onEdit('contact')}
+            onEdit={() => onEdit({ section: 'contact' })}
           />
         ) : (
           <p className="text-profile-item text-ink-3">No contact details listed yet.</p>

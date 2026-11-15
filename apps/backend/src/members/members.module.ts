@@ -4,10 +4,11 @@ import { MembersController } from './members.controller';
 import { AdminMembersController } from './admin-members.controller';
 import { MembersService } from './members.service';
 import { MembersRepository } from './members.repository';
+import { MemberVerificationService } from './member-verification.service';
 
 @Module({
   imports: [AuthModule],
   controllers: [MembersController, AdminMembersController],
-  providers: [MembersService, MembersRepository],
+  providers: [MembersService, MembersRepository, MemberVerificationService],
 })
 export class MembersModule {}

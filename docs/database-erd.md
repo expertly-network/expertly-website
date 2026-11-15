@@ -384,6 +384,27 @@ feature, not derived from (and in one case directly contradicting) what the stat
 - Category/country query-param filtering on `GET /v1/articles` (the prototype filters client-side
   over the full published set).
 
+## Member verification & recommendation requests (`supabase/migrations/0008_member_verification_and_recommendation_requests.sql`)
+
+Added 2026-11-15. Self-edits go live immediately (see `docs/rest-api.md` "Member profile — live
+edits, verification & recommendation requests"); this migration holds the state JSONB can't.
+Per-item verification stays as `isVerified` inside each section's JSONB object, as before.
+
+- **`member_profiles.contact_verified`** `boolean not null default false` — contact is columns, not
+  a list, so one flag covers the whole block. Reset to `false` when any contact field changes.
+- **`recommendation_requests`** — requester/recipient → `member_profiles.profile_id` (cascade),
+  `requester_id <> recipient_id`; `message` ≤ 500; `status` enum
+  `pending|fulfilled|ignored|cancelled`; a **partial unique index** allows one `pending` request per
+  pair. The 30-day cooldown after ignored/cancelled and the 10-open cap are service rules, not DB.
+  `ignored` is never shown to the requester (they keep seeing `pending`).
+- **Email automation seeded (disabled):** `recommendation_requested` → `recommendation-requested`.
+  Enable once the Resend template is published.
+- There is **no admin-to-member messaging table**: a pending entry just invites the member to add
+  proof. Each JSONB item also carries `changedAt` / `verifiedAt` (owner and admins only).
+- `member_profile_edits` is **no longer used**: the code that read and wrote it is removed, and the
+  table is dropped by a later migration once the new code is live (production still runs the old
+  code until then, and the repo rule is never to drop something running code reads).
+
 ## AI draft generations (`supabase/migrations/0004_tables.sql`)
 
 **Source:** `docs/superpowers/specs/2026-10-03-adaptive-article-ai-flow-design.md` §6 — a new
@@ -595,7 +616,7 @@ policies) comparing against `auth.uid()` exactly as before — only queries agai
 | `slug` | text, unique, not null | added 2026-09-27. Server-generated at provisioning time (`ApplicationsService.reviewApplication()`, from the applicant's name) via `generateUniqueSlug()` — the same mechanism `events`/`articles` use for their own slugs (`apps/backend/src/common/slugify.ts`): kebab-case, `-2`/`-3`/... suffix on collision. Never regenerated afterward, even if the member's name changes later — same "permanent identifier" rule those slugs follow. Exposed on `MemberListItemDto`/`MemberDto`, and since 2026-09-27 the routing key for profiles: `GET /v1/members/:slug` and the frontend's `/members/[slug]`. `profile_id` (UUID) stays the key for owner/admin write routes and every foreign key. |
 | `headline`, `bio` | text | |
 | `firm_name` | text, nullable | **Null, not the prototype's literal `'Independent'` string** — render that label at the UI layer. Baking display text into data was a deliberate thing *not* to reproduce. |
-| `firm_website` | text, nullable | Added 2026-09-29 as `NOT NULL`, relaxed to nullable 2026-10-03 — required for every *new* application regardless of `firm_name` (any well-formed URL accepted — a personal site or a LinkedIn page, not just a firm domain — enforced at submit time by `ApplicationsService.assertComplete()`), but a small number of applications submitted before that check existed may genuinely have none; approving one of those now inserts `null` rather than failing. Every read path (`MembersRepository`, both frontend profile views) already treated this as nullable. |
+| `firm_website` | text, nullable — **no longer read or written (2026-11-20)**: a member has one website, `website`; migration `0009` copied this into it where empty. Kept until a later migration drops it. Originally: | Added 2026-09-29 as `NOT NULL`, relaxed to nullable 2026-10-03 — required for every *new* application regardless of `firm_name` (any well-formed URL accepted — a personal site or a LinkedIn page, not just a firm domain — enforced at submit time by `ApplicationsService.assertComplete()`), but a small number of applications submitted before that check existed may genuinely have none; approving one of those now inserts `null` rather than failing. Every read path (`MembersRepository`, both frontend profile views) already treated this as nullable. |
 | `years_of_experience` | smallint, check 0–60 | drives tier, same shape as the application's own field |
 | `rate_min_cents`, `rate_max_cents` | int, check `max > min` | **Named to match `membership_applications.rate_min_cents`/`rate_max_cents`** — same concept, not `fee_range_*` as an earlier draft of this section had it |
 | `rate_currency` | text, default `'USD'`, check `^[A-Z]{3}$` | ISO 4217 code — the prototype only ever shows `'$'`, not a real currency code; every seed profile is USD, stored properly so a future non-USD member doesn't need a schema change |

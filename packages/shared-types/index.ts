@@ -11,3 +11,6 @@ export type * from './account';
 export type * from './errors';
 export type * from './consent-policy';
 export type * from './email';
+export type * from './platform-stats';
+export type * from './member-verification';
+export type * from './recommendation-request';

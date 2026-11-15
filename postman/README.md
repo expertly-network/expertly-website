@@ -1,10 +1,10 @@
 # GrowXQ Postman collection
 
-`GrowXQ.postman_collection.json` covers every route in `apps/backend` (104 requests). Structure
+`GrowXQ.postman_collection.json` covers every route in `apps/backend` (126 requests). Structure
 and naming follow two fixed principles — **read these before adding or editing anything**:
 
 1. **Role is the primary split, resource is secondary.** Public/member folders (Categories &
-   Services, Membership Applications, Articles, Events, Member Directory & Profiles,
+   Services, Membership Applications, Articles, Stats, Events, Member Directory & Profiles,
    Consultations, AI Search) hold only non-admin requests. Every 🛡️ admin-only route lives in the single
    top-level **Admin** folder instead, in a sub-folder named after the same resource (e.g. public
    `Articles` vs. `Admin → Articles`) — never mixed into the public/member folder it'd otherwise
@@ -52,7 +52,7 @@ generates one otherwise). Keep that header on any request you add.
 2. Most list endpoints (`GET /categories`, `GET /admin/applications`, `GET /admin/events`, ...)
    return real ids in their response. Copy those into the matching environment variable
    (`categoryId`, `serviceId`, `applicationId`, `articleId`, `aiGenerationId`, `eventId`, `memberId`, `memberSlug`,
-   `consultationId`, `memberEditId`, `recommendationId`) to drive the detail/update/delete requests instead of the
+   `consultationId`, `recommendationId`) to drive the detail/update/delete requests instead of the
    placeholder UUIDs they ship with.
 3. Every request body is a realistic, editable mock matching the DTO in
    `packages/shared-types/` — edit in place and hit Send.

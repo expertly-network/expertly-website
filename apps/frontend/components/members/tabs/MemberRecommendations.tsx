@@ -8,6 +8,10 @@ import { ApiError, apiFetch } from '@/lib/api/client';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { createClient } from '@/lib/supabase/client';
 import { formatMonthYear } from '@/lib/members/format';
+import {
+  OwnRecommendationRequests,
+  RequestRecommendationButton,
+} from '@/components/members/tabs/RecommendationRequests';
 import type { CreateRecommendationRequest, MemberRecommendationDto, UpdateRecommendationRequest } from '@shared/member';
 
 const MIN_LEN = 10;
@@ -137,6 +141,8 @@ export function MemberRecommendations({
         Member Recommendations
       </h3>
 
+      {isOwnProfile && canWrite && <OwnRecommendationRequests />}
+
       {items === null && !loadError && (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading recommendations">
           {[0, 1].map((i) => (
@@ -223,6 +229,8 @@ export function MemberRecommendations({
           ))}
         </ul>
       )}
+
+      {canWrite && !isOwnProfile && <RequestRecommendationButton memberId={memberId} memberName={memberName} />}
 
       {showForm && (
         <form

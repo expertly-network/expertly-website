@@ -71,7 +71,7 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
             <div className="font-mono text-[11px] text-ink-3">
               {formatArticleDate(featured.createdAt)} · {formatReadTime(featured.readTimeMinutes)}
             </div>
-            <h3 className="mt-3.5 text-heading text-ink">{featured.title}</h3>
+            <h3 className="mt-3 line-clamp-3 font-sans text-article-title text-ink">{featured.title}</h3>
             <div className="mt-5 flex items-center gap-3">
               <AuthorAvatar article={featured} size={60} />
               <div>

@@ -1,186 +1,262 @@
 'use client';
 
-import { useState } from 'react';
-import { Modal, Input, Textarea, Button } from '@/components/ui';
+import { useId, useRef, useState } from 'react';
+import { Modal, Input, MonthYearField, Textarea, Button, YearPicker } from '@/components/ui';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ImageCropper } from '@/components/ui/ImageCropper';
 import { WarningNote } from '@/components/ui/WarningNote';
+import { ProofAttachments } from '@/components/members/edit/ProofAttachments';
+import {
+  GROUP_KEY,
+  WorkCompaniesEditor,
+  blankWorkRow,
+  newWorkGroup,
+  withCompanyGroups,
+} from '@/components/members/edit/WorkCompaniesEditor';
 import { sortWorkHistory, workHistoryErrors, workHistoryWarnings } from '@/lib/members/work-history-check';
 import {
   EMPTY_ROW,
+  ITEM_NOUN,
   KEY_CLIENTS_MAX,
-  VERIFICATION_METHOD_OPTIONS,
+  PROOF_EXAMPLES,
   SECTION_CONFIG,
   SECTION_TITLES,
   type FieldSpec,
-  type SectionConfig,
 } from '@/components/members/edit/sectionFieldConfig';
-import { createMemberEdit, requestMemberUpload } from '@/lib/api/members';
+import { requestMemberUpload, saveMemberSection } from '@/lib/api/members';
 import { uploadToSignedUrl } from '@/lib/api/upload';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
-import type { CreateMemberEditRequest, MemberDto, MemberEditSection, ProofAttachment } from '@shared/member';
+import type { MemberDto, MemberEditSection, ProofAttachment } from '@shared/member';
 
 type Row = Record<string, unknown>;
 
-// Sections whose proof is embedded per row (payload[i].proofAttachments) rather than shared
-// across the whole batch via the modal-level proofFileUrl/proofLink fields.
-function hasPerItemProof(config: SectionConfig): boolean {
-  return config.shape === 'list-per-item-proof' || config.shape === 'clients';
+/**
+ * What the modal edits: a whole section, or (list sections) one entry — `itemId` 'new' adds one.
+ * A list section with no `itemId` opens the whole list: edit, remove, add and reorder in one panel.
+ */
+export interface EditTarget {
+  section: MemberEditSection;
+  itemId?: string;
 }
 
-function rowAttachments(row: Row): ProofAttachment[] {
+function attachmentsOf(row: Row): ProofAttachment[] {
   return Array.isArray(row.proofAttachments) ? (row.proofAttachments as ProofAttachment[]) : [];
 }
 
-// Submit isn't a native form submit, so required-field completeness is checked explicitly.
-function hasRequiredFieldsFilled(config: SectionConfig, data: Row | Row[]): boolean {
-  const rows = Array.isArray(data) ? data : [data];
-  const requiredKeys = config.fields.filter((f) => 'required' in f && f.required).map((f) => f.key);
-  return rows.every((row) =>
-    requiredKeys.every((key) => {
-      const value = row[key];
-      return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
-    })
-  );
+function isFilled(value: unknown): boolean {
+  return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
 }
 
-function initialPayload(member: MemberDto, section: MemberEditSection): Row | Row[] {
+// Submit isn't a native form submit, so required-field completeness is checked explicitly.
+function missingRequired(section: MemberEditSection, row: Row): boolean {
+  // A month-year field is required through its year (the month is always optional).
+  const required = SECTION_CONFIG[section].fields
+    .filter((f) => f.required)
+    .map((f) => (f.type === 'month-year' ? f.yearKey : f.key));
+  if (required.some((key) => !isFilled(row[key]))) return true;
+  // A client is required unless it is kept confidential.
+  if (section === 'engagements' && row.isConfidential !== true && !isFilled(row.clientName)) return true;
+  return false;
+}
+
+// The live entries of a list section, in the shape the API takes back (no isVerified — it's
+// server-owned). Untouched entries are resent exactly as they are, so a save only changes what the
+// member edited.
+export function liveRows(member: MemberDto, section: MemberEditSection): Row[] {
+  const withProof = <T extends { proofAttachments?: ProofAttachment[] }>(items: T[]) =>
+    items.map((item) => ({ ...item, proofAttachments: item.proofAttachments ?? [] }));
   switch (section) {
-    case 'headline_bio':
-      return { headline: member.headline ?? '', bio: member.bio ?? '' };
-    case 'contact':
-      return {
-        contactEmail: member.contactEmail ?? '',
-        workEmail: member.workEmail ?? '',
-        contactPhone: member.contactPhone ?? '',
-        linkedinUrl: member.linkedinUrl ?? '',
-        website: member.website ?? '',
-      };
     case 'engagements':
-      return member.engagements.length
-        ? member.engagements.map(({ isVerified: _v, clientName, clientEmail, verificationMethodOther, ...rest }) => ({
+      return withProof(
+        member.engagements.map(
+          ({
+            isVerified: _v,
+            changedAt: _c,
+            verifiedAt: _va,
+            organization: _o,
+            verificationMethods: _m,
+            verificationMethodOther: _mo,
+            ...rest
+          }) => ({
             ...rest,
-            clientName: clientName ?? '',
-            clientEmail: clientEmail ?? '',
-            verificationMethodOther: verificationMethodOther ?? '',
-            proofAttachments: rest.proofAttachments ?? [],
-          }))
-        : [{ ...EMPTY_ROW.engagements }];
+            clientName: rest.clientName ?? '',
+          })
+        )
+      );
     case 'education':
-      return member.educations.length
-        ? member.educations.map(({ isVerified: _v, ...rest }) => rest)
-        : [{ ...EMPTY_ROW.education }];
+      return withProof(member.educations.map(({ isVerified: _v, changedAt: _c, verifiedAt: _va, ...rest }) => rest));
     case 'work_experiences':
-      return member.workExperiences.length
-        ? sortWorkHistory(member.workExperiences.map(({ isVerified: _v, ...rest }) => rest))
-        : [{ ...EMPTY_ROW.work_experiences }];
+      return withProof(
+        sortWorkHistory(
+          member.workExperiences.map(({ isVerified: _v, changedAt: _c, verifiedAt: _va, ...rest }) => rest)
+        )
+      );
     case 'key_clients':
-      // Carried through unchanged unless a new file is uploaded.
-      return member.keyClients.length
-        ? member.keyClients.map((c) => ({
-            id: c.id,
-            name: c.name,
-            logoUrl: c.logoUrl,
-            logoUploadPath: undefined,
-            proofAttachments: c.proofAttachments ?? [],
-          }))
-        : [{ ...EMPTY_ROW.key_clients }];
+      // Carried through unchanged unless a new logo file is uploaded.
+      return member.keyClients.map((c) => ({
+        id: c.id,
+        name: c.name,
+        logoUrl: c.logoUrl,
+        logoUploadPath: undefined,
+        proofAttachments: c.proofAttachments ?? [],
+      }));
     case 'testimonials':
-      return member.testimonials.length
-        ? member.testimonials.map(({ isVerified: _v, ...rest }) => ({
-            ...rest,
-            clientEmail: rest.clientEmail ?? '',
-            proofAttachments: rest.proofAttachments ?? [],
-          }))
-        : [{ ...EMPTY_ROW.testimonials }];
+      return withProof(
+        member.testimonials.map(
+          ({ isVerified: _v, changedAt: _c, verifiedAt: _va, serviceName: _s, occurredOn: _o, ...rest }) => rest
+        )
+      );
     case 'awards':
-      return member.awards.length
-        ? member.awards.map(({ isVerified: _v, ...rest }) => ({
-            ...rest,
-            proofAttachments: rest.proofAttachments ?? [],
-          }))
-        : [{ ...EMPTY_ROW.awards }];
+      return withProof(member.awards.map(({ isVerified: _v, changedAt: _c, verifiedAt: _va, ...rest }) => rest));
+    default:
+      return [];
   }
 }
 
-// Strips UI-only keys and blank optional values before submit; sorts work history newest-first.
-function cleanPayload(section: MemberEditSection, data: Row | Row[]): Row | Row[] {
-  if (!Array.isArray(data)) return data;
-  const rows = data.map((row) => {
-    const { logoPreview: _p, ...rest } = row;
-    const out: Row = { ...rest };
-    if (
-      (section === 'engagements' || section === 'testimonials') &&
-      typeof out.clientEmail === 'string' &&
-      !out.clientEmail.trim()
-    ) {
-      delete out.clientEmail;
-    }
-    if (section === 'engagements') {
-      const methods = Array.isArray(out.verificationMethods) ? (out.verificationMethods as string[]) : [];
-      if (!methods.includes('other') || !String(out.verificationMethodOther ?? '').trim()) {
-        delete out.verificationMethodOther;
-      }
-    }
-    return out;
+function fieldsInitial(member: MemberDto, section: MemberEditSection): Row {
+  if (section === 'headline_bio') return { headline: member.headline ?? '', bio: member.bio ?? '' };
+  return {
+    workEmail: member.workEmail ?? '',
+    contactPhone: member.contactPhone ?? '',
+    linkedinUrl: member.linkedinUrl ?? '',
+    website: member.website ?? '',
+  };
+}
+
+// Strips UI-only keys; sorts work history newest-first.
+function cleanRows(section: MemberEditSection, rows: Row[]): Row[] {
+  const cleaned = rows.map((row) => {
+    const { logoPreview: _p, [GROUP_KEY]: _g, ...rest } = row;
+    return rest;
   });
-  return section === 'work_experiences' ? sortWorkHistory(rows) : rows;
+  return section === 'work_experiences' ? sortWorkHistory(cleaned) : cleaned;
 }
 
-function VerificationMethods({ row, onChange }: { row: Row; onChange: (key: string, value: unknown) => void }) {
-  const selected = Array.isArray(row.verificationMethods) ? (row.verificationMethods as string[]) : [];
-  return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="text-xs font-medium text-ink-2">How can this engagement be verified?</legend>
-      <div className="flex flex-col gap-1.5">
-        {VERIFICATION_METHOD_OPTIONS.map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2 text-sm text-ink-2">
+// A short label for an entry in the collapsed summary of the "Add one more" editor.
+function entryLabel(section: MemberEditSection, row: Row): string {
+  const text = (key: string) => (typeof row[key] === 'string' ? (row[key] as string).trim() : '');
+  switch (section) {
+    case 'education':
+      return [text('degree'), text('institution')].filter(Boolean).join(' · ');
+    case 'work_experiences':
+      return [text('title'), text('company')].filter(Boolean).join(' · ');
+    case 'testimonials':
+      return text('clientName');
+    default:
+      return text('title');
+  }
+}
+
+function Field({
+  spec,
+  row,
+  onChange,
+}: {
+  spec: FieldSpec;
+  row: Row;
+  /** Sets one payload key — most fields write `spec.key`; a month-year field writes two keys. */
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const value = row[spec.key];
+  const flagId = useId();
+  if (spec.type === 'text-flag') {
+    const flagged = Boolean(row[spec.flagKey]);
+    // Two columns: the text field and a small tick, centred on the field's line; underneath, the hint
+    // on the left and the tick's word centred under the box. The tick stays beside the field on
+    // phones too.
+    return (
+      <div className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1.5">
+        <div className="min-w-0">
+          <Input
+            label={spec.label}
+            placeholder={spec.placeholder}
+            maxLength={300}
+            value={(value as string) ?? ''}
+            onChange={(e) => onChange(spec.key, e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col items-center justify-end self-end">
+          <label htmlFor={flagId} className="relative flex h-[46px] w-8 cursor-pointer items-center justify-center">
             <input
+              id={flagId}
               type="checkbox"
-              checked={selected.includes(opt.value)}
-              onChange={(e) =>
-                onChange(
-                  'verificationMethods',
-                  e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value)
-                )
-              }
+              checked={flagged}
+              onChange={(e) => onChange(spec.flagKey, e.target.checked)}
+              className="peer sr-only"
             />
-            {opt.label}
+            <span className="flex h-6 w-6 items-center justify-center rounded-md border border-line-2 bg-bg-card text-transparent transition-colors hover:border-ink-3 peer-checked:border-accent peer-checked:bg-accent peer-checked:text-bg-card peer-focus-visible:ring-[3px] peer-focus-visible:ring-ink/[0.08]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M5 12.5l4.5 4.5L19 7"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </label>
-        ))}
+        </div>
+        <p className="text-xs text-ink-3">{flagged ? spec.flagHint : spec.hint}</p>
+        <label htmlFor={flagId} className="cursor-pointer text-center text-[11px] font-medium leading-snug text-ink-2">
+          {spec.flagLabel}
+        </label>
       </div>
-      {selected.includes('other') && (
-        <Input
-          label="Describe the other method"
-          type="text"
-          maxLength={300}
-          value={String(row.verificationMethodOther ?? '')}
-          onChange={(e) => onChange('verificationMethodOther', e.target.value)}
-        />
-      )}
-    </fieldset>
-  );
-}
-
-function Field({ spec, value, onChange }: { spec: FieldSpec; value: unknown; onChange: (value: unknown) => void }) {
-  if (spec.type === 'verification-methods') return null;
+    );
+  }
+  if (spec.type === 'month-year') {
+    return (
+      <MonthYearField
+        label={spec.label}
+        required={spec.required}
+        disabled={spec.disabledWhenKey ? Boolean(row[spec.disabledWhenKey]) : false}
+        month={row[spec.monthKey] as number | undefined}
+        year={row[spec.yearKey] as number | undefined}
+        onMonthChange={(m) => onChange(spec.monthKey, m)}
+        onYearChange={(y) => onChange(spec.yearKey, y)}
+      />
+    );
+  }
   if (spec.type === 'textarea') {
     return (
       <Textarea
         label={spec.label}
-        required={spec.required}
+        markRequired={spec.required}
+        hint={spec.hint}
+        placeholder={spec.placeholder}
         rows={3}
         maxLength={2000}
         value={(value as string) ?? ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(spec.key, e.target.value)}
       />
     );
   }
   if (spec.type === 'checkbox') {
+    // A tappable card: the whole row toggles, and it lights up when ticked.
     return (
-      <label className="flex items-center gap-2 text-sm text-ink-2">
-        <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
-        {spec.label}
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-bg-card p-3.5 transition-colors hover:border-ink-3 has-[:checked]:border-accent has-[:checked]:bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]">
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => onChange(spec.key, e.target.checked)}
+          className="mt-0.5 h-4 w-4 flex-none accent-[var(--accent)]"
+        />
+        <span>
+          <span className="block text-sm font-medium text-ink">{spec.label}</span>
+          {spec.hint && <span className="mt-0.5 block text-xs text-ink-3">{spec.hint}</span>}
+        </span>
       </label>
+    );
+  }
+  if (spec.type === 'year') {
+    return (
+      <YearPicker
+        label={spec.label}
+        markRequired={spec.required}
+        yearsAhead={spec.yearsAhead}
+        value={typeof value === 'number' ? value : undefined}
+        onChange={(year) => onChange(spec.key, year)}
+      />
     );
   }
   if (spec.type === 'number') {
@@ -188,11 +264,14 @@ function Field({ spec, value, onChange }: { spec: FieldSpec; value: unknown; onC
       <Input
         label={spec.label}
         type="number"
-        required={spec.required}
+        inputMode="numeric"
+        markRequired={spec.required}
+        hint={spec.hint}
+        placeholder={spec.placeholder}
         min={spec.min}
         max={spec.max}
         value={value === undefined || value === null ? '' : String(value)}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+        onChange={(e) => onChange(spec.key, e.target.value ? Number(e.target.value) : undefined)}
       />
     );
   }
@@ -200,169 +279,195 @@ function Field({ spec, value, onChange }: { spec: FieldSpec; value: unknown; onC
     <Input
       label={spec.label}
       type={spec.type}
-      required={spec.required}
+      markRequired={spec.required}
+      hint={spec.hint}
+      placeholder={spec.placeholder}
       maxLength={300}
       value={(value as string) ?? ''}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => onChange(spec.key, e.target.value)}
     />
   );
 }
 
 export function SectionEditModal({
   member,
-  section,
+  target,
   onClose,
-  onSubmitted,
+  onSaved,
 }: {
   member: MemberDto;
-  section: MemberEditSection | null;
+  target: EditTarget | null;
   onClose: () => void;
-  onSubmitted: () => void;
+  onSaved: () => void;
 }) {
-  const [data, setData] = useState<Row | Row[] | null>(null);
-  const [proofMode, setProofMode] = useState<'file' | 'link'>('link');
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [proofLink, setProofLink] = useState('');
-  // Per-row link-being-typed text, for list-per-item-proof sections — kept out of `data` so it's
-  // never accidentally submitted as part of the row payload.
-  const [linkDrafts, setLinkDrafts] = useState<Record<number, string>>({});
-  const [uploadingRow, setUploadingRow] = useState<number | null>(null);
+  const [fields, setFields] = useState<Row>({});
+  // Rows being edited: one entry for an item edit, every client for the key-clients list.
+  const [rows, setRows] = useState<Row[]>([]);
+  // Which entry is expanded when several are being added in one go (the others show a summary).
+  const [openIndex, setOpenIndex] = useState(0);
+  // Drag-to-reorder (list mode): the row being dragged, and each row's element for hit-testing.
+  const [dragging, setDragging] = useState<number | null>(null);
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // List mode: the entry whose removal is awaiting confirmation.
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingCrop, setPendingCrop] = useState<{ rowIndex: number; file: File } | null>(null);
 
-  // Reset local state whenever a new section is opened.
-  const [openedSection, setOpenedSection] = useState<MemberEditSection | null>(null);
-  if (section && section !== openedSection) {
-    setOpenedSection(section);
-    setData(initialPayload(member, section));
-    setProofMode('link');
-    setProofFile(null);
-    setProofLink('');
-    setLinkDrafts({});
-    setUploadingRow(null);
-    setPendingCrop(null);
+  // Reset local state whenever a different target is opened.
+  const targetKey = target ? `${target.section}:${target.itemId ?? ''}` : null;
+  const [openedKey, setOpenedKey] = useState<string | null>(null);
+  if (target && targetKey !== openedKey) {
+    setOpenedKey(targetKey);
+    const config = SECTION_CONFIG[target.section];
     setError(null);
-  }
-
-  if (!section || data === null) return null;
-
-  // Keeps the non-null narrowing available inside nested closures below.
-  const activeSection = section;
-
-  const config = SECTION_CONFIG[section];
-  // list-shared-proof (education, work_experiences): one proof for the whole batch, via the
-  // modal-level widget below. list-per-item-proof (engagements, testimonials, awards): proof is
-  // embedded per row, rendered inline with that row instead.
-  const needsSharedProof = config.shape === 'list-shared-proof';
-  const needsPerItemProof = hasPerItemProof(config);
-  const rows = Array.isArray(data) ? data : null;
-
-  function updateField(rowIndex: number | null, key: string, value: unknown) {
-    if (rowIndex === null) {
-      setData((prev) => ({ ...(prev as Row), [key]: value }));
+    setPendingCrop(null);
+    setConfirmDelete(false);
+    setConfirmRemove(null);
+    setOpenIndex(0);
+    if (config.shape === 'fields') {
+      setFields(fieldsInitial(member, target.section));
+      setRows([]);
+    } else if (config.shape === 'clients') {
+      const live = liveRows(member, target.section);
+      setRows(live.length ? live : [{ ...EMPTY_ROW.key_clients }]);
+    } else if (!target.itemId) {
+      // The whole list: every entry collapsed to a summary, or one blank entry when there are none.
+      const live = liveRows(member, target.section);
+      if (target.section === 'work_experiences') {
+        setRows(live.length ? withCompanyGroups(live) : [blankWorkRow(newWorkGroup())]);
+      } else {
+        setRows(live.length ? live : [{ ...EMPTY_ROW[target.section] }]);
+      }
+      setOpenIndex(live.length ? -1 : 0);
+    } else if (target.itemId && target.itemId !== 'new') {
+      const existing = liveRows(member, target.section).find((r) => r.id === target.itemId);
+      setRows([existing ?? { ...EMPTY_ROW[target.section] }]);
     } else {
-      setData((prev) => {
-        const next = [...(prev as Row[])];
-        next[rowIndex] = { ...next[rowIndex], [key]: value };
-        return next;
-      });
+      setRows([{ ...EMPTY_ROW[target.section] }]);
     }
   }
 
-  function addRow() {
-    if (!rows) return;
-    setData([...rows, { ...EMPTY_ROW[activeSection] }]);
+  if (!target) return null;
+  const { section, itemId } = target;
+  const config = SECTION_CONFIG[section];
+  const isFieldsMode = config.shape === 'fields';
+  const isClients = config.shape === 'clients';
+  const isList = config.shape === 'items' && !itemId;
+  const isNew = config.shape === 'items' && itemId === 'new';
+  const noun = ITEM_NOUN[section] ?? 'entry';
+  const liveList = isFieldsMode || isClients || isList ? [] : liveRows(member, section);
+  const atCap = !isFieldsMode && !isClients && isNew && liveList.length >= (config.maxItems ?? Infinity);
+
+  // The full list a save sends: the live entries with this editor's entries replaced / appended
+  // (item mode), or every row (key clients). The editor can hold several new entries at once
+  // ("Add one more"); when editing an existing entry, row 0 is that entry and the rest are new.
+  function composed(): Row[] {
+    if (isClients || isList) return rows;
+    if (isNew) return [...liveList, ...rows];
+    return [...liveList.map((r) => (r.id === itemId ? (rows[0] ?? r) : r)), ...rows.slice(1)];
+  }
+  // Where editor row `i` ends up in the composed list (for per-entry date checks).
+  function composedIndex(i: number): number {
+    if (isList) return i;
+    if (isNew) return liveList.length + i;
+    return i === 0 ? liveList.findIndex((r) => r.id === itemId) : liveList.length + i - 1;
+  }
+  const totalAfterSave = isList
+    ? rows.length
+    : isNew
+      ? liveList.length + rows.length
+      : liveList.length + rows.length - 1;
+  const canAddMore = totalAfterSave < (config.maxItems ?? Infinity);
+
+  function moveRow(from: number, to: number) {
+    if (from === to || to < 0 || to >= rows.length) return;
+    setRows((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   }
 
-  function removeRow(index: number) {
-    if (!rows) return;
-    setData(rows.filter((_, i) => i !== index));
+  // Grab the handle and drag: the row follows the pointer by swapping with whichever row it is over.
+  // Rows collapse first so they are all the same height and the swap doesn't jitter.
+  function startDrag(e: ReactPointerEvent<HTMLButtonElement>, index: number) {
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    let current = index;
+    setOpenIndex(-1);
+    setDragging(index);
+    const onMove = (ev: PointerEvent) => {
+      const over = rowRefs.current.findIndex((el) => {
+        const r = el?.getBoundingClientRect();
+        return r !== undefined && ev.clientY >= r.top && ev.clientY <= r.bottom;
+      });
+      if (over >= 0 && over !== current) {
+        moveRow(current, over);
+        current = over;
+        setDragging(over);
+      }
+    };
+    const end = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      setDragging(null);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
   }
 
-  // Proof is optional everywhere; without it an admin can still approve the item, just not
-  // with the Verified badge.
-  const dateErrors: Record<number, string> =
-    activeSection === 'work_experiences' && rows ? workHistoryErrors(rows) : {};
-  const dateWarnings: Record<number, string> =
-    activeSection === 'work_experiences' && rows ? workHistoryWarnings(rows) : {};
+  function updateRow(index: number, key: string, value: unknown) {
+    setRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        const next = { ...row, [key]: value };
+        // "I currently work here" has no end date: drop any that was set.
+        if (key === 'isCurrent' && value === true) {
+          next.endMonth = undefined;
+          next.endYear = undefined;
+        }
+        return next;
+      })
+    );
+  }
+
+  const fullList = isFieldsMode ? [] : composed();
+  const dateErrors: Record<number, string> = section === 'work_experiences' ? workHistoryErrors(fullList) : {};
+  const dateWarnings: Record<number, string> = section === 'work_experiences' ? workHistoryWarnings(fullList) : {};
   const hasDateErrors = Object.keys(dateErrors).length > 0;
-  const atCap = rows !== null && rows.length >= (config.maxItems ?? Infinity);
-  const canSubmit = hasRequiredFieldsFilled(config, data) && !hasDateErrors && !submitting;
+  const incomplete = isFieldsMode
+    ? config.fields.some((f) => f.required && !isFilled(fields[f.key]))
+    : rows.some((row) => missingRequired(section, row));
+  const canSave = !incomplete && !hasDateErrors && !submitting && !atCap;
 
-  // Uploads immediately per row, not deferred to submit like proof files.
+  // Uploads immediately per row, not deferred to save.
   async function handleLogoUpload(rowIndex: number, file: File) {
     setError(null);
     try {
       const { uploadUrl, path } = await requestMemberUpload(member.id, file);
       await uploadToSignedUrl(uploadUrl, file);
-      updateField(rowIndex, 'logoUploadPath', path);
-      updateField(rowIndex, 'logoPreview', URL.createObjectURL(file));
+      setRows((prev) =>
+        prev.map((row, i) =>
+          i === rowIndex ? { ...row, logoUploadPath: path, logoPreview: URL.createObjectURL(file) } : row
+        )
+      );
     } catch (err) {
       setError(apiErrorMessage(err, 'Logo upload failed. Please try again.'));
     }
   }
 
-  // A row can carry any mix of multiple files and links — each upload appends, never replaces.
-  async function handleProofFilesSelected(rowIndex: number, files: FileList) {
-    setError(null);
-    setUploadingRow(rowIndex);
-    try {
-      const uploaded: ProofAttachment[] = [];
-      for (const file of Array.from(files)) {
-        const { uploadUrl, path } = await requestMemberUpload(member.id, file);
-        await uploadToSignedUrl(uploadUrl, file);
-        uploaded.push({ type: 'file', url: path, label: file.name });
-      }
-      updateField(rowIndex, 'proofAttachments', [...rowAttachments((rows as Row[])[rowIndex]), ...uploaded]);
-    } catch (err) {
-      setError(apiErrorMessage(err, 'File upload failed. Please try again.'));
-    } finally {
-      setUploadingRow(null);
-    }
-  }
-
-  function addLinkAttachment(rowIndex: number) {
-    const url = (linkDrafts[rowIndex] ?? '').trim();
-    if (!url) return;
-    updateField(rowIndex, 'proofAttachments', [
-      ...rowAttachments((rows as Row[])[rowIndex]),
-      { type: 'link', url, label: url } satisfies ProofAttachment,
-    ]);
-    setLinkDrafts((prev) => ({ ...prev, [rowIndex]: '' }));
-  }
-
-  function removeAttachment(rowIndex: number, attachmentIndex: number) {
-    updateField(
-      rowIndex,
-      'proofAttachments',
-      rowAttachments((rows as Row[])[rowIndex]).filter((_, i) => i !== attachmentIndex)
-    );
-  }
-
-  async function handleSubmit() {
-    if (!section) return;
+  async function submit(payload: unknown) {
     setSubmitting(true);
     setError(null);
     try {
-      let proofFileUrl: string | undefined;
-      if (proofMode === 'file' && proofFile) {
-        const { uploadUrl, path } = await requestMemberUpload(member.id, proofFile);
-        await uploadToSignedUrl(uploadUrl, proofFile);
-        proofFileUrl = path;
-      }
-
-      const payload = cleanPayload(section, data as Row | Row[]);
-      const body = {
-        section,
-        payload,
-        ...(needsSharedProof
-          ? { proofFileUrl, proofLink: proofMode === 'link' ? proofLink.trim() || undefined : undefined }
-          : {}),
-      } as CreateMemberEditRequest;
-
-      await createMemberEdit(member.id, body);
-      onSubmitted();
+      await saveMemberSection(member.id, section, payload);
+      onSaved();
       onClose();
     } catch (err) {
       setError(apiErrorMessage(err, 'Something went wrong. Please try again.'));
@@ -371,227 +476,324 @@ export function SectionEditModal({
     }
   }
 
+  const title = isFieldsMode || isClients || isList ? SECTION_TITLES[section] : `${isNew ? 'New' : 'Edit'} ${noun}`;
+  // Short fields sit two to a row from 640px up; everything else takes the full width.
+  const fieldGrid = (row: Row, onChange: (key: string, value: unknown) => void) => (
+    <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+      {config.fields.map((spec) => (
+        <div key={spec.key} className={spec.span === 'half' ? '' : 'sm:col-span-2'}>
+          <Field spec={spec} row={row} onChange={onChange} />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <Modal open onClose={onClose} title={SECTION_TITLES[section]}>
-      <div className="flex flex-col gap-4">
-        {rows ? (
+    <Modal open onClose={onClose} title={title} size="lg">
+      <div className="flex flex-col gap-5">
+        {isFieldsMode && fieldGrid(fields, (key, value) => setFields((prev) => ({ ...prev, [key]: value })))}
+
+        {!isFieldsMode && atCap && (
+          <p className="text-sm text-ink-3">
+            You have reached the maximum of {config.maxItems} {noun}s. Remove one to add another.
+          </p>
+        )}
+
+        {/* Key clients: one compact card per client — logo on the left, name on the right. */}
+        {isClients && !atCap && (
           <>
-            {activeSection === 'key_clients' && (
-              <div className="rounded-xl border border-line bg-bg-alt p-3 text-xs text-ink-2">
-                <p className="font-medium text-ink">Before you add key clients</p>
-                <ul className="mt-1 list-disc space-y-1 pl-4">
-                  <li>We may randomly call or email a client to verify the relationship.</li>
-                  <li>
-                    You must have worked with the client directly, not a generic client of the organisation you did the
-                    work through.
-                  </li>
-                  <li>
-                    Up to {KEY_CLIENTS_MAX} key clients ({rows.length} of {KEY_CLIENTS_MAX} used). Clients with proof
-                    attached show as Verified.
-                  </li>
-                </ul>
-              </div>
-            )}
-            {rows.map((row, i) => (
-              <div key={i} className="rounded-xl border border-line p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-mono-label text-ink-3">{String(i + 1).padStart(2, '0')}</span>
-                  {rows.length > 1 && (
-                    <button type="button" onClick={() => removeRow(i)} className="text-xs font-medium text-error">
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-col gap-3">
-                  {config.fields.map((spec) =>
-                    spec.type === 'verification-methods' ? (
-                      <VerificationMethods
-                        key={spec.key}
-                        row={row}
-                        onChange={(key, value) => updateField(i, key, value)}
-                      />
-                    ) : (
-                      <Field
-                        key={spec.key}
-                        spec={spec}
-                        value={row[spec.key]}
-                        onChange={(value) => updateField(i, spec.key, value)}
-                      />
-                    )
-                  )}
-                  {dateErrors[i] && (
-                    <p role="alert" className="text-xs text-error">
-                      {dateErrors[i]}
-                    </p>
-                  )}
-                  {!dateErrors[i] && dateWarnings[i] && <WarningNote>{dateWarnings[i]}</WarningNote>}
-                </div>
-                {config.shape === 'clients' && (
-                  <div className="mt-3">
-                    {/* Raw <img>: a blob:/data: preview of the picked file, or a member-entered logo URL on any host. */}
-                    {typeof row.logoPreview === 'string' ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={row.logoPreview} alt="" className="mb-2 h-16 w-16 rounded-input object-cover" />
-                    ) : typeof row.logoUrl === 'string' && !row.logoUploadPath ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={row.logoUrl} alt="" className="mb-2 h-16 w-16 rounded-input object-contain" />
-                    ) : null}
-                    <label htmlFor={`logo-${i}`} className="text-xs font-medium text-ink-2">
-                      Logo (cropped to a square)
-                    </label>
-                    <input
-                      id={`logo-${i}`}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setPendingCrop({ rowIndex: i, file });
-                        e.target.value = '';
-                      }}
-                      className="mt-1 block text-sm"
-                    />
-                    {row.logoUploadPath ? <p className="mt-1 text-xs text-ok">New logo cropped and uploaded.</p> : null}
-                  </div>
-                )}
-                {needsPerItemProof && (
-                  <div className="mt-3 rounded-xl border border-line p-3">
-                    <p className="text-xs font-medium text-ink-2">Proof for this item (optional)</p>
-                    <p className="mt-0.5 text-xs text-ink-3">
-                      Attach proof to be eligible for the Verified badge. Without it, an admin can still approve this
-                      item, but it will not be marked Verified.
-                    </p>
-                    {rowAttachments(row).length > 0 && (
-                      <ul className="mt-2 flex flex-col gap-1.5">
-                        {rowAttachments(row).map((attachment, ai) => (
-                          <li
-                            key={ai}
-                            className="flex items-center justify-between gap-2 rounded-input bg-bg-alt px-3 py-1.5 text-xs text-ink-2"
-                          >
-                            <span className="truncate">
-                              {attachment.type === 'file' ? '📎 ' : '🔗 '}
-                              {attachment.label}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeAttachment(i, ai)}
-                              className="shrink-0 font-medium text-error"
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <label className="cursor-pointer rounded-input border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:border-ink focus-within:ring-[3px] focus-within:ring-ink/[0.08]">
-                        {uploadingRow === i ? 'Uploading…' : 'Add file(s)'}
+            <ul className="flex flex-col gap-3">
+              {rows.map((row, i) => (
+                <li key={i} className="rounded-2xl border border-line bg-bg-card p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-none flex-col items-center gap-1.5">
+                      <label
+                        htmlFor={`logo-${i}`}
+                        className="group relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-[1.5px] border-dashed border-line-2 bg-bg-alt text-ink-3 transition-colors hover:border-accent hover:text-accent focus-within:ring-[3px] focus-within:ring-ink/[0.08]"
+                      >
+                        {/* Raw <img>: a blob:/data: preview of the picked file, or a member-entered logo URL on any host. */}
+                        {typeof row.logoPreview === 'string' ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={row.logoPreview} alt="" className="h-full w-full object-cover" />
+                        ) : typeof row.logoUrl === 'string' && !row.logoUploadPath ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={row.logoUrl} alt="" className="h-full w-full object-contain" />
+                        ) : (
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path
+                              d="M4 8a2 2 0 012-2h1.5l1-1.5h7L17.5 6H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinejoin="round"
+                            />
+                            <circle cx="12" cy="12.5" r="3" stroke="currentColor" strokeWidth="1.6" />
+                          </svg>
+                        )}
                         <input
+                          id={`logo-${i}`}
                           type="file"
-                          multiple
-                          accept="application/pdf,image/jpeg,image/png,image/webp,image/gif"
-                          disabled={uploadingRow === i}
+                          accept="image/jpeg,image/png,image/webp,image/gif"
                           onChange={(e) => {
-                            if (e.target.files?.length) handleProofFilesSelected(i, e.target.files);
+                            const file = e.target.files?.[0];
+                            if (file) setPendingCrop({ rowIndex: i, file });
                             e.target.value = '';
                           }}
                           className="sr-only"
                         />
                       </label>
-                      <input
-                        type="text"
-                        placeholder="…or paste a proof link (https://…)"
-                        value={linkDrafts[i] ?? ''}
-                        onChange={(e) => setLinkDrafts((prev) => ({ ...prev, [i]: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addLinkAttachment(i);
-                          }
-                        }}
-                        className="min-w-0 flex-1 rounded-input border border-line px-3 py-1.5 text-xs outline-none focus:border-ink"
-                      />
+                      <span className="text-[11px] text-ink-3">
+                        {row.logoUploadPath ? 'Logo added' : 'Logo (optional)'}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Field spec={config.fields[0]} row={row} onChange={(key, value) => updateRow(i, key, value)} />
+                    </div>
+                    {rows.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => addLinkAttachment(i)}
-                        disabled={!(linkDrafts[i] ?? '').trim()}
-                        className="rounded-input border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:border-ink disabled:opacity-40"
+                        onClick={() => setRows(rows.filter((_, j) => j !== i))}
+                        aria-label="Remove this client"
+                        className="mt-6 flex-none rounded-md p-1.5 text-ink-3 transition-colors hover:bg-black/5 hover:text-error"
                       >
-                        Add link
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M5 7h14M10 7V5h4v2m-7 0l1 12h8l1-12"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
                       </button>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-            {!atCap && (
+                  <details className="group mt-3">
+                    <summary className="cursor-pointer list-none text-xs font-medium text-ink-3 hover:text-ink [&::-webkit-details-marker]:hidden">
+                      + Add proof to get this client verified faster (optional)
+                      {attachmentsOf(row).length > 0 ? ` · ${attachmentsOf(row).length} attached` : ''}
+                    </summary>
+                    <div className="mt-2">
+                      <ProofAttachments
+                        memberId={member.id}
+                        examples={PROOF_EXAMPLES.key_clients}
+                        attachments={attachmentsOf(row)}
+                        onChange={(next) => updateRow(i, 'proofAttachments', next)}
+                        onError={setError}
+                      />
+                    </div>
+                  </details>
+                </li>
+              ))}
+            </ul>
+            {rows.length < KEY_CLIENTS_MAX && (
               <button
                 type="button"
-                onClick={addRow}
-                className="rounded-input border border-line-2 px-5 py-2.5 text-sm font-medium text-ink hover:border-ink"
+                onClick={() => setRows([...rows, { ...EMPTY_ROW.key_clients }])}
+                className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
               >
-                + Add another
+                + Add another client{' '}
+                <span className="font-normal text-ink-3">
+                  ({rows.length} of {KEY_CLIENTS_MAX})
+                </span>
               </button>
             )}
-            {atCap && activeSection === 'key_clients' && (
-              <p className="text-xs text-ink-3">
-                You have reached the maximum of {KEY_CLIENTS_MAX} key clients. Remove one to add another.
-              </p>
-            )}
+            <p className="text-xs text-ink-3">
+              We may call or email a client to confirm the relationship, so list only clients you worked with directly.
+            </p>
           </>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {config.fields.map((spec) => (
-              <Field
-                key={spec.key}
-                spec={spec}
-                value={(data as Row)[spec.key]}
-                onChange={(value) => updateField(null, spec.key, value)}
-              />
-            ))}
-          </div>
         )}
 
-        {needsSharedProof && (
-          <div className="rounded-xl border border-line p-4">
-            <p className="text-xs font-medium text-ink-2">Proof (optional)</p>
-            <p className="mt-0.5 text-xs text-ink-3">
-              Proof is needed for the Verified badge. Without it, an admin can still approve the changes but they will
-              not be marked Verified.
-            </p>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setProofMode('file')}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${proofMode === 'file' ? 'bg-ink text-bg' : 'bg-bg-alt text-ink-2'}`}
-              >
-                Upload file
-              </button>
-              <button
-                type="button"
-                onClick={() => setProofMode('link')}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${proofMode === 'link' ? 'bg-ink text-bg' : 'bg-bg-alt text-ink-2'}`}
-              >
-                Paste link
-              </button>
-            </div>
-            {proofMode === 'file' ? (
-              <input
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp,image/gif"
-                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                className="mt-3 text-sm"
-              />
-            ) : (
-              <input
-                type="text"
-                placeholder="https://…"
-                value={proofLink}
-                onChange={(e) => setProofLink(e.target.value)}
-                className="mt-3 w-full rounded-input border border-line px-3 py-2 text-sm outline-none focus:border-ink"
-              />
-            )}
-          </div>
+        {/* The entries of a list section (engagement, role, award, …). One is shown flat; once the
+            member adds more, each becomes a collapsible card and only the open one shows its form. */}
+        {isList && section === 'work_experiences' && (
+          <WorkCompaniesEditor
+            rows={rows}
+            setRows={setRows}
+            memberId={member.id}
+            maxItems={config.maxItems ?? 15}
+            dateErrors={dateErrors}
+            dateWarnings={dateWarnings}
+            renderField={(spec, row, onChange) => <Field spec={spec} row={row} onChange={onChange} />}
+            onError={setError}
+          />
         )}
+
+        {!isFieldsMode &&
+          !isClients &&
+          !atCap &&
+          !(isList && section === 'work_experiences') &&
+          (rows.length > 0 || isList) && (
+            <>
+              {rows.map((row, i) => {
+                const expanded = (!isList && rows.length === 1) || i === openIndex;
+                const at = composedIndex(i);
+                const form = (
+                  <div className="flex flex-col gap-4">
+                    {fieldGrid(row, (key, value) => updateRow(i, key, value))}
+                    {dateErrors[at] && (
+                      <p role="alert" className="text-xs text-error">
+                        {dateErrors[at]}
+                      </p>
+                    )}
+                    {!dateErrors[at] && dateWarnings[at] && <WarningNote>{dateWarnings[at]}</WarningNote>}
+                    <ProofAttachments
+                      memberId={member.id}
+                      examples={PROOF_EXAMPLES[section]}
+                      attachments={attachmentsOf(row)}
+                      onChange={(next) => updateRow(i, 'proofAttachments', next)}
+                      onError={setError}
+                    />
+                  </div>
+                );
+                if (!isList && rows.length === 1) return <div key={i}>{form}</div>;
+                const incompleteRow = missingRequired(section, row);
+                // The first row of an existing-entry edit is removed with the link under Save, not here.
+                const removable = isList || isNew || i > 0;
+                const reorderable = isList && section !== 'work_experiences' && rows.length > 1;
+                return (
+                  <div
+                    key={i}
+                    ref={(el) => {
+                      rowRefs.current[i] = el;
+                    }}
+                    className={`rounded-2xl border bg-bg-card transition-shadow ${
+                      dragging === i ? 'border-accent shadow-[0_8px_24px_rgba(0,0,0,0.12)]' : 'border-line'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 px-4 py-3">
+                      {reorderable && (
+                        <button
+                          type="button"
+                          data-handle={i}
+                          aria-label={`Reorder ${noun} ${i + 1}. Drag, or use the up and down arrow keys.`}
+                          onPointerDown={(e) => startDrag(e, i)}
+                          onKeyDown={(e) => {
+                            const to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : null;
+                            if (to === null) return;
+                            e.preventDefault();
+                            moveRow(i, to);
+                            // The rows re-render in their new order; put focus back on the moved row's handle.
+                            requestAnimationFrame(() =>
+                              document.querySelector<HTMLButtonElement>(`[data-handle="${to}"]`)?.focus()
+                            );
+                          }}
+                          className="-ml-1.5 flex h-8 w-6 flex-none cursor-grab touch-none items-center justify-center rounded-md text-ink-4 transition-colors hover:bg-black/5 hover:text-ink-2 active:cursor-grabbing"
+                        >
+                          <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true">
+                            {[3, 9].flatMap((x) =>
+                              [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" />)
+                            )}
+                          </svg>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setOpenIndex(isList && expanded ? -1 : i)}
+                        aria-expanded={expanded}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                        {!reorderable && (
+                          <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-bg-alt font-mono text-[11px] font-semibold text-ink-2">
+                            {i + 1}
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                          {entryLabel(section, row) || `New ${noun}`}
+                        </span>
+                        {incompleteRow && !expanded && (
+                          <span className="flex-none rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-semibold text-warn">
+                            Needs details
+                          </span>
+                        )}
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          aria-hidden="true"
+                          className={`flex-none text-ink-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                        >
+                          <path
+                            d="M6 9l6 6 6-6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      {removable &&
+                        (isList && confirmRemove === i ? (
+                          <span className="flex flex-none items-center gap-2 text-xs text-ink-2">
+                            Remove?
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRows(rows.filter((_, j) => j !== i));
+                                setOpenIndex(-1);
+                                setConfirmRemove(null);
+                              }}
+                              className="font-semibold text-error underline"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRemove(null)}
+                              className="font-medium text-ink-3"
+                            >
+                              No
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isList) {
+                                setConfirmRemove(i);
+                                return;
+                              }
+                              setRows(rows.filter((_, j) => j !== i));
+                              setOpenIndex(Math.max(0, i - 1));
+                            }}
+                            aria-label={`Remove ${noun} ${i + 1}`}
+                            className="flex-none rounded-md p-1.5 text-ink-3 transition-colors hover:bg-black/5 hover:text-error"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path
+                                d="M5 7h14M10 7V5h4v2m-7 0l1 12h8l1-12"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        ))}
+                    </div>
+                    {expanded && <div className="border-t border-line px-4 pb-4 pt-4">{form}</div>}
+                  </div>
+                );
+              })}
+              {canAddMore ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRows([...rows, { ...EMPTY_ROW[section] }]);
+                    // The new entry opens; the one before it collapses to its summary.
+                    setOpenIndex(rows.length);
+                  }}
+                  className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
+                >
+                  {isList ? `+ Add ${rows.length === 0 ? 'a' : 'another'} ${noun}` : `+ Add one more ${noun}`}
+                </button>
+              ) : (
+                <p className="text-xs text-ink-3">
+                  That is the maximum of {config.maxItems} {noun}s.
+                </p>
+              )}
+            </>
+          )}
 
         {error && (
           <div role="alert" className="rounded-input border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700">
@@ -599,9 +801,68 @@ export function SectionEditModal({
           </div>
         )}
 
-        <Button onClick={handleSubmit} disabled={!canSubmit} fullWidth>
-          {submitting ? 'Submitting…' : 'Submit for review'}
-        </Button>
+        {/* Stays in view while a long form scrolls. */}
+        <div className="sticky -bottom-6 -mx-6 -mb-6 border-t border-line bg-bg-card px-6 pb-5 pt-4 max-[640px]:-bottom-5 max-[640px]:-mx-5 max-[640px]:-mb-5 max-[640px]:px-5">
+          <Button
+            onClick={() => submit(isFieldsMode ? fields : cleanRows(section, fullList))}
+            disabled={!canSave}
+            fullWidth
+          >
+            {submitting
+              ? 'Saving…'
+              : !isFieldsMode && !isClients && !isList && rows.length > 1
+                ? `Save ${rows.length} ${noun}s`
+                : 'Save'}
+          </Button>
+          <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-xs text-ink-3">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="flex-none">
+              <path
+                d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.500-7-10V6l7-3z"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {section === 'headline_bio'
+              ? 'Goes live on your profile straight away.'
+              : 'Goes live straight away, marked Pending Verification until the GrowXQ team checks it.'}
+          </p>
+          {!isFieldsMode && !isClients && !isNew && !isList && (
+            <div className="mt-2 text-center">
+              {confirmDelete ? (
+                <span className="text-sm text-ink-2">
+                  Remove this {noun}?{' '}
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() =>
+                      submit(
+                        cleanRows(
+                          section,
+                          liveList.filter((r) => r.id !== itemId)
+                        )
+                      )
+                    }
+                    className="font-semibold text-error underline"
+                  >
+                    Yes, remove
+                  </button>{' '}
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="font-medium text-ink-3">
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-sm font-medium text-error hover:underline"
+                >
+                  Remove this {noun}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {pendingCrop && (
         <ImageCropper

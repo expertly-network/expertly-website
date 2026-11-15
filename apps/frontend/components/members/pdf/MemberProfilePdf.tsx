@@ -1,11 +1,15 @@
 import { LOGO_ASPECT_RATIO } from '@/lib/brand';
-import type { ReactNode } from 'react';
+import { isFullyVerified } from '@/lib/members/fully-verified';
+import { Children, type ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
 import type { MemberDto } from '@shared/member';
 import { MEMBER_TIER_LABEL, displayHost, externalHref, formatMonthYear } from '@/lib/members/format';
+
+// The PDF is a shareable document, so a confidential client is masked even when the owner (who
+// receives the real name from the API) downloads it.
+const CONFIDENTIAL_CLIENT_LABEL = 'Confidential client';
 import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
 import { toTextBlocks } from '@/lib/text/text-blocks';
-import { PDF_CONTACT_NOTE } from '@/lib/members/contact-visibility';
 import { formatDate } from '@/lib/dates';
 import { PDF_COLORS, PDF_FONT_FAMILY } from '@/lib/pdf/theme';
 
@@ -90,35 +94,39 @@ const s = StyleSheet.create({
   memberChip: { backgroundColor: C.line },
   memberText: { color: C.ink3 },
   designation: { fontSize: 11, fontWeight: 500, color: C.ink3, marginTop: 7 },
-  stats: { fontSize: 9, color: C.ink3, marginTop: 6 },
   qrBox: { alignItems: 'center', width: 92 },
   qr: { width: 84, height: 84 },
   qrCaption: { fontSize: 7, color: C.ink4, marginTop: 3, textAlign: 'center' },
 
-  // Contact panel — the only summary box (no availability or fees: the PDF is a shareable
-  // document, not a booking surface). Two columns of label-over-value cells.
+  // "At a glance" panel — the only summary box (no availability, fees or membership: the PDF is a
+  // standalone, shareable profile, not tied to GrowXQ). Two columns of label-over-value cells.
   contactPanel: {
-    marginTop: 20,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: C.line,
     borderLeftWidth: 3,
     borderLeftColor: C.accent,
     borderRadius: 10,
     backgroundColor: C.bgAlt,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   label: { fontSize: 10, fontWeight: 700, color: C.ink, marginBottom: 10 },
   notes: { fontSize: 9, color: C.ink3 },
-  contactGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
-  contactCell: { width: '50%', paddingRight: 12 },
+  contactGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
+  contactCell: { width: '50%' },
+  panelLinkedIn: { position: 'absolute', top: 10, right: 12 },
   contactKey: { fontSize: 7.5, fontWeight: 600, color: C.ink4, letterSpacing: 0.3, marginBottom: 2 },
   contactVal: { fontSize: 9.5, color: C.ink, lineHeight: 1.35 },
   contactValRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   link: { color: C.accent, textDecoration: 'none' },
+  // Expertise inside the card: one wrapping line of "Category: service, service" groups.
+  expertiseText: { fontSize: 9.5, color: C.ink, lineHeight: 1.4 },
+  expertiseCategory: { fontWeight: 600 },
 
   // Sections
   section: { marginTop: 22 },
+  about: { marginTop: 14 },
   // Normal case, normal spacing — same as the profile page's section headings (the letter-spaced
   // caps label style was removed site-wide in Oct 2026).
   sectionTitle: {
@@ -130,7 +138,6 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.line,
   },
-  headline: { fontSize: 10.5, fontWeight: 600, color: C.ink, marginBottom: 4 },
   bio: { fontSize: 10, color: C.ink2, lineHeight: 1.65 },
   textBlocks: { gap: 6 },
   bulletList: { gap: 2 },
@@ -161,12 +168,17 @@ const s = StyleSheet.create({
     paddingVertical: 3,
   },
 
-  // Work timeline
-  timeline: { borderLeftWidth: 1.5, borderLeftColor: C.line, marginLeft: 3, paddingLeft: 12 },
-  role: { marginBottom: 12, position: 'relative' },
-  roleDot: {
+  // Work history: one entry per company. Only a company with several roles gets a vertical rail
+  // (built from one bordered segment per role, so consecutive blocks join into a single line).
+  role: { marginBottom: 12 },
+  // The rail's line is its own absolutely-positioned child, not a border: react-pdf offsets
+  // absolute children from the padding box, so a border-drawn line would sit off from the dots.
+  rail: { marginLeft: 3, paddingLeft: 12, paddingBottom: 9 },
+  railLine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 1.5, backgroundColor: C.line },
+  // Centred on the line (line centre at 0.75; dot is 7 wide).
+  railDot: {
     position: 'absolute',
-    left: -16.5,
+    left: -2.75,
     top: 3,
     width: 7,
     height: 7,
@@ -180,20 +192,15 @@ const s = StyleSheet.create({
   roleDescWrap: { marginTop: 4 },
   // Company (ink) and its roles (brand green) in two colours so the two read apart at a glance.
   groupCompany: { fontSize: 12, fontWeight: 700, color: C.ink, flex: 1 },
-  groupRoles: { borderTopWidth: 1, borderTopColor: C.line, marginTop: 6, paddingTop: 6, gap: 9 },
+  groupRoles: { marginTop: 6, gap: 9 },
   subRoleTitle: { fontSize: 10, fontWeight: 600, color: C.accent, flex: 1 },
-  nextRole: { marginTop: 9 },
 
-  twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  cell: {
-    width: '48.8%',
-    borderWidth: 1,
-    borderColor: C.line,
-    borderRadius: 8,
-    padding: 8,
-  },
+  award: { flexDirection: 'row' },
+  awardYear: { width: 38, fontSize: 11, fontWeight: 700, color: C.accent },
+  awardBody: { flex: 1, borderLeftWidth: 1.5, borderLeftColor: C.accentSoft, paddingLeft: 9 },
+  awardIssuer: { fontSize: 8.5, fontWeight: 600, color: C.ink2, marginTop: 2 },
   cellTitle: { fontSize: 10, fontWeight: 600, color: C.ink },
-  cellMeta: { fontSize: 8.5, color: C.accent, marginTop: 2 },
+  cellMeta: { fontSize: 8.5, color: C.ink3, marginTop: 2 },
 
   quote: {
     borderLeftWidth: 2,
@@ -309,26 +316,54 @@ function Check({ size, color = C.accent }: { size: number; color?: string }) {
   );
 }
 
+type GlanceCell = (width: string) => ReactNode;
+
+// Column widths of the At a glance grid (left holds the wider Expertise / Firm text).
+const LEFT_COL = '58%';
+const RIGHT_COL = '42%';
+
+// Mirrors components/members/HighlightedEntry.tsx (Education / Awards): the year in accent on the
+// left, then a soft accent rule with the title, a supporting line and an optional description.
+function HighlightedEntry({
+  first,
+  year,
+  title,
+  subtitle,
+  description,
+}: {
+  first: boolean;
+  year: number | null;
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+}) {
+  return (
+    <View style={[s.award, first ? {} : { marginTop: 10 }]} wrap={false}>
+      <Text style={s.awardYear}>{year ?? ''}</Text>
+      <View style={s.awardBody}>
+        <Text style={s.cellTitle}>{title}</Text>
+        {subtitle ? <Text style={s.awardIssuer}>{subtitle}</Text> : null}
+        {description ? <Text style={s.cellMeta}>{description}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
 // `lead` is laid out unbreakably with the heading, for sections whose content is one tall
 // wrappable View (react-pdf's minPresenceAhead can't see into it, so the heading got stranded).
 function Section({ title, lead, children }: { title: string; lead?: ReactNode; children?: ReactNode }) {
-  // minPresenceAhead keeps a heading from being stranded alone at the bottom of a page.
-  const heading = (
-    <Text style={s.sectionTitle} minPresenceAhead={40}>
-      {title}
-    </Text>
-  );
+  // The heading always travels with the first block of the section (`lead`, or else the first
+  // child), kept in one unbreakable View — react-pdf's minPresenceAhead can't see into nested
+  // wrappable Views, which is how a heading used to get stranded at the foot of a page.
+  const rest = Children.toArray(children);
+  const first = lead ?? rest.shift();
   return (
     <View style={s.section}>
-      {lead ? (
-        <View wrap={false}>
-          {heading}
-          {lead}
-        </View>
-      ) : (
-        heading
-      )}
-      {children}
+      <View wrap={false}>
+        <Text style={s.sectionTitle}>{title}</Text>
+        {first}
+      </View>
+      {rest}
     </View>
   );
 }
@@ -338,12 +373,15 @@ function ContactLine({
   value,
   href,
   icon,
+  width,
 }: {
   label: string;
   value: string;
   href?: string;
   /** Small mark drawn before the value (e.g. the LinkedIn "in"). */
   icon?: ReactNode;
+  /** Column width inside the grid (default: half). */
+  width?: string;
 }) {
   const text = href ? (
     <Link src={href} style={[s.contactVal, s.link]}>
@@ -353,7 +391,7 @@ function ContactLine({
     <Text style={s.contactVal}>{value}</Text>
   );
   return (
-    <View style={s.contactCell}>
+    <View style={width ? [s.contactCell, { width }] : s.contactCell}>
       <Text style={s.contactKey}>{label.toUpperCase()}</Text>
       {icon ? (
         <View style={s.contactValRow}>
@@ -390,13 +428,50 @@ export function MemberProfilePdf({
 }: MemberProfilePdfProps) {
   const location = [member.city, member.country].filter(Boolean).join(', ');
   const firm = member.firmName && member.firmName !== 'Independent' ? member.firmName : null;
-  const designation = member.headline && firm ? `${member.headline} at ${firm}` : member.headline || firm || '';
-  const stats = [location, `${member.yearsOfExperience}+ years experience`, member.services[0]?.name]
-    .filter(Boolean)
-    .join('   ·   ');
+  // Services grouped under their category, in the member's own order.
+  const serviceGroups: { category: string; names: string[] }[] = [];
+  for (const service of member.services) {
+    const group = serviceGroups.find((g) => g.category === service.categoryName);
+    if (group) group.names.push(service.name);
+    else serviceGroups.push({ category: service.categoryName, names: [service.name] });
+  }
+  const firmLine = [firm, member.website ? displayHost(member.website) : null].filter(Boolean).join(' · ');
+  // Each cell takes its column width so the two rows line up.
+  const glanceCells = (
+    [
+      serviceGroups.length > 0 &&
+        ((width: string) => (
+          <View key="expertise" style={[s.contactCell, { width }]}>
+            <Text style={s.contactKey}>EXPERTISE</Text>
+            {serviceGroups.map((group) => (
+              <Text key={group.category} style={s.expertiseText}>
+                <Text style={s.expertiseCategory}>{group.category}</Text>
+                {`: ${group.names.join(', ')}`}
+              </Text>
+            ))}
+          </View>
+        )),
+      (width: string) => (
+        <ContactLine key="experience" label="Experience" value={`${member.yearsOfExperience}+ years`} width={width} />
+      ),
+      firmLine &&
+        ((width: string) => (
+          <ContactLine
+            key="firm"
+            label="Firm"
+            value={firmLine}
+            href={externalHref(member.website) ?? undefined}
+            width={width}
+          />
+        )),
+      location && ((width: string) => <ContactLine key="location" label="Based in" value={location} width={width} />),
+    ] as (GlanceCell | false | '')[]
+  ).filter((cell): cell is GlanceCell => typeof cell === 'function');
+  // The headline exactly as the member wrote it — the firm is a separate fact (the Firm cell).
+  const designation = member.headline || firm || '';
   const isSeasoned = member.memberTier === 'seasoned_professional';
   const generatedOn = formatDate(generatedAt);
-  const workBlocks = groupByCompany(member.workExperiences).flatMap((group) => {
+  const workBlocks = groupByCompany(member.workExperiences).flatMap((group, groupIndex) => {
     const multiple = group.roles.length > 1;
     const [first, ...rest] = group.roles;
     const roleBlock = (role: (typeof group.roles)[number]) => (
@@ -412,24 +487,46 @@ export function MemberProfilePdf({
         ) : null}
       </View>
     );
-    // Every block is a direct, unbreakable child of the timeline: the company header
+    // Every block is a direct, unbreakable child of the section: the company header
     // travels with its first role (never stranded at a page foot), and each further
     // role follows on its own. A splittable wrapper View made react-pdf overlap text.
+    const railSegment = (role: (typeof group.roles)[number], last: boolean) => (
+      <View style={[s.rail, last ? { paddingBottom: 0 } : {}]}>
+        <View style={s.railLine} />
+        <View style={s.railDot} />
+        {roleBlock(role)}
+      </View>
+    );
     return [
-      <View key={first.id} style={[s.role, rest.length ? { marginBottom: 0 } : {}]} wrap={false}>
-        <View style={s.roleDot} />
+      <View
+        key={first.id}
+        style={[
+          s.role,
+          rest.length ? { marginBottom: 0 } : {},
+          // A thin line separates one company from the next (none above the first).
+          groupIndex > 0 ? { borderTopWidth: 1, borderTopColor: C.line, paddingTop: 12 } : {},
+        ]}
+        wrap={false}
+      >
         <View style={s.roleTop}>
           <Text style={s.groupCompany}>{group.company}</Text>
           <PdfPeriod {...groupPeriod(group.roles)} />
         </View>
         {multiple && <Text style={s.roleCompany}>{group.roles.length} roles</Text>}
-        <View style={s.groupRoles}>{roleBlock(first)}</View>
+        <View style={s.groupRoles}>{railSegment(first, rest.length === 0)}</View>
       </View>,
-      ...rest.map((role, k) => (
-        <View key={role.id} style={[s.nextRole, k === rest.length - 1 ? { marginBottom: 12 } : {}]} wrap={false}>
-          {roleBlock(role)}
-        </View>
-      )),
+      ...rest.map((role, k) => {
+        const last = k === rest.length - 1;
+        return (
+          <View key={role.id} style={last ? { marginBottom: 12 } : {}} wrap={false}>
+            <View style={[s.rail, last ? { paddingBottom: 0 } : {}]}>
+              <View style={s.railLine} />
+              <View style={s.railDot} />
+              {roleBlock(role)}
+            </View>
+          </View>
+        );
+      }),
     ];
   });
 
@@ -460,7 +557,7 @@ export function MemberProfilePdf({
             <View style={s.identityText}>
               <Text style={s.name}>{member.name}</Text>
               <View style={s.badgeRow}>
-                {member.isVerified && (
+                {isFullyVerified(member) && (
                   <View style={[s.chip, s.verifiedChip]}>
                     <Check size={6.5} />
                     <Text style={[s.chipText, s.verifiedText]}>GrowXQ Verified</Text>
@@ -473,7 +570,6 @@ export function MemberProfilePdf({
                 </View>
               </View>
               {designation ? <Text style={s.designation}>{designation}</Text> : null}
-              <Text style={s.stats}>{stats}</Text>
             </View>
             <View style={s.qrBox}>
               <Link src={profileUrl}>
@@ -484,39 +580,27 @@ export function MemberProfilePdf({
             </View>
           </View>
 
-          {/* Connect panel. Direct contact details (emails, phone, personal site) are deliberately
-              left out: the PDF is a shareable document, and anyone with the file would otherwise
-              have them. It points back to the GrowXQ profile, LinkedIn and the firm instead. */}
+          {/* At a glance: expertise (services grouped by category), location, experience, firm and
+              LinkedIn. No availability, fees, membership or direct contact details — the PDF is a
+              standalone profile that can be shared anywhere, and the QR code points back to the
+              GrowXQ page. */}
           <View style={s.contactPanel} wrap={false}>
-            <Text style={s.label}>Connect</Text>
-            <View style={s.contactGrid}>
-              <ContactLine label="GrowXQ profile" value={displayHost(profileUrl)} href={profileUrl} />
-              {member.linkedinUrl && (
-                <ContactLine
-                  label="LinkedIn"
-                  value="View profile"
-                  href={externalHref(member.linkedinUrl) ?? undefined}
-                  icon={<LinkedInMark size={11} />}
-                />
-              )}
-              {(firm || member.firmWebsite) && (
-                <ContactLine
-                  label="Company"
-                  value={[firm, member.firmWebsite ? displayHost(member.firmWebsite) : null]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  href={externalHref(member.firmWebsite) ?? undefined}
-                />
-              )}
-            </View>
-            <Text style={[s.notes, { marginTop: 10 }]}>{PDF_CONTACT_NOTE}</Text>
+            {/* Two columns: Expertise | Experience, then Firm | Based in. A fact the member hasn't
+                filled in is skipped and the rest flow up, so there is never an empty slot. */}
+            <View style={s.contactGrid}>{glanceCells.map((cell, i) => cell(i % 2 === 0 ? LEFT_COL : RIGHT_COL))}</View>
+            {member.linkedinUrl && (
+              <Link src={externalHref(member.linkedinUrl) ?? member.linkedinUrl} style={s.panelLinkedIn}>
+                <LinkedInMark size={13} />
+              </Link>
+            )}
           </View>
 
-          {(member.headline || member.bio) && (
-            <Section title="About">
-              {member.headline ? <Text style={s.headline}>{member.headline}</Text> : null}
-              {member.bio ? <PdfTextBlocks text={member.bio} style={s.bio} /> : null}
-            </Section>
+          {member.bio && (
+            // No "About" heading or rule: the bio reads straight on from the identity header, whose
+            // designation line already carries the headline.
+            <View style={s.about}>
+              <PdfTextBlocks text={member.bio} style={s.bio} />
+            </View>
           )}
 
           {member.engagements.length > 0 && (
@@ -527,7 +611,9 @@ export function MemberProfilePdf({
                     <Check size={8} />
                   </View>
                   <Text style={s.engagementText}>
-                    {[eng.title, eng.organization, eng.year].filter(Boolean).join(' · ')}
+                    {[eng.title, eng.isConfidential ? CONFIDENTIAL_CLIENT_LABEL : eng.clientName, eng.year]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
                 </View>
               ))}
@@ -535,57 +621,27 @@ export function MemberProfilePdf({
           )}
 
           {member.keyClients.length > 0 && (
-            <Section title="Key Clients">
-              <View style={s.clients}>
-                {member.keyClients.map((client) => (
-                  <Text key={client.id} style={s.client}>
-                    {client.name}
-                    {client.isVerified ? '  ·  Verified' : ''}
-                  </Text>
-                ))}
-              </View>
-            </Section>
+            // `lead`: heading and the whole chip row stay together on one page — otherwise the row
+            // could split mid-chip across a page break, leaving empty box tops at a page foot.
+            <Section
+              title="Key Clients"
+              lead={
+                <View style={s.clients}>
+                  {member.keyClients.map((client) => (
+                    <Text key={client.id} style={s.client}>
+                      {client.name}
+                    </Text>
+                  ))}
+                </View>
+              }
+            />
           )}
 
           {workBlocks.length > 0 && (
             // Mirrors components/members/WorkHistoryTimeline.tsx: every company is one entry
-            // (company, overall period, "N roles" when more than one) with its roles nested — the
-            // same layout for a single role as for several. The first block travels with the heading.
-            <Section title="Work Experience" lead={<View style={s.timeline}>{workBlocks[0]}</View>}>
-              {workBlocks.length > 1 && <View style={s.timeline}>{workBlocks.slice(1)}</View>}
-            </Section>
-          )}
-
-          {member.educations.length > 0 && (
-            <Section title="Education">
-              <View style={s.twoCol}>
-                {member.educations.map((edu) => (
-                  <View key={edu.id} style={s.cell} wrap={false}>
-                    <Text style={s.cellTitle}>{edu.degree}</Text>
-                    <Text style={s.cellMeta}>
-                      {edu.institution}
-                      {edu.endYear ? ` · ${edu.endYear}` : ''}
-                    </Text>
-                    {edu.field ? <Text style={s.cellMeta}>{edu.field}</Text> : null}
-                  </View>
-                ))}
-              </View>
-            </Section>
-          )}
-
-          {member.awards.length > 0 && (
-            <Section title="Awards & Recognition">
-              <View style={s.twoCol}>
-                {member.awards.map((award) => (
-                  <View key={award.id} style={s.cell} wrap={false}>
-                    <Text style={s.cellTitle}>{award.title}</Text>
-                    {(award.issuingBody || award.year) && (
-                      <Text style={s.cellMeta}>{[award.issuingBody, award.year].filter(Boolean).join(' · ')}</Text>
-                    )}
-                    {award.description ? <Text style={s.cellMeta}>{award.description}</Text> : null}
-                  </View>
-                ))}
-              </View>
+            // (company, overall period, "N roles" when more than one) with its roles nested; every role gets the vertical rail and a dot. The first block travels with the heading.
+            <Section title="Work Experience" lead={<View>{workBlocks[0]}</View>}>
+              {workBlocks.length > 1 && <View>{workBlocks.slice(1)}</View>}
             </Section>
           )}
 
@@ -593,19 +649,45 @@ export function MemberProfilePdf({
             <Section title="Client Testimonials">
               {member.testimonials.map((t) => {
                 const by = [t.clientTitle, t.clientCompany].filter(Boolean).join(', ');
-                const date = formatMonthYear(t.occurredOn);
                 return (
                   <View key={t.id} style={s.quote} wrap={false}>
                     <Text style={s.quoteText}>“{t.quote}”</Text>
                     <Text style={s.quoteBy}>
                       <Text style={s.quoteName}>{t.clientName}</Text>
                       {by ? ` — ${by}` : ''}
-                      {date ? `  ·  ${date}` : ''}
-                      {t.isVerified ? '  ·  Verified' : ''}
                     </Text>
                   </View>
                 );
               })}
+            </Section>
+          )}
+
+          {member.educations.length > 0 && (
+            <Section title="Education">
+              {member.educations.map((edu, i) => (
+                <HighlightedEntry
+                  key={edu.id}
+                  first={i === 0}
+                  year={edu.endYear}
+                  title={edu.field ? `${edu.degree}, ${edu.field}` : edu.degree}
+                  subtitle={edu.institution}
+                />
+              ))}
+            </Section>
+          )}
+
+          {member.awards.length > 0 && (
+            <Section title="Awards & Recognition">
+              {member.awards.map((award, i) => (
+                <HighlightedEntry
+                  key={award.id}
+                  first={i === 0}
+                  year={award.year}
+                  title={award.title}
+                  subtitle={award.issuingBody}
+                  description={award.description}
+                />
+              ))}
             </Section>
           )}
 

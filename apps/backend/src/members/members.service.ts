@@ -1,76 +1,49 @@
 import { computeDueState } from './renewal';
 import { randomUUID } from 'node:crypto';
 import { AdminAccessService } from '../auth/admin-access.service';
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { sniffFileType } from '../common/sniff-file-type';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import type {
-  AdminMemberEditsDetailDto,
-  MemberEditItemDecision,
-  MemberEditItemReview,
+  AdminMemberVerificationDetailDto,
+  MemberEditCurrentValues,
   AdminMemberListItemDto,
   MemberDto,
-  MemberEditStatusFilter,
+  MemberEditSection,
   MemberListItemDto,
-  MemberProfileEditDto,
   MyMemberProfileDto,
   UploadResponse,
 } from '@shared/member';
-import { CreateMemberEditDto } from './dto/create-member-edit.dto';
+import type { SaveMemberSectionResponse } from '@shared/member-verification';
 import { CreateUploadDto, MEMBER_UPLOAD_CONTENT_TYPES } from './dto/create-upload.dto';
 import { ListMembersQueryDto, MEMBER_LIST_DEFAULT_PAGE_SIZE } from './dto/list-members-query.dto';
-import { ReviewMemberEditDto } from './dto/review-member-edit.dto';
 import { UpdateAdminMemberDto } from './dto/update-admin-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import {
   ARRAY_SECTIONS,
-  PER_ITEM_PROOF_SECTIONS,
-  badRequest,
-  hasItemProof,
-  isArraySection,
+  SECTION_TO_COLUMN,
   normalizeLiveItem,
   normalizeLiveSection,
+  sectionFieldKeys,
   validateAndPrepareEditPayload,
   type SectionItem,
 } from './member-sections';
+import { applyVerificationRules, isContactChanged, isSectionUnchanged } from './member-verification';
 import { assertValidWorkHistory, sortWorkHistoryNewestFirst, type WorkSpan } from '../common/work-history';
 import {
   MembersRepository,
   type MemberSelfUpdate,
   type MemberProfileDetailRow,
-  type MemberProfileEditInsert,
-  type MemberProfileEditRow,
-  type MemberProfileEditUpdate,
   type MemberProfileRow,
   type MemberProfileUpdate,
   type ProfileIdentityRow,
 } from './members.repository';
-import { isHttpUrl } from '../common/http-url';
-
-// Maps a self-edit section to its jsonb column on member_profiles.
-const SECTION_TO_COLUMN = {
-  work_experiences: 'work_experiences',
-  education: 'educations',
-  engagements: 'engagements',
-  testimonials: 'testimonials',
-  awards: 'awards',
-  key_clients: 'key_clients',
-} as const;
 
 interface ProofAttachmentInput {
   type?: unknown;
   url?: unknown;
   label?: unknown;
 }
-
-const EDIT_STATUS_FILTERS: readonly MemberEditStatusFilter[] = ['pending', 'verified', 'rejected', 'all'];
 
 // Signed proof-file links on the admin review page expire after an hour.
 const PROOF_URL_TTL_SECONDS = 60 * 60;
@@ -102,11 +75,6 @@ const SNIFF_BYTES = 4100;
 type EditPayloadItem = SectionItem;
 
 // Resolved per-item decision used when applying an array-section edit.
-interface ItemDecision {
-  decision: MemberEditItemDecision;
-  reason: string | null;
-}
-
 @Injectable()
 export class MembersService {
   private readonly logger = new Logger(MembersService.name);
@@ -209,10 +177,10 @@ export class MembersService {
 
     const dto: MemberDto = {
       ...this.toListDto(row, profilesById, servicesByMember),
-      firmWebsite: row.firm_website,
       availabilityNotes: row.availability_notes,
       isAvailable: row.is_available,
-      contactEmail: contactVisible ? row.contact_email : null,
+      // The personal email is no longer collected or shown (2026-11-15); only the work email is.
+      contactEmail: null,
       workEmail: contactVisible ? row.work_email : null,
       contactPhone: contactVisible ? row.contact_phone : null,
       linkedinUrl: contactVisible ? row.linkedin_url : null,
@@ -243,6 +211,7 @@ export class MembersService {
       ) as unknown as MemberDto['keyClients'],
       // Tells the contact tab "hidden from you" apart from "not provided".
       contactVisible,
+      contactVerified: row.contact_verified,
     };
     return dto;
   }
@@ -266,26 +235,84 @@ export class MembersService {
     return { uploadUrl: data.signedUrl, path: data.path };
   }
 
-  async createEdit(memberId: string, user: AuthenticatedUser, dto: CreateMemberEditDto): Promise<MemberProfileEditDto> {
+  // PUT :id/sections/:section — the member's edit goes live at once (2026-11-15); an admin verifies
+  // afterwards. A payload equal to the live section writes nothing. New items, and items whose key
+  // fields changed, are saved unverified; other edits keep the item's tick (member-verification.ts).
+  async saveSection(
+    memberId: string,
+    user: AuthenticatedUser,
+    section: MemberEditSection,
+    rawPayload: unknown
+  ): Promise<SaveMemberSectionResponse> {
     this.assertOwner(memberId, user);
-    const payload = validateAndPrepareEditPayload(dto.section, dto.payload);
-    if (dto.proofLink && !isHttpUrl(dto.proofLink)) {
-      throw new BadRequestException({ code: 'URL_INVALID', message: 'proofLink must be an http(s) web address.' });
+    const payload = validateAndPrepareEditPayload(section, rawPayload);
+    this.assertOwnedFilePaths(memberId, payload);
+    await this.assertProofFileTypes(memberId, payload);
+
+    const live = await this.membersRepository.findDetailByProfileId(memberId);
+    if (!live) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
+
+    const changed = await this.writeSection(live, section, payload);
+    const current = changed ? ((await this.membersRepository.findDetailByProfileId(memberId)) ?? live) : live;
+    return { changed, member: await this.toDetailDto(current, user) };
+  }
+
+  // Writes one validated section. Returns false (and writes nothing) when it equals the live value.
+  private async writeSection(live: MemberProfileDetailRow, section: MemberEditSection, payload: unknown) {
+    const memberId = live.profile_id;
+
+    if (section === 'headline_bio') {
+      const p = payload as { headline: string; bio: string };
+      if (p.headline === (live.headline ?? '') && p.bio === (live.bio ?? '')) return false;
+      await this.membersRepository.applyHeadlineBioEdit(memberId, p.headline, p.bio);
+      return true;
     }
-    this.assertOwnedFilePaths(memberId, dto.section, payload, dto.proofFileUrl);
-    await this.assertProofFileTypes(memberId, dto.section, payload, dto.proofFileUrl);
 
-    const inserted = await this.membersRepository.insertEdit({
-      member_id: memberId,
-      section: dto.section,
-      payload: payload as MemberProfileEditInsert['payload'],
-      proof_file_url: dto.proofFileUrl ?? null,
-      proof_link: dto.proofLink ?? null,
-    });
-    await this.membersRepository.supersedePendingEdits(memberId, dto.section, inserted.id);
+    if (section === 'contact') {
+      const p = payload as Record<string, string | null | undefined>;
+      const clean = (value: string | null | undefined) => value?.trim() || null;
+      const next = {
+        workEmail: clean(p.workEmail),
+        contactPhone: clean(p.contactPhone),
+        linkedinUrl: clean(p.linkedinUrl),
+        website: clean(p.website),
+      };
+      const current = {
+        workEmail: live.work_email,
+        contactPhone: live.contact_phone,
+        linkedinUrl: live.linkedin_url,
+        website: live.website,
+      };
+      if (!isContactChanged(current, next)) return false;
+      await this.membersRepository.applyContactLive(memberId, next, false);
+      return true;
+    }
 
-    const [dto_] = await this.toEditDtos([inserted]);
-    return dto_;
+    const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
+    if (!column || !ARRAY_SECTIONS.includes(section)) {
+      throw new BadRequestException({
+        code: 'MEMBER_EDIT_SECTION_INVALID',
+        message: `Unknown edit section: ${section}`,
+      });
+    }
+    const liveItems = normalizeLiveSection(section, live[column as keyof MemberProfileDetailRow], true);
+    const submitted = payload as EditPayloadItem[];
+    if (isSectionUnchanged(section, sectionFieldKeys(section), liveItems, submitted)) return false;
+
+    const liveById = new Map(liveItems.map((item) => [item.id as string, item]));
+    let items: EditPayloadItem[] = [];
+    for (const item of applyVerificationRules(section, liveItems, submitted)) {
+      const liveMatch = typeof item.id === 'string' ? liveById.get(item.id) : undefined;
+      const withId: EditPayloadItem = { ...item, id: liveMatch ? (liveMatch.id as string) : randomUUID() };
+      items.push(section === 'key_clients' ? await this.publishClientLogo(memberId, withId, liveMatch) : withId);
+    }
+    if (section === 'work_experiences') {
+      assertValidWorkHistory(items as unknown as WorkSpan[]);
+      items = sortWorkHistoryNewestFirst(items as unknown as (WorkSpan & EditPayloadItem)[]);
+    }
+    await this.membersRepository.applySectionEdit(memberId, column, section, items);
+
+    return true;
   }
 
   // PATCH :id — availability and/or photo, applied together and immediately (product decision,
@@ -337,13 +364,6 @@ export class MembersService {
     return new BadRequestException({ code: 'PHOTO_TOO_LARGE', message: 'Profile photos must be under 5MB.' });
   }
 
-  async listMyEdits(memberId: string, user: AuthenticatedUser): Promise<MemberProfileEditDto[]> {
-    this.assertOwner(memberId, user);
-
-    const rows = await this.membersRepository.findEditsByMember(memberId);
-    return this.toEditDtos(rows);
-  }
-
   // ---------------------------------------------------------------------------------------------
   // Admin
   // ---------------------------------------------------------------------------------------------
@@ -389,37 +409,16 @@ export class MembersService {
     };
   }
 
-  async adminListEdits(status?: string): Promise<MemberProfileEditDto[]> {
-    const filter = (status ?? 'pending') as MemberEditStatusFilter;
-    if (!EDIT_STATUS_FILTERS.includes(filter)) {
-      throw new BadRequestException({
-        code: 'VALIDATION_FAILED',
-        message: `status must be one of: ${EDIT_STATUS_FILTERS.join(', ')}.`,
-      });
-    }
-    const rows = await this.membersRepository.findAllEditsByStatus(filter);
-    return this.toEditDtos(rows);
-  }
-
-  // Everything the per-member review page needs: identity, the live value of every section (for
-  // the current-vs-proposed diff), all edits, and signed links for their private proof files.
-  async adminGetMemberEdits(memberId: string): Promise<AdminMemberEditsDetailDto> {
+  // Everything the verification page needs for one member: the live sections with their proof,
+  // and signed links for the private proof files.
+  async adminGetVerification(memberId: string): Promise<AdminMemberVerificationDetailDto> {
     const row = await this.membersRepository.findDetailByProfileId(memberId);
     if (!row) throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member profile not found.' });
-
-    const [profilesById, editRows] = await Promise.all([
+    const [profilesById, fileUrls] = await Promise.all([
       this.membersRepository.findProfilesByIds([memberId]),
-      this.membersRepository.findEditsByMember(memberId),
+      this.membersRepository.createSignedProofUrls(this.currentProofPaths(row), PROOF_URL_TTL_SECONDS),
     ]);
     const profile = profilesById.get(memberId);
-    const [edits, fileUrls] = await Promise.all([
-      this.toEditDtos(editRows),
-      this.membersRepository.createSignedProofUrls(
-        [...editRows.flatMap((e) => this.proofPathsOf(e)), ...this.currentProofPaths(row)],
-        PROOF_URL_TTL_SECONDS
-      ),
-    ]);
-
     return {
       member: {
         id: row.profile_id,
@@ -433,76 +432,9 @@ export class MembersService {
         isVerified: row.is_verified,
       },
       current: this.currentSectionValues(row),
-      edits,
+      contactVerified: row.contact_verified,
       fileUrls,
     };
-  }
-
-  async adminReviewEdit(id: string, admin: AuthenticatedUser, dto: ReviewMemberEditDto): Promise<MemberProfileEditDto> {
-    const reviewNote = dto.reviewNote?.trim() || null;
-
-    const edit = await this.membersRepository.findEditById(id);
-    if (edit.status !== 'pending') {
-      throw new ConflictException({
-        code: 'MEMBER_EDIT_ALREADY_REVIEWED',
-        message: 'This edit has already been reviewed.',
-      });
-    }
-
-    let status: 'verified' | 'rejected';
-    let itemReviews: MemberEditItemReview[] | null = null;
-    let decisions: ItemDecision[] | undefined;
-
-    if (dto.items) {
-      // Per-item review of an array section: accepted items go live, rejected ones are dropped.
-      decisions = this.resolveItemDecisions(edit, dto.items);
-      itemReviews = decisions.map((d, index) => ({ index, decision: d.decision, reason: d.reason }));
-      status = decisions.some((d) => d.decision !== 'rejected') ? 'verified' : 'rejected';
-      if (dto.status && dto.status !== status) {
-        throw badRequest(
-          'REVIEW_STATUS_MISMATCH',
-          `status '${dto.status}' contradicts the item decisions (they result in '${status}'). Omit status when sending items.`
-        );
-      }
-    } else {
-      if (!dto.status) {
-        throw badRequest('REVIEW_DECISION_REQUIRED', 'Send either status or per-item decisions (items).');
-      }
-      status = dto.status;
-      if (status === 'rejected' && !reviewNote) {
-        throw badRequest(
-          'REVIEW_REASON_REQUIRED',
-          'A reason is required when rejecting an edit — it is shown to the member.'
-        );
-      }
-    }
-
-    // Claim the decision first (conditional on the edit still being pending), then apply it — so
-    // two reviewers, or a member superseding the edit mid-review, can't apply a stale edit twice.
-    const updated = await this.membersRepository.claimEditDecision(id, {
-      status,
-      review_note: reviewNote,
-      item_reviews: itemReviews as unknown as MemberProfileEditUpdate['item_reviews'],
-      reviewed_by: admin.id,
-      reviewed_at: new Date().toISOString(),
-    });
-    if (!updated) {
-      throw new ConflictException({
-        code: 'MEMBER_EDIT_ALREADY_REVIEWED',
-        message: 'This edit has already been reviewed.',
-      });
-    }
-    if (status === 'verified') {
-      try {
-        await this.applyEdit(edit, decisions);
-      } catch (error) {
-        await this.membersRepository.revertEditDecision(id);
-        throw error;
-      }
-    }
-
-    const [updatedDto] = await this.toEditDtos([updated]);
-    return updatedDto;
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -516,146 +448,6 @@ export class MembersService {
         message: 'You can only edit your own member profile.',
       });
     }
-  }
-
-  // Validates the admin's per-item decisions against the pending edit: coverage of every payload
-  // index exactly once, a reason where one is required, and proof for approved_verified.
-  private resolveItemDecisions(edit: MemberProfileEditRow, items: ReviewMemberEditDto['items']): ItemDecision[] {
-    if (!isArraySection(edit.section) || !Array.isArray(edit.payload)) {
-      throw badRequest(
-        'ITEM_REVIEW_NOT_SUPPORTED',
-        `Per-item review isn't available for ${edit.section} edits — send status instead.`
-      );
-    }
-    const payload = edit.payload as EditPayloadItem[];
-    const decisions = new Array<ItemDecision | undefined>(payload.length).fill(undefined);
-
-    for (const entry of items ?? []) {
-      if (entry.index >= payload.length) {
-        throw badRequest(
-          'ITEM_REVIEW_INDEX_INVALID',
-          `items[].index ${entry.index} is out of range (payload has ${payload.length} items).`
-        );
-      }
-      if (decisions[entry.index]) {
-        throw badRequest('ITEM_REVIEW_INDEX_INVALID', `items[].index ${entry.index} appears more than once.`);
-      }
-      const reason = entry.reason?.trim() || null;
-      if (entry.decision !== 'approved_verified' && !reason) {
-        throw badRequest(
-          'ITEM_REVIEW_REASON_REQUIRED',
-          `A reason is required for '${entry.decision}' (item ${entry.index}) — it is shown to the member.`
-        );
-      }
-      if (entry.decision === 'approved_verified' && !this.itemHasProof(edit, payload[entry.index])) {
-        throw badRequest(
-          'VERIFIED_REQUIRES_PROOF',
-          `Item ${entry.index} has no proof attached, so it can't be approved as verified. Use approved_hygiene instead.`
-        );
-      }
-      decisions[entry.index] = {
-        decision: entry.decision,
-        reason: entry.decision === 'approved_verified' ? null : reason,
-      };
-    }
-
-    const missing = decisions.flatMap((d, i) => (d ? [] : [i]));
-    if (missing.length > 0) {
-      throw badRequest('ITEM_REVIEW_INCOMPLETE', `Every item needs a decision. Missing: ${missing.join(', ')}.`);
-    }
-    return decisions as ItemDecision[];
-  }
-
-  // Per-item sections: that item's own proofAttachments. education / work_experiences: the
-  // edit-level proof file or link covering the batch.
-  private itemHasProof(edit: MemberProfileEditRow, item: EditPayloadItem): boolean {
-    if ((PER_ITEM_PROOF_SECTIONS as readonly string[]).includes(edit.section)) return hasItemProof(item);
-    return Boolean(edit.proof_file_url || edit.proof_link);
-  }
-
-  // Applies an approved edit. headline_bio/contact overwrite columns directly. Array sections
-  // rebuild the live list from the payload: accepted items are written (verified iff
-  // approved_verified), rejected items fall back to their live version (or are dropped if new),
-  // and live items the member left out of the payload are removed. With no explicit decisions
-  // (whole-edit approval) every item is accepted and is verified iff it has proof.
-  private async applyEdit(edit: MemberProfileEditRow, decisions?: ItemDecision[]): Promise<void> {
-    const { member_id: memberId, section, payload } = edit;
-
-    if (section === 'headline_bio') {
-      const p = payload as { headline: string; bio: string };
-      await this.membersRepository.applyHeadlineBioEdit(memberId, p.headline, p.bio);
-      return;
-    }
-
-    if (section === 'contact') {
-      const p = payload as {
-        contactEmail?: string | null;
-        workEmail?: string | null;
-        contactPhone?: string | null;
-        linkedinUrl?: string | null;
-        website?: string | null;
-      };
-      await this.membersRepository.applyContactEdit(memberId, {
-        contactEmail: p.contactEmail?.trim() || null,
-        workEmail: p.workEmail?.trim() || null,
-        contactPhone: p.contactPhone ?? null,
-        linkedinUrl: p.linkedinUrl ?? null,
-        website: p.website ?? null,
-      });
-      return;
-    }
-
-    const column = SECTION_TO_COLUMN[section as keyof typeof SECTION_TO_COLUMN];
-    if (!column || !ARRAY_SECTIONS.includes(section))
-      throw new BadRequestException({
-        code: 'MEMBER_EDIT_SECTION_INVALID',
-        message: `Unknown edit section: ${section}`,
-      });
-
-    const live = await this.membersRepository.findDetailByProfileId(memberId);
-    if (!live)
-      throw new NotFoundException({
-        code: 'MEMBER_NOT_FOUND',
-        message: 'Member profile not found.',
-      });
-    const liveItems = normalizeLiveSection(section, live[column as keyof MemberProfileDetailRow], true);
-    const liveById = new Map(liveItems.map((item) => [item.id as string, item]));
-
-    const submitted = payload as EditPayloadItem[];
-    const resolved: ItemDecision[] =
-      decisions ??
-      submitted.map((item) => ({
-        decision: this.itemHasProof(edit, item) ? 'approved_verified' : 'approved_hygiene',
-        reason: null,
-      }));
-
-    // Nothing accepted: leave the live section exactly as it is (including items the member
-    // would have removed).
-    if (resolved.every((d) => d.decision === 'rejected')) return;
-
-    let items: EditPayloadItem[] = [];
-    for (let i = 0; i < submitted.length; i++) {
-      // isVerified / logoUploadPath are never trusted from the payload.
-      const { isVerified: _ignored, ...item } = submitted[i];
-      const liveMatch = typeof item.id === 'string' ? liveById.get(item.id) : undefined;
-
-      if (resolved[i].decision === 'rejected') {
-        if (liveMatch) items.push(liveMatch);
-        continue;
-      }
-      const accepted: EditPayloadItem = {
-        ...item,
-        id: liveMatch ? (liveMatch.id as string) : randomUUID(),
-        isVerified: resolved[i].decision === 'approved_verified',
-      };
-      items.push(section === 'key_clients' ? await this.publishClientLogo(memberId, accepted, liveMatch) : accepted);
-    }
-
-    if (section === 'work_experiences') {
-      assertValidWorkHistory(items as unknown as WorkSpan[]);
-      items = sortWorkHistoryNewestFirst(items as unknown as (WorkSpan & EditPayloadItem)[]);
-    }
-    await this.membersRepository.applySectionEdit(memberId, column, section, items);
   }
 
   // A newly uploaded key-client logo sits in the private member-proofs bucket as
@@ -699,12 +491,11 @@ export class MembersService {
     return { ...rest, logoUrl: this.membersRepository.buildPhotoUrl(publicPath) };
   }
 
-  // Every private member-proofs object an edit references.
-  private proofPathsOf(edit: MemberProfileEditRow): string[] {
+  // Every private member-proofs object a section payload references.
+  private proofPathsOf(payload: unknown): string[] {
     const paths: string[] = [];
-    if (edit.proof_file_url) paths.push(edit.proof_file_url);
-    if (Array.isArray(edit.payload)) {
-      for (const item of edit.payload as EditPayloadItem[]) {
+    if (Array.isArray(payload)) {
+      for (const item of payload as EditPayloadItem[]) {
         if (typeof item.logoUploadPath === 'string' && item.logoUploadPath) paths.push(item.logoUploadPath);
         if (Array.isArray(item.proofAttachments)) {
           for (const a of item.proofAttachments as ProofAttachmentInput[]) {
@@ -719,32 +510,20 @@ export class MembersService {
   // Uploads land at `<memberId>/...` (see requestUpload). A submitted edit may only reference its
   // own member's files — otherwise a member could point at someone else's private proof and have
   // it signed for an admin or, via a key-client logo, copied into the public bucket.
-  private assertOwnedFilePaths(memberId: string, section: string, payload: unknown, proofFileUrl?: string): void {
-    const paths = this.proofPathsOf({
-      section,
-      payload,
-      proof_file_url: proofFileUrl ?? null,
-    } as MemberProfileEditRow);
-    for (const path of paths) this.assertOwnedPath(memberId, path);
+  private assertOwnedFilePaths(memberId: string, payload: unknown): void {
+    for (const path of this.proofPathsOf(payload)) this.assertOwnedPath(memberId, path);
   }
 
   // Signed uploads go straight from the browser to Storage, so the declared Content-Type is the
   // client's word. Before an edit can reference a file (and an admin is handed a link to it),
   // sniff its real type from magic bytes — CLAUDE.md: never trust the declared MIME type.
-  private async assertProofFileTypes(
-    memberId: string,
-    section: string,
-    payload: unknown,
-    proofFileUrl?: string
-  ): Promise<void> {
+  private async assertProofFileTypes(memberId: string, payload: unknown): Promise<void> {
     // Only files this edit newly references: the modal re-sends every existing row with its
     // proof, and files already on the live profile were accepted earlier (some before this check
     // existed) — re-checking them would block every future save of the section on one old file.
     const live = await this.membersRepository.findDetailByProfileId(memberId);
     const alreadyLive = new Set(live ? this.currentProofPaths(live) : []);
-    const paths = [
-      ...new Set(this.proofPathsOf({ section, payload, proof_file_url: proofFileUrl ?? null } as MemberProfileEditRow)),
-    ].filter((path) => !alreadyLive.has(path));
+    const paths = [...new Set(this.proofPathsOf(payload))].filter((path) => !alreadyLive.has(path));
     if (paths.length > MAX_NEW_PROOF_FILES_PER_EDIT) {
       throw new BadRequestException({
         code: 'UPLOAD_LIMIT_EXCEEDED',
@@ -782,11 +561,10 @@ export class MembersService {
   }
 
   // Admin sees the live sections including private proof, so the diff can show what's attached.
-  private currentSectionValues(row: MemberProfileDetailRow): AdminMemberEditsDetailDto['current'] {
+  private currentSectionValues(row: MemberProfileDetailRow): MemberEditCurrentValues {
     return {
       headline_bio: { headline: row.headline, bio: row.bio },
       contact: {
-        contactEmail: row.contact_email,
         workEmail: row.work_email,
         contactPhone: row.contact_phone,
         linkedinUrl: row.linkedin_url,
@@ -796,39 +574,42 @@ export class MembersService {
         'engagements',
         row.engagements,
         true
-      ) as unknown as AdminMemberEditsDetailDto['current']['engagements'],
+      ) as unknown as MemberEditCurrentValues['engagements'],
       education: normalizeLiveSection(
         'education',
         row.educations,
         true
-      ) as unknown as AdminMemberEditsDetailDto['current']['education'],
+      ) as unknown as MemberEditCurrentValues['education'],
       work_experiences: normalizeLiveSection(
         'work_experiences',
         row.work_experiences,
         true
-      ) as unknown as AdminMemberEditsDetailDto['current']['work_experiences'],
+      ) as unknown as MemberEditCurrentValues['work_experiences'],
       key_clients: normalizeLiveSection(
         'key_clients',
         row.key_clients,
         true
-      ) as unknown as AdminMemberEditsDetailDto['current']['key_clients'],
+      ) as unknown as MemberEditCurrentValues['key_clients'],
       testimonials: normalizeLiveSection(
         'testimonials',
         row.testimonials,
         true
-      ) as unknown as AdminMemberEditsDetailDto['current']['testimonials'],
-      awards: normalizeLiveSection(
-        'awards',
-        row.awards,
-        true
-      ) as unknown as AdminMemberEditsDetailDto['current']['awards'],
+      ) as unknown as MemberEditCurrentValues['testimonials'],
+      awards: normalizeLiveSection('awards', row.awards, true) as unknown as MemberEditCurrentValues['awards'],
     };
   }
 
   // Private proof files attached to live items, so the admin can open them too.
   private currentProofPaths(row: MemberProfileDetailRow): string[] {
     const paths: string[] = [];
-    for (const items of [row.engagements, row.testimonials, row.awards, row.key_clients]) {
+    for (const items of [
+      row.engagements,
+      row.testimonials,
+      row.awards,
+      row.key_clients,
+      row.educations,
+      row.work_experiences,
+    ]) {
       for (const item of (Array.isArray(items) ? items : []) as unknown as EditPayloadItem[]) {
         const normalized = normalizeLiveItem('engagements', item, true);
         for (const a of normalized.proofAttachments as ProofAttachmentInput[]) {
@@ -873,48 +654,6 @@ export class MembersService {
       rateCurrency: row.rate_currency,
       joinedAt: row.membership_started_at,
       photoUrl: row.photo_path ? this.membersRepository.buildPhotoUrl(row.photo_path) : (profile?.avatar_url ?? null),
-    };
-  }
-
-  // Batch-resolves member name/slug/photo for a set of edit rows.
-  private async toEditDtos(rows: MemberProfileEditRow[]): Promise<MemberProfileEditDto[]> {
-    const memberIds = rows.map((r) => r.member_id);
-    const [profilesById, summaries] = await Promise.all([
-      this.membersRepository.findProfilesByIds([...new Set(memberIds)]),
-      this.membersRepository.findSlugAndPhotoByProfileIds(memberIds),
-    ]);
-    return rows.map((row) => {
-      const profile = profilesById.get(row.member_id);
-      const summary = summaries.get(row.member_id);
-      const photoUrl = summary?.photo_path
-        ? this.membersRepository.buildPhotoUrl(summary.photo_path)
-        : (profile?.avatar_url ?? null);
-      return this.toEditDto(row, this.fullName(profile), summary?.slug ?? null, photoUrl);
-    });
-  }
-
-  private toEditDto(
-    row: MemberProfileEditRow,
-    memberName: string,
-    memberSlug: string | null,
-    memberPhotoUrl: string | null
-  ): MemberProfileEditDto {
-    return {
-      id: row.id,
-      memberId: row.member_id,
-      memberName,
-      memberSlug,
-      memberPhotoUrl,
-      section: row.section,
-      payload: row.payload,
-      proofFileUrl: row.proof_file_url,
-      proofLink: row.proof_link,
-      status: row.status,
-      reviewNote: row.review_note,
-      itemReviews: row.item_reviews ?? null,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      submittedAt: row.submitted_at,
     };
   }
 }

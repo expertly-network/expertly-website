@@ -711,7 +711,8 @@ export class ApplicationsService {
       slug,
       bio: application.bio,
       firm_name: currentJob?.company ?? null,
-      firm_website: currentJob?.companyUrl ?? null,
+      // The one website a member has: it is the Contact section's "Company website" (editable there).
+      website: currentJob?.companyUrl ?? null,
       region: application.region,
       country: required.country,
       state: application.state,

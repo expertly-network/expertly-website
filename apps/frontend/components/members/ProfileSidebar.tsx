@@ -1,4 +1,5 @@
 import { Card, Button } from '@/components/ui';
+import { isFullyVerified } from '@/lib/members/fully-verified';
 import { displayHost, formatRateParts } from '@/lib/members/format';
 import { ExternalLink } from '@/components/shared/ExternalLink';
 import { computeCompletionPct } from '@/lib/members/completion';
@@ -22,7 +23,7 @@ export function ProfileSidebar({
 
   return (
     // `.mp-sidebar` — 288px, sticky; stacks full-width under the tabs below 1024px.
-    <aside className="sticky top-24 flex w-[288px] flex-none flex-col gap-4 max-[1023px]:static max-[1023px]:w-full">
+    <aside className="sticky top-24 flex w-[288px] flex-none flex-col gap-4 max-[1023px]:static max-[1023px]:w-full max-[720px]:px-4">
       {isOwnProfile && pct !== null && (
         <Card padding="sm" className="shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
@@ -33,7 +34,7 @@ export function ProfileSidebar({
             <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
           </div>
           <p className="mt-2.5 text-[11.5px] leading-relaxed text-ink-4">
-            Changes you submit go live once the GrowXQ team verifies them.
+            Your changes go live straight away; the GrowXQ team verifies them afterwards.
           </p>
         </Card>
       )}
@@ -83,10 +84,10 @@ export function ProfileSidebar({
             Request Consultation
           </Button>
         )}
-        {member.firmWebsite && (
+        {member.website && (
           // `.mp-firm-link`
           <ExternalLink
-            url={member.firmWebsite}
+            url={member.website}
             className="mt-3 flex w-full items-center gap-1.5 border-t border-line pt-3 text-caption text-ink-2 hover:underline"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="flex-none">
@@ -105,12 +106,12 @@ export function ProfileSidebar({
               />
             </svg>
             <span className="flex-none">Company website</span>
-            <span className="min-w-0 truncate text-ink-4">· {displayHost(member.firmWebsite)}</span>
+            <span className="min-w-0 truncate text-ink-4">· {displayHost(member.website)}</span>
           </ExternalLink>
         )}
       </Card>
 
-      {member.isVerified && (
+      {isFullyVerified(member) && (
         // `.mp-verified-card`
         <Card padding="sm" className="relative overflow-hidden bg-ink">
           <div

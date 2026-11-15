@@ -1,7 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import type { PlatformStatsResponse } from '@shared/platform-stats';
 import { mustHotlink } from '@/lib/images';
+import { floorStat } from '@/lib/stat-floor';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui';
 import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC } from '@/lib/brand';
@@ -55,7 +57,7 @@ const RINGS: Ring[] = [
   },
 ];
 
-const DOT_SIZE = { sm: 36, md: 44, lg: 58 } as const;
+const DOT_SIZE = { sm: 42, md: 46, lg: 52 } as const;
 // Slots without a member photo render as small glowing points, so the orbit reads as a
 // constellation rather than a row of empty avatars.
 const POINT_SIZE = { sm: 6, md: 8, lg: 10 } as const;
@@ -148,10 +150,13 @@ function TypedLine({ text, className = '' }: { text: string; className?: string 
 
 export function StellarOrbitHero({
   avatarUrls = [],
+  stats: platformStats = null,
   showApply = true,
   showMyProfile = false,
 }: {
   avatarUrls?: string[];
+  /** Real counts from GET /v1/stats; null hides the stat row instead of showing made-up numbers. */
+  stats?: PlatformStatsResponse | null;
   /** False for members/admins — /apply only serves visitors and clients. */
   showApply?: boolean;
   /** Members get "View my profile" in the Apply button's place. */
@@ -163,18 +168,23 @@ export function StellarOrbitHero({
     return () => clearTimeout(t);
   }, []);
 
-  const experts = useCountUp(20, 1600, 1000);
-  const jurisdictions = useCountUp(20, 1600, 1000);
-  const areas = useCountUp(12, 1200, 1000);
-  const consultations = useCountUp(100, 2000, 1000);
+  // Shown rounded down with a "+" (26 → 25+), so the claim stays true as the numbers grow.
+  const expertsStat = floorStat(platformStats?.members ?? 0);
+  const jurisdictionsStat = floorStat(platformStats?.jurisdictions ?? 0);
+  const areasStat = floorStat(platformStats?.practiceAreas ?? 0);
+  const consultationsStat = floorStat(platformStats?.consultations ?? 0);
+  const experts = useCountUp(expertsStat.value, 1600, 1000);
+  const jurisdictions = useCountUp(jurisdictionsStat.value, 1600, 1000);
+  const areas = useCountUp(areasStat.value, 1200, 1000);
+  const consultations = useCountUp(consultationsStat.value, 1600, 1000);
   const slotPhotos = photoForSlots(avatarUrls);
 
   const stats = (
     [
-      [experts, '+', 'Verified Experts', 'Experts'],
-      [jurisdictions, '+', 'Jurisdictions', null],
-      [areas, '', 'Practice Areas', null],
-      [consultations, '+', 'Consultations', null],
+      [experts, expertsStat.plus ? '+' : '', 'Verified Experts', 'Experts'],
+      [jurisdictions, jurisdictionsStat.plus ? '+' : '', 'Jurisdictions', null],
+      [areas, areasStat.plus ? '+' : '', 'Practice Areas', null],
+      [consultations, consultationsStat.plus ? '+' : '', 'Consultations', null],
     ] as const
   ).map(([num, suffix, label, phoneLabel]) => (
     <div key={label} className="flex min-w-0 flex-col gap-1">
@@ -281,13 +291,15 @@ export function StellarOrbitHero({
               )}
             </div>
 
-            <div
-              className="mx-auto mt-[52px] hidden sm:grid w-full max-w-full grid-cols-4 gap-x-2 border-t border-white/[0.08] pt-7 text-center sm:gap-x-6 lg:mx-0 lg:text-left"
-              style={{ animation: 'hs-fade-in 0.6s ease 2.5s both' }}
-            >
-              {/* Tablet and up: the stats sit under the CTAs. Phones show them below the orbit. */}
-              {stats}
-            </div>
+            {platformStats && (
+              <div
+                className="mx-auto mt-[52px] hidden sm:grid w-full max-w-full grid-cols-4 gap-x-2 border-t border-white/[0.08] pt-7 text-center sm:gap-x-6 lg:mx-0 lg:text-left"
+                style={{ animation: 'hs-fade-in 0.6s ease 2.5s both' }}
+              >
+                {/* Tablet and up: the stats sit under the CTAs. Phones show them below the orbit. */}
+                {stats}
+              </div>
+            )}
           </div>
 
           {/* Right: orbit — purely decorative, hidden from assistive tech. The outer ring and its
@@ -385,12 +397,14 @@ export function StellarOrbitHero({
           </div>
 
           {/* Phones: the stats close the hero below the orbit. */}
-          <div
-            className="grid w-full grid-cols-4 gap-x-2 border-t border-white/[0.08] pt-6 text-center sm:hidden"
-            style={{ animation: 'hs-fade-in 0.6s ease 2.5s both' }}
-          >
-            {stats}
-          </div>
+          {platformStats && (
+            <div
+              className="grid w-full grid-cols-4 gap-x-2 border-t border-white/[0.08] pt-6 text-center sm:hidden"
+              style={{ animation: 'hs-fade-in 0.6s ease 2.5s both' }}
+            >
+              {stats}
+            </div>
+          )}
         </div>
       </div>
     </section>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { getArticles } from '@/lib/api/articles';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
+import { ArticleListRow } from '@/components/articles/ArticleListRow';
 import { WriteArticleCtaButton } from '@/components/articles/WriteArticleCtaButton';
 import type { ArticleListItemDto } from '@shared/article';
 
@@ -33,9 +33,16 @@ export function ArticlesTab({ authorId, isOwnProfile }: { authorId: string; isOw
 
   if (articles === null) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="divide-y divide-line border-y border-line">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 animate-pulse rounded-xl bg-bg-alt" />
+          <div key={i} className="flex animate-pulse items-start gap-4 py-4">
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-24 rounded bg-bg-alt" />
+              <div className="h-4 w-3/4 rounded bg-bg-alt" />
+              <div className="h-3 w-1/2 rounded bg-bg-alt" />
+            </div>
+            <div className="h-[72px] w-[72px] flex-none rounded-xl bg-bg-alt sm:h-[88px] sm:w-[132px]" />
+          </div>
         ))}
       </div>
     );
@@ -71,18 +78,12 @@ export function ArticlesTab({ authorId, isOwnProfile }: { authorId: string; isOw
     );
   }
 
+  // A plain divided list (no boxes) with the cover on the right.
   return (
-    <ul className="flex flex-col gap-4">
+    <ul className="divide-y divide-line border-y border-line">
       {articles.map((article) => (
         <li key={article.id}>
-          <Link
-            href={`/articles/${article.slug}`}
-            className="block rounded-xl border border-line p-4 transition-colors hover:border-line-2"
-          >
-            <div className="font-medium text-ink">{article.title}</div>
-            <p className="mt-1 text-sm text-ink-3">{article.excerpt}</p>
-            <div className="mt-2 text-xs text-ink-3">{article.readTimeMinutes} min read</div>
-          </Link>
+          <ArticleListRow article={article} detailed />
         </li>
       ))}
     </ul>

@@ -5,9 +5,11 @@ import {
   Headers,
   HttpCode,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -17,9 +19,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { optionalUserId } from '../auth/optional-user-id';
-import { MemberDto, MemberListItemDto, MemberProfileEditDto, MyMemberProfileDto, UploadResponse } from '@shared/member';
+import { MemberDto, MemberListItemDto, MyMemberProfileDto, UploadResponse } from '@shared/member';
+import type { MemberEditSection } from '@shared/member';
+import type { SaveMemberSectionResponse } from '@shared/member-verification';
 import { MembersService } from './members.service';
-import { CreateMemberEditDto } from './dto/create-member-edit.dto';
+import { MEMBER_EDIT_SECTION_ENUM, SaveMemberSectionDto } from './dto/save-section.dto';
 import { CreateUploadDto } from './dto/create-upload.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
@@ -84,15 +88,18 @@ export class MembersController {
     return this.membersService.requestUpload(id, user, dto);
   }
 
+  // 🔑 member, owner-only — replaces one profile section and applies it at once. An admin verifies
+  // afterwards; new/materially changed items show "Pending Verification" until then.
   @Roles('member')
   @RateLimit('write', ...RATE_LIMITS.write)
-  @Post(':id/edits')
-  createEdit(
+  @Put(':id/sections/:section')
+  saveSection(
     @Param('id', ParseUUIDPipe) id: string,
+    @Param('section', new ParseEnumPipe(MEMBER_EDIT_SECTION_ENUM)) section: MemberEditSection,
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateMemberEditDto
-  ): Promise<MemberProfileEditDto> {
-    return this.membersService.createEdit(id, user, dto);
+    @Body() dto: SaveMemberSectionDto
+  ): Promise<SaveMemberSectionResponse> {
+    return this.membersService.saveSection(id, user, section, dto.payload);
   }
 
   // 🔑 member, owner-only — the member's directly-editable fields (availability switch + note,
@@ -105,13 +112,5 @@ export class MembersController {
     @Body() dto: UpdateMemberDto
   ): Promise<MemberDto> {
     return this.membersService.updateOwnProfile(id, user, dto);
-  }
-
-  @Get(':id/edits')
-  listMyEdits(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser
-  ): Promise<MemberProfileEditDto[]> {
-    return this.membersService.listMyEdits(id, user);
   }
 }

@@ -54,10 +54,10 @@ const ADMIN_SECTIONS = [
     description: 'Review, approve, or reject applications to become a vetted member.',
   },
   {
-    href: '/admin/member-edits',
+    href: '/admin/member-verification',
     icon: MEMBER_EDITS_ICON,
-    title: 'Profile edits',
-    description: "Compare members' proposed profile changes with what's live, check proof, and approve or reject.",
+    title: 'Profile verification',
+    description: 'Members’ profile edits go live at once — verify their entries, or ask for proof.',
   },
   {
     href: '/admin/articles',

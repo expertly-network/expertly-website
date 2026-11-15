@@ -20,9 +20,9 @@ export function ProfileAuthWall({ member }: { member: MemberListItemDto }) {
   const rate = formatRateParts(member.rateMinCents, member.rateMaxCents, member.rateCurrency);
   const preview: MemberDto = {
     ...member,
-    firmWebsite: null,
     availabilityNotes: null,
     isAvailable: false,
+    contactVerified: false,
     contactEmail: null,
     workEmail: null,
     contactPhone: null,

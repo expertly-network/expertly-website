@@ -164,19 +164,20 @@ export default async function ArticleDetailPage(props: { params: Promise<{ slug:
                       Edit
                     </Button>
                   )}
-                  {/* Readers without the full body (signed out) would get an empty PDF. */}
-                  {fullArticle && <ArticleDownloadButton article={fullArticle} />}
                   {(!('status' in article) || article.status === 'published') && (
-                    <ArticleShareBar title={article.title} />
+                    <ArticleShareBar title={article.title}>
+                      {/* Readers without the full body (signed out) would get an empty PDF. */}
+                      {fullArticle && <ArticleDownloadButton article={fullArticle} />}
+                    </ArticleShareBar>
                   )}
                 </>
               }
             />
 
-            <ArticleAiSummary summary={article.aiSummary} className="mt-7" />
+            <ArticleAiSummary summary={article.aiSummary} className="mt-5" />
 
             {fullArticle ? (
-              <div className={`${ARTICLE_PROSE} mt-8`} dangerouslySetInnerHTML={{ __html: fullArticle.body }} />
+              <div className={`${ARTICLE_PROSE} mt-6`} dangerouslySetInnerHTML={{ __html: fullArticle.body }} />
             ) : (
               <>
                 {article.excerpt && (

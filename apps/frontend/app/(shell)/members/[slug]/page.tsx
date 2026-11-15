@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session-claims';
-import { getMemberServer, getMemberPreviewServer, getMyMemberEditsServer } from '@/lib/api/server';
+import { getMemberServer, getMemberPreviewServer } from '@/lib/api/server';
 import { ProfileAuthWall } from '@/components/members/ProfileAuthWall';
 import { ProfileViewBeacon } from '@/components/members/ProfileViewBeacon';
 import { ProfileClient } from './ProfileClient';
@@ -39,7 +39,6 @@ export default async function MemberProfilePage(props: { params: Promise<{ slug:
   }
 
   const isOwnProfile = sessionUser.id === member.id;
-  const edits = isOwnProfile ? await getMyMemberEditsServer(member.id) : [];
 
   return (
     <>
@@ -47,7 +46,6 @@ export default async function MemberProfilePage(props: { params: Promise<{ slug:
       {!isOwnProfile && <ProfileViewBeacon slug={member.slug} />}
       <ProfileClient
         member={member}
-        edits={edits}
         isOwnProfile={isOwnProfile}
         viewerName={`${sessionUser.first_name} ${sessionUser.last_name}`.trim()}
         viewerEmail={sessionUser.email}

@@ -18,7 +18,7 @@ export function CategoriesMarquee({ categories }: { categories: CategoryDto[] })
       renderItem={(c) => (
         <Link
           href={`/members?categoryId=${c.id}`}
-          className={`flex w-[248px] sm:w-[296px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
+          className={`flex w-[248px] sm:w-[250px] ${MARQUEE_TILE_HEIGHT} items-center gap-3 rounded-2xl border border-line bg-bg-card p-3.5 transition-colors hover:border-line-2`}
         >
           {c.imageUrl ? (
             <Image

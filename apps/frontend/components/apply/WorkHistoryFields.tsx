@@ -3,24 +3,22 @@
 import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { MonthYearField } from '@/components/ui/MonthYearField';
 import { Textarea } from '@/components/ui/Textarea';
 import { WarningNote } from '@/components/ui/WarningNote';
 import { Badge } from '@/components/ui/Badge';
-import { FIELD_FOCUS, FIELD_FOCUS_ERROR } from '@/components/ui/field-styles';
 import { ErrorBanner } from '@/components/auth/ErrorBanner';
 import { ImportedTag } from '@/components/apply/ImportedTag';
 import { findOverlaps, isEndBeforeStart } from '@/lib/apply/work-history';
 import { shareCompanyWebsites } from '@/lib/apply/company-websites';
 import { groupByCompany } from '@/lib/apply/background-errors';
-import { EMPTY_WORK_EXPERIENCE, FIRM_SIZES, MONTHS, type WizardFormState } from '@/components/apply/types';
+import { EMPTY_WORK_EXPERIENCE, FIRM_SIZES, type WizardFormState } from '@/components/apply/types';
 
 // Mirrors WORK_EXPERIENCES_MAX in the backend's update-application.dto.ts.
 const WORK_EXPERIENCES_MAX = 15;
 
 // Below this, an application isn't approved (5–12 years is Budding Professional, more is Seasoned).
 const MIN_YEARS_OF_EXPERIENCE = 5;
-
-const YEARS = Array.from({ length: 67 }, (_, i) => new Date().getFullYear() - i);
 
 type WorkExperience = WizardFormState['workExperiences'][number];
 
@@ -258,83 +256,24 @@ export function WorkHistoryFields({
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-                      <div className="flex flex-col gap-1.5">
-                        <span id={`workExperiences.${i}.startLabel`} className="text-xs font-medium text-ink-2">
-                          Start date
-                          <span aria-hidden="true" className="text-error">
-                            {' '}
-                            *
-                          </span>
-                        </span>
-                        <div role="group" aria-labelledby={`workExperiences.${i}.startLabel`} className="flex gap-2">
-                          <select
-                            aria-label="Start month"
-                            className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink ${FIELD_FOCUS}`}
-                            value={work.startMonth ?? ''}
-                            onChange={(e) => updateWork(i, { startMonth: Number(e.target.value) || undefined })}
-                          >
-                            <option value="">Month</option>
-                            {MONTHS.map((m, idx) => (
-                              <option key={m} value={idx + 1}>
-                                {m}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            id={`workExperiences.${i}.startYear`}
-                            aria-label="Start year"
-                            aria-invalid={errors[`workExperiences.${i}.startYear`] ? true : undefined}
-                            className={`min-w-0 flex-1 rounded-input border px-2 py-3 text-sm text-ink ${
-                              errors[`workExperiences.${i}.startYear`]
-                                ? `border-error ${FIELD_FOCUS_ERROR}`
-                                : `border-line ${FIELD_FOCUS}`
-                            }`}
-                            value={work.startYear || ''}
-                            onChange={(e) => updateWork(i, { startYear: Number(e.target.value) })}
-                          >
-                            <option value="">Year</option>
-                            {YEARS.map((y) => (
-                              <option key={y}>{y}</option>
-                            ))}
-                          </select>
-                        </div>
-                        {errors[`workExperiences.${i}.startYear`] && (
-                          <span className="text-xs text-error">{errors[`workExperiences.${i}.startYear`]}</span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <span id={`workExperiences.${i}.endLabel`} className="text-xs font-medium text-ink-2">
-                          End date
-                        </span>
-                        <div role="group" aria-labelledby={`workExperiences.${i}.endLabel`} className="flex gap-2">
-                          <select
-                            disabled={work.isCurrent}
-                            aria-label="End month"
-                            className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
-                            value={work.endMonth ?? ''}
-                            onChange={(e) => updateWork(i, { endMonth: Number(e.target.value) || undefined })}
-                          >
-                            <option value="">Month</option>
-                            {MONTHS.map((m, idx) => (
-                              <option key={m} value={idx + 1}>
-                                {m}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            disabled={work.isCurrent}
-                            aria-label="End year"
-                            className={`min-w-0 flex-1 rounded-input border border-line px-2 py-3 text-sm text-ink disabled:opacity-40 ${FIELD_FOCUS}`}
-                            value={work.endYear ?? ''}
-                            onChange={(e) => updateWork(i, { endYear: Number(e.target.value) || undefined })}
-                          >
-                            <option value="">Year</option>
-                            {YEARS.map((y) => (
-                              <option key={y}>{y}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
+                      <MonthYearField
+                        label="Start date"
+                        required
+                        month={work.startMonth}
+                        year={work.startYear || undefined}
+                        yearId={`workExperiences.${i}.startYear`}
+                        error={errors[`workExperiences.${i}.startYear`]}
+                        onMonthChange={(startMonth) => updateWork(i, { startMonth })}
+                        onYearChange={(startYear) => updateWork(i, { startYear: startYear ?? 0 })}
+                      />
+                      <MonthYearField
+                        label="End date"
+                        disabled={work.isCurrent}
+                        month={work.endMonth}
+                        year={work.endYear}
+                        onMonthChange={(endMonth) => updateWork(i, { endMonth })}
+                        onYearChange={(endYear) => updateWork(i, { endYear })}
+                      />
                     </div>
 
                     {dateErrors[i] && (

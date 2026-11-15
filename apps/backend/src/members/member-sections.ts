@@ -5,13 +5,19 @@ import { isHttpUrl, MAX_URL_LENGTH } from '../common/http-url';
 
 export type SectionItem = Record<string, unknown>;
 
-// Array-shaped sections whose items carry their own proofAttachments (as opposed to
-// education/work_experiences, which share one edit-level proof for the whole batch).
+/** What every viewer except the owner and admins sees in place of a confidential client's name. */
+export const CONFIDENTIAL_CLIENT_LABEL = 'Confidential client';
+
+// Array-shaped sections whose items carry their own proofAttachments. Every list section now does
+// (2026-11-15): proof is optional, the member's choice, and attached per item — there is no shared
+// batch proof for education / work_experiences any more.
 export const PER_ITEM_PROOF_SECTIONS: readonly MemberEditSection[] = [
   'engagements',
   'testimonials',
   'awards',
   'key_clients',
+  'education',
+  'work_experiences',
 ];
 
 export const ARRAY_SECTIONS: readonly MemberEditSection[] = [
@@ -22,6 +28,16 @@ export const ARRAY_SECTIONS: readonly MemberEditSection[] = [
   'testimonials',
   'awards',
 ];
+
+// Maps an array section to its jsonb column on member_profiles.
+export const SECTION_TO_COLUMN = {
+  work_experiences: 'work_experiences',
+  education: 'educations',
+  engagements: 'engagements',
+  testimonials: 'testimonials',
+  awards: 'awards',
+  key_clients: 'key_clients',
+} as const;
 
 export const MAX_KEY_CLIENTS = 20;
 // Bounds for every array section, so one edit's payload (and the files it references) stays small.
@@ -63,20 +79,26 @@ const FIELD_MAX_LENGTH: Partial<Record<FieldKind, number>> = {
 // junk) is dropped before the payload is stored. 'raw' keys get their own validation below.
 const SECTION_FIELDS: Record<MemberEditSection, Record<string, FieldKind>> = {
   headline_bio: { headline: 'short', bio: 'bio' },
-  contact: { contactEmail: 'email', workEmail: 'email', contactPhone: 'phone', linkedinUrl: 'url', website: 'url' },
+  contact: { workEmail: 'email', contactPhone: 'phone', linkedinUrl: 'url', website: 'url' },
   engagements: {
     id: 'short',
     title: 'short',
-    organization: 'short',
     clientName: 'short',
-    clientEmail: 'email',
+    isConfidential: 'boolean',
     verificationMethods: 'raw',
     verificationMethodOther: 'raw',
     year: 'number',
     url: 'url',
     proofAttachments: 'raw',
   },
-  education: { id: 'short', degree: 'short', institution: 'short', field: 'short', endYear: 'number' },
+  education: {
+    id: 'short',
+    degree: 'short',
+    institution: 'short',
+    field: 'short',
+    endYear: 'number',
+    proofAttachments: 'raw',
+  },
   work_experiences: {
     id: 'short',
     title: 'short',
@@ -87,6 +109,7 @@ const SECTION_FIELDS: Record<MemberEditSection, Record<string, FieldKind>> = {
     endYear: 'number',
     isCurrent: 'boolean',
     description: 'long',
+    proofAttachments: 'raw',
   },
   key_clients: { id: 'short', name: 'short', logoUrl: 'url', logoUploadPath: 'short', proofAttachments: 'raw' },
   testimonials: {
@@ -95,9 +118,6 @@ const SECTION_FIELDS: Record<MemberEditSection, Record<string, FieldKind>> = {
     clientName: 'short',
     clientTitle: 'short',
     clientCompany: 'short',
-    serviceName: 'short',
-    occurredOn: 'short',
-    clientEmail: 'email',
     proofAttachments: 'raw',
   },
   awards: {
@@ -136,6 +156,11 @@ function pickKnownFields(section: MemberEditSection, value: SectionItem): Sectio
   return out;
 }
 
+/** The keys a payload item of this section may carry (everything else is stripped). */
+export function sectionFieldKeys(section: MemberEditSection): string[] {
+  return Object.keys(SECTION_FIELDS[section]);
+}
+
 export function badRequest(code: string, message: string): BadRequestException {
   return new BadRequestException({ code, message });
 }
@@ -157,21 +182,26 @@ export function hasItemProof(item: SectionItem): boolean {
 // allowed to see it (the owning member, or an admin).
 export function normalizeLiveItem(section: MemberEditSection, item: SectionItem, includeProof: boolean): SectionItem {
   const out: SectionItem = { ...item, isVerified: item.isVerified === true };
+  // When an entry was last changed / verified is for the owner and admins only.
+  if (!includeProof) {
+    delete out.changedAt;
+    delete out.verifiedAt;
+  }
   if (section === 'work_experiences') {
     out.startMonth = item.startMonth ?? null;
     out.endMonth = item.endMonth ?? null;
   }
   if (section === 'engagements') {
     out.clientName = item.clientName ?? null;
+    out.isConfidential = item.isConfidential === true;
+    // A confidential client's name reaches only the owner and admins (`includeProof`); everyone
+    // else gets a fixed label, never the real name.
+    if (out.isConfidential && !includeProof) out.clientName = CONFIDENTIAL_CLIENT_LABEL;
     out.verificationMethods = Array.isArray(item.verificationMethods) ? item.verificationMethods : [];
     out.verificationMethodOther = item.verificationMethodOther ?? null;
   }
-  // A client's email exists only so the GrowXQ team can randomly verify the relationship — it's
-  // a third party's address, so like proof it's visible to the owning member and admins only.
-  if (section === 'engagements' || section === 'testimonials') {
-    if (includeProof) out.clientEmail = item.clientEmail ?? null;
-    else delete out.clientEmail;
-  }
+  // Client email is no longer collected (2026-11-15); a legacy value is never returned to anyone.
+  if (section === 'engagements' || section === 'testimonials') delete out.clientEmail;
   if ((PER_ITEM_PROOF_SECTIONS as readonly string[]).includes(section)) {
     if (includeProof) out.proofAttachments = Array.isArray(item.proofAttachments) ? item.proofAttachments : [];
     else delete out.proofAttachments;
@@ -236,14 +266,18 @@ function assertOptionalHttpUrl(value: unknown, field: string): void {
   if (!isHttpUrl(value)) throw badRequest('URL_INVALID', `${field} must be an http(s) web address.`);
 }
 
+function requireText(value: unknown, code: string, message: string): void {
+  if (typeof value !== 'string' || value.trim().length === 0) throw badRequest(code, message);
+}
+
 function validateEngagement(item: SectionItem): void {
-  if (typeof item.clientName !== 'string' || item.clientName.trim().length === 0) {
-    throw badRequest('ENGAGEMENT_CLIENT_NAME_REQUIRED', 'Each key engagement requires a clientName.');
+  requireText(item.title, 'ENGAGEMENT_TITLE_REQUIRED', 'Each key engagement requires a title.');
+  // The client is required, but may be kept confidential (then its name is still stored for the
+  // owner and admins, and masked for everyone else).
+  if (item.isConfidential !== true) {
+    requireText(item.clientName, 'ENGAGEMENT_CLIENT_NAME_REQUIRED', 'Each key engagement requires a clientName.');
   }
   assertOptionalHttpUrl(item.url, 'engagements url');
-  if (item.clientEmail != null && item.clientEmail !== '' && !isEmail(item.clientEmail)) {
-    throw badRequest('ENGAGEMENT_CLIENT_EMAIL_INVALID', 'clientEmail must be a valid email address.');
-  }
   if (item.verificationMethods !== undefined) {
     const methods = item.verificationMethods;
     if (
@@ -274,9 +308,17 @@ function validateKeyClient(item: SectionItem): void {
 }
 
 function validateTestimonial(item: SectionItem): void {
-  if (item.clientEmail != null && item.clientEmail !== '' && !isEmail(item.clientEmail)) {
-    throw badRequest('TESTIMONIAL_CLIENT_EMAIL_INVALID', 'clientEmail must be a valid email address.');
-  }
+  requireText(item.quote, 'TESTIMONIAL_QUOTE_REQUIRED', 'Each testimonial requires a quote.');
+  requireText(item.clientName, 'TESTIMONIAL_NAME_REQUIRED', "Each testimonial requires the person's name.");
+}
+
+function validateAward(item: SectionItem): void {
+  requireText(item.title, 'AWARD_TITLE_REQUIRED', 'Each award requires a title.');
+}
+
+function validateEducation(item: SectionItem): void {
+  requireText(item.degree, 'EDUCATION_INVALID', 'Each education entry requires a degree.');
+  requireText(item.institution, 'EDUCATION_INVALID', 'Each education entry requires an institution.');
 }
 
 function validateContact(payload: unknown): void {
@@ -284,12 +326,12 @@ function validateContact(payload: unknown): void {
     throw badRequest('CONTACT_PAYLOAD_INVALID', 'contact payload must be an object.');
   }
   const p = payload as Record<string, unknown>;
-  for (const key of ['contactEmail', 'workEmail', 'contactPhone', 'linkedinUrl', 'website']) {
+  for (const key of ['workEmail', 'contactPhone', 'linkedinUrl', 'website']) {
     if (p[key] != null && typeof p[key] !== 'string') {
       throw badRequest('CONTACT_PAYLOAD_INVALID', `contact.${key} must be a string or null.`);
     }
   }
-  for (const key of ['contactEmail', 'workEmail']) {
+  for (const key of ['workEmail']) {
     const value = p[key];
     if (typeof value === 'string' && value.trim() !== '' && !isEmail(value)) {
       throw badRequest('CONTACT_EMAIL_INVALID', `${key} must be a valid email address.`);
@@ -337,6 +379,8 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
   }
   if (section === 'engagements') items.forEach(validateEngagement);
   if (section === 'testimonials') items.forEach(validateTestimonial);
+  if (section === 'awards') items.forEach(validateAward);
+  if (section === 'education') items.forEach(validateEducation);
   if (section === 'key_clients') {
     if (items.length > MAX_KEY_CLIENTS) {
       throw badRequest('KEY_CLIENTS_LIMIT_EXCEEDED', `You can list at most ${MAX_KEY_CLIENTS} key clients.`);
@@ -345,6 +389,8 @@ export function validateAndPrepareEditPayload(section: MemberEditSection, payloa
   }
   if (section === 'work_experiences') {
     for (const item of items) {
+      requireText(item.title, 'WORK_HISTORY_INVALID', 'Each work experience requires a title.');
+      requireText(item.company, 'WORK_HISTORY_INVALID', 'Each work experience requires a company.');
       if (!Number.isInteger(item.startYear)) {
         throw badRequest('WORK_HISTORY_INVALID', 'Each work experience requires an integer startYear.');
       }

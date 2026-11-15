@@ -1,32 +1,19 @@
 'use client';
 
+import { HighlightedEntry, TROPHY_ICON } from '@/components/members/HighlightedEntry';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, SwipeRow } from '@/components/ui';
 import { ProfileSectionEmpty, ProfileSectionHeader, SECTION_ICONS } from '@/components/members/ProfileSection';
-import { getSectionEditBadge, getSectionRejectionNote } from '@/lib/members/edit-badge';
+import { VerificationBadge } from '@/components/members/VerificationBadge';
+import { AddProofPrompt } from '@/components/members/AddProofPrompt';
+import type { EditTarget } from '@/components/members/edit/SectionEditModal';
 import { MemberRecommendations } from '@/components/members/tabs/MemberRecommendations';
-import { formatMonthYear, initialsOf } from '@/lib/members/format';
-import type { MemberDto, MemberProfileEditDto, MemberTestimonial } from '@shared/member';
-
-function VerifiedTick() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-label="Verified"
-      className="ml-1 inline flex-none align-[-1px]"
-    >
-      <path d="M3 8l4 4 6-7" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+import { initialsOf } from '@/lib/members/format';
+import type { MemberDto, MemberTestimonial } from '@shared/member';
 
 // `.mp-testi-footer` — shared by the grid card and the full-quote modal.
 function TestimonialAuthor({ t, compact }: { t: MemberTestimonial; compact: boolean }) {
   const meta = [t.clientTitle, t.clientCompany].filter(Boolean).join(', ');
-  const date = formatMonthYear(t.occurredOn);
   return (
     <div className={`mt-auto flex items-center gap-2 border-t border-line ${compact ? 'pt-2' : 'pt-4'}`}>
       <span
@@ -39,7 +26,6 @@ function TestimonialAuthor({ t, compact }: { t: MemberTestimonial; compact: bool
       <div className="min-w-0 flex-1">
         <strong className={`block font-semibold text-ink ${compact ? 'text-xs' : 'text-[13.5px]'}`}>
           {t.clientName}
-          {t.isVerified && <VerifiedTick />}
         </strong>
         {meta && (
           <span className={`mt-px block truncate text-ink-3 ${compact ? 'text-[10.5px]' : 'text-[11.5px]'}`}>
@@ -47,23 +33,18 @@ function TestimonialAuthor({ t, compact }: { t: MemberTestimonial; compact: bool
           </span>
         )}
       </div>
-      {date && (
-        <span className={`flex-none font-mono text-ink-4 ${compact ? 'text-[9.5px]' : 'text-[10.5px]'}`}>{date}</span>
-      )}
     </div>
   );
 }
 
 export function ReviewsTab({
   member,
-  edits,
   isOwnProfile,
   onEdit,
 }: {
   member: MemberDto;
-  edits: MemberProfileEditDto[];
   isOwnProfile: boolean;
-  onEdit: (section: 'testimonials' | 'awards') => void;
+  onEdit: (target: EditTarget) => void;
 }) {
   const [openTestimonial, setOpenTestimonial] = useState<MemberTestimonial | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -92,7 +73,8 @@ export function ReviewsTab({
     el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: 'smooth' });
   }
 
-  const edit = (section: 'testimonials' | 'awards') => (isOwnProfile ? () => onEdit(section) : undefined);
+  const editTestimonials = isOwnProfile ? () => onEdit({ section: 'testimonials' }) : undefined;
+  const editAwards = isOwnProfile ? () => onEdit({ section: 'awards' }) : undefined;
   const hasTestimonials = member.testimonials.length > 0;
   const hasAwards = member.awards.length > 0;
 
@@ -103,15 +85,13 @@ export function ReviewsTab({
           <ProfileSectionHeader
             label="Client Testimonials"
             icon={SECTION_ICONS.testimonials}
-            badge={getSectionEditBadge('testimonials', edits, member.isVerified)}
-            onEdit={edit('testimonials')}
-            rejectionNote={getSectionRejectionNote('testimonials', edits)}
+            onEdit={editTestimonials}
           />
           {!hasTestimonials ? (
             <ProfileSectionEmpty
               title="No testimonials yet."
               hint="Showcase client feedback"
-              onEdit={edit('testimonials')}
+              onEdit={editTestimonials}
             />
           ) : (
             <>
@@ -124,25 +104,42 @@ export function ReviewsTab({
                 onScroll={measure}
               >
                 {member.testimonials.map((t) => (
-                  <button
+                  <div
                     key={t.id}
-                    type="button"
-                    onClick={() => setOpenTestimonial(t)}
-                    className="relative flex h-full min-w-0 snap-start flex-col gap-2 overflow-hidden rounded-2xl border border-line bg-bg-card px-[15px] pb-[13px] pt-4 text-left transition-[background,border-color,box-shadow] odd:bg-bg-alt hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]"
+                    className="relative flex h-full min-w-0 snap-start flex-col overflow-hidden rounded-2xl border border-line bg-bg-card text-left transition-[background,border-color,box-shadow] odd:bg-bg-alt hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]"
                   >
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute -top-2 right-3.5 select-none font-serif text-[56px] leading-none text-[color-mix(in_oklab,var(--accent)_16%,transparent)]"
+                    <button
+                      type="button"
+                      onClick={() => setOpenTestimonial(t)}
+                      className="relative flex min-w-0 flex-1 flex-col gap-2 px-[15px] pb-2 pt-4 text-left"
                     >
-                      &ldquo;
-                    </span>
-                    <p className="relative line-clamp-[8] text-sm leading-normal text-ink-2">{t.quote}</p>
-                    <TestimonialAuthor t={t} compact />
-                  </button>
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -top-2 right-3.5 select-none font-serif text-[56px] leading-none text-[color-mix(in_oklab,var(--accent)_16%,transparent)]"
+                      >
+                        &ldquo;
+                      </span>
+                      <p className="relative line-clamp-[8] text-sm leading-normal text-ink-2">{t.quote}</p>
+                      <TestimonialAuthor t={t} compact />
+                    </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-[15px] pb-3">
+                      <VerificationBadge verified={t.isVerified} className="ml-auto" />
+                    </div>
+                    {isOwnProfile && !t.isVerified && (
+                      <div className="px-[15px] pb-3 empty:hidden">
+                        <AddProofPrompt
+                          isOwnProfile={isOwnProfile}
+                          verified={t.isVerified}
+                          hasProof={(t.proofAttachments?.length ?? 0) > 0}
+                          onAddProof={() => onEdit({ section: 'testimonials', itemId: t.id })}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </SwipeRow>
               {(canPrev || canNext) && (
-                <div className="mt-3.5 hidden justify-center gap-2 sm:flex">
+                <div className="mt-3.5 hidden justify-end gap-2 sm:flex">
                   {([-1, 1] as const).map((direction) => (
                     <button
                       key={direction}
@@ -179,55 +176,32 @@ export function ReviewsTab({
 
       {(hasAwards || isOwnProfile) && (
         <section>
-          <ProfileSectionHeader
-            label="Awards & Recognition"
-            icon={SECTION_ICONS.awards}
-            badge={getSectionEditBadge('awards', edits, member.isVerified)}
-            onEdit={edit('awards')}
-            rejectionNote={getSectionRejectionNote('awards', edits)}
-          />
+          <ProfileSectionHeader label="Awards & Recognition" icon={SECTION_ICONS.awards} onEdit={editAwards} />
           {!hasAwards ? (
-            <ProfileSectionEmpty title="No awards yet." hint="Showcase your recognition" onEdit={edit('awards')} />
+            <ProfileSectionEmpty title="No awards yet." hint="Showcase your recognition" onEdit={editAwards} />
           ) : (
-            // `.mp-awards-grid` / `.mp-award-card`
-            <div className="grid grid-cols-2 gap-3.5 max-[639px]:grid-cols-1">
+            // Boxless and highlighted — same entry layout as Education (HighlightedEntry).
+            <ul className="flex flex-col gap-5">
               {member.awards.map((award) => (
-                <div
+                <HighlightedEntry
                   key={award.id}
-                  className="flex items-center gap-3.5 rounded-2xl border border-line bg-bg-card px-5 py-[18px] transition-[background,border-color,box-shadow,transform] hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line))] hover:bg-[color-mix(in_oklab,var(--accent)_4%,var(--bg-card))] hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]"
-                >
-                  <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[13px] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--accent)_22%,transparent),color-mix(in_oklab,var(--accent)_7%,transparent))]">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path
-                        d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"
-                        stroke="var(--accent)"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M7 6H4a1 1 0 00-1 1v1a3 3 0 003 3M17 6h3a1 1 0 011 1v1a3 3 0 01-3 3"
-                        stroke="var(--accent)"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-profile-item font-semibold text-ink">{award.title}</div>
-                    {(award.issuingBody || award.year) && (
-                      <div className="mt-[5px] font-mono text-profile-meta text-ink-3">
-                        {[award.issuingBody, award.year].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                    {award.description && (
-                      <div className="mt-1.5 text-[11.5px] leading-[1.55] text-ink-3">{award.description}</div>
-                    )}
-                  </div>
-                </div>
+                  year={award.year}
+                  icon={TROPHY_ICON}
+                  title={award.title}
+                  subtitle={award.issuingBody}
+                  description={award.description}
+                  actions={<VerificationBadge verified={award.isVerified} />}
+                  footer={
+                    <AddProofPrompt
+                      isOwnProfile={isOwnProfile}
+                      verified={award.isVerified}
+                      hasProof={(award.proofAttachments?.length ?? 0) > 0}
+                      onAddProof={() => onEdit({ section: 'awards', itemId: award.id })}
+                    />
+                  }
+                />
               ))}
-            </div>
+            </ul>
           )}
         </section>
       )}
@@ -240,9 +214,6 @@ export function ReviewsTab({
             <p className="mb-[18px] whitespace-pre-line text-[15px] italic leading-[1.75] text-ink-2">
               &ldquo;{openTestimonial.quote}&rdquo;
             </p>
-            {openTestimonial.serviceName && (
-              <p className="mb-3 font-mono text-profile-meta text-ink-3">Service: {openTestimonial.serviceName}</p>
-            )}
             <TestimonialAuthor t={openTestimonial} compact={false} />
           </>
         )}

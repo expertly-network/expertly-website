@@ -52,9 +52,8 @@ export function MemberCard({
 }) {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const location = [member.city, member.country].filter(Boolean).join(', ');
-  const roleText = member.firmName
-    ? `${member.headline ?? 'Member'} at ${member.firmName}`
-    : `${member.headline ?? 'Member'} as an independent practitioner`;
+  // The headline exactly as the member wrote it; the firm is shown on its own line (`practice`).
+  const roleText = member.headline ?? (member.firmName ? `Member at ${member.firmName}` : 'Independent practitioner');
   const visibleServices = member.services.slice(0, 2);
   const [primaryService, ...otherServices] = member.services;
   const rate = formatRate(member.rateMinCents, member.rateMaxCents, member.rateCurrency);

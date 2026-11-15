@@ -1,15 +1,14 @@
 import { ApiError, apiFetch, apiFetchPage } from '@/lib/api/client';
 import { filtersToSearchParams, type MemberFilters } from '@/lib/members/search-params';
 import type {
-  CreateMemberEditRequest,
   MemberDto,
+  MemberEditSection,
   MemberListItemDto,
-  MemberProfileEditDto,
-  ReviewMemberEditRequest,
   MemberUploadContentType,
   UpdateMemberRequest,
   UploadResponse,
 } from '@shared/member';
+import type { SaveMemberSectionResponse } from '@shared/member-verification';
 
 export interface GetMembersParams extends MemberFilters {
   page?: number;
@@ -42,14 +41,18 @@ export async function recordMemberProfileView(slug: string): Promise<void> {
   await apiFetch<void>(`/members/${encodeURIComponent(slug)}/views`, { method: 'POST' });
 }
 
-export function getMyMemberEdits(id: string): Promise<MemberProfileEditDto[]> {
-  return apiFetch<MemberProfileEditDto[]>(`/members/${id}/edits`);
-}
-
-export function createMemberEdit(id: string, body: CreateMemberEditRequest): Promise<MemberProfileEditDto> {
-  return apiFetch<MemberProfileEditDto>(`/members/${id}/edits`, {
-    method: 'POST',
-    body: JSON.stringify(body),
+/**
+ * Owner-only: replaces one profile section and applies it at once (an admin verifies afterwards).
+ * `payload` is the whole new section — see `SaveMemberSectionRequest`.
+ */
+export function saveMemberSection(
+  id: string,
+  section: MemberEditSection,
+  payload: unknown
+): Promise<SaveMemberSectionResponse> {
+  return apiFetch<SaveMemberSectionResponse>(`/members/${id}/sections/${section}`, {
+    method: 'PUT',
+    body: JSON.stringify({ payload }),
   });
 }
 
@@ -84,13 +87,5 @@ export function requestMemberUpload(id: string, file: File): Promise<UploadRespo
   return apiFetch<UploadResponse>(`/members/${id}/uploads`, {
     method: 'POST',
     body: JSON.stringify({ fileName: file.name.slice(-200), contentType: file.type }),
-  });
-}
-
-// 🛡️ manageMembers — approve or reject one pending edit. A reason is required to reject.
-export function reviewMemberEdit(id: string, body: ReviewMemberEditRequest): Promise<MemberProfileEditDto> {
-  return apiFetch<MemberProfileEditDto>(`/admin/member-edits/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
   });
 }

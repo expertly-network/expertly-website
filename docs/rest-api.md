@@ -929,6 +929,16 @@ not found. Codes: `404 AI_GENERATION_NOT_FOUND`.
 - Email/notification when an article is approved or rejected — no email infrastructure exists yet
   (root CLAUDE.md's "not yet applicable" list); the author finds out by checking My Articles.
 
+## Platform stats
+
+### 🌐 `GET /v1/stats`
+
+Added 2026-11-14. The home page hero's four figures, counted live (no personal data).
+**Response `200`:** `PlatformStatsResponse` — `{ members, jurisdictions, practiceAreas, consultations }`:
+active members (`member_profiles.status = 'active'`); distinct countries among them (case- and
+whitespace-insensitive, `Other`/blank not counted); active categories; every consultation request
+received so far, whatever its status.
+
 ## Events
 
 Backing `apps/backend/src/events/`. Schema: `docs/database-erd.md`. Shared types:
@@ -1243,7 +1253,7 @@ are live — the owner and admins with `manageMembers` still see it.
 `/v1` on 2026-09-27 as a deliberate exception to the "breaking changes go to `/v2`" rule: the
 frontend was the only caller, both ship together, and the feature wasn't live yet. A UUID passed
 here is treated as a (non-matching) slug and returns `404`. Every other member route below — the
-owner-only `/:id/uploads` and `/:id/edits`, and admin `PATCH /v1/admin/members/:id` — stays keyed on
+owner-only `/:id/uploads` and `/:id/sections/:section`, and admin `PATCH /v1/admin/members/:id` — stays keyed on
 the UUID (`MemberDto.id`): those compare it directly against the caller's JWT, never appear in the
 browser's address bar, and the UUID remains the key every other table references.
 
@@ -1255,7 +1265,7 @@ prototype itself consistently enforces; see `docs/database-erd.md`'s "Design dec
 `linkedinUrl` are returned only to the profile owner, an admin with fresh `manageMembers`, a
 `member` whose own member profile is active (`app_member_status` claim, resolved fresh from the DB
 when the claim is absent), and a `client` with any `consultation_requests` row to this member (any
-status). Everyone else gets `null` for those four. `website`/`firmWebsite` stay public. New field
+status). Everyone else gets `null` for those four. `website` stays public. (`firmWebsite` was removed 2026-11-20: a member has one website, the Contact section's, `website`; migration `0009` copied any application-only value into it.) New field
 `contactVisible: boolean` — `true` when the four were included, so the UI can tell "hidden from you"
 apart from "not provided". Same rule on the `PATCH /v1/members/:id` response.
 
@@ -1275,103 +1285,17 @@ bytes. `@Roles('member')`, owner-only (`:id` must equal the caller's id).
 
 **Request:** `{ fileName: string (≤200 chars), contentType: 'application/pdf' | 'image/jpeg' |
 'image/png' | 'image/webp' | 'image/gif' }` — the bucket enforces the same type list and a 10MB cap
-on the upload itself, and `POST /v1/members/:id/edits` re-sniffs every referenced file's magic bytes
+on the upload itself, and `PUT /v1/members/:id/sections/:section` re-sniffs every referenced file's magic bytes
 (`400 UPLOAD_INVALID_TYPE` / `UPLOAD_TOO_LARGE`), so the declared type is never trusted alone.
 **Response `201`:** `{ uploadUrl: string,
-path: string }` — for the batch-shared-proof sections (`education`, `work_experiences`), `path`
-gets sent back as top-level `proofFileUrl`; for `key_clients`, as that row's `logoUploadPath`; for
-the per-item-proof sections (`engagements`, `testimonials`, `awards`), as the `url` of a `{ type:
-'file', url, label }` entry appended to that row's `proofAttachments` (see below) — call this
-endpoint once per file when a member attaches multiple.
-
-### 🔒 `POST /v1/members/:id/edits`
-
-Submit a self-edit proposal for one section. `@Roles('member')`, owner-only (service-layer check,
-same pattern as `PATCH /v1/articles/:id`'s owner-or-admin check but stricter — no admin bypass
-here, since this is a submission, not a direct write). Creates a `pending` `member_profile_edits`
-row; **never touches the live profile** — that only happens on admin approval (see below).
-
-**Request:** `CreateMemberEditRequest` — `{ section, payload, proofFileUrl?, proofLink? }`.
-
-**Updated 2026-10-10 (additive):** proof is **optional everywhere** for members. Payload items may
-carry `id` (the live item's id when editing an existing item — keep it so a rejected change falls
-back to the live version and the id stays stable); `isVerified` is server-owned and ignored. Live
-items now return their `proofAttachments` to the owner so the edit modal can prefill them. New
-per-section validation (`400` with `{ code, message }`): `engagements` — `clientName` required
-(`ENGAGEMENT_CLIENT_NAME_REQUIRED`), `clientEmail?` valid email (`ENGAGEMENT_CLIENT_EMAIL_INVALID`),
-`verificationMethods?` unique subset of `engagement_letter|client_deliverable|mail_confirmation_pdf|newsletter_transaction_update|other`
-and `verificationMethodOther?` ≤ 300 chars (`ENGAGEMENT_VERIFICATION_METHODS_INVALID`);
-`testimonials` (2026-10-21) — optional `clientEmail?` valid email (`TESTIMONIAL_CLIENT_EMAIL_INVALID`),
-for the team's random verification. **`clientEmail` on engagements and testimonials is owner/admin-only
-in `GET /v1/members/:slug`** (omitted for every other viewer, like `proofAttachments`) — it's a
-third party's address;
-**URLs** (2026-10-29) — `contact.linkedinUrl`, `contact.website`, `engagements[].url`,
-`key_clients[].logoUrl`, every `proofAttachments[]` entry of type `link`, and the edit-level
-`proofLink` must be http(s) addresses (a scheme-less `www.firm.com` is accepted and read as https);
-`javascript:`/`data:`/other schemes are rejected with `400 URL_INVALID` (`proofLink`: standard
-validation `400`) — these render as links on the public profile and the admin review screen;
-`key_clients` — max 20 items (`KEY_CLIENTS_LIMIT_EXCEEDED`), `name` required (`KEY_CLIENT_NAME_REQUIRED`),
-optional `proofAttachments`; `work_experiences` — `startYear` int, `isCurrent` bool, optional
-`startMonth`/`endMonth` 1-12, no end-before-start (`WORK_HISTORY_END_BEFORE_START`); overlapping
-ranges allowed (2026-10-21); stored newest-first; `contact` — adds `workEmail`, emails must be
-valid (`CONTACT_EMAIL_INVALID`). Other codes: `PAYLOAD_NOT_ARRAY`, `PAYLOAD_ITEM_INVALID`,
-`HEADLINE_BIO_INVALID`, `CONTACT_PAYLOAD_INVALID`, `PROOF_ATTACHMENTS_INVALID`, `WORK_HISTORY_INVALID`. Shape of
-`payload` depends on `section` (see `packages/shared-types/member.ts` for the per-section
-discriminated union) and matches the section's actual base-data shape — **not** the prototype's
-flattened single-string-per-item shortcut (see `docs/database-erd.md`).
-
-Proof shape also depends on `section`: `education`/`work_experiences` use the top-level
-`proofFileUrl`/`proofLink` (one shared proof for the whole batch); `engagements`/`testimonials`/
-`awards`/`key_clients` instead carry proof **per item**, as `payload[i].proofAttachments?:
-{type: 'file'|'link', url, label}[]` — a member can attach any mix of multiple files and links to
-a single item, not just one or the other. The DTO only validates `payload` is present (its exact
-shape is section-dependent, so class-validator can't express it) — `MembersService
-.validateEditPayloadShape()` does the real per-section check, including that every
-`proofAttachments` entry (when present) has a valid `type`/`url`/`label`. `proofAttachments` is
-private evidence: since 2026-10-10 it is **kept** on the live item (so editing prefills it) but is only returned to the item's owner and admins, never to other viewers of `GET /v1/members/:slug`.
-
-**One pending edit per section.** Submitting closes any older still-`pending` edit for the same
-member + section (status `rejected`, `reviewNote: "Replaced by a newer submission."`,
-`reviewedBy: null` — a null reviewer is how clients tell "replaced" apart from a real rejection),
-so an admin can never approve a stale request over a newer one.
-
-**File paths must be the member's own.** Every storage path the edit references — `proofFileUrl`,
-`proofAttachments[].url` where `type: 'file'`, and key-client `logoUploadPath` — must start with
-`<memberId>/` (where `POST /v1/members/:id/uploads` puts them). Otherwise `400`: a member could
-otherwise point at someone else's private proof and have it signed for an admin, or copied into
-the public bucket as a "logo".
-
-**Response `201`:** `MemberProfileEditDto`. **Errors:** `401` · `403` not this member · `400`
-validation failure (payload shape doesn't match `section`, a malformed `proofAttachments` entry, or
-a file path that isn't the member's own). Codes: `403 MEMBER_NOT_OWNER` · `400 UPLOAD_NOT_OWNED`,
-`FIELD_TOO_LONG`, `PAYLOAD_ITEM_INVALID`, `PAYLOAD_TOO_MANY_ITEMS`, `UPLOAD_LIMIT_EXCEEDED` · `429
-RATE_LIMITED` (`write` bucket).
-
-**Payload hardening (2026-10-30):** unknown keys in a section payload or item are **stripped** (not
-rejected) down to the `*EditPayload` shapes in `packages/shared-types/member.ts` — `isVerified` and
-anything else unknown is dropped; `proofAttachments` entries keep only `{ type, url, label }`. Length
-caps → `400 FIELD_TOO_LONG`: short text (`title`, `organization`, `clientName`, `company`, `degree`,
-`institution`, `field`, `name`, `issuingBody`, `clientTitle`, `clientCompany`, `serviceName`,
-`occurredOn`, `id`, `logoUploadPath`, `headline`) ≤ 300; `description`/`quote` ≤ 2000; `bio` ≤ 5000;
-URLs ≤ 2048; emails ≤ 254; `contactPhone` ≤ 50; proof attachment `url` ≤ 2048 / `label` ≤ 300. A text
-field that isn't a string/null, a number field (`year`, `endYear`, `startYear`, `startMonth`,
-`endMonth`) that isn't a number/null, or a non-boolean `isCurrent` → `400 PAYLOAD_ITEM_INVALID`.
-`key_clients`: on approval an item without a new `logoUploadPath` keeps the **live** item's
-`logoUrl` (none for a new item) — a client-supplied `logoUrl` is ignored.
-
-### 🔒 `GET /v1/members/:id/edits`
-
-Owner's own edit requests, any status, newest first — drives the "pending verification" badge.
-Owner-only, same posture as `GET /v1/articles/me`.
-
-**Response `200`:** `MemberProfileEditDto[]`.
+path: string }` — `path` is sent back inside the section payload: as a key-client row's `logoUploadPath`, or, on any list section, as the `url` of a `{ type: 'file', url, label }` entry in that item's `proofAttachments` — call this endpoint once per file when a member attaches multiple.
 
 ### _member_ `PATCH /v1/members/:id`
 
 Added 2026-10-21. The member updates their **directly-editable** fields — any combination in one
 request, at least one (`400 NOTHING_TO_UPDATE`). Owner-only (`:id` must be the caller — `403`
 otherwise). Applies **immediately**, no moderation queue (product decision). Vetted profile content
-(bio, engagements, clients, testimonials, …) is not here — it goes through `POST /v1/members/:id/edits`.
+(bio, engagements, clients, testimonials, …) is not here — it goes through `PUT /v1/members/:id/sections/:section`.
 (Briefly shipped as separate `PATCH /v1/members/:id/availability` and `…/photo` routes on 2026-10-21;
 consolidated here the same day, before any external consumer — not a `/v2`-worthy break.)
 
@@ -1408,83 +1332,11 @@ reminder window — see `docs/database-erd.md`).
 ### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id`
 
 Admin override of `status`, `membershipStartedAt`, `renewalPaymentStatus`. Does not touch anything
-the self-edit flow governs (headline, bio, child tables, etc.) — that's `member-edits` below, kept
-separate so "admin corrects a lifecycle fact" and "member requests a content change" stay distinct
-audit trails.
+the member's own content (headline, bio, child tables, etc.) — that is edited by the member through
+`PUT /v1/members/:id/sections/:section` and verified through the verification endpoints below.
 
 **Response `200`:** the updated admin member record (same shape as one row of `GET
 /v1/admin/members`).
-
-### 🛡️ `manageMembers` `GET /v1/admin/member-edits`
-
-Edit requests across every member, newest first. Query param `status`: `pending` (default) \|
-`verified` \| `rejected` \| `all` — anything else is `400`. The admin queue page
-(`/admin/member-edits`) fetches `all` and groups by member client-side.
-
-**Response `200`:** `MemberProfileEditDto[]`. Every `MemberProfileEditDto` (here and on the
-member's own endpoints) carries `memberName`, and since 2026-09-27 also `memberSlug` and
-`memberPhotoUrl` (additive).
-
-### 🛡️ `manageMembers` `GET /v1/admin/members/:id/edits`
-
-Added 2026-09-27. Everything the per-member review page (`/admin/member-edits/[memberId]`) needs,
-in one call. `:id` is the member's UUID (`400` if malformed, `404` if no such member — any
-`status`, including deactivated).
-
-**Response `200`:** `AdminMemberEditsDetailDto`:
-
-- `member` — `{ id, slug, name, initials, email, photoUrl, status, isVerified }`.
-- `current` — the **live** value of every self-editable section, keyed by section name
-  (`headline_bio: {headline, bio}`, `contact: ContactEditPayload`, and the six list sections as
-  their public item arrays), for the current-vs-proposed diff.
-- `edits` — all of this member's edits, any status, newest first.
-- `fileUrls` — storage path → signed download URL (1-hour expiry) for every private
-  `member-proofs` object those edits reference. A path missing from the map couldn't be signed
-  (e.g. the member deleted it); the UI shows it as unavailable.
-
-### 🛡️ `manageMembers` `PATCH /v1/admin/member-edits/:id`
-
-Review one edit request. Two modes:
-
-**1. Whole-edit** (`headline_bio`, `contact`, or legacy array behaviour): `{ status: 'verified' |
-'rejected', reviewNote?: string }` — `reviewNote` required (non-blank) when rejecting (`400
-REVIEW_REASON_REQUIRED`). On `verified` for an array section without `items`, every item is
-accepted, `isVerified` = the item has proof.
-
-**2. Per-item** (array sections, added 2026-10-10): `{ items: [{ index, decision, reason? }], reviewNote? }`.
-`items` must cover **every** payload index exactly once (`ITEM_REVIEW_INCOMPLETE`,
-`ITEM_REVIEW_INDEX_INVALID`). `decision`:
-
-- `approved_verified` — applied, live **with** the Verified badge (`isVerified: true`). The item must
-  have proof: its own `proofAttachments` (engagements/testimonials/awards/key_clients) or the
-  edit-level `proofFileUrl`/`proofLink` (education/work_experiences), else `400 VERIFIED_REQUIRES_PROOF`.
-- `approved_hygiene` — applied, live **without** the badge. `reason` required (shown to the member,
-  e.g. "proof not attached"), else `400 ITEM_REVIEW_REASON_REQUIRED`.
-- `rejected` — not applied. `reason` required. If the payload item carried a live `id`, that live
-  item stays untouched; a brand-new item is dropped.
-  `status` may be omitted; the edit's status is derived: `verified` if any item was accepted, else
-  `rejected`. A supplied `status` that contradicts this is `400 REVIEW_STATUS_MISMATCH`. Per-item
-  mode on `headline_bio`/`contact` is `400 ITEM_REVIEW_NOT_SUPPORTED`; neither `status` nor `items`
-  is `400 REVIEW_DECISION_REQUIRED`. The decisions are stored on the edit as `itemReviews`
-  (`[{index, decision, reason}]`) and returned in `MemberProfileEditDto.itemReviews` (null for
-  whole-edit reviews) so the member sees each item's reason. If every item is rejected the live
-  section is left exactly as it was (including items the member had removed). Accepted items keep
-  `proofAttachments`. Work history is re-validated (end-before-start) and re-sorted on apply; overlaps with
-  retained live items are allowed. `contact`
-  approval now also writes `workEmail`. No email is sent.
-
-**Key-client logos are published on approval.** A newly uploaded logo sits in the private
-`member-proofs` bucket as the item's `logoUploadPath`; the public profile reads `logoUrl`. On
-approval the file is magic-byte checked (PNG/JPEG/WebP/GIF, ≤ 2MB), copied to the public
-`application-assets` bucket at `members/<memberId>/client-logos/<uuid>.<ext>`, and `logoUrl` is set
-to its public URL; `logoUploadPath` is dropped. Items without a new upload keep their existing
-`logoUrl`. (Before this, approved logos were silently lost — written as `logoUploadPath`, which
-nothing reads.) A logo that fails the check makes the whole approval `400` with a message naming
-the client — reject the edit with a reason instead.
-
-**Response `200`:** `MemberProfileEditDto`. **Errors:** `400` (codes above), or
-an invalid key-client logo · `409` if the edit is no longer `pending` (already reviewed, or
-replaced by a newer submission). Codes: `404 MEMBER_EDIT_NOT_FOUND`, `MEMBER_NOT_FOUND` · `409 MEMBER_EDIT_ALREADY_REVIEWED` · `400 LOGO_INVALID_TYPE`, `LOGO_TOO_LARGE` (since 2026-10-30 checked from storage metadata before the logo is downloaded), `MEMBER_EDIT_SECTION_INVALID`.
 
 ### 🔒 `GET /v1/members/:id/recommendations`
 
@@ -1508,6 +1360,132 @@ non-active member (the owner can still read their own). Codes: `404 RECOMMENDATI
 `@Roles('member')`, only the **recommended member** (`:id` must equal the caller). **Request:**
 `{ isHidden: boolean }` — hide/unhide. **Response `200`:** `MemberRecommendationDto`. **Errors:**
 `403` caller isn't the recipient · `404` recommendation not found under this member. Codes: `404 RECOMMENDATION_NOT_FOUND` · `403 RECOMMENDATION_NOT_RECIPIENT`.
+
+## Member profile — live edits, verification & recommendation requests
+
+**Added 2026-11-15 (contract first; implementation follows in the same branch,
+`feature/member-verification`).** Product decision: a member's edits go live **immediately**; the
+GrowXQ team verifies afterwards. Entries show a **"Pending Verification"** badge (with a tooltip:
+the content is live but not yet checked, and we may ask for proof) until an admin verifies them,
+then a tick. Proof is optional and the member's choice; a pending entry invites the owner to add it. Verifiable sections: `engagements`,
+`key_clients`, `work_experiences`, `education`, `testimonials`, `awards`, `contact`.
+`headline_bio` is free text and carries no badge. The whole-profile "GrowXQ Verified" badge stays
+an admin decision (`PATCH /v1/admin/members/:id`).
+
+Types: `packages/shared-types/member-verification.ts`, `recommendation-request.ts`. Schema:
+migration `0008` (see `docs/database-erd.md` "Member verification & recommendation requests").
+
+### _member_ `PUT /v1/members/:id/sections/:section`
+
+Owner only. Replaces the whole section **and applies it at once**. `:section` is any
+`MemberEditSection`. **Body:** `SaveMemberSectionRequest` — `{ payload }`, the same per-section
+shapes the legacy `POST /edits` accepted, except that proof is **per item**
+(`proofAttachments` on every list item, including `education`/`work_experiences`) — there is no
+shared top-level proof any more. **Response `200`:** `SaveMemberSectionResponse` —
+`{ changed, member }` (the owner's `MemberDto`).
+
+Rules:
+- **No-op:** a payload equal to the live section (after normalisation) writes nothing and returns
+  `changed: false` — nothing is reset.
+- **Verification reset:** per item, matched by `id`. A **new** item, or one whose **key fields**
+  changed, is saved with `isVerified: false`; any other edit (typos, descriptions, proof added)
+  keeps the item's current `isVerified`. Key fields: engagements `title`, `clientName`,
+  `isConfidential`, `year`, `url`; key_clients `name`; work_experiences `title`, `company`, the
+  start/end month and year, `isCurrent`; education `degree`, `institution`, `field`, `endYear`;
+  testimonials `quote`, `clientName`, `clientTitle`, `clientCompany`; awards `title`,
+  `issuingBody`, `year`. `isVerified` is never trusted from the payload. Each item also carries two server-owned dates,
+  visible to the owner and admins only: `changedAt` (added, or a key field last changed) and
+  `verifiedAt` (an admin last verified it; kept through a later edit so "changed since verified" is
+  visible, cleared when an admin un-verifies). Neither is accepted from the payload. For `contact` any change
+  to a field resets `contactVerified` to `false`.
+- Existing validation is unchanged (item caps, `400 PAYLOAD_TOO_MANY_ITEMS`, magic-byte sniffing of
+  proof files, `UPLOAD_NOT_OWNED`, work-history ordering…).
+
+**Field changes (additive; old keys are tolerated and ignored on write):**
+- `engagements`: `organization` and `clientEmail` are no longer collected (kept on legacy rows,
+  never required, not returned for new items). New `isConfidential: boolean`: when true, every
+  viewer except the owner and admins sees `clientName: "Confidential client"` — masked
+  server-side, never sent. Required: `title` and (`clientName` or `isConfidential`).
+- `testimonials`: `clientEmail`, `serviceName` and `occurredOn` are no longer collected.
+  `clientName` is now the **person's name**, with `clientTitle` and `clientCompany`. Required:
+  `quote` and `clientName`.
+- `contact`: `contactEmail` (personal email) is no longer collected or shown; `workEmail`,
+  `contactPhone`, `linkedinUrl`, `website` remain.
+- Required fields elsewhere: awards `title`; education `degree` + `institution`; work
+  `title` + `company` + `startYear`.
+
+**Removed (2026-11-15):** `POST /v1/members/:id/edits`, `GET /v1/members/:id/edits` and the admin
+`member-edits` queue (`GET /v1/admin/member-edits`, `GET /v1/admin/members/:id/edits`,
+`PATCH /v1/admin/member-edits/:id`). The `member_profile_edits` table is dropped by a later
+migration once the new code is live.
+
+**Key-client logos** (`key_clients` items): the browser uploads the file through
+`POST /v1/members/:id/uploads` and sends its path as the item's `logoUploadPath`; a client-supplied
+`logoUrl` is never trusted. On save the file is magic-byte checked (PNG/JPEG/WebP/GIF, ≤ 2MB, size
+read from storage metadata before download), copied to the public `application-assets` bucket at
+`members/<memberId>/client-logos/<uuid>.<ext>`, and `logoUrl` is set to its public URL;
+`logoUploadPath` is dropped. Items without a new upload keep their live `logoUrl`. Codes:
+`400 UPLOAD_NOT_OWNED`, `UPLOAD_INVALID_TYPE`, `UPLOAD_TOO_LARGE`, `LOGO_INVALID_TYPE`, `LOGO_TOO_LARGE`.
+Other `400` codes: `ENGAGEMENT_TITLE_REQUIRED`, `ENGAGEMENT_CLIENT_NAME_REQUIRED`,
+`TESTIMONIAL_QUOTE_REQUIRED`, `TESTIMONIAL_NAME_REQUIRED`, `AWARD_TITLE_REQUIRED`,
+`EDUCATION_INVALID`, `WORK_HISTORY_INVALID`, `KEY_CLIENTS_LIMIT_EXCEEDED`.
+
+### 🛡️ `manageMembers` `GET /v1/admin/member-verification`
+
+`AdminMemberVerificationSummaryDto[]`: members with unverified items or an unverified contact block,
+most to review first — plus members whose entries are **all** verified but who have not been given
+the whole-profile badge yet (`readyForBadge: true`). Each row carries `needsReview` (pending entries
+plus an unverified contact block) and `profileVerified`.
+
+### 🛡️ `manageMembers` `GET /v1/admin/members/:id/verification`
+
+`AdminMemberVerificationDetailDto`: the member's identity, the live value of every section **with
+its proof**, `contactVerified`, and `fileUrls` (storage path → signed URL valid
+for an hour) for every private proof file on the live items.
+
+### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id/sections/:section/items/:itemId`
+
+**Body:** `AdminSetItemVerifiedRequest` — `{ verified }`. Sets that item's `isVerified` (and stamps
+or clears `verifiedAt`). `404 MEMBER_ITEM_NOT_FOUND`.
+
+### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id/contact-verification`
+
+**Body:** `AdminSetContactVerifiedRequest` — `{ verified }`. Sets `contact_verified`.
+
+### 🛡️ `manageMembers` `PATCH /v1/admin/members/:id/profile-verification`
+
+**Body:** `AdminSetItemVerifiedRequest` — `{ verified }`. Sets the whole-profile `is_verified` flag
+(the "GrowXQ Verified" badge). Independent of the per-entry ticks; the website only shows the badge
+while every entry is also verified. `204`. `404 MEMBER_NOT_FOUND`.
+
+### `MemberDto` additions (owner/admin read of `GET /v1/members/:slug`)
+
+`contactVerified: boolean` (all viewers). There is no admin-to-member messaging: a pending entry just
+invites the member to add proof, and attaching proof needs no other signal.
+
+### _member_ `POST /v1/members/:id/recommendation-requests`
+
+`:id` is the member being asked (any **active** member other than yourself). **Body:**
+`CreateRecommendationRequestRequest` — `{ message? }` (≤ 500). Sends the
+`recommendation_requested` email to the recipient. **Response `201`:** `RecommendationRequestDto`.
+Errors: `400 RECOMMENDATION_REQUEST_SELF`; `404 MEMBER_NOT_FOUND` (inactive recipient);
+`409 RECOMMENDATION_REQUEST_PENDING` (one open request per pair); `409
+RECOMMENDATION_ALREADY_GIVEN` (the recipient already recommended you); `429
+RECOMMENDATION_REQUEST_COOLDOWN` (re-asking the same member within 30 days of an ignored or
+cancelled request); `429 RECOMMENDATION_REQUEST_LIMIT` (more than 10 open requests).
+
+### _member_ `GET /v1/members/me/recommendation-requests?direction=sent|received`
+
+Default `received` (pending only). `sent` returns every status except that an `ignored` request is
+reported to the requester as `pending`. `RecommendationRequestDto[]`.
+
+### _member_ `PATCH /v1/recommendation-requests/:requestId`
+
+**Body:** `UpdateRecommendationRequestRequest`. Recipient `ignore` (silent decline), requester
+`cancel`. `403` for anyone else; `409` when the request is no longer pending.
+
+A pending request becomes `fulfilled` automatically when the recipient posts a recommendation for
+the requester (`POST /v1/members/:id/recommendations`).
 
 ## Member directory & profiles — not built yet (explicitly deferred)
 
