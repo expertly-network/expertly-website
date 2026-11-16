@@ -49,11 +49,23 @@ async function loadRecommendations(memberId: string): Promise<PdfRecommendation[
   }));
 }
 
+// Each key client's logo as a PNG data URL, kept whole (not cropped). One that can't be loaded
+// (a host without CORS headers, a dead link) is null, and the PDF draws the client's initial instead.
+async function loadClientLogos(member: MemberDto): Promise<Record<string, string | null>> {
+  const entries = await Promise.all(
+    member.keyClients.map(
+      async (client) =>
+        [client.id, client.logoUrl ? await loadImageAsPng(client.logoUrl, 96, 'natural') : null] as const
+    )
+  );
+  return Object.fromEntries(entries);
+}
+
 export async function downloadMemberProfilePdf(member: MemberDto): Promise<void> {
   registerPdfFonts();
   const profileUrl = memberProfileUrl(member.slug);
 
-  const [qrDataUrl, photoDataUrl, recommendations, logoDataUrl] = await Promise.all([
+  const [qrDataUrl, photoDataUrl, recommendations, logoDataUrl, clientLogos] = await Promise.all([
     // `H` error correction: the brand mark stamped on the middle covers ~6% of the code's area.
     QRCode.toDataURL(profileUrl, {
       errorCorrectionLevel: 'H',
@@ -64,6 +76,7 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
     member.photoUrl ? loadImageAsPng(member.photoUrl) : Promise.resolve(null),
     loadRecommendations(member.id),
     loadPdfLogo(),
+    loadClientLogos(member),
   ]);
 
   const blob = await pdf(
@@ -75,6 +88,7 @@ export async function downloadMemberProfilePdf(member: MemberDto): Promise<void>
       photoDataUrl={photoDataUrl}
       generatedAt={new Date()}
       recommendations={stripEmojiDeep(recommendations)}
+      clientLogos={clientLogos}
     />
   ).toBlob();
 

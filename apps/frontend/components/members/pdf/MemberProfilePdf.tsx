@@ -1,4 +1,5 @@
 import { LOGO_ASPECT_RATIO } from '@/lib/brand';
+import { CONFIDENTIAL_CLIENT_LABEL } from '@/lib/members/confidential';
 import { isFullyVerified } from '@/lib/members/fully-verified';
 import { Children, type ReactNode } from 'react';
 import { Document, Image, Link, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
@@ -7,7 +8,6 @@ import { MEMBER_TIER_LABEL, displayHost, externalHref, formatMonthYear } from '@
 
 // The PDF is a shareable document, so a confidential client is masked even when the owner (who
 // receives the real name from the API) downloads it.
-const CONFIDENTIAL_CLIENT_LABEL = 'Confidential client';
 import { groupByCompany, groupPeriod, rolePeriod } from '@/lib/members/work-history';
 import { toTextBlocks } from '@/lib/text/text-blocks';
 import { formatDate } from '@/lib/dates';
@@ -158,15 +158,27 @@ const s = StyleSheet.create({
 
   clients: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   client: {
-    fontSize: 8.5,
-    fontWeight: 600,
-    color: C.ink,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     borderWidth: 1,
     borderColor: C.line2,
     borderRadius: 6,
-    paddingHorizontal: 7,
+    paddingLeft: 4,
+    paddingRight: 7,
     paddingVertical: 3,
   },
+  clientName: { fontSize: 8.5, fontWeight: 600, color: C.ink },
+  clientLogo: { width: 16, height: 16, borderRadius: 3, objectFit: 'contain' },
+  clientInitial: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    backgroundColor: C.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clientInitialText: { fontSize: 8, fontWeight: 700, color: '#ffffff' },
 
   // Work history: one entry per company. Only a company with several roles gets a vertical rail
   // (built from one bordered segment per role, so consecutive blocks join into a single line).
@@ -250,6 +262,8 @@ export interface MemberProfilePdfProps {
   generatedAt: Date;
   /** Visible member-to-member recommendations (hidden ones are never passed in). */
   recommendations: PdfRecommendation[];
+  /** Key-client logos by client id, already re-encoded as PNG data URLs; a missing one falls back to the initial. */
+  clientLogos?: Record<string, string | null>;
 }
 
 // A recommendation as the PDF needs it: the author's photo is pre-loaded to a data URL, like the
@@ -425,6 +439,7 @@ export function MemberProfilePdf({
   photoDataUrl,
   generatedAt,
   recommendations,
+  clientLogos,
 }: MemberProfilePdfProps) {
   const location = [member.city, member.country].filter(Boolean).join(', ');
   const firm = member.firmName && member.firmName !== 'Independent' ? member.firmName : null;
@@ -435,7 +450,7 @@ export function MemberProfilePdf({
     if (group) group.names.push(service.name);
     else serviceGroups.push({ category: service.categoryName, names: [service.name] });
   }
-  const firmLine = [firm, member.website ? displayHost(member.website) : null].filter(Boolean).join(' · ');
+  const website = member.website;
   // Each cell takes its column width so the two rows line up.
   const glanceCells = (
     [
@@ -454,13 +469,14 @@ export function MemberProfilePdf({
       (width: string) => (
         <ContactLine key="experience" label="Experience" value={`${member.yearsOfExperience}+ years`} width={width} />
       ),
-      firmLine &&
+      firm && ((width: string) => <ContactLine key="firm" label="Firm" value={firm} width={width} />),
+      website &&
         ((width: string) => (
           <ContactLine
-            key="firm"
-            label="Firm"
-            value={firmLine}
-            href={externalHref(member.website) ?? undefined}
+            key="website"
+            label="Website"
+            value={displayHost(website)}
+            href={externalHref(website) ?? undefined}
             width={width}
           />
         )),
@@ -627,11 +643,22 @@ export function MemberProfilePdf({
               title="Key Clients"
               lead={
                 <View style={s.clients}>
-                  {member.keyClients.map((client) => (
-                    <Text key={client.id} style={s.client}>
-                      {client.name}
-                    </Text>
-                  ))}
+                  {member.keyClients.map((client) => {
+                    const logo = clientLogos?.[client.id];
+                    return (
+                      <View key={client.id} style={s.client} wrap={false}>
+                        {logo ? (
+                          // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop
+                          <Image src={logo} style={s.clientLogo} />
+                        ) : (
+                          <View style={s.clientInitial}>
+                            <Text style={s.clientInitialText}>{client.name.charAt(0).toUpperCase()}</Text>
+                          </View>
+                        )}
+                        <Text style={s.clientName}>{client.name}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               }
             />

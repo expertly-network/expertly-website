@@ -15,7 +15,7 @@ import { formatDateTime } from '@/lib/dates';
 // The backend's error codes for POST /v1/consultations (consultations.service.ts).
 const CREATE_ERRORS: Record<string, string> = {
   CONSULTATION_SELF: 'You can’t request a consultation with yourself.',
-  CONSULTATION_SERVICE_REQUIRED: 'Please select a service, or describe it under “Other”.',
+  CONSULTATION_SERVICE_REQUIRED: 'Please select a service.',
   CONSULTATION_MEMBER_NOT_FOUND: 'This member isn’t taking consultation requests right now.',
   CONSULTATION_SERVICE_NOT_OFFERED: 'This member no longer offers that service. Please pick another.',
   CONSULTATION_PENDING_EXISTS: 'You already have a pending request with this member.',
@@ -23,7 +23,6 @@ const CREATE_ERRORS: Record<string, string> = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const OTHER_VALUE = '__other__';
 const MIN_MESSAGE_LENGTH = 100;
 // Includes time, not just the date — a rate-limit reset can be hours away on the same day, not
 // just another calendar day out like the pending-cooldown case usually is.
@@ -74,8 +73,9 @@ export function RequestConsultationModal({
   // "American Samoa" for the common "+1" case) rather than anything the user actually chose.
   const [phoneCountry, setPhoneCountry] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [serviceChoice, setServiceChoice] = useState('');
-  const [customService, setCustomService] = useState('');
+  // The service is always one the member offers — no free-text option. Defaults to the member's
+  // first (primary) service, so a member with a single service needs no input here at all.
+  const [serviceChoice, setServiceChoice] = useState(services[0]?.id ?? '');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   // Only for submission-time failures (network/server errors, 401) — client-side "this field
@@ -97,8 +97,7 @@ export function RequestConsultationModal({
     setEmail(prefillEmail ?? '');
     setPhoneCountry('');
     setPhoneNumber('');
-    setServiceChoice('');
-    setCustomService('');
+    setServiceChoice(services[0]?.id ?? '');
     setMessage('');
     setError(null);
     setNeedsSignIn(false);
@@ -154,15 +153,12 @@ export function RequestConsultationModal({
     };
   }, [open, memberId]);
 
-  const isOther = serviceChoice === OTHER_VALUE;
   const nameValid = Boolean(name.trim());
   const emailValid = EMAIL_RE.test(email.trim());
   const phoneValid = Boolean(phoneCountry) && Boolean(phoneNumber.trim());
-  const serviceSelectValid = Boolean(serviceChoice);
-  const customServiceValid = !isOther || Boolean(customService.trim());
+  const serviceSelectValid = services.some((s) => s.id === serviceChoice);
   const messageValid = message.trim().length >= MIN_MESSAGE_LENGTH;
-  const canSubmit =
-    nameValid && emailValid && phoneValid && serviceSelectValid && customServiceValid && messageValid && !submitting;
+  const canSubmit = nameValid && emailValid && phoneValid && serviceSelectValid && messageValid && !submitting;
 
   // Only rendered once attemptedSubmit is true (see the Button below) — each one is `undefined`
   // when the field is already valid, so a field's red border/message clears the moment it's fixed.
@@ -175,8 +171,7 @@ export function RequestConsultationModal({
         ? 'Select a country code.'
         : 'Enter your mobile number.'
     : undefined;
-  const serviceError = !serviceSelectValid ? 'Please select a service, or choose "Other".' : undefined;
-  const customServiceError = !customServiceValid ? 'Please describe the service.' : undefined;
+  const serviceError = !serviceSelectValid ? 'Please select a service.' : undefined;
   const messageError = !messageValid
     ? message.trim().length === 0
       ? 'Please describe what you need help with.'
@@ -200,7 +195,7 @@ export function RequestConsultationModal({
         // column, matching ApplicationsService's `${phoneCountryCode} ${phone}`.trim() convention.
         phone: `${dialCode} ${phoneNumber.trim()}`.trim(),
         message: message.trim(),
-        ...(isOther ? { customServiceLabel: customService.trim() } : { serviceId: serviceChoice }),
+        serviceId: serviceChoice,
       });
       setSent(true);
     } catch (err) {
@@ -348,31 +343,27 @@ export function RequestConsultationModal({
               {attemptedSubmit && phoneError && <span className="text-xs text-error">{phoneError}</span>}
             </div>
           </div>
-          <Select
-            label="Service"
-            value={serviceChoice}
-            onChange={(e) => setServiceChoice(e.target.value)}
-            error={attemptedSubmit ? serviceError : undefined}
-          >
-            <option value="" disabled>
-              Select a service…
-            </option>
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.categoryName} — {service.name}
-              </option>
-            ))}
-            <option value={OTHER_VALUE}>Other</option>
-          </Select>
-          {isOther && (
-            <Input
-              label="Describe the service"
-              placeholder="e.g. Cross-border estate planning"
-              value={customService}
-              onChange={(e) => setCustomService(e.target.value)}
-              maxLength={150}
-              error={attemptedSubmit ? customServiceError : undefined}
-            />
+          {services.length === 1 ? (
+            // Single service: nothing to choose, so show it as fixed rather than as a dropdown.
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-ink-2">Service</span>
+              <div className="rounded-input border border-line bg-bg-alt px-3.5 py-3 text-sm text-ink">
+                {services[0].categoryName} — {services[0].name}
+              </div>
+            </div>
+          ) : (
+            <Select
+              label="Service"
+              value={serviceChoice}
+              onChange={(e) => setServiceChoice(e.target.value)}
+              error={attemptedSubmit ? serviceError : undefined}
+            >
+              {services.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.categoryName} — {service.name}
+                </option>
+              ))}
+            </Select>
           )}
           <Textarea
             label="Description of Work Required"

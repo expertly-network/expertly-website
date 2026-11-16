@@ -4,6 +4,7 @@ import { AddProofPrompt } from '@/components/members/AddProofPrompt';
 import { KeyClientsRows } from '@/components/members/KeyClientsRows';
 import { FormattedText } from '@/components/shared/FormattedText';
 import { ExternalLink } from '@/components/shared/ExternalLink';
+import { CONFIDENTIAL_CLIENT_LABEL, seesConfidentialName } from '@/lib/members/confidential';
 import type { EditTarget } from '@/components/members/edit/SectionEditModal';
 import type { MemberDto } from '@shared/member';
 
@@ -64,6 +65,22 @@ export function AboutTab({
                   </ExternalLink>
                   <VerificationBadge verified={eng.isVerified} />
                 </div>
+                {seesConfidentialName(eng) && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-profile-meta text-ink-3">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      className="flex-none"
+                    >
+                      <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="2" />
+                      <path d="M8 11V8a4 4 0 018 0v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    Confidential — everyone else sees “{CONFIDENTIAL_CLIENT_LABEL}”.
+                  </p>
+                )}
                 <AddProofPrompt
                   isOwnProfile={isOwnProfile}
                   verified={eng.isVerified}
