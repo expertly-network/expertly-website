@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationsService } from './applications.service';
-import { ApplicationsRepository, type ApplicationRow } from './applications.repository';
+import { ApplicationsRepository, type ApplicationRow, type ServiceDetail } from './applications.repository';
 import { LinkedInImportProvider } from './linkedin-import/linkedin-import.provider';
 import { ConsentPoliciesService } from '../consent-policies/consent-policies.service';
 import { EmailService } from '../email/email.service';
@@ -61,7 +61,22 @@ function setup() {
     findLatestByApplicant: vi.fn().mockResolvedValue(draft),
     hasLinkedInIdentity: vi.fn().mockResolvedValue(true),
     updateById: vi.fn(async (_id: string, patch: Partial<ApplicationRow>) => ({ ...draft, ...patch })),
-    findServiceDetails: vi.fn().mockResolvedValue(new Map()),
+    findServiceDetails: vi.fn().mockResolvedValue(
+      new Map<string, ServiceDetail>([
+        [
+          'service-1',
+          {
+            name: 'Benchmarking',
+            categoryId: 'category-1',
+            categoryName: 'Transfer Pricing',
+            serviceLineId: 'service-line-1',
+            serviceLineName: 'Tax',
+            isCustom: false,
+            isActive: true,
+          },
+        ],
+      ])
+    ),
     createSignedDocumentUrls: vi.fn().mockResolvedValue({}),
     findByIdForReview: vi.fn().mockResolvedValue(submitted),
     claimForDecision: vi.fn().mockResolvedValue(true),
