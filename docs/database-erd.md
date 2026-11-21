@@ -1094,9 +1094,12 @@ Service-role-only RPCs:
   bounces, which outrank delivery. Suppresses `p_email` (the provider-reported recipient) even
   when no message has that provider id.
 
-Seeds: three automations — `founding_application_submitted` → `founding-seat-held` (enabled),
-`application_submitted` → `application-received`, `renewal_due_soon` → `renewal-due-soon` (both
-disabled). Reruns don't overwrite an admin's choice. The aliases must exist as published templates
-in Resend. Template images are served by the frontend from `apps/frontend/public/brand/email/`
-and referenced as `{{{SITE_URL}}}/brand/email/…`.
+Seeds (`0004_tables.sql`): three automations — `founding_application_submitted` →
+`founding-seat-held` (enabled), `application_submitted` → `application-received`,
+`renewal_due_soon` → `renewal-due-soon` (both disabled). Added in `0010_application_decision_emails.sql`:
+`application_approved` → `application-approved`, `application_rejected` → `application-rejected`
+(both disabled — `PATCH /v1/admin/applications/:id` enqueues one or the other on every
+approve/reject once an admin turns them on). Reruns don't overwrite an admin's choice. The aliases
+must exist as published templates in Resend. Template images are served by the frontend from
+`apps/frontend/public/brand/email/` and referenced as `{{{SITE_URL}}}/brand/email/…`.
 

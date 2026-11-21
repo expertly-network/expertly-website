@@ -437,10 +437,11 @@ Setup per environment:
 1. **Resend domain:** add the sending domain, publish its SPF/DKIM DNS records and wait for
    verification.
 2. **Resend templates:** create and *publish* one template per automation with the alias it
-   expects — `founding-seat-held`, `application-received`, `renewal-due-soon` — pasting the HTML
-   and subject from `docs/email-templates/<alias>.html`. Declare the variables listed at the top
-   of each file (give `NAME` a fallback such as `there`). A template edited later takes effect on
-   the next send once republished.
+   expects — `founding-seat-held`, `application-received`, `renewal-due-soon`,
+   `application-approved`, `application-rejected` — pasting the HTML and subject from
+   `docs/email-templates/<alias>.html`. Declare the variables listed at the top of each file (give
+   `NAME` a fallback such as `there`). A template edited later takes effect on the next send once
+   republished.
 3. **Environment:** set the variables above on the API and the worker. The template images are
    the frontend's `public/brand/email/*.png`, deployed with the frontend; confirm
    `<SITE_URL>/brand/email/logo-dark.png` loads.
@@ -451,8 +452,9 @@ Setup per environment:
    `queued` → `sent` → `delivered` (`GET /v1/admin/email/messages` in Postman). A row that ends
    `failed` with `Resend HTTP 404/422` means the template isn't published or declares a variable
    the event doesn't send — fix it in Resend, then `POST /admin/email/messages/:id/retry`.
-6. Review regular application and renewal copy in Resend before enabling those two automations
-   (`PATCH /admin/email/automations/:key`).
+6. Review regular application, renewal, and application-decision copy in Resend before enabling
+   those automations (`PATCH /admin/email/automations/:key`) — `application_submitted`,
+   `renewal_due_soon`, `application_approved`, `application_rejected` all ship disabled.
 
 Reliability limits: automatic queue keys deduplicate for the lifetime of the row. Resend's
 send-idempotency cache lasts 24 hours. Webhooks for ids not yet recorded are acknowledged without a
