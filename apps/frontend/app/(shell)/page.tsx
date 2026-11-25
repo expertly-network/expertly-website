@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import {
   getMembersServer,
-  getPlatformStatsServer,
   getCategoriesServer,
   getArticlesServer,
   getEventCalendarServer,
@@ -10,15 +9,12 @@ import {
 import { toIsoDate } from '@/lib/api/events-query';
 import { buildMembersQueryString } from '@/lib/api/members';
 import { StellarOrbitHero } from '@/components/home/StellarOrbitHero';
-import { AiSearchTeaser } from '@/components/home/AiSearchTeaser';
+import { Verticals } from '@/components/home/Verticals';
+import { DualCta } from '@/components/home/DualCta';
 import { FeaturedMembers } from '@/components/home/FeaturedMembers';
 import { CategoriesMarquee } from '@/components/home/CategoriesMarquee';
-import { FirmsBand } from '@/components/home/FirmsBand';
 import { LatestArticles } from '@/components/home/LatestArticles';
 import { EventsTeaser } from '@/components/home/EventsTeaser';
-import { Testimonials } from '@/components/home/Testimonials';
-import { DualCta } from '@/components/home/DualCta';
-import { MembershipTiers } from '@/components/home/MembershipTiers';
 import { Newsletter } from '@/components/home/Newsletter';
 import { HomeFaq } from '@/components/home/Faq';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -27,37 +23,56 @@ import { getSessionUser } from '@/lib/auth/session-claims';
 import { canApplyForMembership } from '@/lib/auth/roles';
 import { MobileViewAll } from '@/components/home/MobileViewAll';
 import { Button, Eyebrow } from '@/components/ui';
+import { OG_IMAGE_SRC } from '@/lib/brand';
 import type { MemberListItemDto } from '@shared/member';
 import type { CategoryDto } from '@shared/category';
 import type { ArticleListItemDto } from '@shared/article';
 
 export const metadata = {
-  title: 'GrowXQ — Vetted finance, tax & law experts, on demand',
+  title: 'GrowXQ: the growth platform for independent and mid-size finance and tax firms',
   description:
-    'A trusted platform for verified senior finance, tax & law practitioners. Search, verify credentials, and connect directly — no agencies, no intermediaries.',
+    'Trusted AI tools, practical training and a global network, so a small finance or tax practice gets the capability of a big one. Become a member.',
   alternates: { canonical: '/' },
+  // A route that sets openGraph replaces the layout's whole object, so images are repeated here.
+  openGraph: {
+    siteName: 'GrowXQ',
+    type: 'website',
+    url: '/',
+    title: 'GrowXQ: the growth platform for independent and mid-size finance and tax firms',
+    description:
+      'Trusted AI tools, practical training and a global network, so a small practice gets the capability of a big one.',
+    images: [{ url: OG_IMAGE_SRC, width: 1200, height: 630, alt: 'GrowXQ' }],
+  },
 };
 
 const FAQ_MEMBERSHIP = [
   {
-    q: 'Who can join GrowXQ?',
-    a: "GrowXQ is open to practising finance, tax & law professionals across the world with at least five years of experience - applications below that are not accepted. Members with 5 to 12 years join as Budding Professionals and those with more than 12 as Seasoned Professionals; our team confirms the tier on the strength of each member's experience and work. Whether you are an independent practitioner or part of a firm, if you are serious about your practice and looking for a trusted network of verified peers, GrowXQ is the right place for you.",
+    q: 'What is GrowXQ?',
+    a: 'GrowXQ is a growth platform for independent practitioners and mid-size firms in finance and tax. It brings together AI tools we review for you, practical training, reach and a global network, so a small practice gets the capability of a big one. Some parts are live today and others are on the way, and each is marked with its status. We disclose every vendor relationship.',
   },
   {
-    q: 'What types of professionals are on GrowXQ?',
-    a: 'Our network spans professionals across all finance, tax & law domains - including tax and transfer pricing advisors, M&A and transaction advisors, investment bankers, private equity and venture capital advisors, insolvency and restructuring professionals, corporate and commercial lawyers, dispute resolution and arbitration counsel, banking and finance lawyers, capital markets and securities lawyers, intellectual property and technology lawyers, company secretaries, compliance and governance professionals, forensic accountants, valuation experts, and cost accountants.',
-  },
-  {
-    q: 'How are members onboarded?',
-    a: 'Every member goes through a robust selection process before being onboarded and listed in the directory. We review professional credentials, years of experience, and areas of specialisation, and take feedback from fellow professionals before granting membership. The process typically takes 5 to 7 business days from application to approval.',
-  },
-  {
-    q: 'How do I apply for membership?',
-    a: "Click 'Apply for membership' on our website and complete the application form. We review all applications and notify you by email within 5 business days.",
+    q: 'Why trust a new platform?',
+    a: 'We disclose every vendor relationship. Members decide what gets listed. Nothing is marked live until it is.',
   },
   {
     q: 'What does membership cost?',
     a: 'Membership is a flat $699/year, with zero commission on any work you win. Occasionally, we offer promotional discount codes for new members - keep an eye on our website and social media channels for such offers.',
+  },
+  {
+    q: 'Who can join GrowXQ?',
+    a: "GrowXQ is open to practising finance and tax professionals across the world with at least five years of experience (applications below that are not accepted). Law professionals can also apply. Members with 5 to 12 years join as Budding Professionals and those with more than 12 as Seasoned Professionals; our team confirms the tier on the strength of each member's experience and work.",
+  },
+  {
+    q: 'What types of professionals are on GrowXQ?',
+    a: 'Members come from tax, M&A, transfer pricing, restructuring and related finance disciplines.',
+  },
+  {
+    q: 'How are members onboarded?',
+    a: 'Every member goes through a selection process before being onboarded and listed in the directory. We review professional credentials, years of experience, and areas of specialisation, and take feedback from fellow professionals before granting membership. The process typically takes 5 to 7 business days from application to approval.',
+  },
+  {
+    q: 'How do I apply for membership?',
+    a: "Click 'Apply for membership' on our website and complete the application form. We review all applications and notify you by email within 5 business days.",
   },
   {
     q: 'Can I publish articles on GrowXQ?',
@@ -65,7 +80,7 @@ const FAQ_MEMBERSHIP = [
   },
   {
     q: 'Can firms or organisations join GrowXQ?',
-    a: 'Membership on GrowXQ is individual-based, not firm-based. Each professional joins on their own merits, credentials, and experience - independent of the firm or organisation they work for. This means your profile, reputation, articles, and network on GrowXQ belong entirely to you. If you move firms, set up your own practice, or change roles, your membership and everything you have built on the platform remains fully intact.',
+    a: 'Membership on GrowXQ is individual-based, not firm-based. Each professional joins on their own merits, credentials, and experience - independent of the firm or organisation they work for. This means your profile, reputation, articles, and network on GrowXQ belong entirely to you. If you move firms, set up your own practice, or change roles, your membership and everything you have built on the platform stays with you.',
   },
 ];
 
@@ -138,6 +153,9 @@ function SectionSkeleton({ dark = false }: { dark?: boolean }) {
   );
 }
 
+// Hidden on the homepage for now (2026-11-23); flip to true to bring the section back.
+const SHOW_CATEGORIES = false;
+
 async function CategoriesSection() {
   let categories: CategoryDto[];
   try {
@@ -152,11 +170,11 @@ async function CategoriesSection() {
         <div>
           <Eyebrow>Coverage</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">
-            <span className="text-accent">Specialists</span> across every corner of finance, tax &amp; law.
+            <span className="text-accent">Specialists</span> across every corner of finance and tax.
           </h2>
           <p className="mt-4 text-lede text-ink-3 sm:mt-5">
-            From M&amp;A tax and transfer pricing to antitrust, capital markets, and IP, find a verified expert for the
-            exact matter in front of you, in the jurisdiction that counts, not a generalist who&apos;s close enough.
+            From M&amp;A tax and transfer pricing to valuation, compliance, and capital markets, find a verified peer
+            for your matter, in the right jurisdiction.
           </p>
           <Button href="/members" className="mt-6 sm:mt-7">
             Explore all categories
@@ -188,8 +206,7 @@ async function LatestArticlesSection() {
               Latest <span className="text-accent">articles</span>
             </h2>
             <p className="mt-4 hidden max-w-xl text-lede text-ink-3 sm:block">
-              Thoughtful perspectives from people working through the same challenges, regulations, transactions, and
-              decisions you face every day.
+              Articles by members on tax, M&A, compliance and more.
             </p>
           </div>
           <MobileViewAll href="/articles" />
@@ -222,7 +239,7 @@ async function EventsSection() {
 }
 
 export default async function HomePage() {
-  const [members, user, stats] = await Promise.all([loadFeaturedMembers(), getSessionUser(), getPlatformStatsServer()]);
+  const [members, user] = await Promise.all([loadFeaturedMembers(), getSessionUser()]);
   const showApply = canApplyForMembership(user);
 
   const heroAvatarUrls = members
@@ -233,13 +250,10 @@ export default async function HomePage() {
   return (
     <div>
       <SiteJsonLd />
-      <StellarOrbitHero
-        avatarUrls={heroAvatarUrls}
-        stats={stats}
-        showApply={showApply}
-        showMyProfile={user?.role === 'member'}
-      />
-      <AiSearchTeaser />
+      <StellarOrbitHero avatarUrls={heroAvatarUrls} showApply={showApply} showMyProfile={user?.role === 'member'} />
+      {/* The two ways in (user or member), on the hero's lower edge. */}
+      {showApply && <DualCta />}
+      <Verticals />
 
       {/* Featured members — split layout, panel on the left */}
       {members.length > 0 && (
@@ -251,12 +265,11 @@ export default async function HomePage() {
             <div className="order-1 lg:order-2">
               <Eyebrow>Our network</Eyebrow>
               <h2 className="font-brand mt-4 text-section-title text-ink">
-                A trusted platform for <span className="text-accent">verified</span> practitioners.
+                <span className="text-accent">Verified</span> practitioners, reviewed before they join.
               </h2>
               <p className="mt-4 text-lede text-ink-3 sm:mt-5">
-                Every member is reasonably credential-verified and peer-reviewed before they join. No junior associates,
-                no middlemen, just serious practitioners you can reach directly across every jurisdiction and practice
-                areas.
+                Members are reviewed before they join. Independent practitioners and mid-size firm professionals,
+                reachable directly across borders.
               </p>
               <Button href="/members" className="mt-6 sm:mt-7">
                 {/* Not "{n}+ members": `members` is a capped featured page, not the directory size. */}
@@ -267,29 +280,12 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Categories — split layout, panel on the right */}
-      <Suspense fallback={<SectionSkeleton />}>
-        <CategoriesSection />
-      </Suspense>
-
-      {/* Firms band */}
-      {members.length > 0 && (
-        <section className="border-b border-line bg-ink py-10 sm:py-24">
-          <PageContainer>
-            <Eyebrow dark>Where Our Members Practice</Eyebrow>
-            <h2 className="font-brand mt-3.5 max-w-[760px] text-section-title text-bg-card">
-              Senior Professionals from firms that
-              <span className="block text-accent">set the standard.</span>
-            </h2>
-            <p className="mt-4 max-w-xl text-lede text-white/60">
-              From the Big Consulting firms to elite independent firms, our members are partners, founders, and senior
-              professional at respected firms across 20+ jurisdictions.
-            </p>
-          </PageContainer>
-          <div className="mt-6 sm:mt-10">
-            <FirmsBand members={members} />
-          </div>
-        </section>
+      {/* Categories ("Specialists across every corner…") — hidden from the homepage for now; kept so it
+          can be switched back on by flipping SHOW_CATEGORIES. */}
+      {SHOW_CATEGORIES && (
+        <Suspense fallback={<SectionSkeleton />}>
+          <CategoriesSection />
+        </Suspense>
       )}
 
       {/* Latest articles */}
@@ -301,15 +297,10 @@ export default async function HomePage() {
         <EventsSection />
       </Suspense>
 
-      <Testimonials />
-
-      <DualCta />
-      {/* The membership application and verification process. */}
-      <MembershipTiers />
       <Newsletter />
 
       {/* FAQ */}
-      <section className="py-10 sm:py-24">
+      <section className="border-b border-line py-10 sm:py-24">
         <PageContainer>
           <Eyebrow>Questions</Eyebrow>
           <h2 className="font-brand mt-4 text-section-title text-ink">

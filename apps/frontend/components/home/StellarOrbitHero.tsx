@@ -12,9 +12,28 @@ import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC } from '@/lib/brand';
 // PART1 wraps on its own (balanced), PART2 always starts its own line. Phones set PART1 as the two
 // fixed lines in PART1_PHONE_LINES, each kept to one row by a viewport-scaled font size; the swap
 // happens in CSS at `sm` so there is no hydration flash.
-const PART1 = "The Right Finance, Tax & Law Expert Isn't Out of Reach,";
-const PART2 = "They're Already in Our Network.";
-const PART1_PHONE_LINES = ['The Right Finance, Tax & Law Expert', "Isn't Out of Reach,"] as const;
+const PART1 = 'The growth platform for independent and mid-size';
+const PART2 = 'finance and tax firms.';
+const PART1_PHONE_LINES = ['The growth platform for', 'independent and mid-size'] as const;
+
+function ArrowIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="ml-1 inline-block"
+    >
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
 
 type Ring = {
   radius: number;
@@ -249,11 +268,11 @@ export function StellarOrbitHero({
               style={{ animation: 'hs-fade-in 0.7s ease 1.9s both' }}
             >
               <span className="block whitespace-nowrap text-[clamp(12px,3.45vw,15px)] sm:hidden">
-                Search, verify and meet senior practitioners directly.
+                Trusted AI tools, training and a global network.
               </span>
               <span className="hidden sm:inline">
-                A trusted platform for verified senior practitioners. Skip the referral chains and junior associates.
-                Search, verify credentials, and meet the right expert directly.
+                Trusted AI tools, practical training and a global network, so a small practice gets the capability of a
+                big one.
               </span>
             </p>
 
@@ -261,35 +280,42 @@ export function StellarOrbitHero({
               className="mt-6 grid grid-cols-2 gap-3 has-[>:only-child]:grid-cols-1 sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
               style={{ animation: 'hs-fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 2.2s both' }}
             >
-              <Button href="/members" variant="accent" className="max-sm:!px-4">
-                Find an Expert
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  className="ml-1 inline-block"
-                >
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </Button>
               {showApply ? (
-                <Button href="/apply" variant="ghost-dark" className="max-sm:!px-4">
-                  Apply to join
-                </Button>
-              ) : (
-                showMyProfile && (
-                  <Button href="/members/me" variant="ghost-dark" className="max-sm:!px-4">
-                    View my profile
+                <>
+                  <Button href="/apply" variant="accent" className="max-sm:col-span-2 max-sm:!px-4">
+                    Become a member
+                    <ArrowIcon />
                   </Button>
-                )
+                  <a
+                    href="#verticals-title"
+                    className="inline-flex min-h-11 items-center justify-center rounded-sm text-sm font-medium text-white/70 underline-offset-4 hover:text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent max-sm:col-span-2"
+                  >
+                    See what is live and what is coming
+                  </a>
+                </>
+              ) : (
+                <>
+                  <Button href="/members" variant="accent" className="max-sm:!px-4">
+                    Find an Expert
+                    <ArrowIcon />
+                  </Button>
+                  {showMyProfile && (
+                    <Button href="/members/me" variant="ghost-dark" className="max-sm:!px-4">
+                      View my profile
+                    </Button>
+                  )}
+                </>
               )}
             </div>
+            {showApply && (
+              <p
+                className="mt-3 text-center text-xs text-white/50 lg:text-left"
+                style={{ animation: 'hs-fade-in 0.6s ease 2.4s both' }}
+              >
+                Sign in with LinkedIn to apply. Every application is reviewed by our team, and we reply within 5
+                business days.
+              </p>
+            )}
 
             {platformStats && (
               <div

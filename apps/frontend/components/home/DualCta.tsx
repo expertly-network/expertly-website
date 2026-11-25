@@ -1,78 +1,60 @@
-import { Button, Card, Eyebrow, SwipeRow } from '@/components/ui';
+import { Button, Card } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
+
+// Right under the hero: two compact "lanes" so each visitor sees which path is theirs before the
+// long sections start. The cards sit on the hero's lower edge (a short ink band at the top of this
+// section continues the hero's background). Copy follows the GrowXQ_Homepage_Redesign sample.
+function Arrow() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-4 flex-none"
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
 
 export function DualCta() {
   return (
-    <section className="border-b border-line py-10 sm:py-24">
-      <PageContainer>
-        <Eyebrow>Two Ways In</Eyebrow>
-        <h2 className="font-brand mt-4 text-section-title text-ink">
-          One <span className="text-accent">platform</span>. Two powerful paths.
-        </h2>
-        <p className="mt-5 hidden max-w-2xl text-lede text-ink-3 sm:block">
-          Whether you need the expertise or you are the expertise - GrowXQ is built to deliver real value, both ways.
-        </p>
-        {/* Phones: the two paths side by side as a swipeable row, the second card peeking in. */}
-        <SwipeRow label="Two ways in" itemWidth="86%" className="mt-6 sm:mt-14 sm:gap-4 lg:grid-cols-2">
-          {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
-          <Card padding="xl" className="flex min-w-0 snap-start flex-col !bg-bg-alt max-sm:!p-6">
-            <div className="text-mono-label text-ink-3">For Clients &amp; Businesses</div>
-            <h3 className="font-brand mt-4 sm:mt-6 text-heading text-ink">
-              Find the right <span className="text-accent">expert</span>. Fast.
-            </h3>
-            <ul className="mb-6 mt-4 flex flex-col gap-2.5 text-sm sm:mb-10 sm:mt-7 sm:gap-3.5 sm:text-[15px] text-ink-2">
-              {[
-                'Browse finance, tax & law professionals, vetted before listing',
-                'Read expert articles on tax, law, M&A and compliance',
-                'Request consultations from their profile, no middlemen',
-                'Transparent rates upfront, before you commit',
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-3">
-                  <span aria-hidden="true" className="mt-0.5 flex-none text-accent">
-                    ✓
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <Button href="/members" className="mt-auto self-start">
-              Browse members
+    <section
+      aria-label="Two ways to use GrowXQ"
+      className="border-b border-line bg-[linear-gradient(to_bottom,var(--ink)_4rem,transparent_4rem)] pb-10 sm:bg-[linear-gradient(to_bottom,var(--ink)_6rem,transparent_6rem)] sm:pb-16"
+    >
+      <PageContainer className="grid gap-6 sm:grid-cols-2 sm:gap-8 lg:gap-12">
+        {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
+        <Card padding="md" className="flex min-w-0 flex-col gap-3 !bg-bg-alt shadow-xl sm:gap-3.5 sm:!p-8">
+          <div className="text-mono-label text-ink-3">Users · Free</div>
+          <h2 className="font-brand text-heading text-ink">I need an expert</h2>
+          <p className="max-w-[30em] text-base text-ink-2">
+            Any field, any role, any level. Go straight to a verified expert, filtered to what you need.
+          </p>
+          <div className="mt-auto flex justify-end pt-1">
+            <Button href="/members">
+              Find an expert <Arrow />
             </Button>
-          </Card>
-          <Card padding="xl" className="relative flex min-w-0 snap-start flex-col overflow-hidden bg-ink max-sm:!p-6">
-            <div
-              className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full"
-              style={{
-                background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
-              }}
-              aria-hidden="true"
-            />
-            <div className="relative flex flex-1 flex-col">
-              <div className="text-mono-label text-white/60">For Finance, Tax &amp; Law Pros</div>
-              <h3 className="font-brand mt-4 sm:mt-6 text-heading text-bg">
-                Build your professional <span className="text-accent">presence</span>.
-              </h3>
-              <ul className="mb-6 mt-4 flex flex-col gap-2.5 text-sm sm:mb-10 sm:mt-7 sm:gap-3.5 sm:text-[15px] text-white/80">
-                {[
-                  'Get discovered by clients worldwide searching by expertise',
-                  'Publish articles and establish your authority',
-                  'Exclusive events and a verified peer network in 20+ jurisdictions',
-                  'Set your rates and keep 100% of fees',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <span aria-hidden="true" className="mt-0.5 flex-none text-accent">
-                      ✓
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button href="/apply" variant="secondary-dark" className="mt-auto self-start">
-                Apply now
-              </Button>
-            </div>
-          </Card>
-        </SwipeRow>
+          </div>
+        </Card>
+
+        <Card padding="md" className="flex min-w-0 flex-col gap-3 !border-white/10 bg-ink shadow-xl sm:gap-3.5 sm:!p-8">
+          <div className="text-mono-label text-accent">Members · Verified</div>
+          <h2 className="font-brand text-heading text-bg">I&apos;m a senior professional</h2>
+          <p className="max-w-[30em] text-base text-white/75">
+            Finance, tax or legal. Get verified, get seen by the people looking for you, and grow with everything GrowXQ
+            gives you.
+          </p>
+          <div className="mt-auto flex justify-end pt-1">
+            <Button href="/apply" variant="accent">
+              Apply as a member <Arrow />
+            </Button>
+          </div>
+        </Card>
       </PageContainer>
     </section>
   );

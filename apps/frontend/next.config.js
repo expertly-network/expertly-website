@@ -53,7 +53,12 @@ module.exports = (phase) => {
   return {
     output: 'standalone',
     poweredByHeader: false,
-    images: { remotePatterns: remotePatterns() },
+    images: {
+      remotePatterns: remotePatterns(),
+      // Local images: the brand artwork carries a `?v=` cache-busting query (lib/brand.ts), which Next
+      // 16 will only allow when named here. Everything else stays query-less.
+      localPatterns: [{ pathname: '/brand/**' }, { pathname: '/**', search: '' }],
+    },
     async headers() {
       return [{ source: '/:path*', headers: securityHeaders }];
     },

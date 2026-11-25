@@ -3,10 +3,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 
 const STEPS = [
   ['Apply', 'Tell us what you have done, where you have done it, and the services you do best.'],
-  [
-    'Verify',
-    'Identity, work history, qualifications and credentials, checked one by one. We speak to your references.',
-  ],
+  ['Verify', 'Identity, work history, qualifications and credentials, checked one by one.'],
   [
     'Approve',
     'If the details in your application are in order and every check comes back clear, your membership is approved.',
