@@ -225,10 +225,12 @@ export function ProblemRing() {
             id="verticals-title"
             className="font-brand mx-auto mt-4 scroll-mt-24 text-section-title text-ink [text-wrap:balance]"
           >
-            Two sides, asking the same thing: <span className="text-accent">who can I trust?</span>
+            Two sides of the same coin, one shared question:{' '}
+            <span className="text-accent">How do we find the right resource?</span>
           </h2>
           <p className="mx-auto mt-4 hidden max-w-xl text-base leading-relaxed text-ink-3 sm:block sm:text-lg">
             Clients can&apos;t tell who&apos;s qualified. Professionals can&apos;t reach the people looking for them.
+            Both are exploring how to develop their skills.
           </p>
         </div>
 

@@ -9,7 +9,7 @@ import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC } from '@/lib/brand';
 // through GrowXQ. When it scrolls into view, once, the lines draw in, the hub pops, the pills light up
 // one after another and small pulses start travelling to the hub. With reduced motion it is static.
 
-const AREAS = ['Technology', 'Reach', 'Networking', 'Training', 'Perks', 'Hiring'] as const;
+const AREAS = ['Technology', 'Reach', 'Networking', 'Training', 'Perks', 'Recruiting'] as const;
 
 const PILL_W = 124;
 const PILL_H = 34;
@@ -168,7 +168,7 @@ export function CompareFirms() {
               <svg
                 viewBox="0 0 440 260"
                 role="img"
-                aria-label="Partners in a boutique firm doing everything themselves: tools, reach, networking, training, deals and hiring, all separate."
+                aria-label="Partners in a boutique firm doing everything themselves: tools, reach, networking, training, deals and recruiting, all separate."
                 className="mx-auto mt-1 block h-auto w-full max-w-[460px]"
               >
                 {AREAS.map((label, i) => (
@@ -201,7 +201,7 @@ export function CompareFirms() {
               <svg
                 viewBox="0 0 440 260"
                 role="img"
-                aria-label="Partners with GrowXQ: tools, reach, networking, training, deals and hiring all handled through GrowXQ."
+                aria-label="Partners with GrowXQ: tools, reach, networking, training, deals and recruiting all handled through GrowXQ."
                 className="relative mx-auto mt-1 block h-auto w-full max-w-[460px]"
               >
                 <defs>

@@ -31,9 +31,10 @@ export function DualCta() {
         {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
         <Card padding="md" className="flex min-w-0 flex-col gap-3 !bg-bg-alt shadow-xl sm:gap-3.5 sm:!p-8">
           <div className="text-mono-label text-ink-3">Users · Free</div>
-          <h2 className="font-brand text-heading text-ink">I need an expert</h2>
+          <h2 className="font-brand text-heading text-ink">In search of an expert</h2>
           <p className="max-w-[30em] text-base text-ink-2">
-            Any field, any role, any level. Go straight to a verified expert, filtered to what you need.
+            Search verified finance, tax and legal professionals, connect for direct consultations, read their articles
+            or adopt the skills they have.
           </p>
           <div className="mt-auto flex justify-end pt-1">
             <Button href="/members">
@@ -43,11 +44,10 @@ export function DualCta() {
         </Card>
 
         <Card padding="md" className="flex min-w-0 flex-col gap-3 !border-white/10 bg-ink shadow-xl sm:gap-3.5 sm:!p-8">
-          <div className="text-mono-label text-accent">Members · Verified</div>
-          <h2 className="font-brand text-heading text-bg">I&apos;m a senior professional</h2>
+          <div className="text-mono-label text-accent">Members · Verified · Subscription based</div>
+          <h2 className="font-brand text-heading text-bg">Seeking growth as a professional</h2>
           <p className="max-w-[30em] text-base text-white/75">
-            Finance, tax or legal. Get verified, get seen by the people looking for you, and grow with everything GrowXQ
-            gives you.
+            Get verified, get visible to your target audience and use the full growth ecosystem.
           </p>
           <div className="mt-auto flex justify-end pt-1">
             <Button href="/apply" variant="accent">

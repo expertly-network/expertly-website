@@ -20,18 +20,18 @@ export const VERTICALS: readonly Vertical[] = [
     outcomes: [
       'Find a tool for the job in front of you, from tax research to reporting',
       'Read a security and data-handling note before you try one',
-      'See how we review tools and what each listing went through',
+      'Get discounted deals for tools that increase efficiency and optimise workflows',
     ],
   },
   {
     title: 'Reach and visibility',
     label: 'Reach',
     status: 'Coming soon',
-    promise: 'Get found and trusted by the people who need you.',
+    promise: 'Be found and trusted by the people who need your expertise.',
     outcomes: [
       'Publish articles under your own name',
-      'A verified profile, backed by an AI interview about your real work',
-      'Content built to be found in search',
+      'A verified profile, enhanced by robust profiling via an AI interview about your work',
+      'A relevant match any time a user searches for your specialisation',
     ],
   },
   {
@@ -40,17 +40,21 @@ export const VERTICALS: readonly Vertical[] = [
     status: 'Coming soon',
     promise: 'Know verified peers in other countries.',
     outcomes: [
-      'Refer work across borders',
-      'Find overflow help when you are full',
-      'Talk to people who do the same work',
+      'Get your work referred across borders',
+      'Expand your network beyond your four walls',
+      'Ideate with people in your focus area',
     ],
   },
   {
     title: 'Training',
     label: 'Training',
     status: 'Coming soon',
-    promise: 'Learn AI and better workflows in small steps.',
-    outcomes: ['Short videos you can watch between tasks', 'Ready-to-use prompts', 'Step-by-step guides'],
+    promise: 'Learn AI and optimise your workflows, one step at a time.',
+    outcomes: [
+      'Develop AI skills with short, digestible videos',
+      'Get ready-to-use prompts and plugins',
+      'Watch videos to sharpen skills in other focus areas',
+    ],
   },
   {
     title: 'Perks and products',
@@ -64,8 +68,8 @@ export const VERTICALS: readonly Vertical[] = [
     ],
   },
   {
-    title: 'Hiring',
-    label: 'Hiring',
+    title: 'Recruiting',
+    label: 'Recruiting',
     status: 'Coming soon',
     promise: 'Extra hands when the busy season hits.',
     outcomes: ['Match with available talent', 'Add capacity for peak periods'],
@@ -77,33 +81,15 @@ export const VERTICALS: readonly Vertical[] = [
 // availability and fee range, and engagements are agreed directly with the member.
 export const USER_BENEFITS: readonly Vertical[] = [
   {
-    title: 'Find an expert',
-    label: 'Experts',
+    title: 'Accessibility',
+    label: 'Accessibility',
     status: 'Live',
-    promise: 'Go straight to a reviewed finance or tax professional.',
+    promise: 'Go straight to a reviewed finance, tax or legal professional.',
     outcomes: [
       'Search by service, specialisation and location',
-      'Every member is reviewed by our team before listing',
-      'A free account shows their contact details',
+      'Every expert is vetted by our team before becoming a member',
+      'A user account gives access to their full credentials and experience',
     ],
-  },
-  {
-    title: 'Articles',
-    label: 'Articles',
-    status: 'Live',
-    promise: 'Read how practitioners think, under their own names.',
-    outcomes: [
-      'Tax, M&A, compliance and more',
-      'Written and signed by members',
-      'Headlines are open; a free account reads them in full',
-    ],
-  },
-  {
-    title: 'Events',
-    label: 'Events',
-    status: 'Live',
-    promise: 'Briefings, webinars and conferences in one calendar.',
-    outcomes: ['Online and in person, worldwide', 'Browse by month', 'A free account shows the full details'],
   },
   {
     title: 'Consultations',
@@ -114,6 +100,28 @@ export const USER_BENEFITS: readonly Vertical[] = [
       'Request a consultation from their profile',
       'Members show their availability and fee range upfront',
       'You agree terms directly with the expert',
+    ],
+  },
+  {
+    title: 'Articles',
+    label: 'Articles',
+    status: 'Live',
+    promise: 'Read how practitioners think.',
+    outcomes: [
+      'Get expertise-focused articles: M&A, finance, TP and much more',
+      'Find relevant answers to your questions',
+      'Headlines are for everyone; only users get to read them in full',
+    ],
+  },
+  {
+    title: 'Events',
+    label: 'Events',
+    status: 'Live',
+    promise: 'Briefings, webinars and conferences in one calendar.',
+    outcomes: [
+      'Covers online and in-person events, worldwide',
+      'Plan your travel in advance',
+      'Includes courses and certifications across borders',
     ],
   },
   {

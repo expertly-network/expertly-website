@@ -16,7 +16,7 @@ export function UserBenefits({ benefits }: { benefits: readonly Vertical[] }) {
             Looking for an expert? <span className="text-accent">Start here, free.</span>
           </h2>
           <p className="mt-4 max-w-md text-base text-ink-3 sm:text-lg">
-            Anyone can search GrowXQ. A free account opens up contact details, full articles and event details.
+            Anyone can search GrowXQ. A user account opens up contact details, full articles and event details.
           </p>
           <Button href="/members" className="mt-6 self-start">
             Find an expert

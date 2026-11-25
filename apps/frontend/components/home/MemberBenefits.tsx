@@ -96,7 +96,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
               id="layers-title"
               className="font-brand mt-3 scroll-mt-24 text-heading text-bg [@media(max-height:700px)]:max-lg:mt-0 [@media(max-height:700px)]:max-lg:text-title"
             >
-              Six ways we help <span className="text-accent">boutique firms grow</span>.
+              Ways we help <span className="text-accent">our members grow</span>.
             </h2>
           </div>
 
