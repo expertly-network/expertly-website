@@ -84,9 +84,9 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
     <section ref={sectionRef} aria-labelledby="layers-title" className="relative h-[320vh] bg-ink lg:h-[300vh]">
       <div
         ref={pinRef}
-        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:py-12`}
+        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:py-12`}
       >
-        <PageContainer className="grid w-full grid-rows-[auto_auto_auto] content-center gap-5 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto] lg:gap-x-14 lg:gap-y-10 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
+        <PageContainer className="grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto] lg:gap-x-14 lg:gap-y-10 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
           <div className="text-center lg:col-start-1 lg:row-start-1 lg:self-end lg:text-left sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
             {/* Short phones: no eyebrow and a smaller title, so the dial and the panel still fit. */}
             <Eyebrow dark className="[@media(max-height:700px)]:max-lg:hidden">
@@ -94,18 +94,19 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
             </Eyebrow>
             <h2
               id="layers-title"
-              className="font-brand mt-3 scroll-mt-24 text-heading text-bg [@media(max-height:700px)]:max-lg:mt-0 [@media(max-height:700px)]:max-lg:text-title"
+              className="font-brand mt-3 scroll-mt-24 max-sm:mt-2 text-heading text-bg [@media(max-height:700px)]:max-lg:mt-0 [@media(max-height:700px)]:max-lg:text-title"
             >
               Ways we help <span className="text-accent">our members grow</span>.
             </h2>
           </div>
 
-          {/* The dial. Smaller on phones, so the panel under it still fits on screen. */}
-          <div className="flex items-center justify-center lg:col-start-2 lg:row-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-2 sm:max-lg:landscape:row-span-2 sm:max-lg:landscape:row-start-1">
+          {/* The dial. Phones: this row takes all the height the title and the panel leave, and the
+              dial fills it (as wide as the content, as tall as the row allows) via container units. */}
+          <div className="flex items-center justify-center max-sm:min-h-0 max-sm:flex-1 max-sm:[container-type:size] lg:col-start-2 lg:row-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-2 sm:max-lg:landscape:row-span-2 sm:max-lg:landscape:row-start-1">
             <div
               role="group"
               aria-label={`The six member benefits. Showing ${benefits[shown].title}.`}
-              className="relative aspect-square w-[min(74vw,34dvh)] [@media(max-height:700px)]:w-[min(70vw,30dvh)] sm:w-[min(60vw,38dvh)] lg:w-[min(100%,72dvh,540px)] sm:max-lg:landscape:!w-[min(100%,calc(100dvh-170px),540px)]"
+              className="relative aspect-square w-[min(74vw,34dvh)] [@media(max-height:700px)]:w-[min(70vw,30dvh)] sm:w-[min(60vw,38dvh)] lg:w-[min(100%,72dvh,540px)] sm:max-lg:landscape:!w-[min(100%,calc(100dvh-170px),540px)] max-sm:!w-[min(100cqw,100cqh)]"
             >
               <VerticalsOrbit
                 labels={benefits.map((b) => b.label)}
@@ -120,8 +121,8 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
 
           {/* The benefit at the top of the dial. All six share one grid cell, so the panel keeps the
               height of the longest and nothing below it jumps. Hidden from screen readers, which get
-              the full list below. */}
-          <div className="mx-auto grid w-full max-w-xl lg:col-start-1 lg:row-start-2 lg:mx-0 lg:self-start sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-2 sm:max-lg:landscape:mx-0 sm:max-lg:landscape:self-start">
+              the full list below. Phones: a soft card anchored at the bottom of the pinned screen. */}
+          <div className="mx-auto grid w-full max-w-xl max-sm:flex-none max-sm:rounded-2xl max-sm:border max-sm:border-white/10 max-sm:bg-white/[0.04] max-sm:px-5 max-sm:py-3.5 lg:col-start-1 lg:row-start-2 lg:mx-0 lg:self-start sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-2 sm:max-lg:landscape:mx-0 sm:max-lg:landscape:self-start">
             {benefits.map((b, i) => (
               <div
                 key={b.title}
@@ -146,7 +147,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                 <p className="mt-1.5 text-base text-white/75 sm:mt-2 sm:text-lg">{b.promise}</p>
                 {/* Very short screens (a phone held sideways, a laptop at 200% zoom): the checklist goes, so
                     the title and promise are never cut off. */}
-                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base [@media(max-height:480px)]:hidden">
+                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base [@media(max-height:480px)]:hidden [@media(max-height:720px)]:max-sm:hidden">
                   {b.outcomes.map((o) => (
                     <li key={o} className="flex items-start gap-2.5">
                       <svg

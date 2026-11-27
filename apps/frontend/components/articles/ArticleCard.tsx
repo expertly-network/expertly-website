@@ -74,7 +74,7 @@ export function ArticleCard({ article }: { article: ArticleListItemDto }) {
           )}
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-medium text-ink-2">{article.authorName}</div>
-            {designation && <div className="truncate text-[10px] text-ink-4">{designation}</div>}
+            {designation && <div className="truncate text-[10px] max-sm:text-[11px] text-ink-4">{designation}</div>}
           </div>
           <span className="ml-auto flex-none pl-2 text-right text-xs leading-tight text-ink-3">
             {formatDate(new Date(article.createdAt))}

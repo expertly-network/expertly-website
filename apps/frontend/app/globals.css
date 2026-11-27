@@ -41,6 +41,18 @@
   display: none;
 }
 
+/* Phones (below `sm`): every text field renders at 16px or more. iOS Safari zooms the whole page
+   into any focused field under 16px and doesn't zoom back out, so this is one global rule rather
+   than a size class remembered on each input. `!important` because a field's own `text-sm` is a
+   utility, which would otherwise win. Desktop keeps each field's own size. */
+@media (max-width: 639.98px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
 /* Geist is the default for all product text, including headings. Marketing headings opt
    into Cormorant Garamond with font-brand; the logo retains its own brand treatment. */
 

@@ -78,13 +78,13 @@ export function EventRow({
         <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2">
           {event.organiserName && (
             <div>
-              <dt className="font-mono text-[10px] text-ink-4">Organiser</dt>
+              <dt className="font-mono text-[10px] max-sm:text-[11px] text-ink-4">Organiser</dt>
               <dd className="font-medium text-ink-2">{event.organiserName}</dd>
             </div>
           )}
           {event.venueName && !online && (
             <div>
-              <dt className="font-mono text-[10px] text-ink-4">Venue</dt>
+              <dt className="font-mono text-[10px] max-sm:text-[11px] text-ink-4">Venue</dt>
               <dd className="font-medium text-ink-2">{event.venueName}</dd>
             </div>
           )}
@@ -172,7 +172,7 @@ export function EventRow({
 
       <div className="hidden grid-cols-[140px_1fr_180px_auto] items-start gap-x-9 sm:grid max-[900px]:grid-cols-1 max-[900px]:gap-y-3">
         <div>
-          <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Date</span>
+          <span className="mb-[5px] block font-mono text-[10px] max-sm:text-[11px] text-ink-4">Date</span>
           <span className="text-[17px] font-medium leading-[1.2] tracking-[-0.02em] text-ink">
             {formatDayRange(event.startDate, event.endDate)}
           </span>
@@ -216,13 +216,13 @@ export function EventRow({
 
         {online ? (
           <div>
-            <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Location</span>
+            <span className="mb-[5px] block font-mono text-[10px] max-sm:text-[11px] text-ink-4">Location</span>
             <div className="text-[13px] font-medium text-ink-2">Online</div>
           </div>
         ) : event.country || event.city ? (
           // Country leads: most imported events have a country but no city/state.
           <div>
-            <span className="mb-[5px] block font-mono text-[10px] text-ink-4">Location</span>
+            <span className="mb-[5px] block font-mono text-[10px] max-sm:text-[11px] text-ink-4">Location</span>
             <div className="text-[13px] font-medium text-ink-2">{event.country ?? event.city}</div>
             {event.country && event.city && <div className="mt-0.5 font-mono text-[11px] text-ink-4">{event.city}</div>}
           </div>

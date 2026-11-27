@@ -49,7 +49,7 @@ export function SignInForm({ returnTo, onSwitchToSignUp }: { returnTo: string; o
       <Input
         label="Password"
         labelRight={
-          <a href="/forgot-password" className="text-xs font-medium text-accent">
+          <a href="/forgot-password" className="-my-3.5 py-3.5 text-xs font-medium text-accent sm:my-0 sm:py-0">
             Forgot?
           </a>
         }

@@ -30,7 +30,12 @@ type Props = {
 const SPOTLIGHT = -90; // degrees: the active node sits at the top
 const STEP = 60; // degrees between nodes
 const RADIUS = 32; // ring the node+label units are centred on, percent of the box
+// Phones: the icon ring's radius is measured (see `measure`) — as wide as the outward labels allow
+// while still clearing the arc — within these bounds.
+const PHONE_RADIUS_MIN = 24;
+const PHONE_RADIUS_MAX = 30;
 const OUTER = 45.5; // progress arc
+const PHONE_OUTER = 48; // phones: arc pushed out to the box edge (the svg overflows visibly) for label room
 const HUB = 8; // hub radius (the hub div is 16% wide)
 const STIFFNESS = 280; // spring constants: critically damped and quick, so the dial never trails the cards
 const DAMPING = 33;
@@ -51,10 +56,14 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
   const core = useRef<HTMLSpanElement>(null);
   const motion = useRef({ pos: posRef.current, vel: 0 });
   const box = useRef<HTMLDivElement>(null);
-  // Each node and its name form one unit centred on the ring, so the ring stays balanced top to
-  // bottom. The circle sits above the unit's centre by `lift` (percent of the box), and spokes aim
-  // at the circle's own centre. Measured from the DOM on mount and on resize.
-  const geo = useRef({ lift: 3, nodeR: 5.6 });
+  // Desktop: each node and its name form one unit centred on the ring, so the ring stays balanced
+  // top to bottom; the circle sits above the unit's centre by `lift` (percent of the box) and
+  // spokes aim at the circle's own centre.
+  // Phones (below `sm`, where the dial is ~270px): the *circle* sits on a tighter ring and its
+  // label points outward — above the circle on the top half, below it on the bottom half — so a
+  // label never lies between a circle and the hub where the spokes run, and never reaches the arc.
+  // Measured from the DOM on mount and on resize.
+  const geo = useRef({ lift: 3, nodeR: 5.6, phone: false, phoneR: PHONE_RADIUS_MIN });
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -69,7 +78,23 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
       geo.current = {
         lift: ((unit.offsetHeight - circle.offsetHeight) / 2 / size) * 100,
         nodeR: (circle.offsetWidth / 2 / size) * 100,
+        phone: window.innerWidth < 640,
+        // How far a node reaches outward from its circle's centre (enlarged active node, label on the
+        // outside), so the ring can grow until that just clears the arc and its head.
+        phoneR: Math.min(
+          PHONE_RADIUS_MAX,
+          Math.max(
+            PHONE_RADIUS_MIN,
+            PHONE_OUTER - 2.6 - 1.5 - (((unit.offsetHeight - circle.offsetHeight / 2) * 1.1) / size) * 100
+          )
+        ),
       };
+      // The arc's radius follows the layout; its dash length must match its circumference.
+      const outer = geo.current.phone ? PHONE_OUTER : OUTER;
+      if (progress.current) {
+        progress.current.setAttribute('r', String(outer));
+        progress.current.style.strokeDasharray = String(2 * Math.PI * outer);
+      }
     };
     measure();
     window.addEventListener('resize', measure);
@@ -84,10 +109,17 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
         const sn = Math.sin(a);
         const near = clamp01(1 - Math.abs(pos - i)) * lit;
         const scale = 0.9 + near * 0.2;
+        const { lift, nodeR, phone, phoneR } = geo.current;
+        const r = phone ? phoneR : RADIUS;
+        // Phones: label above the circle on the top half of the ring (unit shifted up so the circle
+        // stays on the ring), below it on the bottom half (unit shifted down).
+        const labelAbove = phone && sn < 0;
+        const shift = phone ? (labelAbove ? -lift : lift) * scale : 0;
         const node = nodes.current[i];
         if (node) {
-          node.style.left = `${50 + RADIUS * c}%`;
-          node.style.top = `${50 + RADIUS * sn}%`;
+          node.style.flexDirection = labelAbove ? 'column-reverse' : 'column';
+          node.style.left = `${50 + r * c}%`;
+          node.style.top = `${50 + r * sn + shift}%`;
           node.style.transform = `translate(-50%, -50%) scale(${scale})`;
           node.style.zIndex = String(Math.round(near * 10));
         }
@@ -97,10 +129,10 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
         if (halo) halo.style.opacity = String(near);
         const link = links.current[i];
         if (link) {
-          // From the hub's edge to just short of the circle's centre (lifted above the unit centre).
-          const { lift, nodeR } = geo.current;
-          const dx = RADIUS * c;
-          const dy = RADIUS * sn - lift * scale;
+          // From the hub's edge to just short of the circle's rim (desktop: the circle is lifted above
+          // the unit centre; phones: the circle is on the ring itself).
+          const dx = r * c;
+          const dy = phone ? r * sn : r * sn - lift * scale;
           const d = Math.hypot(dx, dy) || 1;
           const end = d - nodeR * scale - 0.8;
           link.setAttribute('x1', String(50 + (dx / d) * (HUB + 1)));
@@ -113,10 +145,11 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
 
       // The arc fills clockwise and closes the full circle at the last area; a bright head leads it.
       const share = count > 1 ? pos / (count - 1) : 1;
-      if (progress.current) progress.current.style.strokeDashoffset = String(ARC * (1 - share));
+      const outer = geo.current.phone ? PHONE_OUTER : OUTER;
+      if (progress.current) progress.current.style.strokeDashoffset = String(2 * Math.PI * outer * (1 - share));
       const ha = rad(SPOTLIGHT + share * 360);
       if (head.current) {
-        head.current.setAttribute('transform', `translate(${50 + OUTER * Math.cos(ha)} ${50 + OUTER * Math.sin(ha)})`);
+        head.current.setAttribute('transform', `translate(${50 + outer * Math.cos(ha)} ${50 + outer * Math.sin(ha)})`);
         head.current.style.opacity = String(lit);
       }
       // The hub's light comes up as the section is reached.

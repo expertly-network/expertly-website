@@ -12,7 +12,8 @@ import type { Vertical } from '@/components/home/verticals-data';
 //
 // Sizes: --base is the first card's sticky top (just under the mobile top bar below lg, 24px on
 // desktop), --step the bar height, --h the card height, --gap the space between cards. Keep them as
-// plain px values.
+// plain px values. Phones get a shorter --h (sized to the tallest card's content at 320px / 400px,
+// re-measure if copy grows) so a card isn't a third empty; from `sm` it's the original 340px.
 
 // Literal class names so Tailwind generates them (never build them at runtime).
 const LAYERS = [
@@ -62,7 +63,7 @@ const LAYERS = [
 
 export function VerticalsStackCards({ verticals }: { verticals: readonly Vertical[] }) {
   return (
-    <div className="flex flex-col [--base:77px] [--h:340px] [--gap:36px] [--step:54px] sm:[--gap:40px] sm:[--step:58px] lg:[--base:24px]">
+    <div className="flex flex-col [--base:77px] [--gap:36px] [--h:310px] [--step:54px] min-[400px]:[--h:288px] sm:[--gap:40px] sm:[--h:340px] sm:[--step:58px] lg:[--base:24px]">
       {verticals.map((v, i) => {
         const t = LAYERS[i % LAYERS.length];
         return (
@@ -97,7 +98,7 @@ export function VerticalsStackCards({ verticals }: { verticals: readonly Vertica
               >
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <p className="font-brand relative max-w-[26ch] text-title sm:text-heading">{v.promise}</p>
+              <p className="font-brand relative text-title sm:max-w-[26ch] sm:text-heading">{v.promise}</p>
               <ul className={`relative flex flex-col gap-2 text-sm sm:gap-2.5 sm:text-[15px] ${t.mute}`}>
                 {v.outcomes.map((o) => (
                   <li key={o} className="flex items-start gap-3">

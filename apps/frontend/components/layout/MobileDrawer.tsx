@@ -18,13 +18,16 @@ export function MobileDrawer({ user }: { user: Profile | null }) {
   return (
     <>
       <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-ink px-4 py-3 min-[1024px]:hidden">
-        <Logo variant="nav" />
+        {/* Tap areas grow to 44px through padding cancelled by negative margin, so the bar keeps
+            its 62px height (STICKY_UNDER_MOBILE_BAR depends on it). The logo's wrapper becomes a flex
+            box so its image is vertically centred instead of riding above a text-line descender gap. */}
+        <Logo variant="nav" className="-my-1 h-[45px] py-1 [&>span]:flex" />
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Open menu"
           aria-expanded={open}
-          className={`p-1.5 text-white ${pathname === '/' ? 'flex h-11 w-11 items-center justify-center' : ''}`}
+          className="-my-1 -mr-2 flex h-11 w-11 items-center justify-center text-white"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="4" y1="7" x2="20" y2="7" />
@@ -44,7 +47,7 @@ export function MobileDrawer({ user }: { user: Profile | null }) {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close menu"
-                className={`text-white/80 hover:text-white ${pathname === '/' ? 'flex h-11 w-11 items-center justify-center' : ''}`}
+                className="-mr-2 flex h-11 w-11 items-center justify-center text-white/80 hover:text-white"
               >
                 ✕
               </button>

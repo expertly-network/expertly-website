@@ -57,7 +57,7 @@ export function SidebarDarkCard({ children }: { children: ReactNode }) {
 export function SidebarJoinCard({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
   return (
     <SidebarDarkCard>
-      <span className="font-mono text-[9px] font-bold uppercase text-white/40">{eyebrow}</span>
+      <span className="font-mono text-[9px] max-sm:text-[11px] font-bold uppercase text-white/40">{eyebrow}</span>
       <h3 className="mt-2 text-title text-bg-card">{title}</h3>
       <p className="mt-2 text-sm text-white/60">{body}</p>
       <Button href="/apply" variant="secondary-dark" className="mt-4" fullWidth>

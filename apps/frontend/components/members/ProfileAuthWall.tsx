@@ -10,7 +10,7 @@ import { ProfileHeader } from './ProfileHeader';
 const LOCKED_TABS = ['Credentials', 'Articles', 'Reviews & Recognition', 'Contact Information'];
 
 // `.mp-sidebar-label`
-const LABEL = 'font-mono text-[10px] font-semibold text-ink-3';
+const LABEL = 'font-mono text-[10px] max-sm:text-[11px] font-semibold text-ink-3';
 
 // Signed-out view of a member profile, built only from the public directory preview
 // (GET /members/:slug/preview): header, a bio teaser, and the consultation fee. Everything else

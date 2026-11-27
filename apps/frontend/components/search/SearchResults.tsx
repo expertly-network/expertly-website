@@ -83,7 +83,10 @@ export function SearchResults({
   const sectionLabel = (text: string) => {
     const c = cascade();
     return (
-      <div style={c.style} className={`px-2.5 py-1.5 font-mono text-[10px] text-ink-4 ${c.className}`}>
+      <div
+        style={c.style}
+        className={`px-2.5 py-1.5 font-mono text-[10px] max-sm:text-[11px] text-ink-4 ${c.className}`}
+      >
         {text}
       </div>
     );

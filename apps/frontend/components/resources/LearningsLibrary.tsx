@@ -4,6 +4,7 @@ import type { LearningDto, CollectionDto } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
 import {
   Badge,
+  ChipGroup,
   Button,
   Card,
   CompactRow,
@@ -247,18 +248,13 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
             ))}
           </Select>
         </div>
-        <div role="group" aria-label="Learning topics" className="mb-6 hidden gap-2 overflow-x-auto pb-2 sm:flex">
-          {topicOptions(videos).map((c) => (
-            <button
-              key={c}
-              aria-pressed={category === c}
-              onClick={() => setCategory(c)}
-              className={`shrink-0 rounded-full px-4 py-2.5 text-xs font-medium ${category === c ? 'bg-ink text-white' : 'bg-bg-alt text-ink-3 hover:text-ink'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <ChipGroup
+          label="Learning topics"
+          options={topicOptions(videos)}
+          value={category}
+          onChange={setCategory}
+          className="mb-6 hidden sm:flex"
+        />
         <div className="mb-3 flex items-center justify-between sm:mb-5">
           <h2 className="text-title">{category === ALL_TOPICS ? 'All videos' : category}</h2>
           <p aria-live="polite" className="hidden text-xs text-ink-3 sm:block">
@@ -288,7 +284,7 @@ export function LearningsLibrary({ videos, playlists }: { videos: LearningDto[];
                   leading={
                     <span className="relative block h-[63px] w-28 overflow-hidden rounded-lg bg-bg-alt">
                       <ResourceImage src={v.thumbnailUrl} className="h-full w-full object-cover" />
-                      <span className="absolute bottom-1 right-1 rounded bg-ink/90 px-1.5 py-0.5 text-[10px] text-white">
+                      <span className="absolute bottom-1 right-1 rounded bg-ink/90 px-1.5 py-0.5 text-[10px] max-sm:text-[11px] text-white">
                         {v.durationMinutes} min
                       </span>
                     </span>

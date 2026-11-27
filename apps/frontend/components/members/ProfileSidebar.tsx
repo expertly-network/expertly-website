@@ -7,7 +7,7 @@ import { AvailabilityControl } from '@/components/members/AvailabilityControl';
 import type { MemberDto } from '@shared/member';
 
 // `.mp-sidebar-label`
-const LABEL = 'font-mono text-[10px] font-semibold text-ink-3';
+const LABEL = 'font-mono text-[10px] max-sm:text-[11px] font-semibold text-ink-3';
 
 export function ProfileSidebar({
   member,

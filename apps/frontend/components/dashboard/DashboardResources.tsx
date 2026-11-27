@@ -122,7 +122,7 @@ export function DashboardResources({
                   <span className="block h-0.5 w-3/4 rounded-full bg-line" />
                   <span className="block h-0.5 w-5/6 rounded-full bg-line" />
                 </span>
-                <span className="text-[9px] font-semibold uppercase text-ink">.{type}</span>
+                <span className="text-[9px] max-sm:text-[11px] font-semibold uppercase text-ink">.{type}</span>
               </span>
             ))}
           </div>

@@ -13,7 +13,7 @@ export function AuthTabs({ mode, onChange }: AuthTabsProps) {
       <button
         type="button"
         onClick={() => onChange('user')}
-        className={`min-h-[36px] rounded-full px-[18px] py-2 text-[13px] font-medium transition-colors ${
+        className={`min-h-11 rounded-full px-[18px] sm:min-h-[36px] py-2 text-[13px] font-medium transition-colors ${
           mode === 'user' ? 'bg-ink text-bg' : 'text-ink-3 hover:text-ink'
         }`}
       >
@@ -22,7 +22,7 @@ export function AuthTabs({ mode, onChange }: AuthTabsProps) {
       <button
         type="button"
         onClick={() => onChange('member')}
-        className={`min-h-[36px] rounded-full px-[18px] py-2 text-[13px] font-medium transition-colors ${
+        className={`min-h-11 rounded-full px-[18px] sm:min-h-[36px] py-2 text-[13px] font-medium transition-colors ${
           mode === 'member' ? 'bg-ink text-bg' : 'text-ink-3 hover:text-ink'
         }`}
       >

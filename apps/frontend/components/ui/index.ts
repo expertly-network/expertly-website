@@ -25,3 +25,4 @@ export { SwipeRow } from './SwipeRow';
 export { CompactRow, CompactRowList } from './CompactRow';
 export { Eyebrow } from './Eyebrow';
 export { Pagination } from './Pagination';
+export { ChipGroup } from './ChipGroup';

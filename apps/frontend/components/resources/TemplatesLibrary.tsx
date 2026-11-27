@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import type { CollectionDto, TemplateDto, TemplateFileType } from '@shared/resource';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge, Button, Card, CompactRow, CompactRowList, SwipeRow } from '@/components/ui';
+import { Badge, Button, ChipGroup, Card, CompactRow, CompactRowList, SwipeRow } from '@/components/ui';
 import { apiErrorMessage } from '@/lib/errors/api-error-message';
 import { getTemplateDownload } from '@/lib/api/resources';
 import { ResourceHero } from './ResourceHero';
@@ -54,7 +54,9 @@ function Paper({
         />
       ) : (
         <div className="flex h-full w-full flex-col gap-2 p-5">
-          <span className="text-[10px] font-semibold uppercase text-accent">.{template.fileType}</span>
+          <span className="text-[10px] max-sm:text-[11px] font-semibold uppercase text-accent">
+            .{template.fileType}
+          </span>
           <span className="line-clamp-2 text-sm font-semibold text-ink">{template.title}</span>
           {[90, 75, 82, 60, 70].map((w) => (
             <span key={w} className="h-1.5 rounded-full bg-line" style={{ width: `${w}%` }} />
@@ -197,19 +199,13 @@ export function TemplatesLibrary({
         )}
 
         <h2 className="mb-5 text-heading">Browse the library.</h2>
-        <div role="group" aria-label="Template categories" className="mb-7 flex gap-2 overflow-x-auto pb-2">
-          {categories.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-pressed={category === c}
-              onClick={() => setCategory(c)}
-              className={`shrink-0 rounded-full px-4 py-2.5 text-xs font-medium transition-colors ${category === c ? 'bg-ink text-white' : 'bg-bg-alt text-ink-3 hover:text-ink'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <ChipGroup
+          label="Template categories"
+          options={categories}
+          value={category}
+          onChange={setCategory}
+          className="mb-7"
+        />
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-title">{category}</h2>
           <span aria-live="polite" className="text-xs text-ink-3">

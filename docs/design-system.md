@@ -285,6 +285,8 @@ the catalogue of the shared pieces (all hidden or reset from `sm` up unless note
 | Shorter copy | Text that would truncate on a phone (search placeholders) | `lib/hooks/usePhoneText.ts` — articles, events, members heroes |
 | Inline "View all" | A section's full-width secondary button → text link on the heading row | `components/home/MobileViewAll.tsx` |
 | Compact row | Big cards → scannable rows | `components/ui/CompactRow.tsx` + `CompactRowList` (leading visual, eyebrow, title, meta, chevron) — Learnings videos, Perks, Templates; `ArticleListRow` (home + /articles); `MemberCard` / `EventRow` phone layouts |
+| Chip picker | Single-choice category / topic pills, sideways-scrolling, 44px tap height on phones (36px from `sm`) | `components/ui/ChipGroup.tsx` — Perks, Templates, Learnings |
+| Phone field size | Every text field ≥ 16px on phones so iOS never zooms on focus | One global rule in `app/globals.css` — don't add per-input size classes for this |
 | Bottom sheet | Short focused task on phones | `components/ui/BottomSheet.tsx` |
 | Full-bleed panel | Rounded inset panels drop their inset | `-mx-5 sm:mx-0 sm:rounded-3xl` |
 

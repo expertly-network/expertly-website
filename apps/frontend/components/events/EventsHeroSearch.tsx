@@ -55,7 +55,7 @@ export function EventsHeroSearch({ initialQuery = '' }: { initialQuery?: string 
           setAiQuery(text.trim());
           setAiOpen(true);
         }}
-        className="mt-3 text-sm text-white/60 transition-colors hover:text-white"
+        className="mt-1 min-h-11 text-left text-sm text-white/60 transition-colors hover:text-white sm:mt-3 sm:min-h-0"
       >
         <span aria-hidden="true" className="text-accent">
           ✦
