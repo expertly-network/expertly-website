@@ -241,7 +241,7 @@ export function StellarOrbitHero({
   return (
     <section
       id="hero-stellar"
-      className="relative flex min-h-[100svh] flex-col overflow-hidden bg-ink text-bg-card motion-reduce:[&_*]:!animate-none lg:min-h-dvh"
+      className="relative flex min-h-[calc(100svh-61px)] flex-col overflow-hidden bg-ink text-bg-card motion-reduce:[&_*]:!animate-none lg:min-h-dvh"
     >
       <div
         aria-hidden="true"
