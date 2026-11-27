@@ -10,8 +10,9 @@ import type { SearchScope } from '@shared/search';
 const HIDDEN_PREFIXES = ['/admin', '/apply', '/articles/write', '/login', '/signup', '/onboarding'];
 
 // The floating "Ask GrowXQ" launcher from the design prototype (design/static_html/assets/
-// home.css `.floating-search`): a dark pill at the bottom centre that appears once the visitor has
-// scrolled past the hero, hides near the footer, and opens the AI search modal. ⌘K / Ctrl+K opens
+// home.css `.floating-search`): a dark pill at the bottom centre that appears only while the visitor
+// is scrolling back up past the hero (it tucks away again on scroll down), hides near the footer,
+// and opens the AI search modal. ⌘K / Ctrl+K opens
 // it from anywhere. On Articles, Events and Members it searches just that section.
 export function FloatingSearch() {
   const pathname = usePathname() ?? '/';
@@ -38,11 +39,19 @@ export function FloatingSearch() {
   useEffect(() => {
     if (hidden) return;
     const footer = document.querySelector('footer[aria-label="Site footer"]');
+    // Small dead-band so momentum/trackpad jitter doesn't flicker the pill.
+    const THRESHOLD = 6;
+    let lastY = window.scrollY;
+    let scrollingUp = false;
     const onScroll = () => {
+      const y = window.scrollY;
+      if (y < lastY - THRESHOLD) scrollingUp = true;
+      else if (y > lastY + THRESHOLD) scrollingUp = false;
+      if (Math.abs(y - lastY) > THRESHOLD) lastY = y;
       const nearFooter = !!footer && footer.getBoundingClientRect().top < window.innerHeight - 16;
       const hero = pathname === '/' ? document.getElementById('hero-stellar') : null;
-      const pastHero = hero ? hero.getBoundingClientRect().bottom <= 0 : window.scrollY > 620;
-      setVisible(pastHero && !nearFooter);
+      const pastHero = hero ? hero.getBoundingClientRect().bottom <= 0 : y > 620;
+      setVisible(scrollingUp && pastHero && !nearFooter);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });

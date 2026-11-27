@@ -57,7 +57,7 @@ export function DashboardConsultations({
   return (
     <section aria-label="Consultation requests">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-title text-ink">Consultation requests</h2>
+        <h2 className="text-dash-title text-ink">Consultation requests</h2>
         <div className="flex flex-wrap items-center gap-3">
           <div role="group" aria-label="Consultation view" className="flex rounded-full bg-bg-alt p-1">
             {(['inbox', 'outbox'] as const).map((value) => (

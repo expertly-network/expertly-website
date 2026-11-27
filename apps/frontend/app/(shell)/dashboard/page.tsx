@@ -244,7 +244,7 @@ async function RoiPanel() {
   return (
     <section aria-label="Your ROI on GrowXQ">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-title text-ink">Your ROI on GrowXQ</h2>
+        <h2 className="text-dash-title text-ink">Your ROI on GrowXQ</h2>
         <span className="text-caption text-ink-3">Your activity to date</span>
       </div>
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4 xl:gap-5">
@@ -757,7 +757,7 @@ export default async function DashboardPage() {
   if (user.role === 'client') return <ClientDashboard user={user} />;
 
   return (
-    <div className="bg-bg">
+    <div className="bg-bg-warm">
       <PageHero
         eyebrow="Member Portal"
         title={
@@ -770,11 +770,11 @@ export default async function DashboardPage() {
         decoration={<HeroConstellation />}
       />
       <PageContainer className="py-10 sm:py-14">
-        {/* Desktop: two columns, as dashboard.html. Below xl the columns dissolve (display: contents)
+        {/* Desktop: two columns, as dashboard.html (main | 300px, 56px apart). Below xl the columns dissolve (display: contents)
             into one list, ordered by what a member needs first: who they are, their numbers, what
             to act on, then everything else. */}
-        <div className="grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-12">
-          <div className="contents xl:block xl:min-w-0 xl:space-y-14">
+        <div className="grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_300px] xl:gap-14">
+          <div className="contents xl:block xl:min-w-0 xl:space-y-9">
             <div className="min-w-0 max-xl:order-2">
               <Suspense fallback={<PanelSkeleton className="h-60" />}>
                 <RoiPanel />
@@ -783,14 +783,14 @@ export default async function DashboardPage() {
             <div className="min-w-0 max-xl:order-5">
               <DashboardPeerNetwork />
             </div>
-            <div className="min-w-0 max-xl:order-4">
-              <Suspense fallback={<PanelSkeleton className="h-56" />}>
-                <RequestsPanel />
-              </Suspense>
-            </div>
             <div className="min-w-0 max-xl:order-5">
               <Suspense fallback={<PanelSkeleton />}>
                 <ArticlesSection />
+              </Suspense>
+            </div>
+            <div className="min-w-0 max-xl:order-4">
+              <Suspense fallback={<PanelSkeleton className="h-56" />}>
+                <RequestsPanel />
               </Suspense>
             </div>
             <div className="min-w-0 max-xl:order-8">

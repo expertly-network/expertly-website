@@ -9,8 +9,10 @@ import { listEventsPage } from '@/lib/api/events';
 import { formatDayOfMonth, formatMonth } from '@/lib/dates';
 import { normalizeEventTitle } from '@/lib/events/format';
 import {
+  dashboardEventWindow,
   parseDashboardEventPreferences,
   selectDashboardEvents,
+  withinDashboardWindow,
   type DashboardEventPreferences,
 } from '@/lib/events/dashboard-preferences';
 
@@ -33,6 +35,8 @@ export function DashboardEvents({
   const [open, setOpen] = useState(false);
   const [preferences, setPreferences] = useState(defaults);
   const storageKey = `growxq:dashboard-events:${userId}`;
+  // Only what's coming up soon: the rest of this month, or the next 3 days near a month's end.
+  const [span] = useState(() => dashboardEventWindow());
 
   useEffect(() => {
     try {
@@ -45,15 +49,14 @@ export function DashboardEvents({
 
   useEffect(() => {
     let cancelled = false;
-    // Include every upcoming page before applying city preferences; don't silently filter just
-    // the API's first page. Keep the server-rendered picks while the rest arrive.
+    // Include every page in the window before applying city preferences; don't silently filter
+    // just the API's first page. Keep the server-rendered picks while the rest arrive.
     async function load() {
       try {
-        const from = new Date().toISOString().slice(0, 10);
         let page = 1;
         const all: EventDto[] = [];
         while (!cancelled) {
-          const result = await listEventsPage({ from, page, pageSize: 1000 });
+          const result = await listEventsPage({ from: span.from, to: span.to, page, pageSize: 1000 });
           all.push(...result.items);
           if (!result.items.length || all.length >= result.total) break;
           page += 1;
@@ -72,7 +75,7 @@ export function DashboardEvents({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [span]);
 
   function update(next: DashboardEventPreferences) {
     setPreferences(next);
@@ -88,7 +91,8 @@ export function DashboardEvents({
   const locations = [
     ...new Set([...defaults.location, ...preferences.location, ...events.flatMap((e) => (e.city ? [e.city] : []))]),
   ].sort();
-  const selected = selectDashboardEvents(events, preferences);
+  const selected = selectDashboardEvents(withinDashboardWindow(events, span), preferences);
+  const scopeLabel = span.scope === 'month' ? 'this month' : 'in the next 3 days';
   const summary = [
     ...preferences.country,
     ...preferences.sector.map((id) => categories.find((c) => c.id === id)?.name || id),
@@ -153,8 +157,8 @@ export function DashboardEvents({
           : loading
             ? 'Updating your event picks…'
             : selected.related
-              ? 'No exact matches. Showing events matching some of your preferences.'
-              : `${selected.events.length} upcoming ${selected.events.length === 1 ? 'event' : 'events'}`}
+              ? `No exact matches ${scopeLabel}. Showing events matching some of your preferences.`
+              : `${selected.events.length} ${selected.events.length === 1 ? 'event' : 'events'} ${scopeLabel}`}
       </div>
       {selected.events.length ? (
         <ul className="mt-2 max-h-96 divide-y divide-line overflow-y-auto">
@@ -181,7 +185,7 @@ export function DashboardEvents({
       ) : (
         !loading && (
           <p className="py-5 text-sm text-ink-3">
-            No events match your preferences yet. Add more countries or sectors, or browse all events.
+            No events {scopeLabel} match your preferences. Add more countries or sectors, or browse all events.
           </p>
         )
       )}

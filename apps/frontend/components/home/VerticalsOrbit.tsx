@@ -3,8 +3,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { AreaIcon } from '@/components/home/verticals-icons';
 
-// The orbit: a hub, six icon nodes on a dashed ring joined to it by hairline spokes, and an accent arc
-// that closes the circle at the last area. It is the quiet partner of the layer
+// The orbit: a hub and six icon nodes on a ring, joined to it by hairline spokes. It is the quiet partner of the layer
 // cards beside it, so it only moves when you scroll: no idle animation competes with the text.
 // Every area starts grey. As you reach an area its node lights green and stays green, and the
 // active one is filled. Scroll sets a target position (0 to 5) and how far in the section is
@@ -34,12 +33,10 @@ const RADIUS = 32; // ring the node+label units are centred on, percent of the b
 // while still clearing the arc — within these bounds.
 const PHONE_RADIUS_MIN = 24;
 const PHONE_RADIUS_MAX = 30;
-const OUTER = 45.5; // progress arc
-const PHONE_OUTER = 48; // phones: arc pushed out to the box edge (the svg overflows visibly) for label room
+const PHONE_OUTER = 48; // phones: outer bound the measured icon ring keeps its labels inside
 const HUB = 8; // hub radius (the hub div is 16% wide)
 const STIFFNESS = 280; // spring constants: critically damped and quick, so the dial never trails the cards
 const DAMPING = 33;
-const ARC = 2 * Math.PI * OUTER;
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
@@ -50,8 +47,6 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
   const fills = useRef<(HTMLSpanElement | null)[]>([]);
   const halos = useRef<(HTMLSpanElement | null)[]>([]);
   const links = useRef<(SVGLineElement | null)[]>([]);
-  const progress = useRef<SVGCircleElement>(null);
-  const head = useRef<SVGGElement>(null);
   const glow = useRef<HTMLDivElement>(null);
   const core = useRef<HTMLSpanElement>(null);
   const motion = useRef({ pos: posRef.current, vel: 0 });
@@ -80,7 +75,7 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
         nodeR: (circle.offsetWidth / 2 / size) * 100,
         phone: window.innerWidth < 640,
         // How far a node reaches outward from its circle's centre (enlarged active node, label on the
-        // outside), so the ring can grow until that just clears the arc and its head.
+        // outside), so the ring can grow until that just reaches PHONE_OUTER.
         phoneR: Math.min(
           PHONE_RADIUS_MAX,
           Math.max(
@@ -89,12 +84,6 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
           )
         ),
       };
-      // The arc's radius follows the layout; its dash length must match its circumference.
-      const outer = geo.current.phone ? PHONE_OUTER : OUTER;
-      if (progress.current) {
-        progress.current.setAttribute('r', String(outer));
-        progress.current.style.strokeDasharray = String(2 * Math.PI * outer);
-      }
     };
     measure();
     window.addEventListener('resize', measure);
@@ -143,15 +132,6 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
         }
       }
 
-      // The arc fills clockwise and closes the full circle at the last area; a bright head leads it.
-      const share = count > 1 ? pos / (count - 1) : 1;
-      const outer = geo.current.phone ? PHONE_OUTER : OUTER;
-      if (progress.current) progress.current.style.strokeDashoffset = String(2 * Math.PI * outer * (1 - share));
-      const ha = rad(SPOTLIGHT + share * 360);
-      if (head.current) {
-        head.current.setAttribute('transform', `translate(${50 + outer * Math.cos(ha)} ${50 + outer * Math.sin(ha)})`);
-        head.current.style.opacity = String(lit);
-      }
       // The hub's light comes up as the section is reached.
       if (glow.current) glow.current.style.opacity = String(0.25 + lit * 0.75);
       if (core.current) core.current.style.opacity = String(0.3 + lit * 0.7);
@@ -194,23 +174,6 @@ export function VerticalsOrbit({ labels, posRef, litRef, active, visible, onSele
         className="absolute inset-[6%] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--accent)_20%,transparent),color-mix(in_oklab,var(--accent)_5%,transparent)_45%,transparent_70%)] opacity-25"
       />
       <svg aria-hidden="true" viewBox="0 0 100 100" className="absolute inset-0 size-full overflow-visible">
-        <circle
-          ref={progress}
-          cx="50"
-          cy="50"
-          r={OUTER}
-          fill="none"
-          className="stroke-accent"
-          strokeWidth={0.5}
-          strokeLinecap="round"
-          strokeDasharray={ARC}
-          strokeDashoffset={ARC}
-          transform="rotate(-90 50 50)"
-        />
-        <g ref={head} opacity={0}>
-          <circle r={2.6} className="fill-accent" opacity={0.15} />
-          <circle r={0.9} className="fill-white" />
-        </g>
         {/* Spokes from the hub to each area; the active one turns green. */}
         {labels.map((label, i) => (
           <line

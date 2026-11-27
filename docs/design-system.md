@@ -80,6 +80,7 @@ card titles, author names and article content remain Geist. The logo image outli
 | `bg` | `#FFFFFF` | Page background |
 | `bg-alt` | `#F2FBF7` | Subtle tinted section/hover background (pale mint) |
 | `bg-card` | `#FFFFFF` | Card/surface background — same as `bg` today but semantically distinct; keep using it on cards even though the value matches, in case it diverges later |
+| `bg-warm` | `#F9F8F5` | Warm off-white page background of the member dashboard only (`dashboard.html`'s body). Every other page stays on `bg` |
 | `ink` | `#0B0B0C` | Primary text; **primary button background** (not `accent`) |
 | `ink-2` | `#1E1E20` | Secondary-emphasis text, hover states on dark buttons |
 | `ink-3` | `#5C5C61` | Muted text — subtitles, captions, labels, placeholders |
@@ -145,6 +146,7 @@ letter-spacing + weight together.
 | `text-heading` | 32px | 1.1 | -0.02em | 500 | Page/card heading (e.g. `/login`'s "Get started with GrowXQ.") | This app — consolidated from `auth-title` and similar 28–32px headings |
 | `text-article-title` | 22–32px (clamp) | 1.12 | -0.025em | 500 | Article detail page `<h1>` only — tops out at the same 32px as `text-heading` (reduced from the prototype's 24–38px on 2026-11-08: long titles were overpowering the page) | theme.css `.art-detail-title` (sizes diverge on purpose) |
 | `text-title` | 18px | 1.25 | -0.012em | 500 | Card/item title | This app — consolidated from 17–19px card-title variants across the prototype |
+| `text-dash-title` | 19.5px | 1.4 | -0.012em | 500 | Member dashboard section headings (ROI, Articles, Consultation requests, Your resources, New members) | `dashboard.html`'s `.db-section-head h2`. The prototype uses 600; the app's global h1/h2 rule keeps it at 500 |
 | `text-stat` | 28px | normal | -0.02em | 500 | Stat numbers (e.g. "20+ Verified experts") | This app — from `auth-stats b` |
 | `text-label` | 12px | normal | normal | 500 | Form field labels | This app — from `auth-field label` |
 | `text-caption` | 13px | 1.4 | normal | 400 | Secondary/meta text (pair with `text-ink-3`) | This app — from `auth-foot`, card meta text |

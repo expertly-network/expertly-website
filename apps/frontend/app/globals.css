@@ -8,6 +8,8 @@
   --bg: #ffffff;
   --bg-alt: #efeee7;
   --bg-card: #ffffff;
+  /* Warm off-white page behind the member dashboard (dashboard.html 's body, #F9F8F5). */
+  --bg-warm: #f9f8f5;
 
   --ink: #0b0b0c;
   --ink-2: #2e3033;

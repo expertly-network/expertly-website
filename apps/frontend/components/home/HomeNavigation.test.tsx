@@ -25,7 +25,7 @@ afterEach(async () => {
 });
 
 describe('home page navigation', () => {
-  it('waits until the entire hero is past before showing search, and hides it at the footer', async () => {
+  it('shows search only while scrolling up past the hero, and hides it at the footer', async () => {
     const hero = document.createElement('section');
     hero.id = 'hero-stellar';
     const footer = document.createElement('footer');
@@ -40,17 +40,30 @@ describe('home page navigation', () => {
     const launcher = host.querySelector('button')!;
     expect(launcher.getAttribute('aria-hidden')).toBe('true');
     heroBottom = -1;
-    await act(async () => window.dispatchEvent(new Event('scroll')));
+    const scrollTo = async (y: number) => {
+      vi.stubGlobal('scrollY', y);
+      await act(async () => window.dispatchEvent(new Event('scroll')));
+    };
+    await scrollTo(1200); // scrolling down past the hero: stays hidden
+    expect(launcher.getAttribute('aria-hidden')).toBe('true');
+    await scrollTo(1100); // scrolling up: appears
+    expect(launcher.getAttribute('aria-hidden')).toBe('false');
+    await scrollTo(1300); // down again: tucks away
+    expect(launcher.getAttribute('aria-hidden')).toBe('true');
+    await scrollTo(1200);
     expect(launcher.getAttribute('aria-hidden')).toBe('false');
     footerTop = 100;
     await act(async () => window.dispatchEvent(new Event('scroll')));
     expect(launcher.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('preserves the existing search threshold on other pages', async () => {
+  it('keeps the 620px threshold on other pages, shown on scroll up', async () => {
     route.pathname = '/members';
-    vi.stubGlobal('scrollY', 621);
+    vi.stubGlobal('scrollY', 900);
     await act(async () => root.render(<FloatingSearch />));
+    expect(host.querySelector('button')?.getAttribute('aria-hidden')).toBe('true');
+    vi.stubGlobal('scrollY', 621);
+    await act(async () => window.dispatchEvent(new Event('scroll')));
     expect(host.querySelector('button')?.getAttribute('aria-hidden')).toBe('false');
     expect(host.textContent).not.toContain('Ask GrowXQ');
   });

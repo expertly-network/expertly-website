@@ -132,12 +132,24 @@ export function WorkCompaniesEditor({
   }
   function addCompany() {
     const id = newGroupId();
-    setRows((prev) => [...prev, blankWorkRow(id)]);
+    setRows((prev) => [blankWorkRow(id), ...prev]);
     setOpen(id);
   }
 
   return (
     <>
+      {/* Add sits above the existing companies, and a new one goes to the top. */}
+      {!atCap ? (
+        <button
+          type="button"
+          onClick={addCompany}
+          className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
+        >
+          + Add {groupIds.length === 0 ? 'a' : 'another'} company
+        </button>
+      ) : (
+        <p className="text-xs text-ink-3">That is the maximum of {maxItems} roles.</p>
+      )}
       <ul className="flex flex-col gap-3">
         {groupIds.map((group) => {
           const entries = rows.map((row, index) => ({ row, index })).filter((e) => e.row[GROUP_KEY] === group);
@@ -307,17 +319,6 @@ export function WorkCompaniesEditor({
           );
         })}
       </ul>
-      {!atCap ? (
-        <button
-          type="button"
-          onClick={addCompany}
-          className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
-        >
-          + Add {groupIds.length === 0 ? 'a' : 'another'} company
-        </button>
-      ) : (
-        <p className="text-xs text-ink-3">That is the maximum of {maxItems} roles.</p>
-      )}
     </>
   );
 }

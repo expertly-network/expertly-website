@@ -10,6 +10,10 @@ export type Vertical = {
   /** One-line headline. The user benefits show it; the member dial deliberately doesn't. */
   promise?: string;
   outcomes: readonly string[];
+  /** A short paragraph the member dial shows in place of the outcomes checklist. */
+  description?: string;
+  /** Phones: a two-line version of `description`, written short rather than clamped. */
+  summary?: string;
 };
 
 export const VERTICALS: readonly Vertical[] = [
@@ -17,6 +21,9 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Technology',
     label: 'Technology',
     status: 'Starting first',
+    summary: 'The right tools, each with a security note and member discounts.',
+    description:
+      'Find the right tool for the job in front of you, from tax research to reporting. Every tool comes with a plain-language note on security and data handling, so you know exactly what you are signing up for before you try it. And as a member, you get discounted deals on tools that make your practice more efficient and your workflows simpler.',
     outcomes: [
       'Find a tool for the job in front of you, from tax research to reporting',
       'Read a security and data-handling note before you try one',
@@ -27,6 +34,9 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Reach and visibility',
     label: 'Reach',
     status: 'Coming soon',
+    summary: 'Publish under your name and appear in searches for your field.',
+    description:
+      'Publish articles under your own name and build a body of work that clients can read. Your verified profile is deepened by a short AI interview about your work, so it reflects what you actually do, not just a job title. Whenever a user searches for your specialisation, you show up as a relevant match.',
     outcomes: [
       'Publish articles under your own name',
       'A verified profile, enhanced by robust profiling via an AI interview about your work',
@@ -37,6 +47,9 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Networking',
     label: 'Networking',
     status: 'Coming soon',
+    summary: 'Cross-border referrals and peers in your focus area.',
+    description:
+      'Get your work referred across borders, by peers who know what you do. Grow your network beyond the four walls of your own firm, with professionals who share your standards. And when you want a sounding board, ideate with people in your focus area who understand the problems you are solving.',
     outcomes: [
       'Get your work referred across borders',
       'Expand your network beyond your four walls',
@@ -47,6 +60,9 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Training',
     label: 'Training',
     status: 'Coming soon',
+    summary: 'Short AI videos with ready-to-use prompts and plugins.',
+    description:
+      'Build your AI skills with short, digestible videos you can watch between client work. Each one comes with ready-to-use prompts and plugins, so what you learn goes straight into your practice. Beyond AI, you can sharpen your skills in other focus areas too, with videos made for practitioners rather than beginners.',
     outcomes: [
       'Develop AI skills with short, digestible videos',
       'Get ready-to-use prompts and plugins',
@@ -57,6 +73,9 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Perks and products',
     label: 'Perks',
     status: 'Coming soon',
+    summary: 'Member-only products, better pricing, every vendor disclosed.',
+    description:
+      'Get access to products that only members can use, and better pricing on selected tools and services. Every vendor relationship is disclosed, so you always know who we work with and why an offer is in front of you. That way you can judge every perk on its merits, not on who is behind it.',
     outcomes: [
       'Products only members can access',
       'Better pricing on some tools and services',
@@ -67,6 +86,9 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Recruiting',
     label: 'Recruiting',
     status: 'Coming soon',
+    summary: 'Match with available talent and add capacity for peak periods.',
+    description:
+      'Match with available talent when your practice needs more hands. Add capacity for peak periods, from filing season to a large transaction, without committing to a permanent hire. Find people who already understand the work, so the extra capacity is useful from the first day rather than after weeks of onboarding.',
     outcomes: ['Match with available talent', 'Add capacity for peak periods'],
   },
 ];

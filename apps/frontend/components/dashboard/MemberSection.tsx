@@ -17,7 +17,7 @@ export function MemberSection({
   return (
     <section className="rounded-card border border-line bg-bg-card p-5 sm:p-6" aria-label={title}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-title text-ink">{title}</h2>
+        <h2 className="text-dash-title text-ink">{title}</h2>
         <Link href="/members" className="text-sm font-medium text-accent hover:underline">
           Browse all <span aria-hidden="true">→</span>
         </Link>

@@ -21,7 +21,8 @@ export function MobileDrawer({ user }: { user: Profile | null }) {
         {/* Tap areas grow to 44px through padding cancelled by negative margin, so the bar keeps
             its 62px height (STICKY_UNDER_MOBILE_BAR depends on it). The logo's wrapper becomes a flex
             box so its image is vertically centred instead of riding above a text-line descender gap. */}
-        <Logo variant="nav" className="-my-1 h-[45px] py-1 [&>span]:flex" />
+        {/* Home page: just the symbol at load, the full lockup once scrolled. */}
+        <Logo variant="nav" collapseAtTop={pathname === '/'} className="-my-1 h-[45px] py-1 [&>span]:flex" />
         <button
           type="button"
           onClick={() => setOpen(true)}

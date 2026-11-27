@@ -69,7 +69,7 @@ export function DashboardResources({
   return (
     <section aria-labelledby="dashboard-resources-title">
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 id="dashboard-resources-title" className="text-title text-ink">
+        <h2 id="dashboard-resources-title" className="text-dash-title text-ink">
           Your resources
         </h2>
         <p className="text-caption text-ink-3">Make the most of your membership</p>

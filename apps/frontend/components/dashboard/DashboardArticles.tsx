@@ -34,7 +34,7 @@ export function DashboardArticles({
   return (
     <section aria-label="Articles">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-title text-ink">Articles</h2>
+        <h2 className="text-dash-title text-ink">Articles</h2>
         <div className="flex flex-wrap items-center gap-2">
           <div role="tablist" aria-label="Articles" className="flex items-center gap-1">
             {(

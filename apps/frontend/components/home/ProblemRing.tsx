@@ -12,7 +12,7 @@ import { FAVICON_SRC } from '@/lib/brand';
 // screen at once. It opens with two already out, and ends by clearing the stage before the section
 // moves on. Styles are written straight to the cards in a frame loop (no React render per scroll).
 // Reduced motion: no pinning, the ring with the questions as two static lists. Screen readers get the
-// plain lists. Not shown on phones at all (hidden below sm).
+// plain lists. Phones scatter all ten around a smaller ring.
 
 const GAP = 0.6; // the white cut between slices, in % of the turn
 // Each half is cut into three slices of varying size and shade, like a week split between kinds of work.
@@ -134,13 +134,19 @@ const SLOTS_WIDE: [number, number][] = [
 ];
 const SPAN_WIDE = 0.34;
 // Tablets: no room beside the ring, so users' questions come out above it (leaning left) and
-// members' below (leaning right). Phones don't show this section.
+// members' below (leaning right).
 const SLOTS_NARROW: [number, number][] = [
   [-0.3, -0.85],
   [0.3, 0.55],
 ];
 // Share of the scroll each question is on screen. Narrow layouts have one slot each, so a slot comes
 // round every second question: SPAN must stay under two steps.
+// Phones: no room beside the ring, so four fixed slots in a zig-zag, two above it and two below,
+// users on the left and members on the right, reading down: user (top), member (just above the ring),
+// user (just below it), member (bottom). Placed in pixels from the stage and ring, so they never overlap.
+const PHONE_SLOTS = 4;
+// Every slot stays filled: just under four steps, so a slot is free again before its next question.
+const SPAN_PHONE = 0.38;
 const SPAN_TABLET = 0.19; // all 10 questions
 // Questions stop arriving here; whatever is left on screen then fades out together before the
 // section scrolls away.
@@ -185,19 +191,19 @@ export function ProblemRing() {
       raf = 0;
       const section = sectionRef.current;
       const stage = stageRef.current;
-      // Hidden on phones: nothing to place.
-      if (!section || !stage || !stage.offsetParent) return;
+      if (!section || !stage) return;
       const rect = section.getBoundingClientRect();
       const travel = Math.max(1, rect.height - window.innerHeight);
       const progress = clamp(-rect.top / travel);
       const w = stage.clientWidth;
       const h = stage.clientHeight;
       const narrow = w < 1024;
+      const phone = w < 640;
       const slots = narrow ? SLOTS_NARROW : SLOTS_WIDE;
       const clear = (ringRef.current?.offsetWidth ?? 0) / 2 + 14;
       const shown = QUESTIONS.map((q, i) => ({ q, el: cards.current[i] })).filter(({ el }) => el);
       const n = shown.length;
-      const span = narrow ? SPAN_TABLET : SPAN_WIDE;
+      const span = phone ? SPAN_PHONE : narrow ? SPAN_TABLET : SPAN_WIDE;
       // A head start so the section never opens empty: at the top, the first question is already out
       // and the second is part way out (t = 0.15). The last one has settled by END.
       const step = (END - 0.3 * span) / (n - 2);
@@ -210,17 +216,28 @@ export function ProblemRing() {
         const [fx, fy] = slots[k % slots.length];
         const cw = el.offsetWidth;
         const ch = el.offsetHeight;
-        const maxX = Math.max(0, w / 2 - cw / 2 - 20); // keep the page gutter
+        const maxX = Math.max(0, w / 2 - cw / 2 - (phone ? 14 : 20)); // keep the page gutter
         const maxY = Math.max(0, h / 2 - ch / 2 - 4);
         // Emerging from the ring: out quickly while still faint, then it brightens in place (so the
         // half-lit second question at the top of the section is already clear of the ring).
         const out = easeOut(clamp(t / 0.2));
         const drift = clamp((t - 0.4) / 0.6); // settled, floating up
-        const [sx, sy] = settle(fx, fy, cw, ch, maxX, maxY, clear);
+        let sx: number;
+        let sy: number;
+        if (phone) {
+          const slot = k % PHONE_SLOTS;
+          const ringR = (ringRef.current?.offsetHeight ?? 0) / 2;
+          const nearRing = ringR + 10 + ch / 2;
+          sx = slot % 2 === 0 ? -maxX : maxX;
+          sy = [-maxY, -nearRing, nearRing, maxY][slot];
+        } else {
+          [sx, sy] = settle(fx, fy, cw, ch, maxX, maxY, clear);
+        }
         // Once settled it keeps drifting gently away from the ring, never back into it.
         const len = Math.hypot(sx, sy) || 1;
-        const x = clamp(sx * out + (sx / len) * drift * 28, -maxX, maxX);
-        const y = clamp(sy * out + (sy / len) * drift * 28, -maxY, maxY);
+        const d = phone ? 0 : drift * 28; // phones: slots are packed, so no outward drift
+        const x = clamp(sx * out + (sx / len) * d, -maxX, maxX);
+        const y = clamp(sy * out + (sy / len) * d, -maxY, maxY);
         const opacity = t <= 0 || t >= 1 ? 0 : Math.min(clamp(t / 0.34), clamp((1 - t) / 0.25)) * exit;
         el.style.opacity = String(opacity);
         el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${(0.6 + 0.4 * out).toFixed(3)})`;
@@ -245,22 +262,22 @@ export function ProblemRing() {
     <section
       ref={sectionRef}
       aria-labelledby="verticals-title"
-      className="relative hidden sm:block sm:h-[230vh] sm:motion-reduce:h-auto sm:motion-reduce:py-24"
+      className="relative h-[260vh] motion-reduce:h-auto motion-reduce:py-12 sm:h-[230vh] sm:motion-reduce:py-24"
     >
       <div
-        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col overflow-hidden pt-14 motion-reduce:static motion-reduce:h-auto motion-reduce:overflow-visible motion-reduce:pt-0 lg:top-0 lg:h-dvh lg:pt-16`}
+        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col overflow-hidden pt-8 sm:pt-14 motion-reduce:static motion-reduce:h-auto motion-reduce:overflow-visible motion-reduce:pt-0 lg:top-0 lg:h-dvh lg:pt-16`}
       >
         {/* Container (`cqi`) so the heading can size itself to this box's width. */}
         <div className="mx-auto w-full max-w-4xl px-5 text-center [container-type:inline-size]">
           <Eyebrow>The problem</Eyebrow>
           {/* Always exactly two lines at every width: each line is unbreakable, and the font shrinks with
-              the box (the longer line is ~18em wide, so 5.2cqi always fits) up to the token's 44px cap. */}
+              the box (the longer line is ~18em wide, so 5.2cqi always fits) up to the token's 44px cap. Phones: a normal heading size, wrapping freely. */}
           <h2
             id="verticals-title"
-            className="font-brand mx-auto mt-4 scroll-mt-24 text-section-title !text-[length:min(2.75rem,5.2cqi)] text-ink"
+            className="font-brand mx-auto mt-4 scroll-mt-24 text-heading text-ink [text-wrap:balance] sm:text-section-title sm:!text-[length:min(2.75rem,5.2cqi)] sm:[text-wrap:wrap]"
           >
-            <span className="block whitespace-nowrap">Two sides of the same coin, one shared question:</span>
-            <span className="block whitespace-nowrap text-accent">How do we find the right resource?</span>
+            <span className="block sm:whitespace-nowrap">Two sides of the same coin, one shared question:</span>
+            <span className="block text-accent sm:whitespace-nowrap">How do we find the right resource?</span>
           </h2>
           <p className="mx-auto mt-4 hidden max-w-xl text-base leading-relaxed text-ink-3 sm:block sm:text-lg">
             Clients can&apos;t tell who&apos;s qualified. Professionals can&apos;t reach the people looking for them.
@@ -271,7 +288,7 @@ export function ProblemRing() {
         {/* The stage: the split ring in the middle, each side's questions coming out of its half. */}
         <div
           ref={stageRef}
-          className="relative mx-auto my-4 w-full max-w-7xl flex-1 px-5 motion-reduce:my-10 motion-reduce:flex-none"
+          className="relative mx-auto my-4 mb-16 w-full max-w-7xl flex-1 px-5 sm:mb-4 motion-reduce:my-10 motion-reduce:flex-none"
         >
           <ul aria-hidden="true" className="motion-reduce:hidden">
             {QUESTIONS.map((q, i) => (
@@ -281,7 +298,7 @@ export function ProblemRing() {
                   cards.current[i] = el;
                 }}
                 style={{ opacity: 0, visibility: 'hidden' }}
-                className={`absolute left-1/2 top-1/2 z-0 w-max max-w-[230px] rounded-2xl px-4 py-3 text-sm leading-snug shadow-panel will-change-transform sm:max-w-[280px] sm:text-base ${CARD_CLASS[q.side]}`}
+                className={`absolute left-1/2 top-1/2 z-0 w-max max-w-[calc(50%-20px)] rounded-xl px-3 py-2.5 text-xs leading-snug shadow-panel will-change-transform sm:w-max sm:max-w-[280px] sm:rounded-2xl sm:px-4 sm:py-3 sm:text-base ${CARD_CLASS[q.side]}`}
               >
                 <CardBody q={q} />
               </li>
@@ -292,7 +309,7 @@ export function ProblemRing() {
             <div
               ref={ringRef}
               aria-hidden="true"
-              className="relative size-48 rounded-full sm:size-64 lg:size-80"
+              className="relative size-[104px] rounded-full sm:size-64 lg:size-80"
               style={{ background: RING }}
             >
               <div className="absolute inset-[16%] flex items-center justify-center rounded-full bg-bg-card shadow-panel">

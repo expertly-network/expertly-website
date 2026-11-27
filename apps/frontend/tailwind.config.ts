@@ -20,6 +20,7 @@ const config: Config = {
           DEFAULT: token('--bg'),
           alt: token('--bg-alt'),
           card: token('--bg-card'),
+          warm: token('--bg-warm'),
         },
         ink: {
           DEFAULT: token('--ink'),
@@ -104,6 +105,9 @@ const config: Config = {
           { lineHeight: '1.25', letterSpacing: '-0.02em', fontWeight: '500' },
         ],
         title: ['18px', { lineHeight: '1.25', letterSpacing: '-0.012em', fontWeight: '500' }],
+        // Member dashboard section headings: dashboard.html's .db-section-head h2 size (19.5px). Weight
+        // stays 500: globals.css forces every h1/h2 to the editorial 500 (the prototype uses 600).
+        'dash-title': ['19.5px', { lineHeight: '1.4', letterSpacing: '-0.012em', fontWeight: '500' }],
         stat: ['28px', { lineHeight: 'normal', letterSpacing: '-0.02em', fontWeight: '500' }],
         label: ['12px', { lineHeight: 'normal', letterSpacing: 'normal', fontWeight: '500' }],
         caption: ['13px', { lineHeight: '1.4', letterSpacing: 'normal', fontWeight: '400' }],

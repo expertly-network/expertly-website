@@ -360,19 +360,19 @@ export function SectionEditModal({
   const liveList = isFieldsMode || isClients || isList ? [] : liveRows(member, section);
   const atCap = !isFieldsMode && !isClients && isNew && liveList.length >= (config.maxItems ?? Infinity);
 
-  // The full list a save sends: the live entries with this editor's entries replaced / appended
+  // The full list a save sends: the live entries with this editor's entries replaced / added
   // (item mode), or every row (key clients). The editor can hold several new entries at once
   // ("Add one more"); when editing an existing entry, row 0 is that entry and the rest are new.
+  // New entries go to the top of the list by default; the member can reorder them afterwards.
   function composed(): Row[] {
     if (isClients || isList) return rows;
-    if (isNew) return [...liveList, ...rows];
-    return [...liveList.map((r) => (r.id === itemId ? (rows[0] ?? r) : r)), ...rows.slice(1)];
+    if (isNew) return [...rows, ...liveList];
+    return [...rows.slice(1), ...liveList.map((r) => (r.id === itemId ? (rows[0] ?? r) : r))];
   }
   // Where editor row `i` ends up in the composed list (for per-entry date checks).
   function composedIndex(i: number): number {
-    if (isList) return i;
-    if (isNew) return liveList.length + i;
-    return i === 0 ? liveList.findIndex((r) => r.id === itemId) : liveList.length + i - 1;
+    if (isList || isNew) return i;
+    return i === 0 ? rows.length - 1 + liveList.findIndex((r) => r.id === itemId) : i - 1;
   }
   const totalAfterSave = isList
     ? rows.length
@@ -488,6 +488,35 @@ export function SectionEditModal({
     </div>
   );
 
+  const addControl = (
+    <>
+      {canAddMore ? (
+        <button
+          type="button"
+          onClick={() => {
+            // Whole-list editor: the new entry goes to the top and opens there. Single-entry
+            // editor: it follows the form being filled in (and still saves above the rest).
+            if (isList) {
+              setRows([{ ...EMPTY_ROW[section] }, ...rows]);
+              setConfirmRemove(null);
+              setOpenIndex(0);
+            } else {
+              setRows([...rows, { ...EMPTY_ROW[section] }]);
+              setOpenIndex(rows.length);
+            }
+          }}
+          className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
+        >
+          {isList ? `+ Add ${rows.length === 0 ? 'a' : 'another'} ${noun}` : `+ Add one more ${noun}`}
+        </button>
+      ) : (
+        <p className="text-xs text-ink-3">
+          That is the maximum of {config.maxItems} {noun}s.
+        </p>
+      )}
+    </>
+  );
+
   return (
     <Modal open onClose={onClose} title={title} size="lg">
       <div className="flex flex-col gap-5">
@@ -502,6 +531,19 @@ export function SectionEditModal({
         {/* Key clients: one compact card per client — logo on the left, name on the right. */}
         {isClients && !atCap && (
           <>
+            {/* Add sits above the existing clients, and a new client goes to the top. */}
+            {rows.length < KEY_CLIENTS_MAX && (
+              <button
+                type="button"
+                onClick={() => setRows([{ ...EMPTY_ROW.key_clients }, ...rows])}
+                className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
+              >
+                + Add another client{' '}
+                <span className="font-normal text-ink-3">
+                  ({rows.length} of {KEY_CLIENTS_MAX})
+                </span>
+              </button>
+            )}
             <ul className="flex flex-col gap-3">
               {rows.map((row, i) => (
                 <li key={i} className="rounded-2xl border border-line bg-bg-card p-4">
@@ -585,18 +627,6 @@ export function SectionEditModal({
                 </li>
               ))}
             </ul>
-            {rows.length < KEY_CLIENTS_MAX && (
-              <button
-                type="button"
-                onClick={() => setRows([...rows, { ...EMPTY_ROW.key_clients }])}
-                className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
-              >
-                + Add another client{' '}
-                <span className="font-normal text-ink-3">
-                  ({rows.length} of {KEY_CLIENTS_MAX})
-                </span>
-              </button>
-            )}
             <p className="text-xs text-ink-3">
               We may call or email a client to confirm the relationship, so list only clients you worked with directly.
             </p>
@@ -624,6 +654,7 @@ export function SectionEditModal({
           !(isList && section === 'work_experiences') &&
           (rows.length > 0 || isList) && (
             <>
+              {isList && addControl}
               {rows.map((row, i) => {
                 const expanded = (!isList && rows.length === 1) || i === openIndex;
                 const at = composedIndex(i);
@@ -775,23 +806,7 @@ export function SectionEditModal({
                   </div>
                 );
               })}
-              {canAddMore ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRows([...rows, { ...EMPTY_ROW[section] }]);
-                    // The new entry opens; the one before it collapses to its summary.
-                    setOpenIndex(rows.length);
-                  }}
-                  className="rounded-2xl border-[1.5px] border-dashed border-line-2 px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent"
-                >
-                  {isList ? `+ Add ${rows.length === 0 ? 'a' : 'another'} ${noun}` : `+ Add one more ${noun}`}
-                </button>
-              ) : (
-                <p className="text-xs text-ink-3">
-                  That is the maximum of {config.maxItems} {noun}s.
-                </p>
-              )}
+              {!isList && addControl}
             </>
           )}
 

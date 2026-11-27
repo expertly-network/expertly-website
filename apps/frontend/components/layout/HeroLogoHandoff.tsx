@@ -5,12 +5,15 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { LogoImage } from '@/components/Logo';
 
-// Desktop only: the mobile header reserves its own logo space.
+// Desktop: the hero carries the logo until the visitor scrolls. Every width: toggles
+// `page-scrolled` on <html>, which the mobile top bar's home-page logo uses to grow from the mark
+// alone into the full lockup (see Logo's `collapseAtTop`).
 export function HeroLogoHandoff() {
   const pathname = usePathname();
 
   useEffect(() => {
     const update = () => {
+      document.documentElement.classList.toggle('page-scrolled', window.scrollY >= 24);
       document.documentElement.classList.toggle(
         'in-hero',
         !!document.getElementById('hero-stellar') && window.scrollY < 24
@@ -26,7 +29,7 @@ export function HeroLogoHandoff() {
     return () => {
       observer.disconnect();
       window.removeEventListener('scroll', update);
-      document.documentElement.classList.remove('in-hero');
+      document.documentElement.classList.remove('in-hero', 'page-scrolled');
     };
   }, [pathname]);
 
