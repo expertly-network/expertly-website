@@ -13,6 +13,10 @@ import type { Vertical } from '@/components/home/verticals-data';
 // phone held sideways) get the side-by-side layout too: stacked, the dial would shrink to nothing.
 // Clicking or tapping a benefit scrolls to it.
 // Phones keep the bottom clear (pb-20) for the floating search button.
+// The pinned screen is sized in svh, not dvh: on phones dvh changes as the browser's address bar
+// hides and returns while scrolling, which resized the dial on every scroll direction change.
+// Phones: the dial gets most of the screen (edge to edge, every pixel the title and panel leave) and
+// the panel at the bottom is just the benefit's title and promise.
 
 const HOLD = 0.04; // share of the scroll held on the first and last benefit
 
@@ -84,7 +88,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
     <section ref={sectionRef} aria-labelledby="layers-title" className="relative h-[320vh] bg-ink lg:h-[300vh]">
       <div
         ref={pinRef}
-        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:py-12`}
+        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100svh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:py-12`}
       >
         <PageContainer className="grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto] lg:gap-x-14 lg:gap-y-10 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
           <div className="text-center lg:col-start-1 lg:row-start-1 lg:self-end lg:text-left sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
@@ -101,8 +105,8 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
           </div>
 
           {/* The dial. Phones: this row takes all the height the title and the panel leave, and the
-              dial fills it (as wide as the content, as tall as the row allows) via container units. */}
-          <div className="flex items-center justify-center max-sm:min-h-0 max-sm:flex-1 max-sm:[container-type:size] lg:col-start-2 lg:row-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-2 sm:max-lg:landscape:row-span-2 sm:max-lg:landscape:row-start-1">
+              dial fills it (edge to edge across the screen, as tall as the row allows) via container units. */}
+          <div className="flex items-center justify-center max-sm:-mx-5 max-sm:min-h-0 max-sm:flex-1 max-sm:[container-type:size] lg:col-start-2 lg:row-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-2 sm:max-lg:landscape:row-span-2 sm:max-lg:landscape:row-start-1">
             <div
               role="group"
               aria-label={`The six member benefits. Showing ${benefits[shown].title}.`}
@@ -145,9 +149,9 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                   </span>
                 </div>
                 <p className="mt-1.5 text-base text-white/75 sm:mt-2 sm:text-lg">{b.promise}</p>
-                {/* Very short screens (a phone held sideways, a laptop at 200% zoom): the checklist goes, so
-                    the title and promise are never cut off. */}
-                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base [@media(max-height:480px)]:hidden [@media(max-height:720px)]:max-sm:hidden">
+                {/* Phones and very short screens (a phone held sideways, a laptop at 200% zoom): the checklist
+                    goes, so the dial keeps its room and the title and promise are never cut off. */}
+                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base max-sm:hidden [@media(max-height:480px)]:hidden">
                   {b.outcomes.map((o) => (
                     <li key={o} className="flex items-start gap-2.5">
                       <svg

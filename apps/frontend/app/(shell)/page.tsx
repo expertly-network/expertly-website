@@ -168,6 +168,8 @@ async function EventsSection() {
 
 export default async function HomePage() {
   const [members, user] = await Promise.all([loadFeaturedMembers(), getSessionUser()]);
+  // The user card's button: logged-out visitors are asked to sign in; anyone signed in goes to the directory.
+  const userCta = user ? { href: '/members', label: 'Find an expert' } : { href: '/login', label: 'Sign in as a user' };
   // Second action for the hero and the member card, by who is looking.
   const growthCta =
     user?.role === 'member'
@@ -186,7 +188,7 @@ export default async function HomePage() {
       <SiteJsonLd />
       <StellarOrbitHero avatarUrls={heroAvatarUrls} secondaryCta={growthCta} />
       {/* The two ways in (user or member), on the hero's lower edge — shown to everyone. */}
-      <DualCta growthCta={growthCta} />
+      <DualCta userCta={userCta} growthCta={growthCta} />
       <Verticals />
 
       {/* Featured members — split layout, panel on the left */}

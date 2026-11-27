@@ -21,11 +21,12 @@ function Arrow() {
   );
 }
 
-// The member card's button follows the viewer: visitors and clients apply, members open their
-// profile, admins go to the admin panel. Chosen by the page from the session.
+// Both buttons follow the viewer, chosen by the page from the session. User card: logged-out
+// visitors sign in, anyone signed in finds an expert. Member card: visitors and clients apply,
+// members open their profile, admins go to the admin panel.
 export type GrowthCta = { href: string; label: string };
 
-export function DualCta({ growthCta }: { growthCta: GrowthCta }) {
+export function DualCta({ userCta, growthCta }: { userCta: GrowthCta; growthCta: GrowthCta }) {
   return (
     <section
       aria-label="Two ways to use GrowXQ"
@@ -41,8 +42,8 @@ export function DualCta({ growthCta }: { growthCta: GrowthCta }) {
             or adopt the skills they have.
           </p>
           <div className="mt-auto flex justify-end pt-1">
-            <Button href="/members">
-              Find an expert <Arrow />
+            <Button href={userCta.href}>
+              {userCta.label} <Arrow />
             </Button>
           </div>
         </Card>

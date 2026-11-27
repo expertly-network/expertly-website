@@ -11,8 +11,8 @@ import { FAVICON_SRC } from '@/lib/brand';
 // emerges from behind the ring, settles beside it, then drifts outward and fades, so only a few are on
 // screen at once. It opens with two already out, and ends by clearing the stage before the section
 // moves on. Styles are written straight to the cards in a frame loop (no React render per scroll).
-// Reduced motion: no pinning, the ring with the questions as two static lists. Screen readers always
-// get the plain lists.
+// Reduced motion: no pinning, the ring with the questions as two static lists. Screen readers get the
+// plain lists. Not shown on phones at all (hidden below sm).
 
 const GAP = 0.6; // the white cut between slices, in % of the turn
 // Each half is cut into three slices of varying size and shade, like a week split between kinds of work.
@@ -41,23 +41,62 @@ type Side = 'user' | 'member';
 type Question = {
   q: string;
   side: Side;
-  /** Shown on phones too (the rest are desktop and tablet only). */
-  phone?: boolean;
 };
 
 // Shown in this order, users and members alternating, so each lands on its own side of the ring
-// (the slot lists below alternate left/right). Keep it alternating, phone subset included.
+// (the slot lists below alternate left/right). Keep it alternating.
+// Written as mirrored pairs (the same need, seen from each side), and every question is one the
+// benefit sections below answer, named in the comment above each pair.
 const QUESTIONS: Question[] = [
-  { q: 'How do I find the right expert for this?', side: 'user', phone: true },
-  { q: 'Which AI tools can I trust with client data?', side: 'member', phone: true },
-  { q: 'Is this person actually qualified?', side: 'user', phone: true },
-  { q: 'How do new clients find me?', side: 'member', phone: true },
-  { q: 'Who can I trust with a matter abroad?', side: 'user', phone: true },
-  { q: 'How do I grow beyond my own network?', side: 'member' },
-  { q: 'What will it cost before I commit?', side: 'user' },
-  { q: 'How do I keep up with AI?', side: 'member' },
-  { q: 'Where do I get reliable answers on new rules?', side: 'user' },
-  { q: 'Where do I find good people before busy season?', side: 'member', phone: true },
+  // Finding each other: Accessibility (users) / Reach and visibility (members)
+  {
+    q: 'How do I find the right expert for this?',
+    side: 'user',
+  },
+  {
+    q: 'How do clients who need me find me?',
+    side: 'member',
+  },
+
+  // Trust: every member is vetted / verified profile
+  {
+    q: "How do I know they're actually qualified?",
+    side: 'user',
+  },
+  {
+    q: 'How do I prove my credibility to new clients?',
+    side: 'member',
+  },
+
+  // Across borders: search by location worldwide / Networking, cross-border referrals
+  {
+    q: 'Who can I trust with a matter abroad?',
+    side: 'user',
+  },
+  {
+    q: 'How do I get referrals from other countries?',
+    side: 'member',
+  },
+
+  // Expertise in writing: read Articles / publish Articles under your own name
+  {
+    q: 'Where do I find answers I can rely on?',
+    side: 'user',
+  },
+  {
+    q: 'How do I build a name for my expertise?',
+    side: 'member',
+  },
+
+  // Growth and capacity: Events, courses and Training / Recruiting for peak periods
+  {
+    q: 'How do I keep growing my skills?',
+    side: 'user',
+  },
+  {
+    q: 'Who can take on extra work in busy season?',
+    side: 'member',
+  },
 ];
 
 const CARD_CLASS: Record<Side, string> = {
@@ -94,15 +133,14 @@ const SLOTS_WIDE: [number, number][] = [
   [0.58, 0.76],
 ];
 const SPAN_WIDE = 0.34;
-// Phones and tablets: no room beside the ring, so users' questions come out above it (leaning left)
-// and members' below (leaning right).
+// Tablets: no room beside the ring, so users' questions come out above it (leaning left) and
+// members' below (leaning right). Phones don't show this section.
 const SLOTS_NARROW: [number, number][] = [
   [-0.3, -0.85],
   [0.3, 0.55],
 ];
 // Share of the scroll each question is on screen. Narrow layouts have one slot each, so a slot comes
 // round every second question: SPAN must stay under two steps.
-const SPAN_PHONE = 0.3; // 6 questions
 const SPAN_TABLET = 0.19; // all 10 questions
 // Questions stop arriving here; whatever is left on screen then fades out together before the
 // section scrolls away.
@@ -118,7 +156,7 @@ function gapToCard(x: number, y: number, cw: number, ch: number) {
 
 /**
  * Where a card settles: its preferred spot, pushed outward until it clears the ring, never past the
- * stage edge. If there is no room beside the ring (phones), it goes above or below instead.
+ * stage edge. If there is no room beside the ring (tablets), it goes above or below instead.
  */
 function settle(fx: number, fy: number, cw: number, ch: number, maxX: number, maxY: number, clear: number) {
   let x = fx * maxX;
@@ -147,21 +185,19 @@ export function ProblemRing() {
       raf = 0;
       const section = sectionRef.current;
       const stage = stageRef.current;
-      if (!section || !stage) return;
+      // Hidden on phones: nothing to place.
+      if (!section || !stage || !stage.offsetParent) return;
       const rect = section.getBoundingClientRect();
       const travel = Math.max(1, rect.height - window.innerHeight);
       const progress = clamp(-rect.top / travel);
       const w = stage.clientWidth;
       const h = stage.clientHeight;
-      const phone = w < 640;
       const narrow = w < 1024;
       const slots = narrow ? SLOTS_NARROW : SLOTS_WIDE;
       const clear = (ringRef.current?.offsetWidth ?? 0) / 2 + 14;
-      const shown = QUESTIONS.map((q, i) => ({ q, el: cards.current[i] })).filter(
-        ({ q, el }) => el && (!phone || q.phone)
-      );
+      const shown = QUESTIONS.map((q, i) => ({ q, el: cards.current[i] })).filter(({ el }) => el);
       const n = shown.length;
-      const span = phone ? SPAN_PHONE : narrow ? SPAN_TABLET : SPAN_WIDE;
+      const span = narrow ? SPAN_TABLET : SPAN_WIDE;
       // A head start so the section never opens empty: at the top, the first question is already out
       // and the second is part way out (t = 0.15). The last one has settled by END.
       const step = (END - 0.3 * span) / (n - 2);
@@ -191,11 +227,6 @@ export function ProblemRing() {
         el.style.visibility = opacity > 0 ? 'visible' : 'hidden';
         el.style.zIndex = out >= 1 ? '1' : '0'; // a settled card stays above one still emerging
       });
-      // Hide the desktop-only cards on phones.
-      QUESTIONS.forEach((q, i) => {
-        const el = cards.current[i];
-        if (el && phone && !q.phone) el.style.visibility = 'hidden';
-      });
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(update);
@@ -214,19 +245,22 @@ export function ProblemRing() {
     <section
       ref={sectionRef}
       aria-labelledby="verticals-title"
-      className="relative h-[240vh] motion-reduce:h-auto motion-reduce:py-12 sm:h-[230vh] sm:motion-reduce:py-24"
+      className="relative hidden sm:block sm:h-[230vh] sm:motion-reduce:h-auto sm:motion-reduce:py-24"
     >
       <div
-        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col overflow-hidden pt-8 motion-reduce:static motion-reduce:h-auto motion-reduce:overflow-visible motion-reduce:pt-0 sm:pt-14 lg:top-0 lg:h-dvh lg:pt-16`}
+        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col overflow-hidden pt-14 motion-reduce:static motion-reduce:h-auto motion-reduce:overflow-visible motion-reduce:pt-0 lg:top-0 lg:h-dvh lg:pt-16`}
       >
-        <div className="mx-auto max-w-3xl px-5 text-center">
+        {/* Container (`cqi`) so the heading can size itself to this box's width. */}
+        <div className="mx-auto w-full max-w-4xl px-5 text-center [container-type:inline-size]">
           <Eyebrow>The problem</Eyebrow>
+          {/* Always exactly two lines at every width: each line is unbreakable, and the font shrinks with
+              the box (the longer line is ~18em wide, so 5.2cqi always fits) up to the token's 44px cap. */}
           <h2
             id="verticals-title"
-            className="font-brand mx-auto mt-4 scroll-mt-24 text-section-title text-ink [text-wrap:balance]"
+            className="font-brand mx-auto mt-4 scroll-mt-24 text-section-title !text-[length:min(2.75rem,5.2cqi)] text-ink"
           >
-            Two sides of the same coin, one shared question:{' '}
-            <span className="text-accent">How do we find the right resource?</span>
+            <span className="block whitespace-nowrap">Two sides of the same coin, one shared question:</span>
+            <span className="block whitespace-nowrap text-accent">How do we find the right resource?</span>
           </h2>
           <p className="mx-auto mt-4 hidden max-w-xl text-base leading-relaxed text-ink-3 sm:block sm:text-lg">
             Clients can&apos;t tell who&apos;s qualified. Professionals can&apos;t reach the people looking for them.
@@ -282,6 +316,7 @@ export function ProblemRing() {
           ))}
         </div>
 
+        {/* Screen readers (the ring is aria-hidden). */}
         <div className="sr-only">
           {(['user', 'member'] as const).map((side) => (
             <div key={side}>

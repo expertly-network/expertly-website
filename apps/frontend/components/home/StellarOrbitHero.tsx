@@ -278,7 +278,7 @@ export function StellarOrbitHero({
               className="mt-6 grid grid-cols-2 gap-3 sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
               style={{ animation: 'hs-fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 2.2s both' }}
             >
-              <Button href="/members" variant="accent" className="max-sm:!px-4">
+              <Button href="/members" variant="accent" className="whitespace-nowrap max-sm:!px-3">
                 Find an Expert
                 <ArrowIcon />
               </Button>
