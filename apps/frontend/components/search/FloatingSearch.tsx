@@ -89,16 +89,18 @@ export function FloatingSearch() {
         aria-label={label}
         tabIndex={visible && !open ? 0 : -1}
         aria-hidden={!visible || open}
-        className={`fixed bottom-6 left-1/2 z-[90] flex -translate-x-1/2 items-center gap-3 rounded-full bg-ink py-3 pl-[18px] pr-3.5 text-white shadow-[0_18px_44px_-16px_rgba(0,0,0,0.5)] transition-[opacity,visibility,bottom] duration-200 hover:bottom-[27px] min-[1024px]:ml-7 ${
+        className={`floating-search-launcher fixed bottom-6 left-1/2 z-[90] flex -translate-x-1/2 items-center gap-3 rounded-full bg-ink py-3 pl-[18px] pr-3.5 text-white shadow-[0_18px_44px_-16px_rgba(0,0,0,0.5)] transition-[opacity,visibility,bottom] duration-200 hover:bottom-[27px] min-[1024px]:ml-7 ${
           visible && !open ? 'visible opacity-100' : 'pointer-events-none invisible opacity-0'
         }`}
       >
         <span aria-hidden="true" className="text-[15px] text-accent">
           ✦
         </span>
-        <span className="text-sm font-medium tracking-[-0.01em] max-[560px]:hidden">{label}</span>
-        {pathname === '/' && <span className="text-sm font-medium min-[561px]:hidden">Ask GrowXQ</span>}
-        <span className="rounded-[7px] bg-white/10 px-2 py-1 font-mono text-[11px] text-white/70 max-[560px]:hidden">
+        <span className="floating-search-label text-sm font-medium tracking-[-0.01em] max-[560px]:hidden">{label}</span>
+        {pathname === '/' && (
+          <span className="floating-search-label text-sm font-medium min-[561px]:hidden">Ask GrowXQ</span>
+        )}
+        <span className="floating-search-shortcut rounded-[7px] bg-white/10 px-2 py-1 font-mono text-[11px] text-white/70 max-[560px]:hidden">
           ⌘K
         </span>
       </button>

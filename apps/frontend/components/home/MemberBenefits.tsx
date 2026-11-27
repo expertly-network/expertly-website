@@ -12,11 +12,11 @@ import type { Vertical } from '@/components/home/verticals-data';
 // large screens, under a smaller dial on phones). Short, wide screens (a zoomed-in laptop, a tablet or
 // phone held sideways) get the side-by-side layout too: stacked, the dial would shrink to nothing.
 // Clicking or tapping a benefit scrolls to it.
-// Phones keep the bottom clear (pb-20) for the floating search button.
+// Portrait phones keep the bottom clear (pb-20) for the floating search button.
 // The pinned screen is sized in svh, not dvh: on phones dvh changes as the browser's address bar
 // hides and returns while scrolling, which resized the dial on every scroll direction change.
-// Phones: the dial gets most of the screen (edge to edge, every pixel the title and panel leave) and
-// the panel at the bottom is just the benefit's number, title and status.
+// Portrait phones size the dial from the space between the title and panel, with clearance around
+// its labels. A short phone held sideways puts the dial beside the title and panel.
 
 const HOLD = 0.04; // share of the scroll held on the first and last benefit
 
@@ -90,8 +90,8 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
         ref={pinRef}
         className={`member-benefit-pin sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100svh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:justify-start lg:pb-16 lg:pt-8`}
       >
-        <PageContainer className="grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:gap-x-14 lg:gap-y-6 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
-          <div className="text-center lg:col-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
+        <PageContainer className="member-benefit-layout grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:gap-x-14 lg:gap-y-6 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
+          <div className="member-benefit-heading text-center lg:col-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
             <Eyebrow dark>For members</Eyebrow>
             <h2
               id="layers-title"
@@ -101,9 +101,9 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
             </h2>
           </div>
 
-          {/* The dial. Phones: this row takes all the height the title and the panel leave, and the
-              dial fills it (edge to edge across the screen, as tall as the row allows) via container units. */}
-          <div className="flex items-center justify-center max-sm:-mx-5 max-sm:min-h-0 max-sm:flex-1 max-sm:[container-type:size] lg:col-start-2 lg:row-start-2 sm:max-lg:landscape:col-start-2 sm:max-lg:landscape:row-span-2 sm:max-lg:landscape:row-start-1">
+          {/* Phones reserve space above and below the dial; container units size it from the
+              remaining space, so the heading and benefit card never crowd its outer labels. */}
+          <div className="member-benefit-stage flex items-center justify-center max-sm:-mx-5 max-sm:min-h-0 max-sm:flex-1 max-sm:py-5 max-sm:[container-type:size] lg:col-start-2 lg:row-start-2 sm:max-lg:landscape:col-start-2 sm:max-lg:landscape:row-span-2 sm:max-lg:landscape:row-start-1">
             <div
               role="group"
               aria-label={`The six member benefits. Showing ${benefits[shown].title}.`}
@@ -123,7 +123,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
           {/* The benefit at the top of the dial. All six share one grid cell, so the panel keeps the
               height of the longest and nothing below it jumps. Hidden from screen readers, which get
               the full list below. Phones: a soft card anchored at the bottom of the pinned screen. */}
-          <div className="mx-auto grid w-full max-w-xl max-sm:flex-none max-sm:rounded-2xl max-sm:border max-sm:border-white/10 max-sm:bg-white/[0.04] max-sm:px-5 max-sm:py-3.5 lg:col-start-1 lg:row-start-2 lg:mx-0 lg:self-center sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-2 sm:max-lg:landscape:mx-0 sm:max-lg:landscape:self-start">
+          <div className="member-benefit-card mx-auto grid w-full max-w-xl max-sm:flex-none max-sm:rounded-2xl max-sm:border max-sm:border-white/10 max-sm:bg-white/[0.04] max-sm:px-5 max-sm:py-3.5 lg:col-start-1 lg:row-start-2 lg:mx-0 lg:self-center sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-2 sm:max-lg:landscape:mx-0 sm:max-lg:landscape:self-start">
             {benefits.map((b, i) => (
               <div
                 key={b.title}
@@ -146,8 +146,8 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                     {b.status}
                   </span>
                 </div>
-                {/* Phones and very short screens (a phone held sideways, a laptop at 200% zoom): the checklist
-                    (or paragraph) goes, so the dial keeps its room and the title is never cut off. */}
+                {/* Short phone screens hide the summary to give the dial and its labels room;
+                    very short screens also hide the longer description. */}
                 {b.summary && (
                   <p className="member-benefit-summary mt-1.5 text-sm leading-snug text-white/65">{b.summary}</p>
                 )}
