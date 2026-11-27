@@ -97,12 +97,11 @@ export function LatestArticles({ articles }: { articles: ArticleListItemDto[] })
 function ArticleRow({ a, position }: { a: ArticleListItemDto; position: number }) {
   const designation = formatAuthorDesignation(a.authorHeadline, a.authorFirmName);
   return (
-    <Link href={`/articles/${a.slug}`} className="flex gap-4 py-4 lg:first:pt-0 lg:last:pb-0">
-      <div className="font-mono text-sm text-ink-4">{String(position).padStart(2, '0')}</div>
+    <Link href={`/articles/${a.slug}`} className="flex items-start gap-4 py-4 lg:first:pt-0 lg:last:pb-0">
+      <div className="flex-none font-mono text-sm text-ink-4">{String(position).padStart(2, '0')}</div>
       <div className="min-w-0 flex-1">
         <h4 className="text-title text-ink">{a.title}</h4>
-        {/* Author on the left, date · read time on the right. */}
-        <div className="mt-2.5 flex items-center justify-between gap-4">
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="flex min-w-0 items-center gap-2.5">
             <AuthorAvatar article={a} size={36} />
             <div className="min-w-0 leading-tight">
@@ -115,6 +114,18 @@ function ArticleRow({ a, position }: { a: ArticleListItemDto; position: number }
           </div>
         </div>
       </div>
+      {a.coverImageUrl && (
+        <div className="relative h-20 w-24 flex-none overflow-hidden rounded-lg border border-line bg-bg-alt lg:h-[72px] lg:w-[88px] xl:h-20 xl:w-24">
+          <Image
+            src={a.coverImageUrl}
+            unoptimized={mustHotlink(a.coverImageUrl)}
+            alt=""
+            fill
+            sizes="(min-width: 1280px) 96px, (min-width: 1024px) 88px, 96px"
+            className="object-cover"
+          />
+        </div>
+      )}
     </Link>
   );
 }

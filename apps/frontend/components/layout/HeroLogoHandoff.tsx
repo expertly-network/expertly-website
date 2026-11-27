@@ -6,8 +6,7 @@ import { useEffect } from 'react';
 import { LogoImage } from '@/components/Logo';
 
 // Desktop: the hero carries the logo until the visitor scrolls. Every width: toggles
-// `page-scrolled` on <html>, which the mobile top bar's home-page logo uses to grow from the mark
-// alone into the full lockup (see Logo's `collapseAtTop`).
+// `page-scrolled` on <html>, which clips the mobile top bar's homepage logo to its mark.
 export function HeroLogoHandoff() {
   const pathname = usePathname();
 

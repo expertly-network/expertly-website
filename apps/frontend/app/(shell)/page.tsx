@@ -186,8 +186,8 @@ export default async function HomePage() {
   return (
     <div>
       <SiteJsonLd />
-      <StellarOrbitHero avatarUrls={heroAvatarUrls} secondaryCta={growthCta} />
-      {/* The two ways in (user or member), on the hero's lower edge — shown to everyone. */}
+      <StellarOrbitHero avatarUrls={heroAvatarUrls} userCta={userCta} secondaryCta={growthCta} />
+      {/* The larger-screen cards expand on the two actions shown within the mobile hero. */}
       <DualCta userCta={userCta} growthCta={growthCta} />
       <Verticals />
 

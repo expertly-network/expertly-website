@@ -6,6 +6,7 @@ const ITEM_WIDTH = {
   '82%': 'auto-cols-[82%]',
   '85%': 'auto-cols-[85%]',
   '86%': 'auto-cols-[86%]',
+  '92%': 'auto-cols-[92%]',
   /** `scroll="always"` rows: most of a phone screen, a fixed card from `sm` up. */
   card: 'auto-cols-[82%] sm:auto-cols-[300px]',
 } as const;

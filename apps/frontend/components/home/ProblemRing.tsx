@@ -12,7 +12,7 @@ import { FAVICON_SRC } from '@/lib/brand';
 // screen at once. It opens with two already out, and ends by clearing the stage before the section
 // moves on. Styles are written straight to the cards in a frame loop (no React render per scroll).
 // Reduced motion: no pinning, the ring with the questions as two static lists. Screen readers get the
-// plain lists. Phones scatter all ten around a smaller ring.
+// plain lists. Phones scatter all ten around the standalone logo mark.
 
 const GAP = 0.6; // the white cut between slices, in % of the turn
 // Each half is cut into three slices of varying size and shade, like a week split between kinds of work.
@@ -181,7 +181,7 @@ function settle(fx: number, fy: number, cw: number, ch: number, maxX: number, ma
 export function ProblemRing() {
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLElement>(null);
   const cards = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
@@ -262,10 +262,10 @@ export function ProblemRing() {
     <section
       ref={sectionRef}
       aria-labelledby="verticals-title"
-      className="relative h-[260vh] motion-reduce:h-auto motion-reduce:py-12 sm:h-[230vh] sm:motion-reduce:py-24"
+      className="relative h-[260vh] motion-reduce:!h-auto motion-reduce:py-12 sm:h-[230vh] sm:motion-reduce:py-24"
     >
       <div
-        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col overflow-hidden pt-8 sm:pt-14 motion-reduce:static motion-reduce:h-auto motion-reduce:overflow-visible motion-reduce:pt-0 lg:top-0 lg:h-dvh lg:pt-16`}
+        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100dvh-61px)] flex-col overflow-hidden pt-8 sm:pt-14 motion-reduce:static motion-reduce:!h-auto motion-reduce:overflow-visible motion-reduce:pt-0 lg:top-0 lg:h-dvh lg:pt-16`}
       >
         {/* Container (`cqi`) so the heading can size itself to this box's width. */}
         <div className="mx-auto w-full max-w-4xl px-5 text-center [container-type:inline-size]">
@@ -305,11 +305,16 @@ export function ProblemRing() {
             ))}
           </ul>
 
-          <figure className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 motion-reduce:static motion-reduce:translate-x-0 motion-reduce:translate-y-0">
+          <figure
+            ref={ringRef}
+            className="absolute left-1/2 top-1/2 z-10 w-fit -translate-x-1/2 -translate-y-1/2 motion-reduce:static motion-reduce:mx-auto motion-reduce:translate-x-0 motion-reduce:translate-y-0"
+          >
+            {/* On phones the mark stands alone, leaving more room for the question cards. */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- a small static SVG mark */}
+            <img src={FAVICON_SRC.light} alt="" aria-hidden="true" className="size-14 sm:hidden" />
             <div
-              ref={ringRef}
               aria-hidden="true"
-              className="relative size-[104px] rounded-full sm:size-64 lg:size-80"
+              className="relative hidden size-64 rounded-full sm:block lg:size-80"
               style={{ background: RING }}
             >
               <div className="absolute inset-[16%] flex items-center justify-center rounded-full bg-bg-card shadow-panel">

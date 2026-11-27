@@ -2,6 +2,32 @@
 
 Scope: `/` only, including the shared shell where it appears on this route. November 8, 2026.
 
+## Laptop and desktop layout follow-up — November 27, 2026
+
+The hero's columns previously shrank with the viewport while the orbit kept a 540px drawing,
+an additional 40px horizontal translation, and fixed breakpoint-based scale boxes. Its outer
+photos extend beyond the 540px drawing. On narrower laptops the orbit could run into the
+hero's `overflow-hidden` edge; the overflow was clipped rather than used to size the layout.
+The heading used `vw` font sizing even though it only had one flex column of available width,
+so its wrapping changed independently of the orbit. A `100dvh` minimum height could not
+compensate for either width constraint.
+
+The hero now uses two `minmax(0, 1fr)` grid tracks on desktop. The heading size follows its
+own column with container units, while its text remains free to wrap. The orbit keeps its
+existing rings, photos, and animation timing but scales as a single drawing inside a square
+that includes the outer avatar extent. A `ResizeObserver` follows actual column width,
+including zoom and display-scaling changes. The square also respects viewport height so a
+short, stacked layout does not produce a disproportionately large orbit. The hero grows with
+its content when there is less vertical space. No new desktop width breakpoint was needed.
+
+Chrome checks at 1280×720, 1366×768, 1440×900, 1536×864, 1920×1080, and 2560×1440
+showed a two-line heading, the full orbit inside the hero, and no horizontal page overflow.
+The same checks passed at 1024×768, 853×480 (a short, zoom-like viewport), and 390×844.
+At 1366×768, device scale factors 1, 1.25, and 2 produced the same CSS layout without
+overflow. Screenshots were checked with animation active and reduced motion. The staged
+problem-ring mobile design was preserved; its reduced-motion static fallback was given a
+content-height section and a centred ring so the list is not cropped on laptops.
+
 ## Section-by-section review
 
 | Area | Finding and resulting treatment |

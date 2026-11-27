@@ -4,7 +4,7 @@ import Image from 'next/image';
 import type { PlatformStatsResponse } from '@shared/platform-stats';
 import { mustHotlink } from '@/lib/images';
 import { floorStat } from '@/lib/stat-floor';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui';
 import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC } from '@/lib/brand';
 
@@ -80,6 +80,9 @@ const DOT_SIZE = { sm: 42, md: 46, lg: 52 } as const;
 // Slots without a member photo render as small glowing points, so the orbit reads as a
 // constellation rather than a row of empty avatars.
 const POINT_SIZE = { sm: 6, md: 8, lg: 10 } as const;
+// The outer avatar reaches 328px from the centre. Keep the whole animated drawing inside
+// its layout box so neither a narrow column nor the hero's overflow clipping cuts it off.
+const ORBIT_EXTENT = 664;
 const SLOT_COUNT = RINGS.reduce((sum, r) => sum + r.dots.length, 0);
 
 /** Spreads however many photos there are evenly across the orbit's slots. */
@@ -170,18 +173,31 @@ function TypedLine({ text, className = '' }: { text: string; className?: string 
 export function StellarOrbitHero({
   avatarUrls = [],
   stats: platformStats = null,
+  userCta,
   secondaryCta = { href: '/apply', label: 'Apply as a member' },
 }: {
   avatarUrls?: string[];
   /** Real counts from GET /v1/stats; null hides the stat row instead of showing made-up numbers. */
   stats?: PlatformStatsResponse | null;
+  userCta: { href: string; label: string };
   /** Second hero button, by viewer: Apply (visitors/clients), View my profile (members), admin panel (admins). */
   secondaryCta?: { href: string; label: string };
 }) {
   const [revealed, setRevealed] = useState(false);
+  const orbitBox = useRef<HTMLDivElement>(null);
+  const [orbitScale, setOrbitScale] = useState(0);
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 50);
     return () => clearTimeout(t);
+  }, []);
+  useLayoutEffect(() => {
+    const box = orbitBox.current;
+    if (!box) return;
+    const measure = () => setOrbitScale(box.clientWidth / ORBIT_EXTENT);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
   }, []);
 
   // Shown rounded down with a "+" (26 → 25+), so the claim stays true as the numbers grow.
@@ -225,7 +241,7 @@ export function StellarOrbitHero({
   return (
     <section
       id="hero-stellar"
-      className="relative flex lg:min-h-[100dvh] flex-col overflow-hidden bg-ink text-bg-card motion-reduce:[&_*]:!animate-none"
+      className="relative flex min-h-[100svh] flex-col overflow-hidden bg-ink text-bg-card motion-reduce:[&_*]:!animate-none lg:min-h-dvh"
     >
       <div
         aria-hidden="true"
@@ -242,14 +258,14 @@ export function StellarOrbitHero({
         }}
       />
 
-      <div className="relative z-[1] mx-auto flex w-full max-w-[1520px] flex-1 items-center px-6 pb-6 pt-9 sm:py-12 lg:px-16 lg:pb-10 lg:pt-[98px]">
-        <div className="flex w-full flex-col items-center gap-2 sm:gap-16 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative z-[1] mx-auto flex w-full max-w-[1520px] flex-1 items-center px-6 pb-6 pt-9 sm:py-12 lg:px-[clamp(2rem,4vw,4rem)] lg:pb-10 lg:pt-[clamp(5rem,10dvh,6.125rem)]">
+        <div className="grid w-full min-w-0 items-center gap-2 sm:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-[clamp(1.5rem,3vw,3.5rem)]">
           {/* Left */}
           <div
-            className="flex max-w-[580px] flex-1 flex-col text-center lg:text-left"
+            className="mx-auto flex w-full min-w-0 max-w-[580px] flex-col text-center [container-type:inline-size] lg:mx-0 lg:text-left"
             style={{ animation: 'hs-fade-up 1s cubic-bezier(0.22,1,0.36,1) 0.1s both' }}
           >
-            <h1 className="font-brand text-[clamp(26px,9.2vw,40px)] sm:max-w-none sm:text-[clamp(38px,4.2vw,66px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
+            <h1 className="font-brand text-[clamp(26px,9.2vw,40px)] sm:max-w-none sm:text-[clamp(36px,8.3cqi,60px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
               {/* Phones: one row per line. The hidden copy is display:none, so it is not read out twice. */}
               {PART1_PHONE_LINES.map((line) => (
                 <span key={line} className="block whitespace-nowrap sm:hidden">
@@ -269,8 +285,7 @@ export function StellarOrbitHero({
               resources, expertise, and capabilities of a large firm within reach of every practicing professional.
             </p>
 
-            {/* Always two actions: Find an Expert, plus a second one that depends on who is looking.
-                Phones: hidden, since the two cards right below the hero carry the same actions. */}
+            {/* Larger screens use the main hero actions; phones get their two actions below the orbit. */}
             <div
               className="hidden sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
               style={{ animation: 'hs-fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 2.2s both' }}
@@ -286,7 +301,7 @@ export function StellarOrbitHero({
 
             {platformStats && (
               <div
-                className="mx-auto mt-[52px] hidden sm:grid w-full max-w-full grid-cols-4 gap-x-2 border-t border-white/[0.08] pt-7 text-center sm:gap-x-6 lg:mx-0 lg:text-left"
+                className="mx-auto mt-[clamp(2rem,5dvh,3.25rem)] hidden sm:grid w-full max-w-full grid-cols-4 gap-x-2 border-t border-white/[0.08] pt-7 text-center sm:gap-x-6 lg:mx-0 lg:text-left"
                 style={{ animation: 'hs-fade-in 0.6s ease 2.5s both' }}
               >
                 {/* Tablet and up: the stats sit under the CTAs. Phones show them below the orbit. */}
@@ -295,16 +310,22 @@ export function StellarOrbitHero({
             )}
           </div>
 
-          {/* Right: orbit — purely decorative, hidden from assistive tech. The outer ring and its
-              photos draw ~35px (phones) / ~44px (tablets) beyond the scaled box, so the vertical margin clears that
-              plus a visible gap to the buttons above and the stats below. */}
+          {/* Right: one drawing scaled to the space the grid gives it. The layout square includes
+              the outer photos, so rotation never reaches outside the column. */}
           <div
-            className="my-16 flex flex-1 items-center justify-center sm:my-8 lg:my-0"
+            className="my-6 flex min-w-0 items-center justify-center sm:my-0"
             style={{ animation: 'hs-scale-in 1.2s cubic-bezier(0.22,1,0.36,1) 0.3s both' }}
             aria-hidden="true"
           >
-            <div className="h-[324px] w-[324px] min-[400px]:h-[356px] min-[400px]:w-[356px] min-[640px]:h-[405px] min-[640px]:w-[405px] lg:h-[540px] lg:w-[540px]">
-              <div className="relative h-[540px] w-[540px] flex-none origin-top-left scale-[0.6] min-[400px]:scale-[0.66] min-[640px]:scale-[0.75] lg:translate-x-[40px] lg:scale-100">
+            <div
+              ref={orbitBox}
+              className="relative aspect-square w-full"
+              style={{ maxWidth: `min(${ORBIT_EXTENT}px, 75dvh)` }}
+            >
+              <div
+                className="absolute left-1/2 top-1/2 h-[540px] w-[540px]"
+                style={{ transform: `translate(-50%, -50%) scale(${orbitScale})` }}
+              >
                 {RINGS.map((ring, ringIdx) => {
                   const priorDots = RINGS.slice(0, ringIdx).reduce((sum, r) => sum + r.dots.length, 0);
                   return (
@@ -387,6 +408,23 @@ export function StellarOrbitHero({
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="grid w-full grid-cols-2 gap-2.5 sm:hidden">
+            <Button
+              href={userCta.href}
+              variant="secondary"
+              className="!px-2 text-center leading-tight max-[359px]:text-xs"
+            >
+              {userCta.label}
+            </Button>
+            <Button
+              href={secondaryCta.href}
+              variant="accent"
+              className="!px-2 text-center leading-tight max-[359px]:text-xs"
+            >
+              {secondaryCta.label}
+            </Button>
           </div>
 
           {/* Phones: the stats close the hero below the orbit. */}

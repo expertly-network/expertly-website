@@ -1,9 +1,7 @@
 import { Button, Card } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 
-// Right under the hero: two compact "lanes" so each visitor sees which path is theirs before the
-// long sections start. The cards sit on the hero's lower edge (a short ink band at the top of this
-// section continues the hero's background). Copy follows the GrowXQ_Homepage_Redesign sample.
+// On larger screens, two lanes sit below the hero so each visitor sees which path is theirs.
 function Arrow() {
   return (
     <svg
@@ -30,27 +28,9 @@ export function DualCta({ userCta, growthCta }: { userCta: GrowthCta; growthCta:
   return (
     <section
       aria-label="Two ways to use GrowXQ"
-      className="border-b border-line bg-[linear-gradient(to_bottom,var(--ink)_1.5rem,transparent_1.5rem)] pb-8 sm:bg-[linear-gradient(to_bottom,var(--ink)_6rem,transparent_6rem)] sm:pb-16"
+      className="hidden border-b border-line bg-[linear-gradient(to_bottom,var(--ink)_6rem,transparent_6rem)] pb-16 sm:block"
     >
-      {/* Phones: just the two actions, side by side and straddling the hero's lower edge (the 1.5rem ink band is half a button); the lane cards are for larger screens. */}
-      <PageContainer className="grid grid-cols-2 gap-2.5 sm:hidden">
-        <Button
-          href={userCta.href}
-          variant="secondary"
-          className="!px-2 text-center leading-tight shadow-xl max-[359px]:text-xs"
-        >
-          {userCta.label}
-        </Button>
-        <Button
-          href={growthCta.href}
-          variant="accent"
-          className="!px-2 text-center leading-tight shadow-xl max-[359px]:text-xs"
-        >
-          {growthCta.label}
-        </Button>
-      </PageContainer>
-
-      <PageContainer className="hidden gap-6 sm:grid sm:grid-cols-2 sm:gap-8 lg:gap-12">
+      <PageContainer className="grid grid-cols-2 gap-8 lg:gap-12">
         {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
         <Card padding="md" className="flex min-w-0 flex-col gap-3 !bg-bg-alt shadow-xl sm:gap-3.5 sm:!p-8">
           <div className="text-mono-label text-ink-3">Users · Free</div>

@@ -12,9 +12,9 @@ import type { EventDto } from '@shared/event';
 // peeks in from the edge), a two-column grid up to the calendar breakpoint.
 export function UpcomingEvents({ events }: { events: EventDto[] }) {
   return (
-    <SwipeRow label="Upcoming events" itemWidth="82%" className="sm:grid-cols-2 sm:gap-4">
+    <SwipeRow label="Upcoming events" itemWidth="92%" className="sm:grid-cols-2 sm:gap-4">
       {events.slice(0, 4).map((e) => (
-        <Card key={e.id} padding="md" className="flex h-full min-w-0 snap-start gap-4 max-sm:!p-5">
+        <Card key={e.id} padding="md" className="flex h-full min-w-0 snap-start gap-4 max-sm:!p-6">
           <div className="flex-none text-center">
             <div className="font-mono text-[11px] text-accent">{formatEventMonth(e.startDate)}</div>
             <div className="text-xl font-semibold text-ink">{formatEventDay(e.startDate)}</div>
@@ -26,13 +26,17 @@ export function UpcomingEvents({ events }: { events: EventDto[] }) {
                 <span className="text-[11px] font-medium text-ok">{formatEventFormat(e.eventFormat)}</span>
               )}
             </div>
-            <h4 className="mt-1.5 text-sm font-medium text-ink">{normalizeEventTitle(e.title)}</h4>
-            <p className="mt-1 line-clamp-2 text-xs text-ink-3">{e.description}</p>
+            <h4 className="mt-2 text-base font-medium leading-snug text-ink sm:mt-1.5 sm:text-sm">
+              {normalizeEventTitle(e.title)}
+            </h4>
+            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-3 sm:mt-1 sm:text-xs">{e.description}</p>
             {isOnlineEvent(e) ? (
-              <div className="mt-2 text-[11px] text-ink-3">Online</div>
+              <div className="mt-3 text-xs text-ink-3 sm:mt-2 sm:text-[11px]">Online</div>
             ) : (
               (e.city || e.country) && (
-                <div className="mt-2 text-[11px] text-ink-3">{[e.city, e.country].filter(Boolean).join(', ')}</div>
+                <div className="mt-3 text-xs text-ink-3 sm:mt-2 sm:text-[11px]">
+                  {[e.city, e.country].filter(Boolean).join(', ')}
+                </div>
               )
             )}
           </div>

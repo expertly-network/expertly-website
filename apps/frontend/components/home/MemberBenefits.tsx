@@ -157,9 +157,11 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                   </p>
                 )}
                 {b.description ? (
-                  <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 sm:mt-5 sm:text-base lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
-                    {b.description}
-                  </p>
+                  <div className="mt-3 max-w-xl space-y-3 text-sm leading-relaxed text-white/65 sm:mt-5 sm:text-base lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
+                    {b.description.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                  </div>
                 ) : (
                   <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base lg:gap-3 lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
                     {b.outcomes.map((o) => (
@@ -190,7 +192,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
         <ul className="sr-only">
           {benefits.map((b) => (
             <li key={b.title}>
-              {b.title} ({b.status}): {b.description ?? `${b.outcomes.join('. ')}.`}
+              {b.title} ({b.status}): {b.description?.join(' ') ?? `${b.outcomes.join('. ')}.`}
             </li>
           ))}
         </ul>

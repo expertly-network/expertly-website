@@ -14,8 +14,7 @@ export function Newsletter() {
   // Phones: the optional region/country preferences stay collapsed behind a text toggle.
 
   return (
-    // Phones: no bottom padding or rule, so the full-width band sits straight on the footer.
-    <section className="border-b border-line py-10 max-sm:border-b-0 max-sm:pb-0 sm:py-24">
+    <section className="pb-16 pt-10 sm:pb-28 sm:pt-24">
       <PageContainer>
         <Card
           padding="lg"

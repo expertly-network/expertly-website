@@ -48,17 +48,15 @@ export function Logo({
   variant = 'nav',
   className = '',
   collapsible = false,
-  collapseAtTop = false,
+  collapseOnScroll = false,
 }: {
   variant?: keyof typeof VARIANTS;
   className?: string;
   // When true (the sidebar's collapsed rail), only the symbol shows until the rail is hovered,
   // then the full logo fades in.
   collapsible?: boolean;
-  // When true (the mobile top bar on the home page), only the symbol shows until the page is
-  // scrolled (`page-scrolled` on <html>, set by HeroLogoHandoff); then the wordmark slides out to
-  // its right. The full lockup is clipped rather than swapped, so the symbol never moves.
-  collapseAtTop?: boolean;
+  // On the home page, show the full lockup first and clip it to the mark once scrolled.
+  collapseOnScroll?: boolean;
 }) {
   const { surface, height } = VARIANTS[variant];
 
@@ -80,8 +78,8 @@ export function Logo({
         className={
           collapsible
             ? 'sidebar-logo-text hidden max-w-0 overflow-x-clip opacity-0 transition-[opacity,max-width] duration-200 group-hover:block group-hover:max-w-[200px] group-hover:opacity-100 group-hover:delay-150'
-            : collapseAtTop
-              ? 'block max-w-[200px] overflow-x-clip transition-[max-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] [html:not(.page-scrolled)_&]:max-w-[31px]'
+            : collapseOnScroll
+              ? 'block max-w-[200px] overflow-x-clip transition-[max-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] [html.page-scrolled_&]:max-w-[31px]'
               : 'block'
         }
       >

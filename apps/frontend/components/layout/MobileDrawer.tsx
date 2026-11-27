@@ -17,12 +17,14 @@ export function MobileDrawer({ user }: { user: Profile | null }) {
 
   return (
     <>
-      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-ink px-4 py-3 min-[1024px]:hidden">
+      <div
+        className={`sticky top-0 z-20 flex items-center justify-between border-b bg-ink px-4 py-3 min-[1024px]:hidden ${pathname === '/' ? 'border-transparent' : 'border-white/10'}`}
+      >
         {/* Tap areas grow to 44px through padding cancelled by negative margin, so the bar keeps
             its 62px height (STICKY_UNDER_MOBILE_BAR depends on it). The logo's wrapper becomes a flex
             box so its image is vertically centred instead of riding above a text-line descender gap. */}
-        {/* Home page: just the symbol at load, the full lockup once scrolled. */}
-        <Logo variant="nav" collapseAtTop={pathname === '/'} className="-my-1 h-[45px] py-1 [&>span]:flex" />
+        {/* Home page: full lockup at the top, then just the mark after scrolling. */}
+        <Logo variant="nav" collapseOnScroll={pathname === '/'} className="-my-1 h-[45px] py-1 [&>span]:flex" />
         <button
           type="button"
           onClick={() => setOpen(true)}
