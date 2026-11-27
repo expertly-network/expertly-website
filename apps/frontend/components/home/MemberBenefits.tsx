@@ -92,13 +92,10 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
       >
         <PageContainer className="grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:gap-x-14 lg:gap-y-6 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
           <div className="text-center lg:col-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
-            {/* Short phones: no eyebrow and a smaller title, so the dial and the panel still fit. */}
-            <Eyebrow dark className="[@media(max-height:700px)]:max-lg:hidden">
-              For members
-            </Eyebrow>
+            <Eyebrow dark>For members</Eyebrow>
             <h2
               id="layers-title"
-              className="font-brand mt-3 scroll-mt-24 max-sm:mt-2 text-heading text-bg lg:text-headline [@media(max-height:700px)]:max-lg:mt-0 [@media(max-height:700px)]:max-lg:text-title"
+              className="font-brand mt-3 scroll-mt-24 max-sm:mt-2 text-heading text-bg lg:text-headline"
             >
               Ways we help <span className="text-accent">our members grow</span>.
             </h2>
@@ -143,7 +140,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                   </h3>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-label ${
-                      b.status === 'Starting first' ? 'bg-accent text-white' : 'border border-white/15 text-white/70'
+                      b.status === 'Live' ? 'bg-accent text-white' : 'border border-white/15 text-white/70'
                     }`}
                   >
                     {b.status}

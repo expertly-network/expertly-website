@@ -1,12 +1,12 @@
 // The six member benefits (the dial in MemberBenefits), in order; Technology leads.
-// Technology is the one area being built now; the other five are marked Coming soon.
+// The first three member benefits are live; the remaining three are coming soon.
 // TODO(content): confirm the outcomes with the founders before launch.
 
 export type Vertical = {
   title: string;
   /** Short label for the orbit. */
   label: string;
-  status: string;
+  status: 'Live' | 'Coming soon';
   /** One-line headline. The user benefits show it; the member dial deliberately doesn't. */
   promise?: string;
   outcomes: readonly string[];
@@ -20,7 +20,7 @@ export const VERTICALS: readonly Vertical[] = [
   {
     title: 'Technology',
     label: 'Technology',
-    status: 'Starting first',
+    status: 'Live',
     summary: 'The right tools, each with a security note and member discounts.',
     description: [
       'Find the right tool for the job in front of you, from tax research to reporting. Every tool comes with a plain-language note on security and data handling, so you know exactly what you are signing up for before you try it.',
@@ -35,7 +35,7 @@ export const VERTICALS: readonly Vertical[] = [
   {
     title: 'Reach and visibility',
     label: 'Reach',
-    status: 'Coming soon',
+    status: 'Live',
     summary: 'Publish under your name and appear in searches for your field.',
     description: [
       'Publish articles under your own name and build a body of work that clients can read. Your verified profile is deepened by a short AI interview about your work, so it reflects what you actually do, not just a job title.',
@@ -50,7 +50,7 @@ export const VERTICALS: readonly Vertical[] = [
   {
     title: 'Networking',
     label: 'Networking',
-    status: 'Coming soon',
+    status: 'Live',
     summary: 'Cross-border referrals and peers in your focus area.',
     description: [
       'Get your work referred across borders, by peers who know what you do. Grow your network beyond the four walls of your own firm, with professionals who share your standards and understand where your expertise fits.',
