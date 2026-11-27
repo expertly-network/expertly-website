@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { ConflictException, InternalServerErrorException } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mapInParallel } from './batched';
 
 // Kebab-cases a title for use as the base of a slug.
 export function slugify(title: string, fallback: string): string {
@@ -17,8 +18,16 @@ export function slugify(title: string, fallback: string): string {
 // queries however many rows share a title (an earlier version read every `base-%` slug, which
 // PostgREST silently truncates at 1000 rows and then picked a "free" suffix that wasn't).
 const SEQUENTIAL_CANDIDATES = 50;
-// Keeps each `slug=in.(...)` filter comfortably inside URL length limits.
+// Keeps each `slug=in.(...)` filter comfortably inside URL length limits: at most this many slugs
+// and this many URL-encoded characters per query (long titles make long slugs).
 const IN_CHUNK = 100;
+const IN_CHUNK_CHARS = 6000;
+// After a batch's first-choice slugs, how many further sequential suffixes a colliding base tries
+// before falling back to a random suffix. Kept small so re-importing thousands of existing titles
+// stays a handful of queries rather than tens of thousands.
+const BATCH_EXTRA_CANDIDATES = 3;
+// How many of those chunked existence queries run at once — a 10k-row CSV import needs ~100+.
+const IN_CONCURRENCY = 8;
 
 function candidatesFor(base: string, count: number): string[] {
   return [base, ...Array.from({ length: count - 1 }, (_, i) => `${base}-${i + 2}`)];
@@ -35,13 +44,27 @@ async function existingSlugs(
   slugs: string[],
   fallback: string
 ): Promise<Set<string>> {
+  const chunks: string[][] = [];
+  let current: string[] = [];
+  let chars = 0;
+  for (const slug of slugs) {
+    const length = encodeURIComponent(slug).length + 3; // + the encoded "," separator
+    if (current.length > 0 && (current.length >= IN_CHUNK || chars + length > IN_CHUNK_CHARS)) {
+      chunks.push(current);
+      current = [];
+      chars = 0;
+    }
+    current.push(slug);
+    chars += length;
+  }
+  if (current.length > 0) chunks.push(current);
+
   const taken = new Set<string>();
-  for (let i = 0; i < slugs.length; i += IN_CHUNK) {
-    const chunk = slugs.slice(i, i + IN_CHUNK);
+  await mapInParallel(chunks, IN_CONCURRENCY, async (chunk) => {
     const { data, error } = await db.from(table).select('slug').in('slug', chunk);
     if (error) throw new InternalServerErrorException(`Failed to generate ${fallback} slug.`);
     for (const row of (data ?? []) as { slug: string }[]) taken.add(row.slug);
-  }
+  });
   return taken;
 }
 
@@ -73,9 +96,13 @@ export async function generateUniqueSlug(
 }
 
 // Batch form for bulk inserts (e.g. CSV import): one slug per title, in order, unique against
-// the table AND each other, using one existence query for every title's candidates (chunked)
-// rather than one query per row. A base that runs out of sequential candidates falls back to
-// generateUniqueSlug for that title.
+// the table AND each other. Every pass is a chunked, parallel existence query, so a 10k-row import
+// costs a few hundred small queries rather than thousands of sequential ones (which took minutes
+// and timed the import out):
+//   1. only the candidates each base strictly needs (`base` … `base-N` for N rows sharing it);
+//   2. for bases where one of those was taken, a few more sequential suffixes;
+//   3. rows still without a slug get `base-<random hex>`, checked together (a clash there is
+//      practically impossible; one falls back to generateUniqueSlug for that title).
 export async function generateUniqueSlugs(
   db: SupabaseClient,
   table: string,
@@ -86,23 +113,49 @@ export async function generateUniqueSlugs(
   const perBase = new Map<string, number>();
   for (const base of bases) perBase.set(base, (perBase.get(base) ?? 0) + 1);
 
-  // Enough sequential candidates per base for every row sharing it, plus headroom for existing rows.
   const candidatesByBase = new Map<string, string[]>();
-  for (const [base, count] of perBase) candidatesByBase.set(base, candidatesFor(base, count + 10));
+  for (const [base, count] of perBase) candidatesByBase.set(base, candidatesFor(base, count));
   const taken = await existingSlugs(db, table, [...candidatesByBase.values()].flat(), fallback);
 
+  const extra: string[] = [];
+  for (const [base, candidates] of candidatesByBase) {
+    if (!candidates.some((c) => taken.has(c))) continue;
+    const longer = candidatesFor(base, candidates.length + BATCH_EXTRA_CANDIDATES);
+    extra.push(...longer.slice(candidates.length));
+    candidatesByBase.set(base, longer);
+  }
+  if (extra.length > 0) {
+    for (const slug of await existingSlugs(db, table, extra, fallback)) taken.add(slug);
+  }
+
   const reserved = new Set<string>();
-  const slugs: string[] = [];
-  for (let i = 0; i < bases.length; i++) {
-    const slug = candidatesByBase.get(bases[i])!.find((c) => !taken.has(c) && !reserved.has(c));
-    if (slug) {
-      reserved.add(slug);
-      slugs.push(slug);
-    } else {
-      slugs.push(await generateUniqueSlug(db, table, titles[i], fallback, reserved));
+  const slugs: (string | null)[] = bases.map((base) => {
+    const slug = candidatesByBase.get(base)!.find((c) => !taken.has(c) && !reserved.has(c));
+    if (!slug) return null;
+    reserved.add(slug);
+    return slug;
+  });
+
+  const randomByIndex = new Map<number, string>();
+  slugs.forEach((slug, i) => {
+    if (slug !== null) return;
+    let candidate = randomSuffixed(bases[i]);
+    while (reserved.has(candidate)) candidate = randomSuffixed(bases[i]);
+    reserved.add(candidate);
+    randomByIndex.set(i, candidate);
+  });
+  if (randomByIndex.size > 0) {
+    const randomTaken = await existingSlugs(db, table, [...randomByIndex.values()], fallback);
+    for (const [i, candidate] of randomByIndex) {
+      if (!randomTaken.has(candidate)) {
+        slugs[i] = candidate;
+        continue;
+      }
+      reserved.delete(candidate);
+      slugs[i] = await generateUniqueSlug(db, table, titles[i], fallback, reserved);
     }
   }
-  return slugs;
+  return slugs as string[];
 }
 
 /** True for a Postgres unique violation (23505) on a slug constraint/index. */

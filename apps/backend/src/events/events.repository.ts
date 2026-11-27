@@ -1,9 +1,10 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { keywordOrFilter } from './keyword-search';
 import { SupabaseService } from '../auth/supabase.service';
 import type { Database } from '../supabase/database.types';
 import type { EventDto, CalendarEventDto } from '@shared/event';
 import { generateUniqueSlug, generateUniqueSlugs, isSlugUniqueViolation, SlugTakenException } from '../common/slugify';
+import { mapChunks, mapInParallel } from '../common/batched';
 import { MAX_LIST_ROWS } from '../common/list-limits';
 
 export type EventInsert = Database['public']['Tables']['events']['Insert'];
@@ -52,8 +53,22 @@ const CALENDAR_COLUMNS = [
   'eventFormat:event_format',
 ] as const;
 
+// Just enough of every event for the CSV import's full sync (id matching + "deleted" results).
+const SYNC_COLUMNS = ['id', 'title'] as const;
+export interface EventSyncRow {
+  id: string;
+  title: string;
+}
+
+// CSV import write sizes: each chunk stays well inside URL limits and the 8s statement timeout.
+const BULK_INSERT_CHUNK = 500;
+const BULK_DELETE_CHUNK = 200;
+const BULK_CONCURRENCY = 4;
+
 @Injectable()
 export class EventsRepository {
+  private readonly logger = new Logger(EventsRepository.name);
+
   constructor(private readonly supabase: SupabaseService) {}
 
   private events() {
@@ -159,13 +174,42 @@ export class EventsRepository {
 
   // Uncapped on purpose: feeds the admin list AND the CSV export/import round trip, which must
   // see every event (events are admin-created, so the table grows only with admin work).
+  // Read in PostgREST-sized pages (max_rows is 1000): a single select silently stopped at 1000
+  // rows, so the import's full sync and the export only ever saw the first 1000 events.
   async findAllForAdmin(): Promise<EventDto[]> {
-    const { data, error } = await this.events()
-      .select(EVENT_COLUMNS.join(', '))
-      .order('start_date', { ascending: true });
+    const CHUNK = 1000;
+    const events: EventDto[] = [];
+    for (let offset = 0; ; offset += CHUNK) {
+      const { data, error } = await this.events()
+        .select(EVENT_COLUMNS.join(', '))
+        .order('start_date', { ascending: true })
+        .order('id', { ascending: true })
+        .range(offset, offset + CHUNK - 1);
+      if (error) throw new InternalServerErrorException('Failed to load events.');
+      const rows = data as unknown as EventDto[];
+      events.push(...rows);
+      if (rows.length < CHUNK) break;
+    }
+    return events;
+  }
 
-    if (error) throw new InternalServerErrorException('Failed to load events.');
-    return data as unknown as EventDto[];
+  // Every event's id + title, paged past PostgREST's 1000-row cap — the import's full-sync view.
+  // Pages are fetched in parallel after a count, since a sync over ~20k events is ~20 pages.
+  async findAllForSync(): Promise<EventSyncRow[]> {
+    const CHUNK = 1000;
+    const { count, error: countError } = await this.events().select('id', { count: 'exact', head: true });
+    if (countError || count === null) throw new InternalServerErrorException('Failed to load events.');
+
+    const offsets = Array.from({ length: Math.ceil(count / CHUNK) + 1 }, (_, i) => i * CHUNK);
+    const pages = await mapInParallel(offsets, 4, async (offset) => {
+      const { data, error } = await this.events()
+        .select(SYNC_COLUMNS.join(', '))
+        .order('id', { ascending: true })
+        .range(offset, offset + CHUNK - 1);
+      if (error) throw new InternalServerErrorException('Failed to load events.');
+      return data as unknown as EventSyncRow[];
+    });
+    return pages.flat();
   }
 
   async findByIdForAdmin(id: string): Promise<EventDto> {
@@ -194,15 +238,35 @@ export class EventsRepository {
     return inserted as unknown as EventDto;
   }
 
-  // Single multi-row insert — one network/DB round trip rather than one per row.
+  // Multi-row insert in chunks: one 10k-row request is an ~11MB body that, with the per-row
+  // search trigger, can run past the API role's 8s statement timeout. Chunks run in parallel;
+  // if any fails, the rows the other chunks inserted are deleted again so the import stays
+  // all-or-nothing (best effort — PostgREST gives no cross-request transaction).
   async bulkInsert(rows: EventInsert[]): Promise<EventDto[]> {
     if (rows.length === 0) return [];
 
-    const { data: inserted, error } = await this.events().insert(rows).select(EVENT_COLUMNS.join(', '));
-
-    if (isSlugUniqueViolation(error)) throw new SlugTakenException('EVENT_SLUG_TAKEN', 'Event slug already exists.');
-    if (error || !inserted) throw new InternalServerErrorException('Failed to create events.');
-    return inserted as unknown as EventDto[];
+    const insertedIds: string[] = [];
+    try {
+      const chunks = await mapChunks(rows, BULK_INSERT_CHUNK, BULK_CONCURRENCY, async (chunk) => {
+        const { data: inserted, error } = await this.events().insert(chunk).select(EVENT_COLUMNS.join(', '));
+        if (isSlugUniqueViolation(error))
+          throw new SlugTakenException('EVENT_SLUG_TAKEN', 'Event slug already exists.');
+        if (error || !inserted) throw new InternalServerErrorException('Failed to create events.');
+        const events = inserted as unknown as EventDto[];
+        insertedIds.push(...events.map((event) => event.id));
+        return events;
+      });
+      return chunks.flat();
+    } catch (error) {
+      if (insertedIds.length > 0) {
+        try {
+          await this.deleteByIds(insertedIds);
+        } catch {
+          this.logger.error(`Bulk insert failed and ${insertedIds.length} inserted events could not be removed.`);
+        }
+      }
+      throw error;
+    }
   }
 
   async updateById(id: string, patch: EventUpdate): Promise<EventDto> {
@@ -229,7 +293,11 @@ export class EventsRepository {
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
 
-    const { error } = await this.events().delete().in('id', ids);
-    if (error) throw new InternalServerErrorException('Failed to delete events.');
+    // Chunked: an `id=in.(...)` of thousands of uuids overflows URL limits, and deleting them in
+    // one statement (per-row search trigger) can exceed the 8s statement timeout.
+    await mapChunks(ids, BULK_DELETE_CHUNK, BULK_CONCURRENCY, async (chunk) => {
+      const { error } = await this.events().delete().in('id', chunk);
+      if (error) throw new InternalServerErrorException('Failed to delete events.');
+    });
   }
 }

@@ -29,7 +29,7 @@ function utcDayAfter(isoDate: string): Date {
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { assertPublishReady } from './publish-requirements';
-import { EventsRepository, type EventInsert, type EventUpdate } from './events.repository';
+import { EventsRepository, type EventInsert, type EventSyncRow, type EventUpdate } from './events.repository';
 import { withUniqueSlugRetry } from '../common/slugify';
 import { eventsToCsv, parseEventsCsv } from './events-csv';
 import { toEventColumns, validateEventRow, type ValidatedEventRow } from './import-events';
@@ -315,10 +315,7 @@ export class EventsService {
       });
     }
 
-    const [existing, { idByName }] = await Promise.all([
-      this.eventsRepository.findAllForAdmin(),
-      this.categoryLookup(),
-    ]);
+    const [existing, { idByName }] = await Promise.all([this.eventsRepository.findAllForSync(), this.categoryLookup()]);
     const existingById = new Map(existing.map((event) => [event.id, event]));
 
     const errors: string[] = [];
@@ -378,7 +375,7 @@ export class EventsService {
     if (deleteIds.length > 0) {
       await this.eventsRepository.deleteByIds(deleteIds);
       for (const id of deleteIds) {
-        const event = existingById.get(id) as EventDto;
+        const event = existingById.get(id) as EventSyncRow;
         results.push({ row: null, action: 'deleted', id: event.id, title: event.title });
       }
     }

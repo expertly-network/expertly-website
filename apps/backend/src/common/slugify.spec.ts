@@ -84,6 +84,20 @@ describe('generateUniqueSlugs', () => {
       'event-2',
     ]);
   });
+
+  it('checks only the needed candidates first, and extends just the bases that collided', async () => {
+    const { db, calls } = slugTable(['summit']);
+    await expect(generateUniqueSlugs(db, 'events', ['Summit', 'Meetup', 'Gala'], 'event')).resolves.toEqual([
+      'summit-2',
+      'meetup',
+      'gala',
+    ]);
+    expect(calls).toHaveLength(2);
+    expect((argsOf(calls[0], 'in') as [string, string[]])[1]).toEqual(['summit', 'meetup', 'gala']);
+    const second = (argsOf(calls[1], 'in') as [string, string[]])[1];
+    expect(second[0]).toBe('summit-2');
+    expect(second.every((slug) => slug.startsWith('summit-'))).toBe(true);
+  });
 });
 
 describe('isSlugUniqueViolation', () => {
