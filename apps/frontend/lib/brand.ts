@@ -1,6 +1,6 @@
 // Shared references to the approved logo, selected by the surface it sits on.
 // Bump the version when replacing artwork to invalidate browser/CDN caches.
-const LOGO_VERSION = 13;
+const LOGO_VERSION = 14;
 export const LOGO_SRC = {
   light: `/brand/growxq-logo-light.svg?v=${LOGO_VERSION}`,
   dark: `/brand/growxq-logo-dark.svg?v=${LOGO_VERSION}`,

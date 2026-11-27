@@ -21,7 +21,11 @@ function Arrow() {
   );
 }
 
-export function DualCta() {
+// The member card's button follows the viewer: visitors and clients apply, members open their
+// profile, admins go to the admin panel. Chosen by the page from the session.
+export type GrowthCta = { href: string; label: string };
+
+export function DualCta({ growthCta }: { growthCta: GrowthCta }) {
   return (
     <section
       aria-label="Two ways to use GrowXQ"
@@ -50,8 +54,8 @@ export function DualCta() {
             Get verified, get visible to your target audience and use the full growth ecosystem.
           </p>
           <div className="mt-auto flex justify-end pt-1">
-            <Button href="/apply" variant="accent">
-              Apply as a member <Arrow />
+            <Button href={growthCta.href} variant="accent">
+              {growthCta.label} <Arrow />
             </Button>
           </div>
         </Card>

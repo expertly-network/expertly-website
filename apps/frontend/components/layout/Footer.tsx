@@ -28,6 +28,7 @@ const LINK_GROUPS: { label: string; links: FooterLink[] }[] = [
     label: 'Company',
     links: [
       { label: 'Membership', href: '/membership' },
+      { label: 'FAQ', href: '/faq' },
       { label: 'Contact us', href: `mailto:${CONTACT_EMAIL}`, external: true },
       { label: 'LinkedIn', href: 'https://www.linkedin.com/company/expertly-network', external: true },
     ],

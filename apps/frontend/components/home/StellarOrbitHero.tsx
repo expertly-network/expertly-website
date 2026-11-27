@@ -170,16 +170,13 @@ function TypedLine({ text, className = '' }: { text: string; className?: string 
 export function StellarOrbitHero({
   avatarUrls = [],
   stats: platformStats = null,
-  showApply = true,
-  showMyProfile = false,
+  secondaryCta = { href: '/apply', label: 'Apply as a member' },
 }: {
   avatarUrls?: string[];
   /** Real counts from GET /v1/stats; null hides the stat row instead of showing made-up numbers. */
   stats?: PlatformStatsResponse | null;
-  /** False for members/admins — /apply only serves visitors and clients. */
-  showApply?: boolean;
-  /** Members get "View my profile" in the Apply button's place. */
-  showMyProfile?: boolean;
+  /** Second hero button, by viewer: Apply (visitors/clients), View my profile (members), admin panel (admins). */
+  secondaryCta?: { href: string; label: string };
 }) {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
@@ -276,23 +273,19 @@ export function StellarOrbitHero({
               </span>
             </p>
 
-            {/* Logged-out visitors get no hero buttons: the DualCta cards right below carry both paths. */}
-            {!showApply && (
-              <div
-                className="mt-6 grid grid-cols-2 gap-3 has-[>:only-child]:grid-cols-1 sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
-                style={{ animation: 'hs-fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 2.2s both' }}
-              >
-                <Button href="/members" variant="accent" className="max-sm:!px-4">
-                  Find an Expert
-                  <ArrowIcon />
-                </Button>
-                {showMyProfile && (
-                  <Button href="/members/me" variant="ghost-dark" className="max-sm:!px-4">
-                    View my profile
-                  </Button>
-                )}
-              </div>
-            )}
+            {/* Always two actions: Find an Expert, plus a second one that depends on who is looking. */}
+            <div
+              className="mt-6 grid grid-cols-2 gap-3 sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
+              style={{ animation: 'hs-fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 2.2s both' }}
+            >
+              <Button href="/members" variant="accent" className="max-sm:!px-4">
+                Find an Expert
+                <ArrowIcon />
+              </Button>
+              <Button href={secondaryCta.href} variant="ghost-dark" className="whitespace-nowrap max-sm:!px-3">
+                {secondaryCta.label}
+              </Button>
+            </div>
 
             {platformStats && (
               <div

@@ -2,17 +2,14 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui';
+import type { FaqEntry } from '@/lib/faq';
 
-interface FaqEntry {
-  q: string;
-  a: string;
-}
-
-export function HomeFaq({ membership, clients }: { membership: FaqEntry[]; clients: FaqEntry[] }) {
+// The two FAQ groups side by side; phones show one at a time behind a two-button toggle.
+export function Faq({ membership, clients }: { membership: readonly FaqEntry[]; clients: readonly FaqEntry[] }) {
   const [audience, setAudience] = useState<'membership' | 'clients'>('membership');
 
   return (
-    <div className="mt-8 sm:mt-10">
+    <div>
       <div className="mb-6 flex gap-2 sm:hidden" role="group" aria-label="Question topics">
         <Button
           variant={audience === 'membership' ? 'primary' : 'secondary'}
@@ -43,7 +40,7 @@ export function HomeFaq({ membership, clients }: { membership: FaqEntry[]; clien
   );
 }
 
-export function FaqGroup({ title, items }: { title: string; items: FaqEntry[] }) {
+export function FaqGroup({ title, items }: { title: string; items: readonly FaqEntry[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (

@@ -7,7 +7,7 @@ const route = vi.hoisted(() => ({ pathname: '/' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.pathname }));
 vi.mock('./SearchModal', () => ({ SearchModal: () => null }));
 import { FloatingSearch } from '@/components/search/FloatingSearch';
-import { HomeFaq } from './Faq';
+import { Faq } from '@/components/faq/Faq';
 
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -58,7 +58,7 @@ describe('home page navigation', () => {
   it('switches FAQ audiences and keeps the selected questions expandable', async () => {
     await act(async () =>
       root.render(
-        <HomeFaq
+        <Faq
           membership={[{ q: 'How to join?', a: 'Apply online.' }]}
           clients={[{ q: 'How to browse?', a: 'Open the directory.' }]}
         />
