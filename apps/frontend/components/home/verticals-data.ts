@@ -7,7 +7,8 @@ export type Vertical = {
   /** Short label for the orbit. */
   label: string;
   status: string;
-  promise: string;
+  /** One-line headline. The user benefits show it; the member dial deliberately doesn't. */
+  promise?: string;
   outcomes: readonly string[];
 };
 
@@ -16,7 +17,6 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Technology',
     label: 'Technology',
     status: 'Starting first',
-    promise: 'AI tools sorted by the work you do, each reviewed through our process.',
     outcomes: [
       'Find a tool for the job in front of you, from tax research to reporting',
       'Read a security and data-handling note before you try one',
@@ -27,7 +27,6 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Reach and visibility',
     label: 'Reach',
     status: 'Coming soon',
-    promise: 'Be found and trusted by the people who need your expertise.',
     outcomes: [
       'Publish articles under your own name',
       'A verified profile, enhanced by robust profiling via an AI interview about your work',
@@ -38,7 +37,6 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Networking',
     label: 'Networking',
     status: 'Coming soon',
-    promise: 'Know verified peers in other countries.',
     outcomes: [
       'Get your work referred across borders',
       'Expand your network beyond your four walls',
@@ -49,7 +47,6 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Training',
     label: 'Training',
     status: 'Coming soon',
-    promise: 'Learn AI and optimise your workflows, one step at a time.',
     outcomes: [
       'Develop AI skills with short, digestible videos',
       'Get ready-to-use prompts and plugins',
@@ -60,7 +57,6 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Perks and products',
     label: 'Perks',
     status: 'Coming soon',
-    promise: 'Member-only products and better pricing.',
     outcomes: [
       'Products only members can access',
       'Better pricing on some tools and services',
@@ -71,7 +67,6 @@ export const VERTICALS: readonly Vertical[] = [
     title: 'Recruiting',
     label: 'Recruiting',
     status: 'Coming soon',
-    promise: 'Extra hands when the busy season hits.',
     outcomes: ['Match with available talent', 'Add capacity for peak periods'],
   },
 ];

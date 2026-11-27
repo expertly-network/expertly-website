@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Card, Eyebrow, FilterPopover } from '@/components/ui';
+import { Button, Card, FilterPopover } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { REGIONS } from '@/components/apply/types';
 import { countriesInRegions } from '@/lib/members/country-regions';
@@ -12,17 +12,17 @@ export function Newsletter() {
   const [regions, setRegions] = useState<string[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
   // Phones: the optional region/country preferences stay collapsed behind a text toggle.
-  const [showPrefs, setShowPrefs] = useState(false);
-  const prefCount = regions.length + countries.length;
 
   return (
-    <section className="border-b border-line py-10 sm:py-24">
+    // Phones: no bottom padding or rule, so the full-width band sits straight on the footer.
+    <section className="border-b border-line py-10 max-sm:border-b-0 max-sm:pb-0 sm:py-24">
       <PageContainer>
         <Card
           padding="lg"
           // No overflow-hidden: the decoration is a CSS background (stays inside the rounded card
           // anyway), and clipping cut the region/country dropdowns off after ~3 options.
-          className="relative bg-ink max-sm:!p-6 sm:px-12 sm:py-16 lg:px-16 lg:py-20"
+          // Phones: edge to edge (no page gutter, square corners, no border), a full-width dark band.
+          className="relative bg-ink max-sm:-mx-5 max-sm:!rounded-none max-sm:!border-0 max-sm:!px-5 max-sm:!py-8 sm:px-12 sm:py-16 lg:px-16 lg:py-20"
           style={{
             backgroundImage:
               'radial-gradient(1200px 600px at 15% -10%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 60%), repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 32px), repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 32px)',
@@ -31,42 +31,22 @@ export function Newsletter() {
           {/* Heading on the left, the signup controls on the right (stacked on smaller screens). */}
           <div className="relative grid items-center gap-5 sm:gap-10 lg:grid-cols-2 lg:gap-16">
             <div className="max-w-xl">
-              <Eyebrow dark className="!text-white/80 sm:!text-[13px]">
-                The GrowXQ Brief · Weekly
-              </Eyebrow>
-              <h2 className="font-brand mt-3 text-[26px] !leading-[1.1] text-bg-card sm:mt-5 sm:text-headline">
-                <span className="text-accent">Regulatory</span> changes. New members. Case studies.
+              {/* Phones: one phrase per line, a short list rather than a wrapped sentence. */}
+              <h2 className="font-brand text-[clamp(26px,8.5vw,34px)] !leading-[1.08] text-bg-card sm:text-headline">
+                <span className="block sm:inline">
+                  <span className="text-accent">Regulatory</span> changes.
+                </span>{' '}
+                <span className="block sm:inline">New members.</span>{' '}
+                <span className="block sm:inline">Case studies.</span>
               </h2>
-              <p className="mt-2 text-sm text-white/60 sm:font-brand sm:mt-0 sm:text-headline sm:!leading-[1.1]">
+              <p className="mt-3 text-base text-white/70 sm:font-brand sm:mt-0 sm:text-headline sm:!leading-[1.1] sm:text-white/60">
                 One email, every Thursday.
               </p>
             </div>
 
+            {/* The region/country pickers (default: all), then email + Subscribe, then the reassurance line. */}
             <div className="w-full max-w-[520px] lg:justify-self-end">
-              <button
-                type="button"
-                aria-expanded={showPrefs}
-                aria-controls="newsletter-prefs"
-                onClick={() => setShowPrefs((v) => !v)}
-                className="-my-2 mb-1 inline-flex min-h-11 items-center gap-1.5 text-sm text-white/70 hover:text-white sm:hidden"
-              >
-                {prefCount > 0 ? `Regions selected (${prefCount})` : 'Choose regions (optional)'}
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  className={`transition-transform ${showPrefs ? 'rotate-180' : ''}`}
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-              <div id="newsletter-prefs" className={`${showPrefs ? 'flex' : 'hidden'} flex-wrap gap-2.5 sm:flex`}>
+              <div id="newsletter-prefs" className="flex flex-wrap gap-2.5">
                 <FilterPopover
                   label="All regions"
                   options={REGIONS.map((r) => ({ value: r.value, label: r.label }))}
@@ -88,7 +68,8 @@ export function Newsletter() {
               </div>
 
               <form
-                className="mt-3 flex flex-col gap-2.5 sm:mt-7 sm:flex-row"
+                // Phones: one row, the email field ~85% and an arrow button ~15%.
+                className="mt-3 flex gap-2.5 sm:mt-7"
                 onSubmit={(e) => {
                   e.preventDefault();
                   setSubmitted(true);
@@ -102,10 +83,27 @@ export function Newsletter() {
                   type="email"
                   placeholder="you@firm.com"
                   required
-                  className="w-full rounded-input border border-white/20 bg-white/10 px-4 py-3.5 text-base text-bg sm:py-4 placeholder:text-white/65"
+                  className="min-w-0 flex-1 rounded-input border border-white/20 bg-white/10 px-4 py-3.5 text-base text-bg sm:py-4 placeholder:text-white/65"
                 />
-                <Button type="submit" variant="secondary-dark" className="min-h-[52px] !text-base sm:min-h-[56px]">
-                  Subscribe
+                <Button
+                  type="submit"
+                  variant="secondary-dark"
+                  aria-label="Subscribe"
+                  className="min-h-[52px] !text-base max-sm:w-[15%] max-sm:min-w-12 max-sm:flex-none max-sm:!px-0 sm:min-h-[56px]"
+                >
+                  <span className="hidden sm:inline">Subscribe</span>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="size-5 sm:hidden"
+                  >
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
                 </Button>
               </form>
               {submitted && (

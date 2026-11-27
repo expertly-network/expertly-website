@@ -249,7 +249,7 @@ export function StellarOrbitHero({
             className="flex max-w-[580px] flex-1 flex-col text-center lg:text-left"
             style={{ animation: 'hs-fade-up 1s cubic-bezier(0.22,1,0.36,1) 0.1s both' }}
           >
-            <h1 className="font-brand text-[clamp(20px,6.3vw,30px)] sm:max-w-none sm:text-[clamp(38px,4.2vw,66px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
+            <h1 className="font-brand text-[clamp(26px,9.2vw,40px)] sm:max-w-none sm:text-[clamp(38px,4.2vw,66px)] font-semibold leading-[1.02] tracking-[-0.035em] text-bg-card">
               {/* Phones: one row per line. The hidden copy is display:none, so it is not read out twice. */}
               {PART1_PHONE_LINES.map((line) => (
                 <span key={line} className="block whitespace-nowrap sm:hidden">
@@ -260,22 +260,19 @@ export function StellarOrbitHero({
               <TypedLine text={PART2} className="block max-sm:whitespace-nowrap" />
             </h1>
 
+            {/* Phones: no subtitle, just the headline. */}
             <p
-              className="mx-auto mt-4 text-lede sm:max-w-[460px] text-white/50 sm:mt-6 lg:mx-0"
+              className="mx-auto hidden text-lede text-white/50 sm:mt-6 sm:block sm:max-w-[460px] lg:mx-0"
               style={{ animation: 'hs-fade-in 0.7s ease 1.9s both' }}
             >
-              <span className="block whitespace-nowrap text-[clamp(12px,3.45vw,15px)] sm:hidden">
-                Trusted AI tools, training and a verified global network.
-              </span>
-              <span className="hidden sm:inline">
-                Access to trusted AI tools, practical professional training, and a verified global network, to bring the
-                resources, expertise, and capabilities of a large firm within reach of every practicing professional.
-              </span>
+              Access to trusted AI tools, practical professional training, and a verified global network, to bring the
+              resources, expertise, and capabilities of a large firm within reach of every practicing professional.
             </p>
 
-            {/* Always two actions: Find an Expert, plus a second one that depends on who is looking. */}
+            {/* Always two actions: Find an Expert, plus a second one that depends on who is looking.
+                Phones: hidden, since the two cards right below the hero carry the same actions. */}
             <div
-              className="mt-6 grid grid-cols-2 gap-3 sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
+              className="hidden sm:mt-10 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3.5 lg:justify-start"
               style={{ animation: 'hs-fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 2.2s both' }}
             >
               <Button href="/members" variant="accent" className="whitespace-nowrap max-sm:!px-3">

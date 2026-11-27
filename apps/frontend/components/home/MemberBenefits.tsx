@@ -16,7 +16,7 @@ import type { Vertical } from '@/components/home/verticals-data';
 // The pinned screen is sized in svh, not dvh: on phones dvh changes as the browser's address bar
 // hides and returns while scrolling, which resized the dial on every scroll direction change.
 // Phones: the dial gets most of the screen (edge to edge, every pixel the title and panel leave) and
-// the panel at the bottom is just the benefit's title and promise.
+// the panel at the bottom is just the benefit's number, title and status.
 
 const HOLD = 0.04; // share of the scroll held on the first and last benefit
 
@@ -98,7 +98,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
             </Eyebrow>
             <h2
               id="layers-title"
-              className="font-brand mt-3 scroll-mt-24 max-sm:mt-2 text-heading text-bg [@media(max-height:700px)]:max-lg:mt-0 [@media(max-height:700px)]:max-lg:text-title"
+              className="font-brand mt-3 scroll-mt-24 max-sm:mt-2 text-heading text-bg lg:text-headline lg:[text-wrap:balance] [@media(max-height:700px)]:max-lg:mt-0 [@media(max-height:700px)]:max-lg:text-title"
             >
               Ways we help <span className="text-accent">our members grow</span>.
             </h2>
@@ -136,7 +136,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <h3 className="font-brand text-title text-accent sm:text-heading">
+                  <h3 className="font-brand text-title text-accent sm:text-heading lg:text-section-title">
                     <span className="mr-2 text-white/40 sm:mr-3">{String(i + 1).padStart(2, '0')}</span>
                     {b.title}
                   </h3>
@@ -148,10 +148,9 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                     {b.status}
                   </span>
                 </div>
-                <p className="mt-1.5 text-base text-white/75 sm:mt-2 sm:text-lg">{b.promise}</p>
                 {/* Phones and very short screens (a phone held sideways, a laptop at 200% zoom): the checklist
-                    goes, so the dial keeps its room and the title and promise are never cut off. */}
-                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base max-sm:hidden [@media(max-height:480px)]:hidden">
+                    goes, so the dial keeps its room and the title is never cut off. */}
+                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base lg:gap-3 lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
                   {b.outcomes.map((o) => (
                     <li key={o} className="flex items-start gap-2.5">
                       <svg
@@ -179,7 +178,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
         <ul className="sr-only">
           {benefits.map((b) => (
             <li key={b.title}>
-              {b.title} ({b.status}): {b.promise} {b.outcomes.join('. ')}.
+              {b.title} ({b.status}): {b.outcomes.join('. ')}.
             </li>
           ))}
         </ul>
