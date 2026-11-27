@@ -2,6 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep the animated problem ring inside the stage below its heading. The static reduced-motion
+   layout has natural height and keeps its regular ring size. */
+.problem-ring-disc {
+  width: fit-content;
+}
+
+@media (min-width: 640px) {
+  .problem-ring-disc {
+    width: 16rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .problem-ring-disc {
+    width: 20rem;
+  }
+}
+
+@media (min-width: 640px) and (prefers-reduced-motion: no-preference) {
+  .problem-ring-stage {
+    container-type: size;
+  }
+
+  .problem-ring-disc {
+    width: min(16rem, calc(100cqh - 1rem));
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  .problem-ring-disc {
+    width: min(20rem, calc(100cqh - 1rem));
+  }
+}
+
+/* Short laptop windows need room for the member dial beside its copy. */
+.member-benefit-summary {
+  display: none;
+}
+
+@media (max-width: 639px) and (min-height: 481px) {
+  .member-benefit-summary {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 780px) {
+  .member-benefit-description {
+    display: none;
+  }
+
+  .member-benefit-summary {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 600px) {
+  .member-benefit-pin {
+    padding-top: 1rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .member-benefit-orbit {
+    width: min(100%, calc(100dvh - 240px), 540px) !important;
+  }
+}
+
 /* GrowXQ design tokens — one brand green (the logo's #00A682) plus neutrals. Every green on the
    site derives from --accent; don't introduce a second green hex anywhere. */
 :root {

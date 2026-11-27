@@ -88,7 +88,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
     <section ref={sectionRef} aria-labelledby="layers-title" className="relative h-[320vh] bg-ink lg:h-[300vh]">
       <div
         ref={pinRef}
-        className={`sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100svh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:justify-start lg:pb-16 lg:pt-8`}
+        className={`member-benefit-pin sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100svh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:justify-start lg:pb-16 lg:pt-8`}
       >
         <PageContainer className="grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:gap-x-14 lg:gap-y-6 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
           <div className="text-center lg:col-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
@@ -107,7 +107,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
             <div
               role="group"
               aria-label={`The six member benefits. Showing ${benefits[shown].title}.`}
-              className="relative aspect-square w-[min(74vw,34dvh)] [@media(max-height:700px)]:w-[min(70vw,30dvh)] sm:w-[min(60vw,38dvh)] lg:w-[min(100%,58dvh,540px)] sm:max-lg:landscape:!w-[min(100%,calc(100dvh-170px),540px)] max-sm:!w-[min(100cqw,100cqh)]"
+              className="member-benefit-orbit relative aspect-square w-[min(74vw,34dvh)] sm:w-[min(60vw,38dvh)] lg:w-[min(100%,58dvh,540px)] sm:max-lg:landscape:!w-[min(100%,calc(100dvh-170px),540px)] max-sm:!w-[min(100cqw,100cqh)]"
             >
               <VerticalsOrbit
                 labels={benefits.map((b) => b.label)}
@@ -149,12 +149,10 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                 {/* Phones and very short screens (a phone held sideways, a laptop at 200% zoom): the checklist
                     (or paragraph) goes, so the dial keeps its room and the title is never cut off. */}
                 {b.summary && (
-                  <p className="mt-1.5 text-sm leading-snug text-white/65 sm:hidden [@media(max-height:480px)]:hidden">
-                    {b.summary}
-                  </p>
+                  <p className="member-benefit-summary mt-1.5 text-sm leading-snug text-white/65">{b.summary}</p>
                 )}
                 {b.description ? (
-                  <div className="mt-3 max-w-xl space-y-3 text-sm leading-relaxed text-white/65 sm:mt-5 sm:text-base lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
+                  <div className="member-benefit-description mt-3 max-w-xl space-y-3 text-sm leading-relaxed text-white/65 sm:mt-5 sm:text-base lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
                     {b.description.map((paragraph) => (
                       <p key={paragraph}>{paragraph}</p>
                     ))}

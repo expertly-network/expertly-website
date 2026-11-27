@@ -51,7 +51,12 @@ export function FloatingSearch() {
       const nearFooter = !!footer && footer.getBoundingClientRect().top < window.innerHeight - 16;
       const hero = pathname === '/' ? document.getElementById('hero-stellar') : null;
       const pastHero = hero ? hero.getBoundingClientRect().bottom <= 0 : y > 620;
-      setVisible(scrollingUp && pastHero && !nearFooter);
+      const problem = pathname === '/' && window.innerHeight <= 700 ? document.getElementById('problem-ring') : null;
+      const problemInView =
+        !!problem &&
+        problem.getBoundingClientRect().top < window.innerHeight &&
+        problem.getBoundingClientRect().bottom > 0;
+      setVisible(scrollingUp && pastHero && !nearFooter && !problemInView);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });

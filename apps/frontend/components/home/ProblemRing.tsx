@@ -261,6 +261,7 @@ export function ProblemRing() {
   return (
     <section
       ref={sectionRef}
+      id="problem-ring"
       aria-labelledby="verticals-title"
       className="relative h-[260vh] motion-reduce:!h-auto motion-reduce:py-12 sm:h-[230vh] sm:motion-reduce:py-24"
     >
@@ -288,7 +289,7 @@ export function ProblemRing() {
         {/* The stage: the split ring in the middle, each side's questions coming out of its half. */}
         <div
           ref={stageRef}
-          className="relative mx-auto my-4 mb-16 w-full max-w-7xl flex-1 px-5 sm:mb-4 motion-reduce:my-10 motion-reduce:flex-none"
+          className="problem-ring-stage relative mx-auto my-4 mb-16 min-h-0 w-full max-w-7xl flex-1 px-5 sm:mb-4 motion-reduce:my-10 motion-reduce:flex-none"
         >
           <ul aria-hidden="true" className="motion-reduce:hidden">
             {QUESTIONS.map((q, i) => (
@@ -307,14 +308,14 @@ export function ProblemRing() {
 
           <figure
             ref={ringRef}
-            className="absolute left-1/2 top-1/2 z-10 w-fit -translate-x-1/2 -translate-y-1/2 motion-reduce:static motion-reduce:mx-auto motion-reduce:translate-x-0 motion-reduce:translate-y-0"
+            className="problem-ring-disc absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 motion-reduce:static motion-reduce:mx-auto motion-reduce:translate-x-0 motion-reduce:translate-y-0"
           >
             {/* On phones the mark stands alone, leaving more room for the question cards. */}
             {/* eslint-disable-next-line @next/next/no-img-element -- a small static SVG mark */}
             <img src={FAVICON_SRC.light} alt="" aria-hidden="true" className="size-14 sm:hidden" />
             <div
               aria-hidden="true"
-              className="relative hidden size-64 rounded-full sm:block lg:size-80"
+              className="relative hidden aspect-square w-full rounded-full sm:block"
               style={{ background: RING }}
             >
               <div className="absolute inset-[16%] flex items-center justify-center rounded-full bg-bg-card shadow-panel">
