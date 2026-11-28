@@ -1,16 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { LearningDto, PerkDto, TemplateDto, TemplateFileType } from '@shared/resource';
+import type { LearningDto, PerkDto } from '@shared/resource';
 import { Button } from '@/components/ui';
 import { ResourceImage } from '@/components/resources/ResourceImage';
-
-const FILE_LABEL: Record<TemplateFileType, string> = {
-  docx: 'Word',
-  xlsx: 'Excel',
-  pptx: 'PowerPoint',
-  pdf: 'PDF',
-};
-const FILE_TYPES: TemplateFileType[] = ['pptx', 'docx', 'xlsx', 'pdf'];
 
 function Chip({ children, dark }: { children: ReactNode; dark?: boolean }) {
   return (
@@ -48,21 +40,12 @@ function Rows({ rows, empty }: { rows: { key: string; title: string; detail: str
 const featuredFirst = <T extends { isFeatured: boolean; sortOrder: number }>(items: T[]) =>
   [...items].sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || a.sortOrder - b.sortOrder);
 
-// dashboard.html's "Your resources": Learnings, Templates and Perks share one card — a full-width
+// dashboard.html's "Your resources": Learnings and Perks each have a card — a full-width
 // picture with a label, then the first two items. Each card opens its library page (the libraries
 // have no per-item URLs). `null` means that list failed to load.
-export function DashboardResources({
-  learnings,
-  templates,
-  perks,
-}: {
-  learnings: LearningDto[] | null;
-  templates: TemplateDto[] | null;
-  perks: PerkDto[] | null;
-}) {
+export function DashboardResources({ learnings, perks }: { learnings: LearningDto[] | null; perks: PerkDto[] | null }) {
   const unavailable = 'Temporarily unavailable. Refresh to try again.';
   const videos = learnings ? featuredFirst(learnings).slice(0, 2) : [];
-  const files = templates ? featuredFirst(templates).slice(0, 2) : [];
   const offers = perks ? featuredFirst(perks).slice(0, 3) : [];
   const cover = videos[0];
 
@@ -74,7 +57,7 @@ export function DashboardResources({
         </h2>
         <p className="text-caption text-ink-3">Make the most of your membership</p>
       </div>
-      <div className="grid gap-5 md:grid-cols-3 xl:gap-6">
+      <div className="grid gap-5 md:grid-cols-2 xl:gap-6">
         <Link
           href="/learnings"
           className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card transition-colors hover:border-line-2"
@@ -103,36 +86,6 @@ export function DashboardResources({
               detail: [v.category, v.durationMinutes ? `${v.durationMinutes} min` : null].filter(Boolean).join(' · '),
             }))}
             empty={learnings === null ? unavailable : 'New learnings are on the way.'}
-          />
-        </Link>
-
-        <Link
-          href="/templates"
-          className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg-card transition-colors hover:border-line-2"
-        >
-          <div className="relative flex aspect-[16/10] items-center justify-center gap-3 bg-bg-alt px-6">
-            <Chip>Templates for you</Chip>
-            {FILE_TYPES.map((type, i) => (
-              <span
-                key={type}
-                className={`flex h-14 w-11 flex-col justify-end rounded-md bg-bg-card p-1.5 shadow-panel ring-1 ring-black/5 transition-transform group-hover:-translate-y-0.5 ${i % 2 ? 'translate-y-2' : ''}`}
-              >
-                <span className="mb-auto space-y-1 pt-1">
-                  <span className="block h-0.5 w-full rounded-full bg-line" />
-                  <span className="block h-0.5 w-3/4 rounded-full bg-line" />
-                  <span className="block h-0.5 w-5/6 rounded-full bg-line" />
-                </span>
-                <span className="text-[9px] max-sm:text-[11px] font-semibold uppercase text-ink">.{type}</span>
-              </span>
-            ))}
-          </div>
-          <Rows
-            rows={files.map((t) => ({
-              key: t.id,
-              title: t.title,
-              detail: `${FILE_LABEL[t.fileType]} · .${t.fileType}`,
-            }))}
-            empty={templates === null ? unavailable : 'New templates are on the way.'}
           />
         </Link>
 

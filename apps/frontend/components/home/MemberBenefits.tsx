@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Eyebrow } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { VerticalsOrbit } from '@/components/home/VerticalsOrbit';
 import { STICKY_UNDER_MOBILE_BAR } from '@/lib/ui/mobile';
-import type { Vertical } from '@/components/home/verticals-data';
+import { openSearch } from '@/lib/search/open-search';
+import type { Channel, Vertical } from '@/components/home/verticals-data';
 
 // The six member benefits around the dial. The section pins while you scroll through it: the dial
 // turns from one benefit to the next and the panel shows the one at the top (beside the dial on
@@ -90,7 +92,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
         ref={pinRef}
         className={`member-benefit-pin sticky ${STICKY_UNDER_MOBILE_BAR} flex h-[calc(100svh-61px)] flex-col justify-center overflow-hidden pb-20 pt-6 max-sm:pt-4 [@media(max-height:700px)]:pt-3 sm:max-lg:landscape:pb-14 sm:max-lg:landscape:pt-3 lg:top-0 lg:h-dvh lg:justify-start lg:pb-16 lg:pt-8`}
       >
-        <PageContainer className="member-benefit-layout grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:gap-x-14 lg:gap-y-6 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
+        <PageContainer className="member-benefit-layout grid w-full grid-rows-[auto_auto_auto] content-center gap-5 max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:gap-4 [@media(max-height:700px)]:gap-3 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_auto] lg:content-center lg:gap-x-14 lg:gap-y-10 sm:max-lg:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-lg:landscape:grid-rows-[auto_auto] sm:max-lg:landscape:gap-x-8 sm:max-lg:landscape:gap-y-4">
           <div className="member-benefit-heading text-center lg:col-span-2 lg:row-start-1 sm:max-lg:landscape:col-start-1 sm:max-lg:landscape:row-start-1 sm:max-lg:landscape:self-end sm:max-lg:landscape:text-left">
             <Eyebrow dark>For members</Eyebrow>
             <h2
@@ -127,35 +129,47 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
             {benefits.map((b, i) => (
               <div
                 key={b.title}
-                aria-hidden="true"
+                aria-hidden={i !== shown}
                 className={`[grid-area:1/1] transition-opacity duration-500 motion-reduce:transition-none ${
                   i === shown ? 'opacity-100' : 'pointer-events-none opacity-0'
                 }`}
               >
-                {/* The status pill sits above the numbered title. */}
-                <div className="flex flex-col-reverse items-start gap-2 sm:gap-3">
-                  <h3 className="font-brand text-title text-accent sm:text-heading lg:text-section-title">
-                    <span className="mr-2 text-white/40 sm:mr-3">{String(i + 1).padStart(2, '0')}</span>
-                    {b.title}
-                  </h3>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-label ${
-                      b.status === 'Live' ? 'bg-accent text-white' : 'border border-white/15 text-white/70'
-                    }`}
-                  >
-                    {b.status}
-                  </span>
-                </div>
+                {/* The number sits above the title; no status pill, since the "Delivered through" pills
+                    show what is live. Phones drop both: the dial already names the benefit at its top,
+                    so the card keeps just the summary and channels and the dial gets the room. */}
+                <p
+                  aria-hidden="true"
+                  className="font-brand text-title leading-none text-white/40 max-sm:hidden sm:text-heading"
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </p>
+                <h3 className="font-brand mt-1 text-title text-accent max-sm:hidden sm:mt-2 sm:text-heading lg:text-section-title">
+                  {b.title}
+                </h3>
                 {/* Short phone screens hide the summary to give the dial and its labels room;
                     very short screens also hide the longer description. */}
                 {b.summary && (
-                  <p className="member-benefit-summary mt-1.5 text-sm leading-snug text-white/65">{b.summary}</p>
+                  <p className="member-benefit-summary sm:mt-1.5 text-sm leading-snug text-white/65">{b.summary}</p>
                 )}
                 {b.description ? (
                   <div className="member-benefit-description mt-3 max-w-xl space-y-3 text-sm leading-relaxed text-white/65 sm:mt-5 sm:text-base lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
-                    {b.description.map((paragraph) => (
+                    {/* With delivery channels, the pills take the second paragraph's place. */}
+                    {(b.channels ? b.description.slice(0, 1) : b.description).map((paragraph) => (
                       <p key={paragraph}>{paragraph}</p>
                     ))}
+                    {/* An aside (e.g. inviting vendors to pitch) reads as the second paragraph. */}
+                    {b.aside && (
+                      <p>
+                        {b.aside.text}{' '}
+                        <a
+                          href={b.aside.href}
+                          tabIndex={i === shown ? 0 : -1}
+                          className="whitespace-nowrap text-accent underline-offset-4 hover:underline"
+                        >
+                          {b.aside.linkLabel} →
+                        </a>
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <ul className="mt-3 flex flex-col gap-1.5 text-sm text-white/65 sm:mt-5 sm:gap-2.5 sm:text-base lg:gap-3 lg:text-lg max-sm:hidden [@media(max-height:480px)]:hidden">
@@ -178,6 +192,7 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
                     ))}
                   </ul>
                 )}
+                {b.channels && <ChannelPills channels={b.channels} active={i === shown} />}
               </div>
             ))}
           </div>
@@ -187,11 +202,84 @@ export function MemberBenefits({ benefits }: { benefits: readonly Vertical[] }) 
         <ul className="sr-only">
           {benefits.map((b) => (
             <li key={b.title}>
-              {b.title} ({b.status}): {b.description?.join(' ') ?? `${b.outcomes.join('. ')}.`}
+              {b.title}: {b.description?.join(' ') ?? `${b.outcomes.join('. ')}.`}
             </li>
           ))}
         </ul>
       </div>
     </section>
+  );
+}
+
+const LINK_PILL =
+  'hidden border-white/15 text-white/85 transition-colors hover:border-accent hover:text-white sm:inline-flex';
+const PILL = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs sm:px-3 sm:text-sm';
+
+/** How a benefit is delivered. Live channels with a page link to it on larger screens; on phones the
+ *  card is a summary, so the pills are plain labels (no undersized tap targets). Not-built channels
+ *  are muted with "soon" and never linked. */
+function ChannelPills({ channels, active }: { channels: readonly Channel[]; active: boolean }) {
+  return (
+    <div className="member-benefit-channels mt-3 sm:mt-6">
+      <p className="text-mono-label text-white/40 max-sm:hidden">Delivered through</p>
+      <ul className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
+        {/* Live channels first, then the ones still to come; each group keeps its listed order. */}
+        {[...channels.filter((c) => !c.soon), ...channels.filter((c) => c.soon)].map((c) => {
+          const dot = (
+            <span
+              aria-hidden="true"
+              className={`size-1.5 flex-none rounded-full ${c.soon ? 'border border-white/30' : 'bg-accent'}`}
+            />
+          );
+          if (c.soon) {
+            return (
+              <li key={c.name} className={`${PILL} border-dashed border-white/15 text-white/45`}>
+                {dot}
+                {c.name}
+                <span className="text-white/30">· soon</span>
+              </li>
+            );
+          }
+          const arrow = (
+            <span aria-hidden="true" className="text-white/40">
+              →
+            </span>
+          );
+          const label = (
+            <>
+              {dot}
+              {c.name}
+            </>
+          );
+          return (
+            <li key={c.name}>
+              {c.href || c.action ? (
+                <>
+                  <span className={`${PILL} border-white/15 text-white/85 sm:hidden`}>{label}</span>
+                  {c.href ? (
+                    <Link href={c.href} tabIndex={active ? 0 : -1} className={`${PILL} ${LINK_PILL}`}>
+                      {label}
+                      {arrow}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openSearch}
+                      tabIndex={active ? 0 : -1}
+                      className={`${PILL} ${LINK_PILL}`}
+                    >
+                      {label}
+                      {arrow}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <span className={`${PILL} border-white/15 text-white/85`}>{label}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

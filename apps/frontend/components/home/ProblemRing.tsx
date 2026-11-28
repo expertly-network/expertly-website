@@ -27,14 +27,24 @@ const SLICES: [share: number, color: string][] = [
   [17, 'color-mix(in oklab, var(--ink) 18%, var(--bg-alt))'],
   [18, 'color-mix(in oklab, var(--ink) 36%, var(--bg-alt))'],
 ];
+// Browsers don't anti-alias hard stops in a conic gradient, so a slice edge drawn as a hard cut shows
+// stair-stepped pixels along every slanted edge. Each edge instead fades over FEATHER (about 1px at
+// the ring's size), which reads as a crisp, smooth edge. The last stop repeats the first colour so the
+// 12 o'clock seam fades too.
+const FEATHER = 0.12; // % of the turn
 const RING = (() => {
   let at = 0;
   const stops = SLICES.flatMap(([share, color]) => {
     const from = at;
     at += share;
-    return [`${color} ${from}% ${at - GAP}%`, `var(--bg-card) ${at - GAP}% ${at}%`];
+    return [
+      `${color} ${from}%`,
+      `${color} ${at - GAP}%`,
+      `var(--bg-card) ${at - GAP + FEATHER}%`,
+      `var(--bg-card) ${at - FEATHER}%`,
+    ];
   });
-  return `conic-gradient(${stops.join(', ')})`;
+  return `conic-gradient(${[...stops, `${SLICES[0][1]} 100%`].join(', ')})`;
 })();
 
 type Side = 'user' | 'member';
@@ -45,58 +55,17 @@ type Question = {
 
 // Shown in this order, users and members alternating, so each lands on its own side of the ring
 // (the slot lists below alternate left/right). Keep it alternating.
-// Written as mirrored pairs (the same need, seen from each side), and every question is one the
-// benefit sections below answer, named in the comment above each pair.
 const QUESTIONS: Question[] = [
-  // Finding each other: Accessibility (users) / Reach and visibility (members)
-  {
-    q: 'How do I find the right expert for this?',
-    side: 'user',
-  },
-  {
-    q: 'How do clients who need me find me?',
-    side: 'member',
-  },
-
-  // Trust: every member is vetted / verified profile
-  {
-    q: "How do I know they're actually qualified?",
-    side: 'user',
-  },
-  {
-    q: 'How do I prove my credibility to new clients?',
-    side: 'member',
-  },
-
-  // Across borders: search by location worldwide / Networking, cross-border referrals
-  {
-    q: 'Who can I trust with a matter abroad?',
-    side: 'user',
-  },
-  {
-    q: 'How do I get referrals from other countries?',
-    side: 'member',
-  },
-
-  // Expertise in writing: read Articles / publish Articles under your own name
-  {
-    q: 'Where do I find answers I can rely on?',
-    side: 'user',
-  },
-  {
-    q: 'How do I build a name for my expertise?',
-    side: 'member',
-  },
-
-  // Growth and capacity: Events, courses and Training / Recruiting for peak periods
-  {
-    q: 'How do I keep growing my skills?',
-    side: 'user',
-  },
-  {
-    q: 'Who can take on extra work in busy season?',
-    side: 'member',
-  },
+  { q: 'How do I find the right qualified expert for this?', side: 'user' }, // Verified experts
+  { q: 'How do new clients find me?', side: 'member' }, // Reach and visibility
+  { q: 'Who can I trust with a matter abroad?', side: 'user' }, // Consultations, cross-border
+  { q: 'How do I grow beyond my existing network?', side: 'member' }, // Networking
+  { q: 'Where can I find reliable, practical professional insights?', side: 'user' }, // Articles
+  { q: 'Which tools can help me work smarter?', side: 'member' }, // Technology
+  { q: 'How do I keep learning and stay ahead professionally?', side: 'user' }, // Training, events
+  { q: 'How do I keep up with changing technology and AI?', side: 'member' }, // Training
+  { q: "I'm planning a visit to USA, which events can I attend?", side: 'user' }, // Products and tools
+  { q: 'Where do I find reliable talent?', side: 'member' }, // Talent
 ];
 
 const CARD_CLASS: Record<Side, string> = {
@@ -132,6 +101,18 @@ const SLOTS_WIDE: [number, number][] = [
   [-0.56, 0.68],
   [0.58, 0.76],
 ];
+// Short wide screens (a laptop with a low window): three cards a side would stack into each other, so
+// each side uses two slots, top and bottom. A slot still comes round only every fourth question,
+// which is longer than SPAN_WIDE, so a slot is free again before its next card arrives.
+const SLOTS_WIDE_SHORT: [number, number][] = [
+  [-0.62, -1],
+  [0.62, -1],
+  [-0.62, 1],
+  [0.62, 1],
+];
+// Neighbouring slots on one side sit about 0.66 of the half-height apart; the three-a-side layout is
+// used only while that gap fits the tallest card plus this breathing room.
+const SLOT_GAP_PX = 16;
 const SPAN_WIDE = 0.34;
 // Tablets: no room beside the ring, so users' questions come out above it (leaning left) and
 // members' below (leaning right).
@@ -199,9 +180,11 @@ export function ProblemRing() {
       const h = stage.clientHeight;
       const narrow = w < 1024;
       const phone = w < 640;
-      const slots = narrow ? SLOTS_NARROW : SLOTS_WIDE;
       const clear = (ringRef.current?.offsetWidth ?? 0) / 2 + 14;
       const shown = QUESTIONS.map((q, i) => ({ q, el: cards.current[i] })).filter(({ el }) => el);
+      const tallest = Math.max(0, ...shown.map(({ el }) => el?.offsetHeight ?? 0));
+      const threeASide = 0.66 * (h / 2 - tallest / 2 - 4) >= tallest + SLOT_GAP_PX;
+      const slots = narrow ? SLOTS_NARROW : threeASide ? SLOTS_WIDE : SLOTS_WIDE_SHORT;
       const n = shown.length;
       const span = phone ? SPAN_PHONE : narrow ? SPAN_TABLET : SPAN_WIDE;
       // A head start so the section never opens empty: at the top, the first question is already out

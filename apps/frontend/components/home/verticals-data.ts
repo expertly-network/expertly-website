@@ -1,12 +1,10 @@
 // The six member benefits (the dial in MemberBenefits), in order; Technology leads.
-// The first three member benefits are live; the remaining three are coming soon.
 // TODO(content): confirm the outcomes with the founders before launch.
 
 export type Vertical = {
   title: string;
   /** Short label for the orbit. */
   label: string;
-  status: 'Live' | 'Coming soon';
   /** One-line headline. The user benefits show it; the member dial deliberately doesn't. */
   promise?: string;
   outcomes: readonly string[];
@@ -14,43 +12,69 @@ export type Vertical = {
   description?: readonly [string, string];
   /** Phones: a two-line version of `description`, written short rather than clamped. */
   summary?: string;
+  /** How GrowXQ delivers this benefit. A channel with `href` is live and links to it; `soon` marks
+   *  one not built yet (shown muted, never linked). Live without `href` = live but nothing to open. */
+  channels?: readonly Channel[];
+  /** A one-line invite with a link (e.g. asking vendors to pitch). Member dial: a second paragraph,
+   *  larger screens only. User cards: a line under the points. */
+  aside?: { text: string; linkLabel: string; href: string };
 };
+
+/** `action: 'search'` opens the site's AI search modal instead of following a link. */
+export type Channel = { name: string; href?: string; action?: 'search'; soon?: boolean };
+
+// Shared channel entries, so one channel reads the same under every benefit it serves.
+const CH = {
+  articles: { name: 'Library', href: '/articles' },
+  podcast: { name: 'Podcast', soon: true },
+  aiSearch: { name: 'AI search', action: 'search' },
+  webinars: { name: 'Webinars', soon: true },
+  newsletter: { name: 'Newsletter', href: '#newsletter' },
+  members: { name: 'Member directory', href: '/members' },
+  peerConnect: { name: 'Peer connect', soon: true },
+  consultations: { name: 'Consultations', href: '/consultations' },
+  events: { name: 'Events', href: '/events' },
+  learnings: { name: 'AI learnings', href: '/learnings' },
+  infrastructure: { name: 'AI infrastructure', soon: true },
+  tools: { name: 'Tools', href: '/perks' },
+  talent: { name: 'Talent', soon: true },
+} satisfies Record<string, Channel>;
 
 export const VERTICALS: readonly Vertical[] = [
   {
     title: 'Technology',
     label: 'Technology',
-    status: 'Live',
-    summary: 'The right tools, each with a security note and member discounts.',
+    channels: [CH.learnings, CH.webinars, CH.infrastructure],
+    summary: 'AI for faster day-to-day work in your practice, plus space to experiment.',
     description: [
-      'Find the right tool for the job in front of you, from tax research to reporting. Every tool comes with a plain-language note on security and data handling, so you know exactly what you are signing up for before you try it.',
-      'As a member, you can also get discounted deals on tools that make your practice more efficient and your workflows simpler. Choose what fits the work you do every day.',
+      'Make your day-to-day work faster with AI built around your practice area. Learn to automate routine tasks and optimise your workflows through short videos, recorded sessions, webinars, live seminars and one-to-one consultations.',
+      'AI learnings focus on the work you do every day in your field, so each lesson saves you time you can feel. AI infrastructure gives you a hands-on space to test tools and workflows before you commit.',
     ],
     outcomes: [
-      'Find a tool for the job in front of you, from tax research to reporting',
-      'Read a security and data-handling note before you try one',
-      'Get discounted deals for tools that increase efficiency and optimise workflows',
+      'Automate routine tasks and optimise workflows in your practice area',
+      'Learn through videos, webinars, live seminars and one-to-one consultations',
+      'Experiment on AI infrastructure we provide',
     ],
   },
   {
     title: 'Reach and visibility',
     label: 'Reach',
-    status: 'Live',
-    summary: 'Publish under your name and appear in searches for your field.',
+    channels: [CH.articles, CH.podcast, CH.aiSearch, CH.webinars, CH.members],
+    summary: 'Share your thinking, show client testimonials, and get found.',
     description: [
-      'Publish articles under your own name and build a body of work that clients can read. Your verified profile is deepened by a short AI interview about your work, so it reflects what you actually do, not just a job title.',
-      'When someone searches for your specialisation, your profile can appear as a relevant match. Your articles give them a clearer picture of your work before they reach out.',
+      'Be visible to the clients who need you. Share your expertise through articles and podcasts, keep your client testimonials up to date on your verified profile, and show up in AI search when someone looks for your specialisation.',
+      'Your verified profile is deepened by a short AI interview about your work, so it reflects what you actually do, not just a job title. Your articles and testimonials give clients a clearer picture of your work before they reach out.',
     ],
     outcomes: [
-      'Publish articles under your own name',
-      'A verified profile, enhanced by robust profiling via an AI interview about your work',
-      'A relevant match any time a user searches for your specialisation',
+      'Share your expertise through articles and podcasts',
+      'Keep client testimonials up to date on your verified profile',
+      'Show up in AI search for your specialisation',
     ],
   },
   {
     title: 'Networking',
     label: 'Networking',
-    status: 'Live',
+    channels: [CH.peerConnect, CH.consultations, CH.events],
     summary: 'Cross-border referrals and peers in your focus area.',
     description: [
       'Get your work referred across borders, by peers who know what you do. Grow your network beyond the four walls of your own firm, with professionals who share your standards and understand where your expertise fits.',
@@ -63,45 +87,50 @@ export const VERTICALS: readonly Vertical[] = [
     ],
   },
   {
-    title: 'Training',
-    label: 'Training',
-    status: 'Coming soon',
-    summary: 'Short AI videos with ready-to-use prompts and plugins.',
+    title: 'Learning',
+    label: 'Learning',
+    channels: [CH.articles, CH.podcast, CH.webinars, CH.newsletter],
+    summary: 'Articles, podcasts, webinars and a newsletter to keep you sharp.',
     description: [
-      'Build your AI skills with short, digestible videos you can watch between client work. Each one comes with ready-to-use prompts and plugins, so you can take an idea from a lesson and try it in your practice.',
-      'Beyond AI, you can sharpen your skills in other focus areas too. The videos are made for practitioners who want to keep learning alongside their client work.',
+      'Stay ahead in your practice area without losing billable hours. Catch up on rule changes, new approaches and what peers are seeing through articles, podcasts, webinars led by practitioners, and a newsletter that brings what matters to your inbox.',
+      'Learning here is built around the work you already do, so it fits alongside your client work rather than competing with it.',
     ],
     outcomes: [
-      'Develop AI skills with short, digestible videos',
-      'Get ready-to-use prompts and plugins',
-      'Watch videos to sharpen skills in other focus areas',
+      'Catch up on rule changes and new approaches in your practice area',
+      'Read articles, join webinars led by practitioners and listen to podcasts',
+      'Get what matters in your inbox with the newsletter',
     ],
   },
   {
-    title: 'Perks and products',
-    label: 'Perks',
-    status: 'Coming soon',
-    summary: 'Member-only products, better pricing, every vendor disclosed.',
+    title: 'Curated tools',
+    label: 'Tools',
+    channels: [CH.tools],
+    aside: {
+      text: 'Building a tool for professionals?',
+      linkLabel: 'Pitch it to us',
+      href: 'mailto:ask@growxq.com?subject=Tool%20pitch',
+    },
+    summary: 'Hand-picked tools at better prices, for faster day-to-day work.',
     description: [
-      'Get access to products that only members can use, and better pricing on selected tools and services. Every vendor relationship is disclosed, so you always know who we work with and why an offer is in front of you.',
-      'That way you can judge every perk on its merits, not on who is behind it. Consider whether an offer suits your practice, and decide for yourself if it is worth using.',
+      'Work smarter with tools hand-picked for your practice, at better prices than you would get alone. Each one is chosen to make your day-to-day work faster and more efficient.',
+      'Every vendor relationship is disclosed, so you can judge each tool on its merits and decide for yourself whether it suits your practice.',
     ],
     outcomes: [
-      'Products only members can access',
-      'Better pricing on some tools and services',
-      'Every vendor relationship disclosed',
+      'Access curated tools for your practice',
+      'Better pricing on selected tools',
+      'Improve your day-to-day productivity and efficiency',
     ],
   },
   {
-    title: 'Recruiting',
-    label: 'Recruiting',
-    status: 'Coming soon',
-    summary: 'Match with available talent and add capacity for peak periods.',
+    title: 'Talent',
+    label: 'Talent',
+    channels: [CH.talent],
+    summary: 'Finding the right talent is hard. We are working to bridge that gap.',
     description: [
-      'Match with available talent when your practice needs more hands. Add capacity for peak periods, from filing season to a large transaction, without committing to a permanent hire every time work gets busy.',
-      'Find people who already understand the work, so the extra capacity is useful from the first day rather than after weeks of onboarding. Get support when work calls for it.',
+      'Finding the right talent is one of the hardest challenges practising professionals face today. GrowXQ is working to bridge that gap, connecting you with people who already understand the work.',
+      'From filing season to a large transaction, get support that is useful from the first day rather than after weeks of onboarding.',
     ],
-    outcomes: ['Match with available talent', 'Add capacity for peak periods'],
+    outcomes: ['Find people who already understand the work', 'Add capacity for peak periods'],
   },
 ];
 
@@ -110,10 +139,9 @@ export const VERTICALS: readonly Vertical[] = [
 // availability and fee range, and engagements are agreed directly with the member.
 export const USER_BENEFITS: readonly Vertical[] = [
   {
-    title: 'Accessibility',
-    label: 'Accessibility',
-    status: 'Live',
-    promise: 'Go straight to a reviewed finance, tax or legal professional.',
+    title: 'Verified experts',
+    label: 'Verified experts',
+    promise: 'Go straight to a verified finance, tax or legal professional.',
     outcomes: [
       'Search by service, specialisation and location',
       'Every expert is vetted by our team before becoming a member',
@@ -123,18 +151,16 @@ export const USER_BENEFITS: readonly Vertical[] = [
   {
     title: 'Consultations',
     label: 'Consultations',
-    status: 'Live',
     promise: 'Take the next step with the expert you found.',
     outcomes: [
       'Request a consultation from their profile',
       'Members show their availability and fee range upfront',
-      'You agree terms directly with the expert',
+      'GrowXQ takes zero cut: you agree terms directly with the expert',
     ],
   },
   {
-    title: 'Articles',
-    label: 'Articles',
-    status: 'Live',
+    title: 'Library',
+    label: 'Library',
     promise: 'Read how practitioners think.',
     outcomes: [
       'Get expertise-focused articles: M&A, finance, TP and much more',
@@ -145,7 +171,6 @@ export const USER_BENEFITS: readonly Vertical[] = [
   {
     title: 'Events',
     label: 'Events',
-    status: 'Live',
     promise: 'Briefings, webinars and conferences in one calendar.',
     outcomes: [
       'Covers online and in-person events, worldwide',
@@ -154,21 +179,24 @@ export const USER_BENEFITS: readonly Vertical[] = [
     ],
   },
   {
-    title: 'Training',
-    label: 'Training',
-    status: 'Coming soon',
-    promise: 'Learn from the practitioners themselves.',
-    outcomes: ['Practical sessions from members', 'Short enough to fit between tasks'],
+    title: 'Technology',
+    label: 'Technology',
+    promise: 'Keep yourself upgraded with the latest technology.',
+    outcomes: [
+      'Learn practical technology through short videos',
+      'Join webinars as they launch',
+      'Keep your skills current, at your own pace',
+    ],
   },
   {
     title: 'Products and tools',
     label: 'Products',
-    status: 'Coming soon',
     promise: 'Partner products and tools at preferred rates.',
-    outcomes: [
-      'Offers open to every user',
-      'Some products are for members only',
-      'Every vendor relationship disclosed',
-    ],
+    outcomes: ['Offers open to every user', 'Some products are for members only'],
+    aside: {
+      text: 'Have a product for professionals?',
+      linkLabel: 'Pitch it to us',
+      href: 'mailto:ask@growxq.com?subject=Tool%20pitch',
+    },
   },
 ];

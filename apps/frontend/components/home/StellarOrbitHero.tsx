@@ -12,9 +12,9 @@ import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC } from '@/lib/brand';
 // PART1 wraps on its own (balanced), PART2 always starts its own line. Phones set PART1 as the two
 // fixed lines in PART1_PHONE_LINES, each kept to one row by a viewport-scaled font size; the swap
 // happens in CSS at `sm` so there is no hydration flash.
-const PART1 = 'Build the skill you need';
-const PART2 = 'or find an expert with it.';
-const PART1_PHONE_LINES = ['Build the skill you need'] as const;
+const PART1 = 'An Ecosystem for Finance, Tax and Legal Professionals';
+const PART2 = 'where expertise thrives';
+const PART1_PHONE_LINES = ['A Growth ecosystem'] as const;
 
 function ArrowIcon() {
   return (
@@ -281,8 +281,8 @@ export function StellarOrbitHero({
               className="mx-auto hidden text-lede text-white/50 sm:mt-6 sm:block sm:max-w-[460px] lg:mx-0"
               style={{ animation: 'hs-fade-in 0.7s ease 1.9s both' }}
             >
-              Access to trusted AI tools, practical professional training, and a verified global network, to bring the
-              resources, expertise, and capabilities of a large firm within reach of every practicing professional.
+              Access to technology, AI tools and a verified global network, to bring the resources, expertise, and
+              capabilities of a large firm within reach of every practicing professional.
             </p>
 
             {/* Larger screens use the main hero actions; phones get their two actions below the orbit. */}

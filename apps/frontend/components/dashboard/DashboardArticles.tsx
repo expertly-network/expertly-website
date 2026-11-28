@@ -32,15 +32,15 @@ export function DashboardArticles({
         : 'You haven’t written an article yet. Share your first one with the community.';
 
   return (
-    <section aria-label="Articles">
+    <section aria-label="Library">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-dash-title text-ink">Articles</h2>
+        <h2 className="text-dash-title text-ink">Library</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="Articles" className="flex items-center gap-1">
+          <div role="tablist" aria-label="Library" className="flex items-center gap-1">
             {(
               [
                 ['latest', 'Latest'],
-                ['mine', 'My Articles'],
+                ['mine', 'My articles'],
               ] as const
             ).map(([value, label]) => (
               <button

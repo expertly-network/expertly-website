@@ -24,22 +24,22 @@ export function ArticlesTabsNav({
         {onTabChange ? (
           <>
             <button type="button" onClick={() => onTabChange('browse')} className={TAB_CLASSES(active === 'browse')}>
-              Browse Articles
+              Browse library
             </button>
             {canWrite && (
               <button type="button" onClick={() => onTabChange('mine')} className={TAB_CLASSES(active === 'mine')}>
-                My Articles
+                My articles
               </button>
             )}
           </>
         ) : (
           <>
             <Link href="/articles" className={TAB_CLASSES(active === 'browse')}>
-              Browse Articles
+              Browse library
             </Link>
             {canWrite && (
               <Link href="/articles?tab=mine" className={TAB_CLASSES(active === 'mine')}>
-                My Articles
+                My articles
               </Link>
             )}
           </>

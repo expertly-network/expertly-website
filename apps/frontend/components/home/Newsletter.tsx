@@ -14,7 +14,7 @@ export function Newsletter() {
   // Phones: the optional region/country preferences stay collapsed behind a text toggle.
 
   return (
-    <section className="pb-16 pt-10 sm:pb-28 sm:pt-24">
+    <section id="newsletter" className="scroll-mt-20 pb-16 pt-10 sm:pb-28 sm:pt-24">
       <PageContainer>
         <Card
           padding="lg"

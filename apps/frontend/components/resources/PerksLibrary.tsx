@@ -59,7 +59,7 @@ export function PerksLibrary({
   return (
     <div>
       <ResourceHero
-        title="Perks,"
+        title="Tools,"
         accent="negotiated for you."
         search={{
           id: 'perk-search',

@@ -12,16 +12,15 @@ const LINK_GROUPS: { label: string; links: FooterLink[] }[] = [
     label: 'Explore',
     links: [
       { label: 'Members', href: '/members' },
-      { label: 'Articles', href: '/articles' },
+      { label: 'Library', href: '/articles' },
       { label: 'Events', href: '/events' },
     ],
   },
   {
     label: 'Resources',
     links: [
-      { label: 'Learnings', href: '/learnings' },
-      { label: 'Perks', href: '/perks' },
-      { label: 'Templates', href: '/templates' },
+      { label: 'Technology', href: '/learnings' },
+      { label: 'Tools', href: '/perks' },
     ],
   },
   {
@@ -37,6 +36,9 @@ const LINK_GROUPS: { label: string; links: FooterLink[] }[] = [
 
 // Desktop's single row of pages: the Explore and Resources links.
 const DESKTOP_PAGE_LINKS: FooterLink[] = LINK_GROUPS.filter((g) => g.label !== 'Company').flatMap((g) => g.links);
+
+// Desktop's second line: FAQ, then the legal pages.
+const FAQ_LINK: FooterLink = { label: 'FAQ', href: '/faq' };
 
 const LEGAL_LINKS: FooterLink[] = [
   { label: 'User & Member Policy', href: USER_AGREEMENT_URL },
@@ -70,14 +72,17 @@ function Copyright() {
 function LegalLinks({
   className,
   linkClassName = 'text-xs text-white/50 transition-colors hover:text-white',
+  leading = [],
 }: {
   className: string;
   linkClassName?: string;
+  /** Links shown before the legal pages on the same line (desktop puts FAQ here). */
+  leading?: FooterLink[];
 }) {
   return (
     <nav aria-label="Legal">
       <ul className={className}>
-        {LEGAL_LINKS.map((link) => (
+        {[...leading, ...LEGAL_LINKS].map((link) => (
           <li key={link.href}>
             <FooterAnchor link={link} className={linkClassName} />
           </li>
@@ -89,7 +94,7 @@ function LegalLinks({
 
 // The dark band with the brand-green glow. Phones and tablets: everything centred (the logo, three
 // link columns, then a hairline-separated bar with the legal pages and the copyright line).
-// Desktop: two centred lines (the site pages, then the legal pages), and a giant
+// Desktop: two centred lines (the site pages, then FAQ and the legal pages), and a giant
 // GrowXQ wordmark in the logo's colours, shown in full, on plain ink (no glow). The two
 // layouts are separate blocks (lg:hidden / hidden lg:block) rather than one grid with overrides.
 export function Footer() {
@@ -150,6 +155,7 @@ export function Footer() {
           <LegalLinks
             className="flex gap-x-10"
             linkClassName="text-lg text-white/55 transition-colors hover:text-accent"
+            leading={[FAQ_LINK]}
           />
         </div>
 

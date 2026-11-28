@@ -86,9 +86,6 @@ export function VerticalsStackCards({ verticals }: { verticals: readonly Vertica
                 <span className={`font-mono text-xs ${t.mute}`}>{String(i + 1).padStart(2, '0')}</span>
                 <h3 className="font-brand truncate text-title">{v.title}</h3>
               </div>
-              <span className={`flex-none rounded-full border px-2.5 py-0.5 text-label ${t.rule} ${t.mute}`}>
-                {v.status}
-              </span>
             </header>
 
             <div className="relative grid flex-1 content-start gap-4 px-5 pb-6 pt-5 sm:gap-5 sm:px-8 sm:pb-10 sm:pt-8">
@@ -109,6 +106,18 @@ export function VerticalsStackCards({ verticals }: { verticals: readonly Vertica
                   </li>
                 ))}
               </ul>
+              {/* An optional one-line invite under the points, e.g. asking vendors to pitch a product. */}
+              {v.aside && (
+                <p className={`relative text-sm sm:text-[15px] ${t.mute}`}>
+                  {v.aside.text}{' '}
+                  <a
+                    href={v.aside.href}
+                    className="whitespace-nowrap font-medium text-accent underline-offset-4 hover:underline"
+                  >
+                    {v.aside.linkLabel} →
+                  </a>
+                </p>
+              )}
             </div>
           </article>
         );

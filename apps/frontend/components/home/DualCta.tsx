@@ -33,11 +33,11 @@ export function DualCta({ userCta, growthCta }: { userCta: GrowthCta; growthCta:
       <PageContainer className="grid grid-cols-2 gap-8 lg:gap-12">
         {/* `!` because Card's own bg-bg-card is emitted later in the CSS and would win otherwise. */}
         <Card padding="md" className="flex min-w-0 flex-col gap-3 !bg-bg-alt shadow-xl sm:gap-3.5 sm:!p-8">
-          <div className="text-mono-label text-ink-3">Users · Free</div>
+          <div className="text-mono-label text-ink-3">Users · Free · Sign in based</div>
           <h2 className="font-brand text-heading text-ink">In search of an expert</h2>
           <p className="max-w-[30em] text-base text-ink-2">
             Search verified finance, tax and legal professionals, connect for direct consultations, read their articles
-            or adopt the skills they have.
+            and learn new skills.
           </p>
           <div className="mt-auto flex justify-end pt-1">
             <Button href={userCta.href}>

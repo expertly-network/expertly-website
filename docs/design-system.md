@@ -44,7 +44,7 @@ The footer logo and contact details align with the same left and right gutters.
 
 `components/layout/Footer.tsx`, on a dark ink band with a soft brand-green glow, everything centred:
 the GrowXQ logo, then three labelled link columns — Explore
-(Members, Articles, Events), Resources (Learnings, Perks, Templates), Company (Membership, Contact
+(Members, Articles, Events), Resources (Learnings, Perks), Company (Membership, Contact
 us mailto, LinkedIn); then a hairline-separated, centred bottom bar with the legal pages (User & Member
 Policy, Privacy Policy) and the copyright line. The page's `<main>` is at least
 one screen tall, so the footer always starts below the fold, even on a page with little content.
@@ -265,7 +265,7 @@ a separate cleanup task to schedule later.
 ## Page heroes
 
 Every page with a dark hero uses `components/layout/PageHero.tsx`: the browse pages (Articles,
-Events, Members, Perks, Templates, Learnings), the dashboards, Consultations and every admin page: dark band, eyebrow, `font-brand text-headline` title, `text-lede`
+Events, Members, Perks, Learnings), the dashboards, Consultations and every admin page: dark band, eyebrow, `font-brand text-headline` title, `text-lede`
 paragraph, an optional search slot capped at `max-w-2xl`, an optional `action` (a button
 right of the title on desktop, below it on phones), an optional `back` link (`HeroBackLink`) above
 the eyebrow on detail pages, and `children` for an extra row under the text. The description is
@@ -286,8 +286,8 @@ the catalogue of the shared pieces (all hidden or reset from `sm` up unless note
 | Sticky under the top bar | Anything pinned below the 62px mobile top bar | `STICKY_UNDER_MOBILE_BAR` in `lib/ui/mobile.ts` — never repeat `top-[61px]` |
 | Shorter copy | Text that would truncate on a phone (search placeholders) | `lib/hooks/usePhoneText.ts` — articles, events, members heroes |
 | Inline "View all" | A section's full-width secondary button → text link on the heading row | `components/home/MobileViewAll.tsx` |
-| Compact row | Big cards → scannable rows | `components/ui/CompactRow.tsx` + `CompactRowList` (leading visual, eyebrow, title, meta, chevron) — Learnings videos, Perks, Templates; `ArticleListRow` (home + /articles); `MemberCard` / `EventRow` phone layouts |
-| Chip picker | Single-choice category / topic pills, sideways-scrolling, 44px tap height on phones (36px from `sm`) | `components/ui/ChipGroup.tsx` — Perks, Templates, Learnings |
+| Compact row | Big cards → scannable rows | `components/ui/CompactRow.tsx` + `CompactRowList` (leading visual, eyebrow, title, meta, chevron) — Learnings videos and Perks; `ArticleListRow` (home + /articles); `MemberCard` / `EventRow` phone layouts |
+| Chip picker | Single-choice category / topic pills, sideways-scrolling, 44px tap height on phones (36px from `sm`) | `components/ui/ChipGroup.tsx` — Perks and Learnings |
 | Phone field size | Every text field ≥ 16px on phones so iOS never zooms on focus | One global rule in `app/globals.css` — don't add per-input size classes for this |
 | Bottom sheet | Short focused task on phones | `components/ui/BottomSheet.tsx` |
 | Full-bleed panel | Rounded inset panels drop their inset | `-mx-5 sm:mx-0 sm:rounded-3xl` |

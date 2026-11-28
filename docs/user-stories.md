@@ -467,16 +467,17 @@ As a visitor/client/member, I can discover resources while receiving only conten
       adapted to the current GrowXQ theme.
 
 ### US-14-03: Templates (added 2026-10-30)
-As a member, I can download professional starter templates; others can browse them.
+Template files and admin management are implemented. Member-facing access will be added within Learnings.
 - [x] 12 real starter files (Word/Excel/PowerPoint) seeded, with working formulas in the
       workbooks, plus 3 template kits.
-- [x] Every template is members-only: guests see a sign-in prompt, clients a membership prompt.
+- [x] Template downloads are members-only at the API level.
 - [x] Downloads are 60-second signed links for one file; the stored path is never exposed to
       non-admins; the member role is re-checked in the database on every download.
 - [x] Admins upload files (type sniffed from bytes, ≤15MB) and manage templates and kits.
-- [x] `/templates` page (kits, categories, search; guest sign-in gate, client membership prompt,
-      member download), admin Templates tab (upload → save → delete) and sidebar links. Checked
-      in a browser as guest (375px + 1440px), client, member (real download) and admin.
+- [x] Admin Templates tab (upload → save → delete). A standalone `/templates` page was previously
+      built and checked in a browser as guest (375px + 1440px), client, member (real download) and
+      admin. It was removed on 2026-11-28.
+- [ ] Show templates within Learnings, including appropriate sign-in and membership prompts.
 
 ### US-14-02: Admin managing resources
 As an admin with manageResources permission, I can manage products, videos, playlists and stacks.

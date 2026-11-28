@@ -247,7 +247,8 @@ for what turned out to already have schema:
    rate-limited per requester). Frontend (request modal, member inbox, requester's sent-list page)
    remains — its own session, per root `CLAUDE.md`'s backend/frontend split.
 3. **Perks / Learnings / Templates** — backend, schema and frontend implemented for Perks and
-   Learnings (US-14); Templates backend + frontend implemented 2026-10-30 (US-14-03). Historical planning note: resolve
+   Learnings (US-14); Templates backend and admin management are implemented, while the standalone
+   frontend page was removed 2026-11-28 pending integration into Learnings (US-14-03). Historical planning note: resolve
    public-vs-member-gated once, apply to all three.
 4. **Events** — direct admin CRUD built; remaining scope is just the public suggestion-queue
    submission + approval flow, lower complexity than the original estimate.

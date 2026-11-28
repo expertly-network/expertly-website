@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { SearchModal } from '@/components/home/SearchModal';
+import { OPEN_SEARCH_EVENT } from '@/lib/search/open-search';
 import type { SearchScope } from '@shared/search';
 
 // Pages where a fixed bottom bar would clash with the page's own UI (forms, editors, the member
@@ -29,7 +30,7 @@ export function FloatingSearch() {
         : 'all';
   const label =
     scope === 'articles'
-      ? 'Ask about articles'
+      ? 'Ask the library'
       : scope === 'events'
         ? 'Find events'
         : scope === 'members'
@@ -75,8 +76,13 @@ export function FloatingSearch() {
         setOpen(true);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(OPEN_SEARCH_EVENT, onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onOpen);
+    };
   }, [hidden]);
 
   if (hidden) return null;

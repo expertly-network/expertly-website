@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { HERO_SEARCH_CLASS, HERO_SEARCH_INPUT_CLASS, HeroSearchDot, PageHero } from '@/components/layout/PageHero';
 
-// Perks / Templates / Learnings hero — the shared PageHero with a live-filter search box (no
+// Perks / Learnings hero — the shared PageHero with a live-filter search box (no
 // submit button; the list filters as you type).
 export function ResourceHero({
   title,

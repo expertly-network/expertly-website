@@ -5,7 +5,7 @@ import { PageHero } from '@/components/layout/PageHero';
 export function ArticlesHero() {
   return (
     <PageHero
-      eyebrow="Knowledge base"
+      eyebrow="Library"
       title={
         <>
           Insights from <span className="text-accent">practitioners.</span>

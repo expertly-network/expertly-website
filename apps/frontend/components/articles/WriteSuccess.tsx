@@ -42,7 +42,7 @@ export function WriteSuccess({ status, articleSlug }: { status: ArticleStatus; a
       <div className="flex gap-3 border-t border-line pt-5">
         {isPublished && <Button href={`/articles/${articleSlug}`}>View article</Button>}
         <Button href="/articles" variant={isPublished ? 'secondary' : 'primary'}>
-          Back to articles
+          Back to library
         </Button>
       </div>
     </WriteCard>

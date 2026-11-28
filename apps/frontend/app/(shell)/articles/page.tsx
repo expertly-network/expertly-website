@@ -7,7 +7,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { SuccessNotice } from '@/components/shared/SuccessNotice';
 
 export const metadata = {
-  title: 'Articles — GrowXQ',
+  title: 'Library — GrowXQ',
   description: 'Peer-reviewed analysis and expert commentary from verified finance, tax & law professionals.',
   alternates: { canonical: '/articles' },
 };

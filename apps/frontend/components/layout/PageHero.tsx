@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Eyebrow } from '@/components/ui';
 
-// One search-bar look for every page hero (articles, events, members, perks, templates,
+// One search-bar look for every page hero (articles, events, members, perks,
 // learnings): white pill, same height whether or not it has a submit button.
 export const HERO_SEARCH_CLASS =
   'flex min-h-[56px] w-full items-center gap-3 rounded-2xl bg-bg-card py-2 pl-4 pr-2 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] focus-within:ring-[3px] focus-within:ring-accent';

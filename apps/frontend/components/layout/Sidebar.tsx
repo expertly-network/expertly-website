@@ -20,13 +20,6 @@ function navLabelClasses(variant: SidebarVariant) {
   return 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width] duration-200 group-hover:max-w-[160px] group-hover:opacity-100 group-hover:delay-150';
 }
 
-function betaBadgeClasses(variant: SidebarVariant) {
-  const base =
-    'ml-auto flex-none rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-bold text-accent-2';
-  if (variant === 'full') return base;
-  return `${base} hidden group-hover:inline-block`;
-}
-
 // Section header ("Explore" / "Member Benefits") — collapses away in the rail variant until
 // hover-expanded, matching how nav-link labels behave.
 function navSectionLabelClasses(variant: SidebarVariant) {
@@ -35,8 +28,14 @@ function navSectionLabelClasses(variant: SidebarVariant) {
   return `${base} px-2.5 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[opacity,max-width,padding] duration-200 group-hover:max-w-[160px] group-hover:px-3 group-hover:opacity-100 group-hover:delay-150`;
 }
 
-const ARTICLES_ICON = (
-  <path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+// Library: three books on a shelf, two upright and one leaning.
+const LIBRARY_ICON = (
+  <>
+    <rect x="2.5" y="3.5" width="5" height="17" rx="1" />
+    <rect x="9" y="6" width="5" height="14.5" rx="1" />
+    <rect x="16.25" y="5.5" width="4.5" height="15" rx="1" transform="rotate(-15 18.5 13)" />
+    <path d="M2.5 8h5M9 10h5" />
+  </>
 );
 const EVENTS_ICON = <path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zM16 2v4M8 2v4M3 10h18" />;
 const MEMBERS_ICON = (
@@ -62,12 +61,6 @@ const LEARNINGS_ICON = (
     <path d="M22 10v6" />
   </>
 );
-const TEMPLATES_ICON = (
-  <>
-    <rect x="7" y="7" width="13" height="13" rx="2" />
-    <path d="M4 16V4a1 1 0 011-1h12" />
-  </>
-);
 // Star-in-badge — the public "what membership includes" page.
 const BENEFITS_ICON = <path d="M12 2l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 16.8 6.1 20l1.3-6.5L2.5 8.9l6.6-.8L12 2z" />;
 const PERKS_ICON = (
@@ -78,9 +71,9 @@ const PERKS_ICON = (
 );
 
 // "Explore" holds Articles, Events, Members and (for a client/admin) Consultations, plus
-// Learnings, Perks and Templates for everyone who isn't a member. Members get those three under
+// Learnings and Perks for everyone who isn't a member. Members get those two under
 // "Member Benefits" instead, alongside Dashboard and Consultations (a member both sends and
-// receives requests). Learnings/Perks/Templates are clickable and carry a "Beta" pill while
+// receives requests). Learnings and Perks are clickable and carry a "Beta" pill while
 // their offers and libraries are pre-launch.
 export function SidebarNav({ user, variant = 'full' }: { user: Profile | null; variant?: SidebarVariant }) {
   const iconProps = {
@@ -99,8 +92,8 @@ export function SidebarNav({ user, variant = 'full' }: { user: Profile | null; v
     <nav className="flex flex-1 flex-col gap-1 px-2">
       <div className={navSectionLabelClasses(variant)}>Explore</div>
       <Link href="/articles" className={navLinkClasses(variant)}>
-        <svg {...iconProps}>{ARTICLES_ICON}</svg>
-        <span className={navLabelClasses(variant)}>Articles</span>
+        <svg {...iconProps}>{LIBRARY_ICON}</svg>
+        <span className={navLabelClasses(variant)}>Library</span>
       </Link>
       <Link href="/events" className={navLinkClasses(variant)}>
         <svg {...iconProps}>{EVENTS_ICON}</svg>
@@ -115,18 +108,11 @@ export function SidebarNav({ user, variant = 'full' }: { user: Profile | null; v
         <>
           <Link href="/learnings" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{LEARNINGS_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Learnings</span>
-            <span className={betaBadgeClasses(variant)}>BETA</span>
+            <span className={navLabelClasses(variant)}>Technology</span>
           </Link>
           <Link href="/perks" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{PERKS_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Perks</span>
-            <span className={betaBadgeClasses(variant)}>BETA</span>
-          </Link>
-          <Link href="/templates" className={navLinkClasses(variant)}>
-            <svg {...iconProps}>{TEMPLATES_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Templates</span>
-            <span className={betaBadgeClasses(variant)}>BETA</span>
+            <span className={navLabelClasses(variant)}>Tools</span>
           </Link>
         </>
       )}
@@ -163,18 +149,11 @@ export function SidebarNav({ user, variant = 'full' }: { user: Profile | null; v
           </Link>
           <Link href="/learnings" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{LEARNINGS_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Learnings</span>
-            <span className={betaBadgeClasses(variant)}>BETA</span>
-          </Link>
-          <Link href="/templates" className={navLinkClasses(variant)}>
-            <svg {...iconProps}>{TEMPLATES_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Templates</span>
-            <span className={betaBadgeClasses(variant)}>BETA</span>
+            <span className={navLabelClasses(variant)}>Technology</span>
           </Link>
           <Link href="/perks" className={navLinkClasses(variant)}>
             <svg {...iconProps}>{PERKS_ICON}</svg>
-            <span className={navLabelClasses(variant)}>Perks</span>
-            <span className={betaBadgeClasses(variant)}>BETA</span>
+            <span className={navLabelClasses(variant)}>Tools</span>
           </Link>
         </>
       )}

@@ -51,9 +51,6 @@ export default async function AdminResourcesPage() {
           <Button href="/learnings" variant="ghost-dark">
             View learnings ↗
           </Button>
-          <Button href="/templates" variant="ghost-dark">
-            View templates ↗
-          </Button>
         </div>
       </PageHero>
       <PageContainer className="py-8">

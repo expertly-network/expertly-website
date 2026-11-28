@@ -31,7 +31,7 @@ import type { Profile } from '@/lib/auth/types';
 import { formatDate, formatDayOfMonth, formatMonth } from '@/lib/dates';
 import { isOnlineEvent, normalizeEventTitle } from '@/lib/events/format';
 import { MEMBER_TIER_LABEL } from '@/lib/members/format';
-import { getLearningsServer, getPerksServer, getTemplatesServer } from '@/lib/api/resources.server';
+import { getLearningsServer, getPerksServer } from '@/lib/api/resources.server';
 
 export const metadata = { title: 'Dashboard — GrowXQ' };
 
@@ -529,18 +529,8 @@ async function RemindersCard() {
 }
 
 async function ResourcesSection() {
-  const [learnings, templates, perks] = await Promise.all([
-    settle(getLearningsServer()),
-    settle(getTemplatesServer()),
-    settle(getPerksServer()),
-  ]);
-  return (
-    <DashboardResources
-      learnings={learnings.ok ? learnings.value : null}
-      templates={templates.ok ? templates.value : null}
-      perks={perks.ok ? perks.value : null}
-    />
-  );
+  const [learnings, perks] = await Promise.all([settle(getLearningsServer()), settle(getPerksServer())]);
+  return <DashboardResources learnings={learnings.ok ? learnings.value : null} perks={perks.ok ? perks.value : null} />;
 }
 
 // ── Client dashboard ────────────────────────────────────────────────────────────────────────

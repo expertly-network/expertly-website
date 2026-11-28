@@ -129,9 +129,9 @@ async function LatestArticlesSection() {
       <PageContainer>
         <div className="flex items-end justify-between gap-4">
           <div>
-            <Eyebrow>Knowledge base</Eyebrow>
+            <Eyebrow>Library</Eyebrow>
             <h2 className="font-brand mt-4 text-section-title text-ink">
-              Latest <span className="text-accent">articles</span>
+              Latest from the <span className="text-accent">library</span>
             </h2>
             <p className="mt-4 hidden max-w-xl text-lede text-ink-3 sm:block">
               Articles by members on tax, M&A, compliance and more.
@@ -201,7 +201,9 @@ export default async function HomePage() {
             <div className="order-1 lg:order-2">
               <Eyebrow>Our network</Eyebrow>
               <h2 className="font-brand mt-4 text-section-title text-ink">
-                <span className="text-accent">Verified</span> practitioners, reviewed before they join.
+                <span className="text-accent">Verified</span> practitioners,{' '}
+                {/* Always its own line, so the heading reads as two clear statements. */}
+                <span className="block">reviewed before they join.</span>
               </h2>
               <p className="mt-4 text-lede text-ink-3 sm:mt-5">
                 Members are reviewed before they join. Independent practitioners and mid-size firm professionals,

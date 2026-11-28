@@ -201,7 +201,7 @@ export function WriteArticleFlow({
           }}
           className="mb-5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
         >
-          {step === 'choose' ? '← Back to articles' : isEditing && step === 'manual' ? '← Back to article' : '← Back'}
+          {step === 'choose' ? '← Back to library' : isEditing && step === 'manual' ? '← Back to article' : '← Back'}
         </button>
       </div>
 
