@@ -14,7 +14,7 @@ import { LOGO_MARK_ASPECT_RATIO, LOGO_SRC } from '@/lib/brand';
 // happens in CSS at `sm` so there is no hydration flash.
 const PART1 = 'An Ecosystem for Finance, Tax and Legal Professionals';
 const PART2 = 'where expertise thrives';
-const PART1_PHONE_LINES = ['A Growth ecosystem'] as const;
+const PART1_PHONE_LINES = ['An ecosystem for professionals'] as const;
 
 function ArrowIcon() {
   return (
